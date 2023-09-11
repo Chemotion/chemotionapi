@@ -1,0 +1,32 @@
+{
+  "collection_id":  null,
+  "dangerous_products": "",
+  "conditions": "",
+  "description": { "ops": [{ "insert": "\n" }] },
+  "duration": "",
+  "literatures": {},
+  "name": "",
+  "observation": { "ops": [{ "insert": "\n" }] },
+  "products": [],
+  "purification": "",
+  "purification_solvents": [],
+  "reactants": [],
+  "rf_value": 0.00,
+  "role": "",
+  "solvent": "",
+  "solvents": [],
+  "status": "",
+  "starting_materials": [],
+  "temperature": {
+    "valueUnit": "°C",
+    "userText": "",
+    "data": []
+  },
+  "timestamp_start": "",
+  "timestamp_stop": "",
+  "tlc_description": "",
+  "tlc_solvents": "",
+  "type": "reaction",
+  "can_update": true,
+  "can_copy": false
+}

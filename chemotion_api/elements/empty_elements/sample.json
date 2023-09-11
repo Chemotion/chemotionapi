@@ -1,0 +1,36 @@
+{
+  "collection_id":  null,
+  "type": "sample",
+  "external_label": "",
+  "target_amount_value": 0,
+  "target_amount_unit": "g",
+  "molarity_value": 0,
+  "molarity_unit": "M",
+  "metrics": "mmmm",
+  "description": "",
+  "purity": 1,
+  "density": 0,
+  "solvent": [],
+  "location": "",
+  "molfile": "",
+  "molecule": {
+    "id": null
+  },
+  "residues": [],
+  "elemental_compositions": [
+    {
+      "composition_type": "found",
+      "data": {}
+    }
+  ],
+  "imported_readout": "",
+  "attached_amount_mg": "",
+  "can_update": true,
+  "can_copy": false,
+  "stereo": { "abs": "any", "rel": "any" },
+  "decoupled": false,
+  "molecular_mass": 0,
+  "sum_formula": "",
+  "xref": {}
+}
+

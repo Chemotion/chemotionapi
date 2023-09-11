@@ -1,0 +1,762 @@
+{
+  "Acetic acid": {
+    "smiles": "CC(O)=O",
+    "density": 1.05
+  },
+  "Acetone": {
+    "smiles": "CC(C)=O",
+    "density": 0.79
+  },
+  "Acetonitrile": {
+    "smiles": "CC#N",
+    "density": 0.78
+  },
+  "Argon": {
+    "smiles": "[Ar]",
+    "density": 0.001633
+  },
+  "Benzene": {
+    "smiles": "C1=CC=CC=C1",
+    "density": 0.88
+  },
+  "n-Butanol": {
+    "smiles": "CCCCO",
+    "density": 0.81
+  },
+  "Carbon tetrachloride (CCl4)": {
+    "smiles": "ClC(Cl)(Cl)Cl",
+    "density": 1.594
+  },
+  "Chloroform": {
+    "smiles": "ClC(Cl)Cl",
+    "density": 1.48
+  },
+  "Cyclohexane": {
+    "smiles": "C1CCCCC1",
+    "density": 0.78
+  },
+  "Diethyl ether": {
+    "smiles": "CCOCC",
+    "density": 0.71
+  },
+  "Dimethyl sulfoxide (DMSO)": {
+    "smiles": "CS(C)=O",
+    "density": 1.10
+  },
+  "Dimethylformamide (DMF)": {
+    "smiles": "CN(C)C=O",
+    "density": 0.95
+  },
+  "1,4-Dioxane": {
+    "smiles": "C1COCCO1",
+    "density": 1.03
+  },
+  "Ethanol": {
+    "smiles": "OCC",
+    "density": 0.789
+  },
+  "Ethyl acetate": {
+    "smiles": "CC(OCC)=O",
+    "density": 0.894
+  },
+  "Isopropanol": {
+    "smiles": "CC(O)C",
+    "density": 0.78
+  },
+  "Methanol": {
+    "smiles": "CO",
+    "density": 0.79
+  },
+  "Methylene chloride (DCM)": {
+    "smiles": "ClCCl",
+    "density": 1.33
+  },
+  "Methyl tert-butyl ether (MTBE)": {
+    "smiles": "O(C(C)(C)C)C",
+    "density": 0.74
+  },
+  "N2": {
+    "smiles": "N#N",
+    "density": 0.00125
+  },
+  "n-Hexane": {
+    "smiles": "CCCCCC",
+    "density": 0.66
+  },
+  "N-Methyl-2-pyrrolidone (NMP)": {
+    "smiles": "O=C1CCCN1C",
+    "density": 1.03
+  },
+  "Pentane": {
+    "smiles": "CCCCC",
+    "density": 0.63
+  },
+  "Pyridine": {
+    "smiles": "C1=CC=NC=C1",
+    "density": 0.98
+  },
+  "Tetrahydrofuran (THF)": {
+    "smiles": "C1CCCO1",
+    "density": 0.889
+  },
+  "Toluene": {
+    "smiles": "CC1=CC=CC=C1",
+    "density": 0.87
+  },
+  "Water": {
+    "smiles": "[H]O[H]",
+    "density": 1.00
+  },
+  "CDCl3": {
+    "smiles": "[2H]C(Cl)(Cl)Cl",
+    "density": 1.500
+  },
+  "MeOD-d4": {
+    "smiles": "[2H]OC([2H])([2H])[2H]",
+    "density": 0.888
+  },
+  "C6D6": {
+    "smiles": "[2H]c1c([2H])c([2H])c([2H])c([2H])c1[2H]",
+    "density": 0.950
+  },
+  "D2O": {
+    "smiles": "[2H]O[2H]",
+    "density": 1.107
+  },
+  "Cyclopentane": {
+    "smiles": "C1CCCC1",
+    "density": 0.74
+  },
+  "Nitromethane": {
+    "smiles": "C[N+]([O-])=O",
+    "density": 1.14
+  },
+  "Formic acid": {
+    "smiles": "O=CO",
+    "density": 1.22
+  },
+  "n-octanol": {
+    "smiles": "CCCCCCCCO",
+    "density": 0.817
+  },
+  "n-propanol": {
+    "smiles": "CCCO",
+    "density": 0.8
+  },
+  "Dimethylacetamide": {
+    "smiles": "CC(N(C)C)=O",
+    "density": 0.94
+  },
+  "1,2-xylene": {
+    "smiles": "CC1=CC=CC=C1C",
+    "density": 0.8755
+  },
+  "1,3-xylene": {
+    "smiles": "CC1=CC=CC(C)=C1",
+    "density": 0.8598
+  },
+  "1,4-xylene": {
+    "smiles": "CC1=CC=C(C)C=C1",
+    "density": 0.8565
+  },
+  "Sulfolane": {
+    "smiles": "O=S1(CCCC1)=O",
+    "density": 1.261
+  },
+  "2-methoxy ethanol": {
+    "smiles": "OCCOC",
+    "density": 0.97
+  },
+  "Carbon tribromide": {
+    "smiles": "BrC(Br)([H])Br",
+    "density": 2.89
+  },
+  "Cyclopentylmethylether": {
+    "smiles": "COC1CCCC1",
+    "density": 0.86
+  },
+  "1,2-Dichloroethane": {
+    "smiles": "ClCCCl",
+    "density": 1.25
+  },
+  "1-(2-Hydroxyethyl)-3-methylimidazolium Chloride": {
+    "smiles": "C[N+]1=CN(CCO)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-(2-Hydroxyethyl)-3-methylimidazolium Tetrafluoroborate": {
+    "smiles": "C[N+]1=CN(CCO)C=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1,2-Dimethyl-3-propylimidazolium Iodide": {
+    "smiles": "CCC[N+]1=C(C)N(C)C=C1.[I-]",
+    "density": 1
+  },
+  "1,3-Dimethylimidazolium Chloride": {
+    "smiles": "C[N+]1=CN(C)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1,3-Dimethylimidazolium Dimethyl Phosphate": {
+    "smiles": "C[N+]1=CN(C)C=C1.O=P(OC)([O-])OC",
+    "density": 1
+  },
+  "1,3-Dimethylimidazolium Iodide": {
+    "smiles": "C[N+]1=CN(C)C=C1.[I-]",
+    "density": 1
+  },
+  "1,3-Dimethylimidazolium Methyl Sulfate": {
+    "smiles": "C[N+]1=CN(C)C=C1.O=S(OC)([O-])=O",
+    "density": 1
+  },
+  "1-Allyl-3-methylimidazolium Chloride": {
+    "smiles": "C[N+]1=CN(CC=C)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Butyl-1-methylpiperidinium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "C[N+]1(CCCC)CCCCC1.O=S([N-]S(=O)(C(F)(F)F)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "1-Butyl-1-methylpiperidinium Bromide": {
+    "smiles": "C[N+]1(CCCC)CCCCC1.[Br-]",
+    "density": 1
+  },
+  "1-Butyl-1-methylpyrrolidinium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "C[N+]1(CCCC)CCCC1.O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "1-Butyl-1-methylpyrrolidinium Bromide": {
+    "smiles": "C[N+]1(CCCC)CCCC1.[Br-]",
+    "density": 1
+  },
+  "1-Butyl-1-methylpyrrolidinium Chloride": {
+    "smiles": "C[N+]1(CCCC)CCCC1.[Cl-]",
+    "density": 1
+  },
+  "1-Butyl-1-methylpyrrolidinium Dicyanamide": {
+    "smiles": "C[N+]1(CCCC)CCCC1.N#C[N-]C#N",
+    "density": 1
+  },
+  "1-Butyl-1-methylpyrrolidinium Trifluoromethanesulfonate": {
+    "smiles": "C[N+]1(CCCC)CCCC1.O=S(C(F)(F)F)([O-])=O",
+    "density": 1
+  },
+  "1-Butyl-2,3-dimethylimidazolium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O.CC1=[N+](C)C=CN1CCCC",
+    "density": 1
+  },
+  "1-Butyl-2,3-dimethylimidazolium Chloride": {
+    "smiles": "C[N+]1=C(C)N(CCCC)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Butyl-2,3-dimethylimidazolium Hexafluorophosphate": {
+    "smiles": "C[N+]1=C(C)N(CCCC)C=C1.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "1-Butyl-2,3-dimethylimidazolium Tetrafluoroborate": {
+    "smiles": "C[N+]1=C(C)N(CCCC)C=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Butyl-2,3-dimethylimidazolium Trifluoromethanesulfonate": {
+    "smiles": "C[N+]1=C(C)N(CCCC)C=C1.O=S(C(F)(F)F)([O-])=O",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Bromide": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Chloride": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Dicyanamide": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.N#C[N-]C#N",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Hexafluorophosphate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Iodide": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.[I-]",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Methanesulfonate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.CS(=O)([O-])=O",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Methyl Sulfate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.O=S(OC)([O-])=O",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Tetrachloroferrate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.Cl[Fe-](Cl)(Cl)Cl",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Tetrafluoroborate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Thiocyanate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.[S-]C#N",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Tribromide": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.[Br-].[Br-].[Br-]",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Tricyanomethanide": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.N#C[C-](C#N)C#N",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Trifluoro(trifluoromethyl)borate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.FC([B-](F)(F)F)(F)F",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Trifluoroacetate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.O=C([O-])C(F)(F)F",
+    "density": 1
+  },
+  "1-Butyl-3-methylimidazolium Trifluoromethanesulfonate": {
+    "smiles": "C[N+]1=CN(CCCC)C=C1.O=S(C(F)(F)F)([O-])=O",
+    "density": 1
+  },
+  "1-Butyl-3-methylpyridinium Bromide": {
+    "smiles": "CC1=C[N+](CCCC)=CC=C1.[Br-]",
+    "density": 1
+  },
+  "1-Butyl-3-methylpyridinium Chloride": {
+    "smiles": "CC1=C[N+](CCCC)=CC=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Butyl-4-methylpyridinium Bromide": {
+    "smiles": "CC1=CC=[N+](CCCC)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Butyl-4-methylpyridinium Chloride": {
+    "smiles": "CC1=CC=[N+](CCCC)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Butyl-4-methylpyridinium Hexafluorophosphate": {
+    "smiles": "CC1=CC=[N+](CCCC)C=C1.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "1-Butylpyridinium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O.CCCC[N+]1=CC=CC=C1",
+    "density": 1
+  },
+  "1-Butylpyridinium Bromide": {
+    "smiles": "CCCC[N+]1=CC=CC=C1.[Br-]",
+    "density": 1
+  },
+  "1-Butylpyridinium Chloride": {
+    "smiles": "CCCC[N+]1=CC=CC=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Butylpyridinium Hexafluorophosphate": {
+    "smiles": "CCCC[N+]1=CC=CC=C1.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "1-Butylpyridinium Tetrafluoroborate": {
+    "smiles": "CCCC[N+]1=CC=CC=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Decyl-3-methylimidazolium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "C[N+]1=CN(CCCCCCCCCC)C=C1.O=S(C(F)(F)F)([N-]S(C(F)(F)F)(=O)=O)=O",
+    "density": 1
+  },
+  "1-Decyl-3-methylimidazolium Bromide": {
+    "smiles": "C[N+]1=CN(CCCCCCCCCC)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Decyl-3-methylimidazolium Chloride": {
+    "smiles": "C[N+]1=CN(CCCCCCCCCC)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Ethyl-1-methylpyrrolidinium Bromide": {
+    "smiles": "C[N+]1(CC)CCCC1.[Br-]",
+    "density": 1
+  },
+  "1-Ethyl-1-methylpyrrolidinium Tetrafluoroborate": {
+    "smiles": "C[N+]1(CC)CCCC1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Ethyl-2,3-dimethylimidazolium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O.CC1=[N+](C)C=CN1CC",
+    "density": 1
+  },
+  "1-Ethyl-2-methylpyridinium Bromide": {
+    "smiles": "CC1=CC=CC=[N+]1CC.[Br-]",
+    "density": 1
+  },
+  "1-Ethyl-3-(hydroxymethyl)pyridinium Ethyl Sulfate": {
+    "smiles": "OCC1=C[N+](CC)=CC=C1.O=S(OCC)([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Acetate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.CC([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "C[N+]1=CN(CC)C=C1.O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Bromide": {
+    "smiles": "C[N+]1=CN(CC)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Chloride": {
+    "smiles": "C[N+]1=CN(CC)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Dicyanamide": {
+    "smiles": "CCN1C=[N+](C)C=C1.N#C[N-]C#N",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Diethyl Phosphate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.O=P(OCC)([O-])OCC",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Ethyl Sulfate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.O=S(OCC)([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Hexafluorophosphate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Hydrogen Sulfate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.O=S(O)([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Iodide": {
+    "smiles": "C[N+]1=CN(CC)C=C1.[I-]",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Methanesulfonate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.CS(=O)([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Methyl Sulfate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.O=S(OC)([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Nitrate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.[O-][N+]([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Tetrachloroferrate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.Cl[Fe-](Cl)(Cl)Cl",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Tetrafluoroborate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Thiocyanate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.[S-]C#N",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Tricyanomethanide": {
+    "smiles": "C[N+]1=CN(CC)C=C1.N#C[C-](C#N)C#N",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Trifluoro(trifluoromethyl)borate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.FC([B-](F)(F)F)(F)F",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Trifluoroacetate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.O=C([O-])C(F)(F)F",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium Trifluoromethanesulfonate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.O=S(C(F)(F)F)([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylimidazolium p-Toluenesulfonate": {
+    "smiles": "C[N+]1=CN(CC)C=C1.CC2=CC=C(S(=O)([O-])=O)C=C2",
+    "density": 1
+  },
+  "1-Ethyl-3-methylpyridinium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "CC1=CC=C[N+](CC)=C1.O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "1-Ethyl-3-methylpyridinium Ethyl Sulfate": {
+    "smiles": "CC1=C[N+](CC)=CC=C1.O=S(OCC)([O-])=O",
+    "density": 1
+  },
+  "1-Ethyl-4-methylpyridinium Bromide": {
+    "smiles": "CC1=CC=[N+](CC)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Ethylpyridinium Bromide": {
+    "smiles": "CC[N+]1=CC=CC=C1.[Br-]",
+    "density": 1
+  },
+  "1-Ethylpyridinium Chloride": {
+    "smiles": "CC[N+]1=CC=CC=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Hexyl-2,3-dimethylimidazolium Iodide": {
+    "smiles": "C[N+]1=C(C)N(CCCCCC)C=C1.[I-]",
+    "density": 1
+  },
+  "1-Hexyl-3-methylimidazolium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "C[N+]1=CN(CCCCCC)C=C1.O=S([N-]S(=O)(C(F)(F)F)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "1-Hexyl-3-methylimidazolium Bromide": {
+    "smiles": "C[N+]1=CN(CCCCCC)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Hexyl-3-methylimidazolium Chloride": {
+    "smiles": "C[N+]1=CN(CCCCCC)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Hexyl-3-methylimidazolium Hexafluorophosphate": {
+    "smiles": "C[N+]1=CN(CCCCCC)C=C1.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "1-Hexyl-3-methylimidazolium Iodide": {
+    "smiles": "C[N+]1=CN(CCCCCC)C=C1.[I-]",
+    "density": 1
+  },
+  "1-Hexyl-3-methylimidazolium Tetrafluoroborate": {
+    "smiles": "C[N+]1=CN(CCCCCC)C=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Hexyl-3-methylimidazolium Trifluoromethanesulfonate": {
+    "smiles": "C[N+]1=CN(CCCCCC)C=C1.O=S(C(F)(F)F)([O-])=O",
+    "density": 1
+  },
+  "1-Hexylpyridinium Hexafluorophosphate": {
+    "smiles": "CCCCCC[N+]1=CC=CC=C1.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "1-Methyl-1-propylpiperidinium Bis(fluorosulfonyl)imide": {
+    "smiles": "O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O.C[N+]1(CCC)CCCCC1",
+    "density": 1
+  },
+  "1-Methyl-1-propylpiperidinium Bromide": {
+    "smiles": "CCC[N+]1(C)CCCCC1.[Br-]",
+    "density": 1
+  },
+  "1-Methyl-1-propylpyrrolidinium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "O=S(NS(C(F)(F)F)(=O)=O)(C(F)(F)F)=O.C[N+]1(CCC)CCCC1",
+    "density": 1
+  },
+  "1-Methyl-3-n-octylimidazolium Bromide": {
+    "smiles": "CCCCCCCC[N+]1=CN(C)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Methyl-3-n-octylimidazolium Chloride": {
+    "smiles": "CCCCCCCC[N+]1=CN(C)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Methyl-3-n-octylimidazolium Hexafluorophosphate": {
+    "smiles": "CCCCCCCC[N+]1=CN(C)C=C1.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "1-Methyl-3-n-octylimidazolium Tetrafluoroborate": {
+    "smiles": "CCCCCCCC[N+]1=CN(C)C=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Methyl-3-n-octylimidazolium Trifluoromethanesulfonate": {
+    "smiles": "CCCCCCCC[N+]1=CN(C)C=C1.O=S(C(F)(F)F)([O-])=O",
+    "density": 1
+  },
+  "1-Methyl-3-pentylimidazolium Bromide": {
+    "smiles": "CCCCC[N+]1=CN(C)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Methyl-3-pentylimidazolium Tetrafluoroborate": {
+    "smiles": "CCCCC[N+]1=CN(C)C=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Methyl-3-propylimidazolium Bromide": {
+    "smiles": "CCC[N+]1=CN(C)C=C1.[Br-]",
+    "density": 1
+  },
+  "1-Methyl-3-propylimidazolium Chloride": {
+    "smiles": "CCC[N+]1=CN(C)C=C1.[Cl-]",
+    "density": 1
+  },
+  "1-Methyl-3-propylimidazolium Iodide": {
+    "smiles": "CCC[N+]1=CN(C)C=C1.[I-]",
+    "density": 1
+  },
+  "1-Methyl-3-propylimidazolium Tetrafluoroborate": {
+    "smiles": "CCC[N+]1=CN(C)C=C1.F[B-](F)(F)F",
+    "density": 1
+  },
+  "1-Propylpyridinium Chloride": {
+    "smiles": "CCC[N+]1=CC=CC=C1.[Cl-]",
+    "density": 1
+  },
+  "2,3-Dimethyl-1-propylimidazolium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "CN1C(C)=[N+](CCC)C=C1.O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "4-Ethyl-4-methylmorpholinium Bromide": {
+    "smiles": "C[N+]1(CC)CCOCC1.[Br-]",
+    "density": 1
+  },
+  "Amyltriethylammonium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "CCC[N+](CCC)(CCC)CCC.FC(F)(F)S([N-]S(C(F)(F)F)(=O)=O)(=O)=O",
+    "density": 1
+  },
+  "Cyclohexyltrimethylammonium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "C[N+](C)(C)C1CCCCC1.O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "Diethyl(2-methoxyethyl)methylammonium Bis(fluorosulfonyl)imide": {
+    "smiles": "FC(F)(F)S(=O)([N-]S(=O)(C(F)(F)F)=O)=O.C[N+](CC)(CC)CCOC",
+    "density": 1
+  },
+  "Methyltri-n-octylammonium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O.C[N+](CCCCCCCC)(CCCCCCCC)CCCCCCCC",
+    "density": 1
+  },
+  "Tetraamylammonium Bromide": {
+    "smiles": "CCCCC[N+](CCCCC)(CCCCC)CCCCC.[Br-]",
+    "density": 1
+  },
+  "Tetraamylammonium Chloride": {
+    "smiles": "CCCCC[N+](CCCCC)(CCCCC)CCCCC.[Cl-]",
+    "density": 1
+  },
+  "Tetraamylammonium Iodide": {
+    "smiles": "CCCCC[N+](CCCCC)(CCCCC)CCCCC.[I-]",
+    "density": 1
+  },
+  "Tetrabutylammonium Acetate": {
+    "smiles": "CCCC[N+](CCCC)(CCCC)CCCC.CC([O-])=O",
+    "density": 1
+  },
+  "Tetrabutylammonium Bromide": {
+    "smiles": "CCCC[N+](CCCC)(CCCC)CCCC.[Br-]",
+    "density": 1
+  },
+  "Tetrabutylammonium Chloride": {
+    "smiles": "CCCC[N+](CCCC)(CCCC)CCCC.[Cl-]",
+    "density": 1
+  },
+  "Tetrabutylammonium Hexafluorophosphate": {
+    "smiles": "CCCC[N+](CCCC)(CCCC)CCCC.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "Tetrabutylammonium Iodide": {
+    "smiles": "CCCC[N+](CCCC)(CCCC)CCCC.[I-]",
+    "density": 1
+  },
+  "Tetrabutylammonium Tetrafluoroborate": {
+    "smiles": "CCCC[N+](CCCC)(CCCC)CCCC.F[B-](F)(F)F",
+    "density": 1
+  },
+  "Tetrabutylammonium Trifluoromethanesulfonate": {
+    "smiles": "CCCC[N+](CCCC)(CCCC)CCCC.O=S(C(F)(F)F)([O-])=O",
+    "density": 1
+  },
+  "Tetrabutylphosphonium Bromide": {
+    "smiles": "CCCC[P+](CCCC)(CCCC)CCCC.[Br-]",
+    "density": 1
+  },
+  "Tetrabutylphosphonium Hexafluorophosphate": {
+    "smiles": "CCCC[P+](CCCC)(CCCC)CCCC.F[P-](F)(F)(F)(F)F",
+    "density": 1
+  },
+  "Tetrabutylphosphonium Tetrafluoroborate": {
+    "smiles": "CCCC[P+](CCCC)(CCCC)CCCC.F[B-](F)(F)F",
+    "density": 1
+  },
+  "Tetraheptylammonium Bromide": {
+    "smiles": "CCCCCCC[N+](CCCCCCC)(CCCCCCC)CCCCCCC.[Br-]",
+    "density": 1
+  },
+  "Tetraheptylammonium Iodide": {
+    "smiles": "CCCCCCC[N+](CCCCCCC)(CCCCCCC)CCCCCCC.[I-]",
+    "density": 1
+  },
+  "Tetrahexylammonium Bromide": {
+    "smiles": "CCCCCC[N+](CCCCCC)(CCCCCC)CCCCCC.[Br-]",
+    "density": 1
+  },
+  "Tetrahexylammonium Iodide": {
+    "smiles": "CCCCCC[N+](CCCCCC)(CCCCCC)CCCCCC.[I-]",
+    "density": 1
+  },
+  "Tetra-n-octylammonium Bromide": {
+    "smiles": "CCCCCCCC[N+](CCCCCCCC)(CCCCCCCC)CCCCCCCC.[Br-]",
+    "density": 1
+  },
+  "Tetra-n-octylammonium Iodide": {
+    "smiles": "CCCCCCCC[N+](CCCCCCCC)(CCCCCCCC)CCCCCCCC.[I-]",
+    "density": 1
+  },
+  "Tetra-n-octylphosphonium Bromide": {
+    "smiles": "CCCCCCCC[P+](CCCCCCCC)(CCCCCCCC)CCCCCCCC.[Br-]",
+    "density": 1
+  },
+  "Tetrapropylammonium Chloride": {
+    "smiles": "CCC[N+](CCC)(CCC)CCC.[Cl-]",
+    "density": 1
+  },
+  "Tributyl(2-methoxyethyl)phosphonium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "CCCC[P+](CCCC)(CCCC)CCOC.FC(F)(S([N-]S(C(F)(F)F)(=O)=O)(=O)=O)F",
+    "density": 1
+  },
+  "Tributyl(ethyl)phosphonium Diethyl Phosphate": {
+    "smiles": "CC[P+](CCCC)(CCCC)CCCC.O=P(OCC)([O-])OCC",
+    "density": 1
+  },
+  "Tributyl(methyl)ammonium Dicyanamide": {
+    "smiles": "[H]C(C([H])([H])C([H])([H])C([H])([H])[H])([H])[N+](C([H])([H])C([H])([H])C([H])([H])C([H])([H])[H])(C([H])([H])[H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])[H].[N-]=C=NC#N",
+    "density": 1
+  },
+  "Tributylhexadecylphosphonium Bromide": {
+    "smiles": "CCCCCCCCCCCCCCCC[P+](CCCC)(CCCC)CCCC.[Br-]",
+    "density": 1
+  },
+  "Tributylmethylammonium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "FC(F)(S([N-]S(C(F)(F)F)(=O)=O)(=O)=O)F.C[N+](CCCC)(CCCC)CCCC",
+    "density": 1
+  },
+  "Tributylmethylphosphonium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "C[P+](CCCC)(CCCC)CCCC.FC(F)(S([N-]S(C(F)(F)F)(=O)=O)(=O)=O)F",
+    "density": 1
+  },
+  "Tributylmethylphosphonium Iodide": {
+    "smiles": "C[P+](CCCC)(CCCC)CCCC.[I-]",
+    "density": 1
+  },
+  "Tributyl-n-octylphosphonium Bromide": {
+    "smiles": "CCCCCCCC[P+](CCCC)(CCCC)CCCC.[Br-]",
+    "density": 1
+  },
+  "Tributylsulfonium Iodide": {
+    "smiles": "CCCC[S+](CCCC)CCCC.[I-]",
+    "density": 1
+  },
+  "Triethylsulfonium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O.CC[S+](CC)CC",
+    "density": 1
+  },
+  "Trihexyl(tetradecyl)phosphonium Chloride": {
+    "smiles": "CCCCCCCCCCCCCC[P+](CCCCCC)(CCCCCC)CCCCCC.[Cl-]",
+    "density": 1
+  },
+  "Trihexyl(tetradecyl)phosphonium Dicyanamide": {
+    "smiles": "CCCCCC[P+](CCCCCC)(CCCCCC)CCCCCCCCCCCCCC.N#C[N-]C#N",
+    "density": 1
+  },
+  "Trimethylpropylammonium Bis(trifluoromethanesulfonyl)imide": {
+    "smiles": "CCC[N+](C)(C)C.O=S([N-]S(C(F)(F)F)(=O)=O)(C(F)(F)F)=O",
+    "density": 1
+  },
+  "Trimethylsulfonium Iodide": {
+    "smiles": "C[S+](C)C.[I-]",
+    "density": 1
+  }
+}

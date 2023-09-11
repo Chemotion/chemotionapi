@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Chemotion Instance &#8212; ChemotionAPI  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Collection" href="Collection.html" />
+    <link rel="prev" title="Welcome to ChemotionAPI’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="chemotion-instance">
+<h1>Chemotion Instance<a class="headerlink" href="#chemotion-instance" title="Permalink to this heading">¶</a></h1>
+<p>you can use the <code class="docutils literal notranslate"><span class="pre">chemotion_api.Instance()</span></code> function:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="chemotion_api.Instance">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">chemotion_api.</span></span><span class="sig-name descname"><span class="pre">Instance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#chemotion_api.Instance" title="Permalink to this definition">¶</a></dt>
+<dd><p>The instance object is the core object of the Chemotion API. In order for the API to work,
+a connection to a Chmotion (server-)instance must first be established.
+an Instance object manges such a connection. To initializes an instance it needs</p>
+<blockquote>
+<div><p>the host URL of the chemotion server as a string.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>host_url</strong> – URL for the new <code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code> object</p>
+</dd>
+</dl>
+<p>Usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">chemotion_api</span> <span class="kn">import</span> <span class="n">Instance</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span>  <span class="nn">requests.exceptions</span> <span class="kn">import</span> <span class="ne">ConnectionError</span> <span class="k">as</span> <span class="n">CE</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">try</span><span class="p">:</span>
+<span class="gp">&gt;&gt;&gt; </span>    <span class="n">s</span> <span class="o">=</span> <span class="n">Instance</span><span class="p">(</span><span class="s1">&#39;http(d)://xxx.xxx.xxx&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">test_connection</span><span class="p">()</span><span class="o">.</span><span class="n">login</span><span class="p">(</span><span class="s1">&#39;&lt;USER&gt;&#39;</span><span class="p">,</span> <span class="s2">&quot;&lt;PASSWORD&gt;&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">except</span> <span class="n">CE</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<span class="gp">&gt;&gt;&gt; </span>    <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;A connection to Chemotion (</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">host_url</span><span class="si">}</span><span class="s2">) cannot be established&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py property">
+<dt class="sig sig-object py" id="chemotion_api.Instance.all_element_classes">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">all_element_classes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#chemotion_api.Instance.all_element_classes" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>This all_element_classes fetches all information about all elements such as</dt><dd><p>Sample, Reaction, Wellplate and Research plan and all generic elements</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>a dictionary which contains all information about all elements</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RequestException</strong> – (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="chemotion_api.Instance.get_reaction">
+<span class="sig-name descname"><span class="pre">get_reaction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Reaction</span></span></span><a class="headerlink" href="#chemotion_api.Instance.get_reaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetches information of one Reaction object from the Chemotion server.
+It automatically parses the data into a Python-Reaction-Object. However, you need to know the correct internally used ID
+of the Reaction to be able to fetch it. Other methods to get Elements from Chemotion
+are accessible via the Collection objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>id</strong> – The Database ID of the desired Element</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>a Reacton object</p>
+<dl class="field-list simple">
+<dt class="field-odd">raises RequestException<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="chemotion_api.Instance.get_research_plan">
+<span class="sig-name descname"><span class="pre">get_research_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ResearchPlan</span></span></span><a class="headerlink" href="#chemotion_api.Instance.get_research_plan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetches information of one Research Plan object from the Chemotion server.
+It automatically parses the data into a Python-ResearchPlan-Object. However, you need to know the correct internally used ID
+of the Research Plan to be able to fetch it. Other methods to get Elements from Chemotion
+are accessible via the Collection objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>id</strong> – The Database ID of the desired Element</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>a ResearchPlan object</p>
+<dl class="field-list simple">
+<dt class="field-odd">raises RequestException<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="chemotion_api.Instance.get_sample">
+<span class="sig-name descname"><span class="pre">get_sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Sample</span></span></span><a class="headerlink" href="#chemotion_api.Instance.get_sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetches information of one Sample object from the Chemotion server.
+It automatically parses the data into a Python-Sample-Object. However, you need to know the correct internally used ID
+of the Sample to be able to fetch it. Other methods to get Elements from Chemotion
+are accessible via the Collection objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>id</strong> – The Database ID of the desired Element</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>a Sample object</p>
+<dl class="field-list simple">
+<dt class="field-odd">raises RequestException<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="chemotion_api.Instance.get_user">
+<span class="sig-name descname"><span class="pre">get_user</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">User</span></span></span><a class="headerlink" href="#chemotion_api.Instance.get_user" title="Permalink to this definition">¶</a></dt>
+<dd><p>This get_user methode initializes a new User object. The user object allows you to fetch and edit user data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>a new User instance</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>PermissionError</strong> – if the userdata cannot be fetched. Make sure that you are logged in.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="chemotion_api.Instance.get_wellplate">
+<span class="sig-name descname"><span class="pre">get_wellplate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Wellplate</span></span></span><a class="headerlink" href="#chemotion_api.Instance.get_wellplate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetches information of one Wellplate object from the Chemotion server.
+It automatically parses the data into a Python-Wellplate-Object. However, you need to know the correct internally used ID
+of the Wellplate to be able to fetch it. Other methods to get Elements from Chemotion
+are accessible via the Collection objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>id</strong> – The Database ID of the desired Element</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>a Reacton object</p>
+<dl class="field-list simple">
+<dt class="field-odd">raises RequestException<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="chemotion_api.Instance.login">
+<span class="sig-name descname"><span class="pre">login</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">user</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TInstance</span></span></span><a class="headerlink" href="#chemotion_api.Instance.login" title="Permalink to this definition">¶</a></dt>
+<dd><p>This login methode allows you to log in to a chemotion instance.
+Hence, you need a valid chemotion user (abbreviation name or e-mail)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>user</strong> – abbreviation name or e-mail of a chemotion user</p></li>
+<li><p><strong>password</strong> – The password of the user</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>the instance self</p>
+</dd>
+</dl>
+<p>:raise ConnectionError (requests.exceptions.ConnectionError) if the logging was not successful.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="chemotion_api.Instance.test_connection">
+<span class="sig-name descname"><span class="pre">test_connection</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TInstance</span></span></span><a class="headerlink" href="#chemotion_api.Instance.test_connection" title="Permalink to this definition">¶</a></dt>
+<dd><p>This test_connection methode simply test if the connection to a chemotion instance can be established.
+The instance does not need to be logged in to use this methode.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>the instance self</p>
+</dd>
+</dl>
+<p>:raises ConnectionError (requests.exceptions.ConnectionError) if the connection cannot be established.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">ChemotionAPI</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Chemotion Instance</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#chemotion_api.Instance"><code class="docutils literal notranslate"><span class="pre">Instance</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Collection.html">Collection</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to ChemotionAPI’s documentation!</a></li>
+      <li>Next: <a href="Collection.html" title="next chapter">Collection</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2023, Martin Starman <martin.starman@kit.edu>.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.0.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+      |
+      <a href="_sources/Instance.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

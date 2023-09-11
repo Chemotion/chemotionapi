@@ -1,0 +1,12 @@
+{
+  "name": "new",
+  "children": [],
+  "attachments": [],
+  "is_deleted": false,
+  "is_new": true,
+  "description": "",
+  "extended_metadata": {
+    "report": true
+  },
+  "container_type": ""
+}

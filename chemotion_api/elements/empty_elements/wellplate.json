@@ -1,0 +1,11 @@
+{
+  "collection_id": null,
+  "type": "wellplate",
+  "name": "New Wellplate",
+  "size": 96,
+  "description": { "ops": [{ "insert": "\n" }] },
+  "wells": [],
+  "readout_titles": [],
+  "segments": [],
+  "attachments": []
+}
