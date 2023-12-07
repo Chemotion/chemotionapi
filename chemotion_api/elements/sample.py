@@ -12,15 +12,17 @@ from chemotion_api.utils.solvent_manager import get_solvent_list
 class SolventList(list):
 
     def __init__(self, session: Connection, *args):
+        if args is None:
+            args = []
         super().__init__(*args)
         self._session = session
 
     def add_new_smiles(self, smiles):
         m = MoleculeManager(self._session).create_molecule_by_smiles(smiles)
         self.append({
-            "label": "propan-2-one",
-            "smiles": "CC(=O)C",
-            "inchikey": "CSCPPACGZOOCGX-UHFFFAOYSA-N",
+            "label": m.get('iupac_name', m.get('sum_formular')),
+            "smiles": smiles,
+            "inchikey": m.get("inchikey"),
             "ratio": 1
         })
 
@@ -33,9 +35,9 @@ class SolventList(list):
 
         m = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'])
         self.append({
-            "label": "propan-2-one",
-            "smiles": "CC(=O)C",
-            "inchikey": "CSCPPACGZOOCGX-UHFFFAOYSA-N",
+            "label": name,
+            "smiles": m.get('cano_smiles'),
+            "inchikey": m.get("inchikey"),
             "ratio": 1
         })
 

@@ -42,13 +42,13 @@ def logged_in_instance():
     yield instance
     root = instance.get_root_collection()
     for col_i in reversed(range(len(root.children))):
-        if not root.children[col_i].label in ['TEST', 'DEVICES']:
+        if not root.children[col_i].label.startswith('API_TEST_'):
             root.children[col_i].delete()
     root.save()
 
 @pytest.fixture()
 def instance_with_collection(logged_in_instance):
-    name = uuid.uuid4().__str__()
+    name = "API_TEST_" + uuid.uuid4().__str__()
     root_col = logged_in_instance.get_root_collection()
     root_col.add_collection(name)
     root_col.save()

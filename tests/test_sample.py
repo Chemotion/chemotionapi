@@ -31,9 +31,14 @@ def test_new_sample_success(logged_in_instance: Instance):
     sample.properties['stereo'] = {"abs": "(S)", "rel": "p-geminal"}
     sample.properties['location'] = "Test-shelf"
     sample.properties['molarity']['value'] = 0.3
+    sample.properties['solvent'].add_new_smiles('B')
+    sample.properties['solvent'].add_new_name('CDCl3')
     sample.save()
     sample_a = logged_in_instance.get_sample(sample.id)
     assert sample_a.id == sample.id
+    assert sample_a.properties['solvent'][0]['label'] == 'borane'
+    assert sample_a.properties['solvent'][1]['smiles'] == '[2H]C(Cl)(Cl)Cl'
+
 
 def test_solvents(logged_in_instance):
     solver_list = logged_in_instance.get_solvent_list()
