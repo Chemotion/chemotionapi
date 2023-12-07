@@ -12,7 +12,7 @@ from chemotion_api.utils.solvent_manager import get_solvent_list
 class SolventList(list):
 
     def __init__(self, session: Connection, *args):
-        if args is None:
+        if args is None or args[0] is None:
             args = []
         super().__init__(*args)
         self._session = session
