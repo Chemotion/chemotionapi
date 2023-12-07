@@ -1,6 +1,11 @@
+import random
+import string
+
 import pytest
 
 from chemotion_api import Instance
+def random_char(y):
+    return ''.join(random.choice(string.ascii_letters) for x in range(y))
 
 def test_login_sucess(config_login):
     Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_USER'), config_login.get('ELN_PASS'))
@@ -21,5 +26,38 @@ def test_wrong_instance_login(config_login):
         Instance('https://google.de').get_user()
 
 def test_get_user(config_login):
-    user = Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_USER'), config_login.get('ELN_PASS')).get_user()
-    assert user.email == 'api_test@kit.edu'
+    instance = Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_USER'), config_login.get('ELN_PASS'))
+    user = instance.get_user()
+    assert user.email == 'm.starman@live.com'
+    with pytest.raises(Exception):
+        user.fetchDevices()
+    name_abbreviation = random_char(3)
+    with pytest.raises(Exception):
+        instance.device_manager.create_new_device('Fist_name', 'Last_Name', name_abbreviation)
+def test_get_admin_devices(config_login):
+    user = Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_ADMIN_USER'), config_login.get('ELN_ADMIN_PASS')).get_user()
+    user.fetchDevices()
+    devices = user.devices
+    assert len(devices) >= 2
+    assert len(devices[0].get_jwt()) >= 100
+    super_devices = [d for d in devices if d.is_super_device]
+    assert len(super_devices) > 0
+    jwt = super_devices[0].get_jwt()
+    instance_device = Instance(config_login.get('ELN_URL')).test_connection().login_token(jwt)
+    d_user = instance_device.get_user()
+    assert d_user.id == 5
+    d_4_d_user_jwt = instance_device.device_manager.get_jwt_for_device(4)
+    assert len(d_4_d_user_jwt) >= 100
+    instance_device_d4 = Instance(config_login.get('ELN_URL')).test_connection().login_token(d_4_d_user_jwt)
+    with pytest.raises(Exception):
+        instance_device_d4.device_manager.get_jwt_for_device(4)
+
+def test_create_devices(config_login):
+    instance = Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_ADMIN_USER'), config_login.get('ELN_ADMIN_PASS'))
+
+    name_abbreviation = random_char(3)
+    res = instance.device_manager.create_new_device('Fist_name', 'Last_Name', name_abbreviation)
+    with pytest.raises(Exception):
+        instance.device_manager.create_new_device('Fist_name', 'Last_Name', name_abbreviation)
+    assert res.name_abbreviation == name_abbreviation
+    res.delete()

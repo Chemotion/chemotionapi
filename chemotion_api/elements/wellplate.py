@@ -50,7 +50,7 @@ class Wellplate(AbstractElement):
             'description': self.json_data.get('description')
         }
 
-    def _clean_properties_data(self):
+    def _clean_properties_data(self, serialize_data : dict | None =None) -> dict:
         self.json_data['wells'] = self.json_data.get('wells')[:self.json_data.get('size')]
         for element in self.json_data.get('wells'):
             x = int(element['position']['x']) - 1
@@ -64,3 +64,7 @@ class Wellplate(AbstractElement):
 
         self.json_data['name'] = self.properties.get('name')
         self.json_data['description'] = self.properties.get('description')
+        return self.json_data
+
+    def save(self):
+        raise NotImplementedError('Not jet implemented')

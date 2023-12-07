@@ -3,6 +3,7 @@ import os
 from random import random
 from typing import TypeVar
 
+from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection
 
 from chemotion_api.element_manager import ElementManager
@@ -161,6 +162,12 @@ class AbstractEditableCollection(AbstractCollection):
 
     def new_sample(self) -> AbstractElement:
         return self._create_new_element('sample')
+
+    def new_sample_smiles(self, smiles_code: str) -> AbstractElement:
+        sample =  self._create_new_element('sample')
+        mol = MoleculeManager(self.get_root()._session).create_molecule_by_smiles(smiles_code)
+        sample.molecule = mol
+        return sample
 
     def new_solvent(self, name) -> AbstractElement:
         root = self.get_root()

@@ -26,5 +26,6 @@ class GenericSegments:
             'id': uuid.uuid4().__str__()
         }
         a['properties'] = base_segment.get('properties_release', {}).copy()
+        a['properties_release'] = base_segment.get('properties_release', {}).copy()
 
         return a

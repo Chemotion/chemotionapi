@@ -20,6 +20,11 @@ class ElementSet(list):
         self.max_page = 1
         self._per_page = 10
 
+    def __getitem__(self, item):
+        elm = super().__getitem__(item)
+        elm.load()
+        return elm
+
     @property
     def page(self):
         return self._page

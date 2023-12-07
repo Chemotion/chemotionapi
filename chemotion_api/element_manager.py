@@ -10,6 +10,9 @@ from chemotion_api.elements.empty_elements import init_container
 
 from requests.exceptions import RequestException
 
+from chemotion_api.utils.solvent_manager import get_solvent_list
+
+
 class ElementManager:
 
     def __init__(self, session: Connection):
@@ -39,8 +42,7 @@ class ElementManager:
 
 
     def _get_user(self):
-        u = User(self._session)
-        u.load()
+        u = User.load_me(self._session)
         return u
 
 
@@ -85,9 +87,9 @@ class ElementManager:
                     "element_klass": klass_obj,
                     "element_klass_id": klass_obj['id'],
                     "properties": klass_obj['properties_release'],
+                    "properties_release": klass_obj['properties_release'],
                     "attachments": [],
                     "files": [],
-                    "segments": []
             }
 
 
@@ -97,7 +99,10 @@ class ElementManager:
         data['container'] = self._init_container()
         data['collection_id'] = collection_id
         data['short_label'] = self._get_short_label(type_name)
+        data['segments'] = []
+        data['is_new'] = True
         return data
+
     def build_solvent_sample(self, name, collection_id):
         solvent_info = self.get_solvent_list().get(name)
         if solvent_info is None:
@@ -108,12 +113,11 @@ class ElementManager:
 
         sample_data['molecule'] = mol
         sample_data['density'] = solvent_info['density']
-        sample_data['name'] = 'Solvent: {}'.format(name)
+        sample_data['external_label'] = '{}'.format(name)
+        sample_data['short_label'] = 'solvent'
+        sample_data['is_split'] = True
         return sample_data
 
     @classmethod
     def get_solvent_list(cls):
-        json_path = os.path.join(os.path.dirname(__file__), 'elements/empty_elements/solvents.json')
-        if os.path.exists(json_path):
-            with open(json_path, 'r') as f:
-                return json.loads(f.read())
+        return get_solvent_list()

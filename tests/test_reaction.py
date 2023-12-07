@@ -34,10 +34,12 @@ def test_set_reactoin_success(instance_with_test_reaction: dict):
     reaction.properties['products'].append(s4)
     reaction.properties['products'].append(s5)
     solv = col.new_solvent('CDCl3')
-    reaction.properties['purification_solvents'].append(solv)
+    reaction.properties['purification_solvents'].append_no_split(solv)
     solv = col.new_solvent('Ethanol')
+    solv.properties['target_amount']['value'] = 0.5
+    solv.properties['target_amount']['unit'] = 'l'
     solv.save()
-    reaction.properties['solvents'].append(solv)
+    reaction.properties['solvents'].append_no_split(solv)
 
     reaction.save()
 

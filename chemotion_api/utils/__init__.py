@@ -75,11 +75,11 @@ def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str 
                 clean_generic_field(sub_fields[idx], val)
 
         elif field_obj.get('type') == 'table':
-            value_list = field_obj.get('sub_values', [])
+            field_obj['sub_values'] = value_list = field_obj.get('sub_values', [])
             while len(value_list) < len(values):
                 value_list.append({'id': uuid.uuid4().__str__()})
-            for (k,v) in enumerate(values):
-                for (k1,v1) in v.items():
+            for (k, v) in enumerate(values):
+                for (k1, v1) in v.items():
                     value_list[k][field_mapping[k1]] = v1
 
     elif field_obj.get('type') == 'system-defined':
@@ -106,3 +106,55 @@ def clean_generic_object_json(segment_json_data: dict, values: dict, mapping: di
             fields = segment_json_data.get('properties').get('layers').get(layer_key).get('fields')
             field_obj = next((x for x in fields if x.get('field') == field_key), None)
             clean_generic_field(field_obj, value_ob, field_mapping)
+
+
+def merge_dicts(*args) -> dict:
+    dicts = list(args)
+    if len(dicts) == 0:
+        return {}
+    res = dicts.pop(0)
+    for d in dicts:
+        _merge_dicts(res, d)
+    return res
+
+
+def _merge_dicts(a: dict|list, b: dict|list, path: list = None):
+    if path is None:
+        path = []
+
+    if isinstance(b, dict):
+        iterator = b.items()
+    elif isinstance(b, list):
+        iterator = enumerate(b)
+    else:
+        return
+
+    def get_values(elem: list | dict, idx: str | int) -> any:
+        if isinstance(elem, dict):
+            return elem.get(idx)
+        elif isinstance(elem, list):
+            try:
+                return elem[idx]
+            except:
+                pass
+        return None
+
+    def set_values(elem: list | dict, idx: str | int, value: any):
+        if isinstance(elem, dict):
+            elem[idx] = value
+            return
+        elif isinstance(elem, list):
+            try:
+                elem[idx] = value
+            except:
+                elem.append(value)
+
+    for key, b_val in iterator:
+        a_val = get_values(a, key)
+        if isinstance(a_val, dict) and isinstance(b_val, dict):
+            _merge_dicts(a_val, b_val, path + [str(key)])
+        elif isinstance(a_val, list) and isinstance(b_val, list):
+            _merge_dicts(a_val, b_val, path + [str(key)])
+        else:
+            set_values(a, key, b_val)
+    return a

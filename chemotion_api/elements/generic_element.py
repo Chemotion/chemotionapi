@@ -17,5 +17,6 @@ class GenericElement(AbstractElement):
        self._properties_mapping = data['obj_mapping']
        return data['values']
 
-    def _clean_properties_data(self):
+    def _clean_properties_data(self, serialize_data : dict | None =None) -> dict:
         clean_generic_object_json(self.json_data, self.properties, self._properties_mapping)
+        return self.json_data

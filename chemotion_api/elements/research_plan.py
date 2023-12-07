@@ -1,5 +1,4 @@
 from chemotion_api.elements.abstract_element import AbstractElement
-from chemotion_api.generic_segments import GenericSegments
 
 
 class ResearchPlan(AbstractElement):
@@ -9,3 +8,6 @@ class ResearchPlan(AbstractElement):
 
     def _parse_properties(self) -> dict:
         return {}
+
+    def save(self):
+        raise NotImplementedError('Not jet implemented')

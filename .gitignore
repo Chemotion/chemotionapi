@@ -1,12 +1,13 @@
-/config.json
+/config_hereon.json
 .idea/
 
 __pycache__/
-
-dist/
 
 ElnDataFatcher.iml
 /old_as_sample/
 /ChemotionAPI.log
 /Sample_Data/
 /ChemotionApi.iml
+/playground.py
+/config_local.json
+/config.json

@@ -4,7 +4,7 @@ from typing import TypeVar
 
 from chemotion_api.collection import RootCollection
 from chemotion_api.element_manager import ElementManager
-from chemotion_api.user import User
+from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
 from requests.exceptions import ConnectionError
 
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan
@@ -115,7 +115,7 @@ logged_in_instance = <chemotion_api.Instance object at 0x7f3cc1a05e40>
 
         return self._con.bearer_token
 
-    def get_user(self) -> User:
+    def get_user(self) -> Admin|Person|Group|Device:
         """
         This get_user methode initializes a new User object. The user object allows you to fetch and edit user data.
 
@@ -123,9 +123,13 @@ logged_in_instance = <chemotion_api.Instance object at 0x7f3cc1a05e40>
 
         :raise PermissionError: if the userdata cannot be fetched. Make sure that you are logged in.
         """
-        u = User(self._con)
-        u.load()
+        u = User.load_me(self._con)
         return u
+
+
+    @property
+    def device_manager(self):
+        return DeviceManager(self._con)
 
     def get_root_collection(self, reload=True) -> RootCollection:
         if reload or self._root_col is None:

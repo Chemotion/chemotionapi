@@ -43,7 +43,7 @@ def test_solvents(logged_in_instance):
     col = logged_in_instance.get_root_collection().get_or_create_collection('/test_col')
     solv = col.new_solvent('CDCl3')
     solv.save()
-    assert solv.properties['name'] == 'Solvent: CDCl3'
+    assert solv.properties['external_label'] == 'CDCl3'
     assert solv.id is not None
     assert int(solv.id) > 0
 

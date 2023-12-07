@@ -1,5 +1,7 @@
 {
   "ELN_URL": "http://0.0.0.0:3000/",
   "ELN_USER": "****",
-  "ELN_PASS": "*********"
+  "ELN_PASS": "*********",
+  "ELN_ADMIN_USER": "****",
+  "ELN_ADMIN_PASS": "*********"
 }

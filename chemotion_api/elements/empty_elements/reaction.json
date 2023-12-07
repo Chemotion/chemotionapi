@@ -4,6 +4,12 @@
   "conditions": "",
   "description": { "ops": [{ "insert": "\n" }] },
   "duration": "",
+  "durationDisplay": {
+    "dispUnit": "Hour(s)",
+    "dispValue": "",
+    "memUnit": "Hour(s)",
+    "memValue": null
+  },
   "literatures": {},
   "name": "",
   "observation": { "ops": [{ "insert": "\n" }] },
@@ -12,6 +18,7 @@
   "purification_solvents": [],
   "reactants": [],
   "rf_value": 0.00,
+  "rxno": "",
   "role": "",
   "solvent": "",
   "solvents": [],
@@ -28,5 +35,7 @@
   "tlc_solvents": "",
   "type": "reaction",
   "can_update": true,
-  "can_copy": false
+  "can_copy": false,
+  "variations": [
+  ]
 }

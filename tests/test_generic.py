@@ -1,20 +1,20 @@
 import pytest
 
 from chemotion_api import Instance
-def test_new_generics(logged_in_instance):
-    instance: Instance = logged_in_instance
-    col = instance.get_root_collection().find('TEST')[0]
+def test_new_generics(instance_with_collection):
+    instance: Instance = instance_with_collection['instance']
+    col = instance_with_collection['main_collection']
     all_element_classes = instance.all_element_classes
-    assert 'dev' in all_element_classes
+    assert 'try' in all_element_classes
 
-    a = col.new_generic('dev')
-    a.properties['General']['General'][1] = 'Name'
-    a.properties['General']['General'][3] = 'Internel Name'
-    a.properties['General']['General'][5] = 4
-    a.properties['General']['General'][7] = 'DOI---1'
+    a = col.new_generic('try')
+    a.properties['General']['General'][0] = 'Name'
+    a.properties['General']['General'][1] = 'Internel Name'
+    a.properties['General']['General'][2] = 'DOI---1'
+    a.properties['General']['General'][3] = "4"
     a.save()
-    a1 = instance.get_generic_by_name('dev', a.id)
-    a1_copy = instance.get_generic_by_label('Device', a.id)
+    a1 = instance.get_generic_by_name('try', a.id)
+    a1_copy = instance.get_generic_by_label('Tryout', a.id)
     assert a1.id == a1_copy.id
 
     with pytest.raises(ValueError) as e:
@@ -23,14 +23,18 @@ def test_new_generics(logged_in_instance):
     with pytest.raises(ValueError) as e:
         instance.get_generic_by_label('NO VALID LABEL', 1)
 
-def test_table_generics(logged_in_instance):
-    instance: Instance = logged_in_instance
+def test_table_generics(instance_with_collection):
+    instance: Instance = instance_with_collection['instance']
+    col = instance_with_collection['main_collection']
     all_element_classes = instance.all_element_classes
-    assert 'devcl' in all_element_classes
+    assert 'try' in all_element_classes
 
-    a = instance.get_generic_by_name('devcl', 9)
-
-    a.properties['General']['Subclass'].append({'Name': 'Test', 'Link': 'Nowhere'})
+    a = col.new_generic('try')
+    a.properties['General']['General'][0] = 'Name'
+    a.properties['General']['General'][1] = 'Internel Name'
+    a.properties['General']['General'][2] = 'DOI---1'
+    a.properties['General']['General'][3] = "04"
+    a.properties['General']['Table'].append({'A': 'Hallo A', 'B': 'Hallo B'})
     a.save()
     pass
 #
