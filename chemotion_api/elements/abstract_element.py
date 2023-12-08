@@ -2,6 +2,7 @@ import json
 import os.path
 import re
 import uuid
+from datetime import datetime
 
 import dateutil.parser
 
@@ -154,7 +155,13 @@ class AbstractElement:
     def _set_json_data(self, json_data):
         self.json_data = json_data
         if json_data.get('updated_at') is not None:
-            self.last_update = dateutil.parser.parse(json_data.get('updated_at'))
+            try:
+                try:
+                    self.last_update = datetime.strptime(json_data.get('updated_at'), '%Y-%m-%d %H:%M:%S %Z')
+                except:
+                    self.last_update = dateutil.parser.parse(json_data.get('updated_at'))
+            except:
+                pass
         self.name = json_data.get('name', '')
 
         self.short_label = self.json_data.get('short_label')
