@@ -31,24 +31,28 @@ def setup():
 
 
 
-
+@pytest.fixture(scope='session')
+def delete_col_prefix():
+    return "API_TEST_"
 @pytest.fixture(scope='session')
 def config_login():
     return CONFIG
 
 @pytest.fixture(scope='session')
-def logged_in_instance():
+def logged_in_instance(delete_col_prefix):
     instance = Instance(CONFIG['ELN_URL']).test_connection().login(CONFIG['ELN_USER'], CONFIG['ELN_PASS'])
     yield instance
     root = instance.get_root_collection()
     for col_i in reversed(range(len(root.children))):
-        if not root.children[col_i].label.startswith('API_TEST_'):
+        if root.children[col_i].label.startswith(delete_col_prefix):
             root.children[col_i].delete()
     root.save()
 
+
+
 @pytest.fixture()
-def instance_with_collection(logged_in_instance):
-    name = "API_TEST_" + uuid.uuid4().__str__()
+def instance_with_collection(logged_in_instance, delete_col_prefix):
+    name =  delete_col_prefix + uuid.uuid4().__str__()
     root_col = logged_in_instance.get_root_collection()
     root_col.add_collection(name)
     root_col.save()

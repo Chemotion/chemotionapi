@@ -4,19 +4,19 @@ import pytest
 
 from chemotion_api import Instance
 
-def test_new_collection(logged_in_instance: Instance):
+def test_new_collection(logged_in_instance: Instance, delete_col_prefix: str):
     col = logged_in_instance.get_root_collection()
-    col.add_collection('Test_collection')
+    col.add_collection(delete_col_prefix + 'Test_collection')
     col.save()
 
 
-    tc = col.get_collection('Test_collection')
-    assert tc.get_path() == '/Test_collection'
+    tc = col.get_collection(delete_col_prefix + 'Test_collection')
+    assert tc.get_path() == f'/{delete_col_prefix}Test_collection'
     tc.delete()
     col.save()
     col = logged_in_instance.get_root_collection()
     with pytest.raises(ModuleNotFoundError) as e:
-        col.get_collection('Test_collection')
+        col.get_collection(delete_col_prefix + 'Test_collection')
 
 @pytest.fixture()
 def prepare_manipulation(logged_in_instance):
@@ -61,9 +61,9 @@ def test_rename_collection(prepare_manipulation):
 
     assert root_col.get_collection(name + '/B_NEW').label == 'B_NEW'
 
-def test_get_create_collection(logged_in_instance):
+def test_get_create_collection(logged_in_instance, delete_col_prefix):
     root_col = logged_in_instance.get_root_collection()
-    a = root_col.get_or_create_collection('A')
+    a = root_col.get_or_create_collection(delete_col_prefix + 'A')
     b = a.get_or_create_collection('B')
     b1 = a.get_or_create_collection('B')
 

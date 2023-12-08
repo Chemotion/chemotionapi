@@ -2,7 +2,6 @@ from random import randint
 
 import pytest
 
-from chemotion_api import Instance
 from chemotion_api.collection import Collection
 
 
@@ -10,14 +9,9 @@ def test_get_sample_success(instance_with_test_samples: dict):
     instance_with_test_samples.get('instance').get_sample(instance_with_test_samples.get('sample_ids')[0])
 
 
-def test_new_sample_success(logged_in_instance: Instance):
-    col = logged_in_instance.get_root_collection()
-    try:
-        m_col = col.get_collection('/test_col')
-    except:
-        col.add_collection('/test_col')
-        col.save()
-        m_col = col.get_collection('/test_col')
+def test_new_sample_success(instance_with_collection):
+    logged_in_instance = instance_with_collection['instance']
+    m_col = instance_with_collection['main_collection']
 
     sample = m_col.new_sample()
     m = logged_in_instance.molecule().create_molecule_by_smiles('B')
@@ -40,12 +34,20 @@ def test_new_sample_success(logged_in_instance: Instance):
     assert sample_a.properties['solvent'][1]['smiles'] == '[2H]C(Cl)(Cl)Cl'
 
 
-def test_solvents(logged_in_instance):
+def test_new_sample_decupled_success(instance_with_collection):
+    m_col = instance_with_collection['main_collection']
+    sample_de = m_col.new_sample()
+    sample_de.toggle_decoupled()
+    sample_de.save()
+    assert sample_de.id is not None
+    pass
+
+def test_solvents(logged_in_instance, delete_col_prefix):
     solver_list = logged_in_instance.get_solvent_list()
     assert len(solver_list) == 190
     assert '1-Butyl-3-methylimidazolium Bis(trifluoromethanesulfonyl)imide' in solver_list
 
-    col = logged_in_instance.get_root_collection().get_or_create_collection('/test_col')
+    col = logged_in_instance.get_root_collection().get_or_create_collection(f'/{delete_col_prefix}test_col')
     solv = col.new_solvent('CDCl3')
     solv.save()
     assert solv.properties['external_label'] == 'CDCl3'
