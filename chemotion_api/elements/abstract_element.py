@@ -156,9 +156,14 @@ class AbstractElement:
         self.json_data = json_data
         if json_data.get('updated_at') is not None:
             try:
-                try:
-                    self.last_update = datetime.strptime(json_data.get('updated_at'), '%Y-%m-%d %H:%M:%S %Z')
-                except:
+                for pattern in ['%Y-%m-%d %H:%M:%S %Z', '%d.%m.%Y, %H:%M:%S %z']:
+                    try:
+                        self.last_update = datetime.strptime(json_data.get('updated_at'), pattern)
+                        break
+                    except:
+                        pass
+
+                if self.last_update is None:
                     self.last_update = dateutil.parser.parse(json_data.get('updated_at'))
             except:
                 pass
