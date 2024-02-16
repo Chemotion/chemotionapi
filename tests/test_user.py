@@ -28,7 +28,7 @@ def test_wrong_instance_login(config_login):
 def test_get_user(config_login):
     instance = Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_USER'), config_login.get('ELN_PASS'))
     user = instance.get_user()
-    assert user.email == 'm.starman@live.com'
+    assert user.email == 'api@kit.edu'
     with pytest.raises(Exception):
         user.fetchDevices()
     name_abbreviation = random_char(3)
@@ -45,12 +45,12 @@ def test_get_admin_devices(config_login):
     jwt = super_devices[0].get_jwt()
     instance_device = Instance(config_login.get('ELN_URL')).test_connection().login_token(jwt)
     d_user = instance_device.get_user()
-    assert d_user.id == 5
-    d_4_d_user_jwt = instance_device.device_manager.get_jwt_for_device(4)
-    assert len(d_4_d_user_jwt) >= 100
-    instance_device_d4 = Instance(config_login.get('ELN_URL')).test_connection().login_token(d_4_d_user_jwt)
+    assert d_user.id == 6
+    d_5_d_user_jwt = instance_device.device_manager.get_jwt_for_device(5)
+    assert len(d_5_d_user_jwt) >= 100
+    instance_device_d4 = Instance(config_login.get('ELN_URL')).test_connection().login_token(d_5_d_user_jwt)
     with pytest.raises(Exception):
-        instance_device_d4.device_manager.get_jwt_for_device(4)
+        instance_device_d4.device_manager.get_jwt_for_device(6)
 
 def test_create_devices(config_login):
     instance = Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_ADMIN_USER'), config_login.get('ELN_ADMIN_PASS'))

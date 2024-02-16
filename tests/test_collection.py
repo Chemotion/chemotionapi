@@ -33,8 +33,7 @@ def prepare_manipulation(logged_in_instance):
         'a_col': new_root.get_collection('A'),
         'b_col': new_root.get_collection('B')
     }
-    new_root.delete()
-    root_col.save()
+
 
 
 def test_move_collection(prepare_manipulation):

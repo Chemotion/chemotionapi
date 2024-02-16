@@ -8,10 +8,9 @@ def test_new_generics(instance_with_collection):
     assert 'try' in all_element_classes
 
     a = col.new_generic('try')
-    a.properties['General']['General'][0] = 'Name'
-    a.properties['General']['General'][1] = 'Internel Name'
-    a.properties['General']['General'][2] = 'DOI---1'
-    a.properties['General']['General'][3] = "4"
+    a.properties['Nr. 1']['Group'][0] = 'Name'
+    a.properties['Nr. 1']['Group'][1] = 'Internel Name'
+    a.properties['Nr. 1']['Group'][2] = 'DOI---1'
     a.save()
     a1 = instance.get_generic_by_name('try', a.id)
     a1_copy = instance.get_generic_by_label('Tryout', a.id)
@@ -30,11 +29,9 @@ def test_table_generics(instance_with_collection):
     assert 'try' in all_element_classes
 
     a = col.new_generic('try')
-    a.properties['General']['General'][0] = 'Name'
-    a.properties['General']['General'][1] = 'Internel Name'
-    a.properties['General']['General'][2] = 'DOI---1'
-    a.properties['General']['General'][3] = "04"
-    a.properties['General']['Table'].append({'A': 'Hallo A', 'B': 'Hallo B'})
+    a.properties['Nr. 1']['Group'][1] = 'Internel Name'
+    a.properties['Nr. 1']['Group'][2] = 'DOI---2'
+    a.properties['Nr. 1']['Table'].append({'Col 1': 'Hallo A', 'Col 2': 'Hallo B'})
     a.save()
     pass
 #

@@ -10,4 +10,6 @@ ElnDataFatcher.iml
 /ChemotionApi.iml
 /playground.py
 /config_local.json
-/config.json
+/tests/config.json
+/tests/logs.txt
+/test_config/dumps/

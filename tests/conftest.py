@@ -1,5 +1,11 @@
 import json
 import logging
+import os
+from threading import Thread
+
+from psutil import process_iter, AccessDenied
+from signal import SIGTERM # or SIGKILL
+import subprocess
 import uuid
 from random import random
 
@@ -15,10 +21,40 @@ DEFAULT_CONFIG = {
 }
 
 CONFIG = {}
+CHEMOTION_PROCESS : subprocess.Popen | None = None
 
-@pytest.fixture(scope="session", autouse=True)
-def setup():
-    global DEFAULT_CONFIG, CONFIG
+# task for worker threads
+def write_proces_logs():
+    global CHEMOTION_PROCESS
+    # task loop
+    with open('logs.txt', 'w+') as f:
+        while True:
+            line = CHEMOTION_PROCESS.stdout.readline().decode("utf-8")
+            if not line:
+                break
+
+            f.write(line.strip() + '\n')
+
+def pytest_sessionstart(session):
+    global DEFAULT_CONFIG, CONFIG, CHEMOTION_PROCESS
+    if os.getenv('NO_SETUP') is not '1':
+        path = os.path.join(os.getcwd(), 'data/setup_chemotion_db.sh')
+        path_dir = os.path.join(os.getcwd(), 'data')
+
+        CHEMOTION_PROCESS = subprocess.Popen(path, shell=True, executable='/bin/bash', cwd=path_dir,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+
+        while True:
+            line = CHEMOTION_PROCESS.stdout.readline().decode("utf-8")
+            if not line:
+                raise Exception(f'{path} did not start Server')
+
+            print(line.strip())
+            if "* Listening on " in line and "3579" in line:
+                Thread(target=write_proces_logs, args=()).start()
+                break
+
     file="config.json"
 
     with open(file, "r") as jsonfile:
@@ -30,10 +66,28 @@ def setup():
     logging.info('Config:\n' + '\n'.join(["#\t%s=%s" % (key, val) for key, val in CONFIG.items()]))
 
 
+def pytest_sessionfinish(session, exitstatus):
+    """
+    Called after whole test run finished, right before
+    returning the exit status to the system.
+    """
+    global CHEMOTION_PROCESS
+    if CHEMOTION_PROCESS is not None:
+        for proc in process_iter():
+            try:
+                for conns in proc.connections(kind='inet'):
+                    if conns.laddr.port == 3579:
+                        proc.send_signal(SIGTERM) # or SIGKILL
+            except AccessDenied:
+                pass
+
+    pass
+
 
 @pytest.fixture(scope='session')
 def delete_col_prefix():
     return "API_TEST_"
+
 @pytest.fixture(scope='session')
 def config_login():
     return CONFIG
@@ -42,11 +96,6 @@ def config_login():
 def logged_in_instance(delete_col_prefix):
     instance = Instance(CONFIG['ELN_URL']).test_connection().login(CONFIG['ELN_USER'], CONFIG['ELN_PASS'])
     yield instance
-    root = instance.get_root_collection()
-    for col_i in reversed(range(len(root.children))):
-        if root.children[col_i].label.startswith(delete_col_prefix):
-            root.children[col_i].delete()
-    root.save()
 
 
 

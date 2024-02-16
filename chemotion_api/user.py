@@ -1,4 +1,6 @@
 import hashlib
+import json
+import re
 import uuid
 
 from requests.exceptions import ConnectionError
@@ -45,6 +47,8 @@ class User:
         self.user_type = json_contnet.get('type')
         for (key, val) in json_contnet.items():
             if hasattr(self, key):
+                if re.match(r'^(\"[^\"]+\"=>\"[^\"]+\",? ?)*$', str(val)) is not None:
+                    val = json.loads(f"{{ {val.replace('=>', ':')} }}")
                 setattr(self, key, val)
         return self
 

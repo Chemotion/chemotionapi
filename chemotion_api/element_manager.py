@@ -52,7 +52,7 @@ class ElementManager:
             return '{}-{}'.format(u.initials, u.counters[type_name + 's'])
         if type_name == 'reaction':
             return '{}-R{}'.format(u.initials, u.counters[type_name + 's'])
-        return f"{u.initials}-{type_name}{u.counters.get(type_name + 's', u.counters.get(type_name))}"
+        return f"{u.initials}-{type_name}{u.counters.get(type_name + 's', u.counters.get(type_name, 0))}"
 
     def build_new(self, type_name, collection_id):
         class_obj = self.all_classes[type_name]
