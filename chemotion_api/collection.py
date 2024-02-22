@@ -1,7 +1,10 @@
 import json
 import os
+from enum import Enum
 from random import random
 from typing import TypeVar
+
+from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection
@@ -11,6 +14,15 @@ from chemotion_api.elements import ElementSet, AbstractElement
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
+
+
+class SyncPremission(Enum):
+    Read = 0
+    Write = 1
+    Share = 2
+    Delete = 3
+    ImportElements = 4
+    PassOwnership = 5
 
 
 class AbstractCollection:
@@ -111,7 +123,6 @@ class AbstractCollection:
             raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
-
     def get_samples(self, per_page=10) -> ElementSet:
         root = self.get_root()
         e = ElementSet(root._session, root._element_manager.all_classes.get('sample'), self.id,
@@ -164,7 +175,7 @@ class AbstractEditableCollection(AbstractCollection):
         return self._create_new_element('sample')
 
     def new_sample_smiles(self, smiles_code: str) -> AbstractElement:
-        sample =  self._create_new_element('sample')
+        sample = self._create_new_element('sample')
         mol = MoleculeManager(self.get_root()._session).create_molecule_by_smiles(smiles_code)
         sample.molecule = mol
         return sample
@@ -193,7 +204,6 @@ class AbstractEditableCollection(AbstractCollection):
             if elem['label'] == label:
                 return self._create_new_element(elem_name)
         raise ValueError(f'Could not find a generic element with the label: "{label}"')
-
 
     def _create_new_element(self, type_name) -> AbstractElement:
         root = self.get_root()
@@ -263,6 +273,29 @@ class Collection(AbstractEditableCollection):
     def add_collection(self, name):
         abs_path = os.path.join(self.get_path(), name)
         return self.get_root().add_collection(abs_path)
+
+    def share(self, premission_level: SyncPremission, *users: Person | Group):
+        data = {
+            "collection_attributes": {
+                "permission_level": premission_level.value,
+                "sample_detail_level": 10,
+                "reaction_detail_level": 10,
+                "wellplate_detail_level": 10,
+                "screen_detail_level": 10,
+                "element_detail_level": 10
+            },
+            "user_ids": [
+                {'label': f'{user.name} ({user.initials} - {user.user_type})',
+                 'name': user.name,
+                 'value': user.id} for user in users if user.is_group() or user.is_person()
+            ],
+            "id": self.id
+        }
+
+        res = self.get_root()._session.post('/api/v1/syncCollections/', data=data)
+        if res.status_code != 201:
+            raise ConnectionError(f"{res.status_code} -> {res.text}")
+
 
 
 class RootSyncCollection(AbstractCollection):

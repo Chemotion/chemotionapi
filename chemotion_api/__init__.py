@@ -115,7 +115,7 @@ logged_in_instance = <chemotion_api.Instance object at 0x7f3cc1a05e40>
 
         return self._con.bearer_token
 
-    def get_user(self) -> Admin|Person|Group|Device:
+    def get_user(self) -> Admin | Person | Group | Device:
         """
         This get_user methode initializes a new User object. The user object allows you to fetch and edit user data.
 
@@ -126,6 +126,17 @@ logged_in_instance = <chemotion_api.Instance object at 0x7f3cc1a05e40>
         u = User.load_me(self._con)
         return u
 
+    def find_user_by_name(self, name: str) -> list[Person]:
+
+        """
+        This find_user_by_name methode finds all user by name and returns the three top matches.
+
+        :param name: Potential name or name snippet of a user
+        :return: list u matching user
+
+        :raise PermissionError: if the userdata cannot be fetched. Make sure that you are logged in.
+        """
+        return self.get_user().find_user_by_name(self._con, name)
 
     @property
     def device_manager(self):

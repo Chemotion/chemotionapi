@@ -28,6 +28,8 @@ def test_wrong_instance_login(config_login):
 def test_get_user(config_login):
     instance = Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_USER'), config_login.get('ELN_PASS'))
     user = instance.get_user()
+    assert user.initials == 'API'
+    assert user.name_abbreviation == 'API'
     assert user.email == 'api@kit.edu'
     with pytest.raises(Exception):
         user.fetchDevices()
@@ -60,4 +62,5 @@ def test_create_devices(config_login):
     with pytest.raises(Exception):
         instance.device_manager.create_new_device('Fist_name', 'Last_Name', name_abbreviation)
     assert res.name_abbreviation == name_abbreviation
+    assert res.initials == name_abbreviation
     res.delete()

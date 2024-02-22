@@ -7,6 +7,7 @@ from datetime import datetime
 import dateutil.parser
 
 from chemotion_api.connection import Connection
+from chemotion_api.elements.attachments import Attachments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
@@ -129,11 +130,15 @@ class AbstractElement:
 
     def __init__(self, generic_segments: GenericSegments, session: Connection, json_data: dict = None, id: int = None,
                  element_type: str = None):
+        self.attachments: Attachments | None = None
         self._generic_segments = generic_segments
         self._session = session
         self.name = ''
         self.last_update = None
         if json_data is not None:
+            attachments_data = json_data.get('attachments')
+            if attachments_data is not None:
+                self.attachments = Attachments(self._session, attachments_data)
             self._set_json_data(json_data)
         elif id is not None and element_type is not None:
             self.id = id
@@ -149,7 +154,11 @@ class AbstractElement:
                                 data=payload)
         if res.status_code != 200:
             raise RequestException("{} -> {}".format(res.status_code, res.text))
-        json_data = res.json()[self.get_response_key(self.element_type)]
+        res_json = res.json()
+        json_data = res_json[self.get_response_key(self.element_type)]
+        attachments_data = res_json.get('attachments')
+        if attachments_data is not None:
+            self.attachments = Attachments(self._session, attachments_data)
         self._set_json_data(json_data)
 
     def _set_json_data(self, json_data):
@@ -205,6 +214,8 @@ class AbstractElement:
             res_json = res.json()
             res_json = merge_dicts(self.json_data, res_json.get(self.element_type, res_json.get('element')))
             self._set_json_data(res_json)
+        if self.attachments is not None:
+            self.attachments.save(self.id)
 
     def clean_data(self):
         cleaned_data = {
@@ -217,6 +228,8 @@ class AbstractElement:
             cleaned_data['collection_id'] = self.json_data['collection_id']
         if 'container' in self.json_data:
             cleaned_data['container'] = self.json_data['container']
+        if self.attachments is not None:
+            cleaned_data['attachments'] = self.attachments.attachment_data
 
         merge_dicts(cleaned_data, self._clean_segments_data(), self._clean_properties_data(), self._clean_analyses_data())
         return cleaned_data

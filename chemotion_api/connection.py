@@ -12,7 +12,6 @@ class Connection(requests.Session):
         self._bearer_token = None
         self.tzinfo = None
 
-
     def reset_bearer_token(self):
         self._bearer_token = None
 
@@ -43,9 +42,14 @@ class Connection(requests.Session):
         kwargs['verify'] = kwargs.get('verify', self._verify)
         kwargs['url'] = kwargs.get('url', f"{self._host_url}/{url_path.lstrip('/')}")
         kwargs['headers'] = kwargs.get('headers', default_header)
-        kwargs['timeout'] = kwargs.get('timeout', (1,5))
-        if 'data' in kwargs and not isinstance(kwargs['data'], str) and kwargs['headers'].get('Content-Type') == 'application/json':
+        kwargs['timeout'] = kwargs.get('timeout', (2, 15))
+        if 'files' in kwargs:
+            if 'Content-Type' in kwargs['headers']:
+                del kwargs['headers']['Content-Type']
+        elif 'data' in kwargs and not isinstance(kwargs['data'], str) and kwargs['headers'].get(
+                'Content-Type') == 'application/json':
             kwargs['data'] = json.dumps(kwargs.get('data', {}))
+
         res = getattr(super(), method)(**kwargs)
         if self.tzinfo is None:
             if 'Date' in res.headers:
@@ -57,7 +61,6 @@ class Connection(requests.Session):
         if self._bearer_token is not None:
             headers["Authorization"] = f"Bearer {self._bearer_token}"
         return headers
-
 
     def get_json_session_header(self) -> dict[str, str]:
         header = self.get_default_session_header()

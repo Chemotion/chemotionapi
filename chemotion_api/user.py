@@ -1,3 +1,4 @@
+import abc
 import hashlib
 import json
 import re
@@ -9,12 +10,7 @@ from chemotion_api.connection import Connection
 MAX_UPLOAD_SIZE = 5000
 
 
-class User:
-    id: int = None
-    name: str = None
-    email: str = None
-    user_type: str = None
-
+class User(abc.ABC):
     @classmethod
     def load_me(cls, session: Connection):
         user_url = '/api/v1/users/current.json'
@@ -24,7 +20,10 @@ class User:
         elif res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         data = res.json()['user']
+        return cls.factor_user(session, data)
 
+    @classmethod
+    def factor_user(cls, session: Connection, data: dict):
         if cls._is_device(data['type']):
             user = Device(session)
         elif cls._is_admin(data['type']):
@@ -42,6 +41,30 @@ class User:
         self._session = session
         self.devices = []
         self.groups = []
+        self.id: int | None = None
+        self.email: str | None = None
+        self.user_type: str | None = None
+        self.first_name: str | None = None
+        self.last_name: str | None = None
+        self.initials: str | None = None
+
+    @property
+    def name_abbreviation(self):
+        return self.initials
+
+    @name_abbreviation.setter
+    def name_abbreviation(self, initials):
+        self.initials = initials
+
+    @property
+    def name(self):
+        if self.last_name is None:
+            return self.first_name
+        return f"{self.first_name} {self.last_name}"
+
+    @name.setter
+    def name(self, name):
+        self.first_name = name
 
     def populate(self, json_contnet):
         self.user_type = json_contnet.get('type')
@@ -61,6 +84,9 @@ class User:
     def is_group(self):
         return self._is_group(self.user_type)
 
+    def is_person(self):
+        return self._is_person(self.user_type)
+
     @classmethod
     def _is_admin(cls, type):
         return type.lower() == 'admin'
@@ -73,54 +99,62 @@ class User:
     def _is_group(cls, type):
         return type.lower() == 'group'
 
+    @classmethod
+    def _is_person(cls, type):
+        return type.lower() == 'person'
+
+    @classmethod
+    def find_user_by_name(cls, _session: Connection, name: str) -> list:
+        res = _session.get(f'/api/v1/users/name.json?name={name}&type=Person')
+        if res.status_code != 200:
+            raise ConnectionError(f"{res.status_code} -> {res.text}")
+        return [Person(_session).populate(x) for x in res.json()["users"]]
+
+
 
 class Person(User):
-    samples_count: int = None
-    reactions_count: int = None
-    reaction_name_prefix: str = None
-    layout: dict[str:str] = None
-    unconfirmed_email: str = None
-    confirmed_at: str = None
-    current_sign_in_at: str = None
-    locked_at = None
-    is_templates_moderator: bool = None
-    molecule_editor: bool = None
-    account_active: bool = None
-    matrix: int = None
-    counters: dict[str:str] = None
-    generic_admin: dict[str:bool] = None
-    initials: str = None
-    first_name: str = None
-    last_name: str = None
 
-
-class Admin(Person):
-    def fetchDevices(self):
-        d_list = self.fetchGroupAndDevice('Device')
-        self.devices = [Device(self._session).populate(x | {'type': type}) for x in d_list]
-
-    def fetchGroups(self):
-        g_list = self.fetchGroupAndDevice('Group')
-        self.groups = [Device(self._session).populate(x | {'type': type}) for x in g_list]
-
-    def fetchGroupAndDevice(self, type):
-        user_url = f'/api/v1/admin/group_device/list?type={type}'
-        res = self._session.get(user_url)
-        if res.status_code == 401:
-            raise PermissionError('Not allowed to fetch user (Login first)')
-        elif res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
-
-        return res.json()['list']
+    def __init__(self, session: Connection):
+        super().__init__(session)
+        self.samples_count: int | None = None
+        self.reactions_count: int | None = None
+        self.reaction_name_prefix: str | None = None
+        self.layout: dict[str:str] = None
+        self.unconfirmed_email: str | None = None
+        self.confirmed_at: str | None = None
+        self.current_sign_in_at: str | None = None
+        self.locked_at = None
+        self.is_templates_moderator: bool | None = None
+        self.molecule_editor: bool | None = None
+        self.account_active: bool | None = None
+        self.matrix: int | None = None
+        self.counters: dict[str:str] | None = None
+        self.generic_admin: dict[str:bool] = None
 
 
 class Group(User):
-    name_abbreviation: str = None
+
+    def __init__(self, session: Connection):
+        super().__init__(session)
+
+    def add_users(self, *users: Person):
+        payload = {
+            'action': "NodeAdd",
+            'actionType': "Person",
+            'add_users': [u.id for u in users],
+            'id': self.id,
+            'rootType': "Group",
+        }
+        res = self._session.put(f'/api/v1/admin/group_device/update/{self.id}', data=payload)
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
 
 class Device(User):
-    is_super_device: bool = None
-    name_abbreviation: str = None
+
+    def __init__(self, session: Connection):
+        super().__init__(session)
+        self.is_super_device: bool | None = None
 
     def get_jwt(self):
         return DeviceManager(self._session).get_jwt_for_device(self.id)
@@ -139,8 +173,6 @@ class Device(User):
         elif res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
 
-
-
     def upload_file(self, file_path: str):
         with open(file_path, 'rb') as f:
             body = f.read()
@@ -155,19 +187,111 @@ class Device(User):
                 file_chunk = body[start_snippet:snippet]
                 hash_md5.update(file_chunk)
                 payload = {'file': (file_path, file_chunk)}
-                res = self._session.post('/api/v1/attachments/upload_chunk', headers=self._session.get_default_session_header(), data={'key': key, 'counter': counter}, files=payload)
+                res = self._session.post('/api/v1/attachments/upload_chunk', data={'key': key, 'counter': counter},
+                                         files=payload)
                 counter += 1
                 if res.status_code == 401:
                     raise PermissionError('Not allowed to delete device (Only for super devices or admins)')
                 elif (res.status_code != 200 and res.status_code != 201):
                     raise ConnectionError()
-            res = self._session.post('/api/v1/attachments/upload_raw_chunk_complete', data={'key': key, 'filename': file_path, 'checksum': hash_md5.hexdigest()})
+            res = self._session.post('/api/v1/attachments/upload_raw_chunk_complete',
+                                     data={'key': key, 'filename': file_path, 'checksum': hash_md5.hexdigest()})
             if res.status_code == 401:
                 raise PermissionError('Not allowed to delete device (Only for super devices or admins)')
             elif (res.status_code != 200 and res.status_code != 201):
-                raise ConnectionError()
+                raise ConnectionError(f'{res.status_code} -> {res.text}')
 
 
+class Admin(Person):
+
+    def __init__(self, session: Connection):
+        super().__init__(session)
+        self.users: list[User] = []
+        self.devices: list[Device] = []
+        self.groups: list[Group] = []
+        self.admins: list[Admin] = []
+
+    def fetchUsers(self):
+        user_url = f'/api/v1/admin_user/listUsers/all.json'
+        res = self._session.get(user_url)
+        if res.status_code == 401:
+            raise PermissionError('Not allowed to fetch user (Login first)')
+        elif res.status_code != 200:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+
+        self.users: list[User] = []
+        self.devices: list[Device] = []
+        self.groups: list[Group] = []
+        self.admins: list[Admin] = []
+        for u_data in res.json()['users']:
+            user = self.factor_user(self._session, u_data)
+            if user.is_admin():
+                self.admins.append(user)
+            elif user.is_device():
+                self.devices.append(user)
+            elif user.is_group():
+                self.groups.append(user)
+            else:
+                self.users.append(user)
+
+    def create_device(self, first_name: str, last_name: str, name_abbreviation: str) -> Device:
+        data = self._create_group_device(first_name=first_name, last_name=last_name,
+                                         name_abbreviation=name_abbreviation, rootType='Device')
+        return Device(self._session).populate(data)
+
+    def create_group(self, first_name: str, last_name: str, name_abbreviation: str) -> Group:
+        data = self._create_group_device(first_name=first_name, last_name=last_name,
+                                         name_abbreviation=name_abbreviation, rootType='Group')
+        return Group(self._session).populate(data)
+
+    def create_person(self, first_name: str, last_name: str, name_abbreviation: str, password: str, email: str) -> Person:
+        data = {
+            "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "name_abbreviation": name_abbreviation,
+            "password": password,
+            "type": "Person"
+        }
+        url = "/api/v1/admin_user/newUser/"
+        res = self._session.post(url, data=data)
+        if res.status_code != 201:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+
+        return [x for x in self.find_user_by_name(self._session, f"{first_name} {last_name}") if x.name_abbreviation == name_abbreviation][0]
+
+    def _create_group_device(self, first_name: str, last_name: str, name_abbreviation: str, rootType: str):
+        url = '/api/v1/admin/group_device/create'
+        group = dict(first_name=first_name, last_name=last_name, name_abbreviation=name_abbreviation, rootType=rootType)
+        res = self._session.post(url, data=group)
+        if res.status_code != 201:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        data = res.json()
+        if 'error' in data:
+            raise ConnectionError(f'{res.text}')
+        return data
+
+    def fetchDevices(self) -> list[Device]:
+        u_type = 'Device'
+        d_list = self.fetchGroupAndDevice(u_type)
+        self.devices = [Device(self._session).populate(x | {'type': u_type}) for x in d_list]
+        return self.devices
+
+    def fetchGroups(self) -> list[Group]:
+        u_type = 'Group'
+        g_list = self.fetchGroupAndDevice(u_type)
+        self.groups = [Group(self._session).populate(x | {'type': u_type}) for x in g_list]
+        return self.groups
+
+    def fetchGroupAndDevice(self, type: str) -> list[dict]:
+        user_url = f'/api/v1/admin/group_device/list?type={type}'
+        res = self._session.get(user_url)
+        if res.status_code == 401:
+            raise PermissionError('Not allowed to fetch user (Login first)')
+        elif res.status_code != 200:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+
+        return res.json()['list']
 
 
 class DeviceManager:
@@ -191,8 +315,8 @@ class DeviceManager:
             'last_name': last_name,
             'name_abbreviation': name_abbreviation,
         }
-        if  email is not None: data['email'] = email
-        res = self._session.post(user_url, data = data)
+        if email is not None: data['email'] = email
+        res = self._session.post(user_url, data=data)
         if res.status_code == 401:
             raise PermissionError('Create device not is allowed! (Only for super devices or admins)')
         elif res.status_code != 201 or res.json().get('error') is not None:
