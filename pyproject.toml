@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chemotion-api"
-version = "0.3.7"
+version = "0.3.8"
 description = "A Chemotion python API"
 authors = ["Maritn Starman <martin.starman@kit.edu>"]
 license = "MIT"
@@ -8,12 +8,18 @@ readme = "README.md"
 
 packages = [{include = "chemotion_api"}]
 
+[tool.poetry.scripts]
+chemotion_api = "chemotion_api.__main__:cli"
+
 [tool.poetry.dependencies]
 python = "^3.09"
 requests = "^2.31.0"
-python-dateutil = "^2.8.2"
+python-dateutil = "^2.9.0"
 pytz = "^2024.1"
 python-magic = "^0.4.27"
+click = "^8.1.7"
+jinja2 = "^3.1.3"
+pyyaml = "^6.0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

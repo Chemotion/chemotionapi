@@ -13,3 +13,4 @@ ElnDataFatcher.iml
 /tests/config.json
 /tests/logs.txt
 /test_config/dumps/
+/cmd_config.ini
