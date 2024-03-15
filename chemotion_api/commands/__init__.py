@@ -93,7 +93,7 @@ class InstanceManager:
 
     def stop(self, eln: bool = False, db: bool = False, worker: bool = False, ketchersvc: bool = False,
              msconvert: bool = False, spectra: bool = False, converter: bool = False):
-        return self._up(eln=eln, db=db, worker=worker, ketchersvc=ketchersvc, msconvert=msconvert, spectra=spectra,
+        return self._stop(eln=eln, db=db, worker=worker, ketchersvc=ketchersvc, msconvert=msconvert, spectra=spectra,
                         converter=converter)
 
     def down(self, eln: bool = False, db: bool = False, worker: bool = False, ketchersvc: bool = False,
