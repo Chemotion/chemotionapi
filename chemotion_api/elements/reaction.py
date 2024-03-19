@@ -131,7 +131,7 @@ class Reaction(AbstractElement):
 
     def _calc_duration(self):
         a, b = self.properties.get('timestamp_stop'), self.properties.get('timestamp_start')
-        if a is None or b is None:
+        if not isinstance(a, datetime) or not isinstance(b, datetime):
             return {
                 'durationDisplay': self.json_data.get('durationDisplay'),
                 'durationCalc': self.json_data.get('durationCalc')
