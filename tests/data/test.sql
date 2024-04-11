@@ -3,7 +3,7 @@
 --
 
 -- Dumped from database version 14.10 (Debian 14.10-1.pgdg120+1)
--- Dumped by pg_dump version 14.10 (Ubuntu 14.10-0ubuntu0.22.04.1)
+-- Dumped by pg_dump version 14.11 (Ubuntu 14.11-0ubuntu0.22.04.1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -24,7 +24,7 @@ CREATE EXTENSION IF NOT EXISTS hstore WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION hstore; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION hstore; Type: COMMENT; Schema: -; Owner:
 --
 
 COMMENT ON EXTENSION hstore IS 'data type for storing sets of (key, value) pairs';
@@ -38,7 +38,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner:
 --
 
 COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
@@ -52,7 +52,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner:
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
@@ -66,7 +66,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner:
 --
 
 COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
@@ -79,15 +79,15 @@ COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UU
 CREATE FUNCTION public.collection_shared_names(user_id integer, collection_id integer) RETURNS json
     LANGUAGE sql
     AS $_$
- select array_to_json(array_agg(row_to_json(result))) from (
- SELECT sync_collections_users.id, users.type,users.first_name || chr(32) || users.last_name as name,sync_collections_users.permission_level,
- sync_collections_users.reaction_detail_level,sync_collections_users.sample_detail_level,sync_collections_users.screen_detail_level,sync_collections_users.wellplate_detail_level
- FROM sync_collections_users
- INNER JOIN users ON users.id = sync_collections_users.user_id AND users.deleted_at IS NULL
- WHERE sync_collections_users.shared_by_id = $1 and sync_collections_users.collection_id = $2
- group by  sync_collections_users.id,users.type,users.name_abbreviation,users.first_name,users.last_name,sync_collections_users.permission_level
- ) as result
- $_$;
+select array_to_json(array_agg(row_to_json(result))) from (
+                                                              SELECT sync_collections_users.id, users.type,users.first_name || chr(32) || users.last_name as name,sync_collections_users.permission_level,
+                                                                     sync_collections_users.reaction_detail_level,sync_collections_users.sample_detail_level,sync_collections_users.screen_detail_level,sync_collections_users.wellplate_detail_level
+                                                              FROM sync_collections_users
+                                                                       INNER JOIN users ON users.id = sync_collections_users.user_id AND users.deleted_at IS NULL
+                                                              WHERE sync_collections_users.shared_by_id = $1 and sync_collections_users.collection_id = $2
+                                                              group by  sync_collections_users.id,users.type,users.name_abbreviation,users.first_name,users.last_name,sync_collections_users.permission_level
+                                                          ) as result
+    $_$;
 
 
 ALTER FUNCTION public.collection_shared_names(user_id integer, collection_id integer) OWNER TO postgres;
@@ -100,31 +100,31 @@ CREATE FUNCTION public.detail_level_for_sample(in_user_id integer, in_sample_id 
     LANGUAGE plpgsql
     AS $$
 declare
-  i_detail_level_wellplate integer default 0;
+i_detail_level_wellplate integer default 0;
   i_detail_level_sample integer default 0;
 begin
-  select max(all_cols.sample_detail_level), max(all_cols.wellplate_detail_level)
-  into i_detail_level_sample, i_detail_level_wellplate
-  from
-  (
-    select v_sams_cols.cols_sample_detail_level sample_detail_level, v_sams_cols.cols_wellplate_detail_level wellplate_detail_level
-      from v_samples_collections v_sams_cols
-      where v_sams_cols.sams_id = in_sample_id
-      and v_sams_cols.cols_user_id in (select user_ids(in_user_id))
-    union
-    select sync_cols.sample_detail_level sample_detail_level, sync_cols.wellplate_detail_level wellplate_detail_level
-      from sync_collections_users sync_cols
-      inner join collections cols on cols.id = sync_cols.collection_id and cols.deleted_at is null
-      where sync_cols.collection_id in
-      (
-        select v_sams_cols.cols_id
+select max(all_cols.sample_detail_level), max(all_cols.wellplate_detail_level)
+into i_detail_level_sample, i_detail_level_wellplate
+from
+    (
+        select v_sams_cols.cols_sample_detail_level sample_detail_level, v_sams_cols.cols_wellplate_detail_level wellplate_detail_level
         from v_samples_collections v_sams_cols
         where v_sams_cols.sams_id = in_sample_id
-      )
-      and sync_cols.user_id in (select user_ids(in_user_id))
-  ) all_cols;
+          and v_sams_cols.cols_user_id in (select user_ids(in_user_id))
+        union
+        select sync_cols.sample_detail_level sample_detail_level, sync_cols.wellplate_detail_level wellplate_detail_level
+        from sync_collections_users sync_cols
+                 inner join collections cols on cols.id = sync_cols.collection_id and cols.deleted_at is null
+        where sync_cols.collection_id in
+              (
+                  select v_sams_cols.cols_id
+                  from v_samples_collections v_sams_cols
+                  where v_sams_cols.sams_id = in_sample_id
+              )
+          and sync_cols.user_id in (select user_ids(in_user_id))
+    ) all_cols;
 
-    return query select coalesce(i_detail_level_sample,0) detail_level_sample, coalesce(i_detail_level_wellplate,0) detail_level_wellplate;
+return query select coalesce(i_detail_level_sample,0) detail_level_sample, coalesce(i_detail_level_wellplate,0) detail_level_wellplate;
 end;$$;
 
 
@@ -138,29 +138,29 @@ CREATE FUNCTION public.generate_notifications(in_channel_id integer, in_message_
     LANGUAGE plpgsql
     AS $$
 declare
-  i_channel_type int4;
+i_channel_type int4;
   a_userids int4[];
   u int4;
 begin
-	select channel_type into i_channel_type
-	from channels where id = in_channel_id;
+select channel_type into i_channel_type
+from channels where id = in_channel_id;
 
-  case i_channel_type
+case i_channel_type
 	when 9 then
 	  insert into notifications (message_id, user_id, created_at,updated_at)
 	  (select in_message_id, id, now(),now() from users where deleted_at is null and type='Person');
-	when 5,8 then
+when 5,8 then
 	  if (in_user_ids is not null) then
 	  a_userids = in_user_ids;
-	  end if;
+end if;
 	  FOREACH u IN ARRAY a_userids
 	  loop
 		  insert into notifications (message_id, user_id, created_at,updated_at)
 		  (select distinct in_message_id, id, now(),now() from users where type='Person' and id in (select group_user_ids(u))
 		   and not exists (select id from notifications where message_id = in_message_id and user_id = users.id));
- 	  end loop;
-	end case;
-	return in_message_id;
+end loop;
+end case;
+return in_message_id;
 end;$$;
 
 
@@ -175,31 +175,31 @@ CREATE FUNCTION public.generate_users_matrix(in_user_ids integer[]) RETURNS bool
     AS $$
 begin
 	if in_user_ids is null then
-    update users u set matrix = (
-	    select coalesce(sum(2^mx.id),0) from (
-		    select distinct m1.* from matrices m1, users u1
-				left join users_groups ug1 on ug1.user_id = u1.id
-		      where u.id = u1.id and ((m1.enabled = true) or ((u1.id = any(m1.include_ids)) or (u1.id = ug1.user_id and ug1.group_id = any(m1.include_ids))))
-	      except
-		    select distinct m2.* from matrices m2, users u2
-				left join users_groups ug2 on ug2.user_id = u2.id
-		      where u.id = u2.id and ((u2.id = any(m2.exclude_ids)) or (u2.id = ug2.user_id and ug2.group_id = any(m2.exclude_ids)))
-	    ) mx
-    );
-	else
-		  update users u set matrix = (
-		  	select coalesce(sum(2^mx.id),0) from (
-			   select distinct m1.* from matrices m1, users u1
-				 left join users_groups ug1 on ug1.user_id = u1.id
-			     where u.id = u1.id and ((m1.enabled = true) or ((u1.id = any(m1.include_ids)) or (u1.id = ug1.user_id and ug1.group_id = any(m1.include_ids))))
-			   except
-			   select distinct m2.* from matrices m2, users u2
-				 left join users_groups ug2 on ug2.user_id = u2.id
-			     where u.id = u2.id and ((u2.id = any(m2.exclude_ids)) or (u2.id = ug2.user_id and ug2.group_id = any(m2.exclude_ids)))
-			  ) mx
-		  ) where ((in_user_ids) @> array[u.id]) or (u.id in (select ug3.user_id from users_groups ug3 where (in_user_ids) @> array[ug3.group_id]));
-	end if;
-  return true;
+update users u set matrix = (
+    select coalesce(sum(2^mx.id),0) from (
+                                             select distinct m1.* from matrices m1, users u1
+                                                                                        left join users_groups ug1 on ug1.user_id = u1.id
+                                             where u.id = u1.id and ((m1.enabled = true) or ((u1.id = any(m1.include_ids)) or (u1.id = ug1.user_id and ug1.group_id = any(m1.include_ids))))
+                                             except
+                                             select distinct m2.* from matrices m2, users u2
+                                                                                        left join users_groups ug2 on ug2.user_id = u2.id
+                                             where u.id = u2.id and ((u2.id = any(m2.exclude_ids)) or (u2.id = ug2.user_id and ug2.group_id = any(m2.exclude_ids)))
+                                         ) mx
+);
+else
+update users u set matrix = (
+    select coalesce(sum(2^mx.id),0) from (
+                                             select distinct m1.* from matrices m1, users u1
+                                                                                        left join users_groups ug1 on ug1.user_id = u1.id
+                                             where u.id = u1.id and ((m1.enabled = true) or ((u1.id = any(m1.include_ids)) or (u1.id = ug1.user_id and ug1.group_id = any(m1.include_ids))))
+                                             except
+                                             select distinct m2.* from matrices m2, users u2
+                                                                                        left join users_groups ug2 on ug2.user_id = u2.id
+                                             where u.id = u2.id and ((u2.id = any(m2.exclude_ids)) or (u2.id = ug2.user_id and ug2.group_id = any(m2.exclude_ids)))
+                                         ) mx
+) where ((in_user_ids) @> array[u.id]) or (u.id in (select ug3.user_id from users_groups ug3 where (in_user_ids) @> array[ug3.group_id]));
+end if;
+return true;
 end
 $$;
 
@@ -213,10 +213,10 @@ ALTER FUNCTION public.generate_users_matrix(in_user_ids integer[]) OWNER TO post
 CREATE FUNCTION public.group_user_ids(group_id integer) RETURNS TABLE(user_ids integer)
     LANGUAGE sql
     AS $_$
-       select id from users where type='Person' and id= $1
-       union
-       select user_id from users_groups where group_id = $1
-$_$;
+select id from users where type='Person' and id= $1
+union
+select user_id from users_groups where group_id = $1
+    $_$;
 
 
 ALTER FUNCTION public.group_user_ids(group_id integer) OWNER TO postgres;
@@ -228,15 +228,15 @@ ALTER FUNCTION public.group_user_ids(group_id integer) OWNER TO postgres;
 CREATE FUNCTION public.labels_by_user_sample(user_id integer, sample_id integer) RETURNS TABLE(labels text)
     LANGUAGE sql
     AS $_$
-   select string_agg(title::text, ', ') as labels from (select title from user_labels ul where ul.id in (
-     select d.list
-     from element_tags et, lateral (
-       select value::integer as list
-       from jsonb_array_elements_text(et.taggable_data  -> 'user_labels')
-     ) d
-     where et.taggable_id = $2 and et.taggable_type = 'Sample'
-   ) and (ul.access_level = 1 or (ul.access_level = 0 and ul.user_id = $1)) order by title  ) uls
- $_$;
+select string_agg(title::text, ', ') as labels from (select title from user_labels ul where ul.id in (
+    select d.list
+    from element_tags et, lateral (
+        select value::integer as list
+        from jsonb_array_elements_text(et.taggable_data  -> 'user_labels')
+            ) d
+    where et.taggable_id = $2 and et.taggable_type = 'Sample'
+) and (ul.access_level = 1 or (ul.access_level = 0 and ul.user_id = $1)) order by title  ) uls
+    $_$;
 
 
 ALTER FUNCTION public.labels_by_user_sample(user_id integer, sample_id integer) OWNER TO postgres;
@@ -248,10 +248,10 @@ ALTER FUNCTION public.labels_by_user_sample(user_id integer, sample_id integer) 
 CREATE FUNCTION public.literatures_by_element(element_type text, element_id integer) RETURNS TABLE(literatures text)
     LANGUAGE sql
     AS $_$
-   select string_agg(l2.id::text, ',') as literatures from literals l , literatures l2 
-   where l.literature_id = l2.id 
-   and l.element_type = $1 and l.element_id = $2
- $_$;
+select string_agg(l2.id::text, ',') as literatures from literals l , literatures l2
+where l.literature_id = l2.id
+  and l.element_type = $1 and l.element_id = $2
+    $_$;
 
 
 ALTER FUNCTION public.literatures_by_element(element_type text, element_id integer) OWNER TO postgres;
@@ -263,16 +263,16 @@ ALTER FUNCTION public.literatures_by_element(element_type text, element_id integ
 CREATE FUNCTION public.shared_user_as_json(in_user_id integer, in_current_user_id integer) RETURNS json
     LANGUAGE plpgsql
     AS $_$
-   begin
+begin
     if (in_user_id = in_current_user_id) then
       return null;
-    else
+else
       return (select row_to_json(result) from (
       select users.id, users.name_abbreviation as initials ,users.type,users.first_name || chr(32) || users.last_name as name
       from users where id = $1
       ) as result);
-    end if;
-    end;
+end if;
+end;
  $_$;
 
 
@@ -288,7 +288,7 @@ CREATE FUNCTION public.update_users_matrix() RETURNS trigger
 begin
 	if (TG_OP='INSERT') then
     PERFORM generate_users_matrix(null);
-	end if;
+end if;
 
 	if (TG_OP='UPDATE') then
 	  if new.enabled <> old.enabled or new.deleted_at <> new.deleted_at then
@@ -297,9 +297,9 @@ begin
       PERFORM generate_users_matrix(new.include_ids || old.include_ids);
     elsif new.exclude_ids <> old.exclude_ids then
       PERFORM generate_users_matrix(new.exclude_ids || old.exclude_ids);
-	  end if;
-	end if;
-  return new;
+end if;
+end if;
+return new;
 end
 $$;
 
@@ -313,11 +313,11 @@ ALTER FUNCTION public.update_users_matrix() OWNER TO postgres;
 CREATE FUNCTION public.user_as_json(user_id integer) RETURNS json
     LANGUAGE sql
     AS $_$
-   select row_to_json(result) from (
-     select users.id, users.name_abbreviation as initials ,users.type,users.first_name || chr(32) || users.last_name as name
-     from users where id = $1
-   ) as result
- $_$;
+select row_to_json(result) from (
+                                    select users.id, users.name_abbreviation as initials ,users.type,users.first_name || chr(32) || users.last_name as name
+                                    from users where id = $1
+                                ) as result
+    $_$;
 
 
 ALTER FUNCTION public.user_as_json(user_id integer) OWNER TO postgres;
@@ -329,11 +329,11 @@ ALTER FUNCTION public.user_as_json(user_id integer) OWNER TO postgres;
 CREATE FUNCTION public.user_ids(user_id integer) RETURNS TABLE(user_ids integer)
     LANGUAGE sql
     AS $_$
-    select $1 as id
-    union
-    (select users.id from users inner join users_groups ON users.id = users_groups.group_id WHERE users.deleted_at IS null
-   and users.type in ('Group') and users_groups.user_id = $1)
-  $_$;
+select $1 as id
+union
+(select users.id from users inner join users_groups ON users.id = users_groups.group_id WHERE users.deleted_at IS null
+                                                                                          and users.type in ('Group') and users_groups.user_id = $1)
+$_$;
 
 
 ALTER FUNCTION public.user_ids(user_id integer) OWNER TO postgres;
@@ -345,13 +345,13 @@ ALTER FUNCTION public.user_ids(user_id integer) OWNER TO postgres;
 CREATE FUNCTION public.user_instrument(user_id integer, sc text) RETURNS TABLE(instrument text)
     LANGUAGE sql
     AS $_$
-   select distinct extended_metadata -> 'instrument' as instrument from containers c
-   where c.container_type='dataset' and c.id in
-   (select ch.descendant_id from containers sc,container_hierarchies ch, samples s, users u
-   where sc.containable_type in ('Sample','Reaction') and ch.ancestor_id=sc.id and sc.containable_id=s.id
-   and s.created_by = u.id and u.id = $1 and ch.generations=3 group by descendant_id)
-   and upper(extended_metadata -> 'instrument') like upper($2 || '%')
-   order by extended_metadata -> 'instrument' limit 10
+select distinct extended_metadata -> 'instrument' as instrument from containers c
+where c.container_type='dataset' and c.id in
+                                     (select ch.descendant_id from containers sc,container_hierarchies ch, samples s, users u
+                                      where sc.containable_type in ('Sample','Reaction') and ch.ancestor_id=sc.id and sc.containable_id=s.id
+                                        and s.created_by = u.id and u.id = $1 and ch.generations=3 group by descendant_id)
+  and upper(extended_metadata -> 'instrument') like upper($2 || '%')
+order by extended_metadata -> 'instrument' limit 10
  $_$;
 
 
@@ -366,18 +366,18 @@ SET default_table_access_method = heap;
 --
 
 CREATE TABLE public.affiliations (
-    id integer NOT NULL,
-    company character varying,
-    country character varying,
-    organization character varying,
-    department character varying,
-    "group" character varying,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    "from" date,
-    "to" date,
-    domain character varying,
-    cat character varying
+                                     id integer NOT NULL,
+                                     company character varying,
+                                     country character varying,
+                                     organization character varying,
+                                     department character varying,
+                                     "group" character varying,
+                                     created_at timestamp without time zone,
+                                     updated_at timestamp without time zone,
+                                     "from" date,
+                                     "to" date,
+                                     domain character varying,
+                                     cat character varying
 );
 
 
@@ -410,22 +410,22 @@ ALTER SEQUENCE public.affiliations_id_seq OWNED BY public.affiliations.id;
 --
 
 CREATE TABLE public.analyses_experiments (
-    id integer NOT NULL,
-    sample_id integer,
-    holder_id integer,
-    status character varying,
-    devices_analysis_id integer NOT NULL,
-    devices_sample_id integer NOT NULL,
-    sample_analysis_id character varying NOT NULL,
-    solvent character varying,
-    experiment character varying,
-    priority boolean,
-    on_day boolean,
-    number_of_scans integer,
-    sweep_width integer,
-    "time" character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                             id integer NOT NULL,
+                                             sample_id integer,
+                                             holder_id integer,
+                                             status character varying,
+                                             devices_analysis_id integer NOT NULL,
+                                             devices_sample_id integer NOT NULL,
+                                             sample_analysis_id character varying NOT NULL,
+                                             solvent character varying,
+                                             experiment character varying,
+                                             priority boolean,
+                                             on_day boolean,
+                                             number_of_scans integer,
+                                             sweep_width integer,
+                                             "time" character varying,
+                                             created_at timestamp without time zone NOT NULL,
+                                             updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -458,10 +458,10 @@ ALTER SEQUENCE public.analyses_experiments_id_seq OWNED BY public.analyses_exper
 --
 
 CREATE TABLE public.ar_internal_metadata (
-    key character varying NOT NULL,
-    value character varying,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+                                             key character varying NOT NULL,
+                                             value character varying,
+                                             created_at timestamp(6) without time zone NOT NULL,
+                                             updated_at timestamp(6) without time zone NOT NULL
 );
 
 
@@ -472,27 +472,27 @@ ALTER TABLE public.ar_internal_metadata OWNER TO postgres;
 --
 
 CREATE TABLE public.attachments (
-    id integer NOT NULL,
-    attachable_id integer,
-    filename character varying,
-    identifier uuid DEFAULT public.uuid_generate_v4(),
-    checksum character varying,
-    storage character varying(20) DEFAULT 'tmp'::character varying,
-    created_by integer NOT NULL,
-    created_for integer,
-    version character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    content_type character varying,
-    bucket character varying,
-    key character varying(500),
-    thumb boolean DEFAULT false,
-    folder character varying,
-    attachable_type character varying,
-    aasm_state character varying,
-    filesize bigint,
-    attachment_data jsonb,
-    con_state integer
+                                    id integer NOT NULL,
+                                    attachable_id integer,
+                                    filename character varying,
+                                    identifier uuid DEFAULT public.uuid_generate_v4(),
+                                    checksum character varying,
+                                    storage character varying(20) DEFAULT 'tmp'::character varying,
+                                    created_by integer NOT NULL,
+                                    created_for integer,
+                                    version character varying,
+                                    created_at timestamp without time zone NOT NULL,
+                                    updated_at timestamp without time zone NOT NULL,
+                                    content_type character varying,
+                                    bucket character varying,
+                                    key character varying(500),
+                                    thumb boolean DEFAULT false,
+                                    folder character varying,
+                                    attachable_type character varying,
+                                    aasm_state character varying,
+                                    filesize bigint,
+                                    attachment_data jsonb,
+                                    con_state integer
 );
 
 
@@ -525,14 +525,14 @@ ALTER SEQUENCE public.attachments_id_seq OWNED BY public.attachments.id;
 --
 
 CREATE TABLE public.authentication_keys (
-    id integer NOT NULL,
-    token character varying NOT NULL,
-    user_id integer,
-    ip inet,
-    role character varying,
-    fqdn character varying,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone
+                                            id integer NOT NULL,
+                                            token character varying NOT NULL,
+                                            user_id integer,
+                                            ip inet,
+                                            role character varying,
+                                            fqdn character varying,
+                                            created_at timestamp without time zone,
+                                            updated_at timestamp without time zone
 );
 
 
@@ -565,17 +565,17 @@ ALTER SEQUENCE public.authentication_keys_id_seq OWNED BY public.authentication_
 --
 
 CREATE TABLE public.calendar_entries (
-    id bigint NOT NULL,
-    title character varying,
-    description character varying,
-    start_time timestamp without time zone,
-    end_time timestamp without time zone,
-    kind character varying,
-    created_by integer NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    eventable_type character varying,
-    eventable_id bigint
+                                         id bigint NOT NULL,
+                                         title character varying,
+                                         description character varying,
+                                         start_time timestamp without time zone,
+                                         end_time timestamp without time zone,
+                                         kind character varying,
+                                         created_by integer NOT NULL,
+                                         created_at timestamp without time zone NOT NULL,
+                                         updated_at timestamp without time zone NOT NULL,
+                                         eventable_type character varying,
+                                         eventable_id bigint
 );
 
 
@@ -607,12 +607,12 @@ ALTER SEQUENCE public.calendar_entries_id_seq OWNED BY public.calendar_entries.i
 --
 
 CREATE TABLE public.calendar_entry_notifications (
-    id bigint NOT NULL,
-    user_id bigint,
-    calendar_entry_id bigint,
-    status integer DEFAULT 0,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+                                                     id bigint NOT NULL,
+                                                     user_id bigint,
+                                                     calendar_entry_id bigint,
+                                                     status integer DEFAULT 0,
+                                                     created_at timestamp(6) without time zone NOT NULL,
+                                                     updated_at timestamp(6) without time zone NOT NULL
 );
 
 
@@ -644,24 +644,24 @@ ALTER SEQUENCE public.calendar_entry_notifications_id_seq OWNED BY public.calend
 --
 
 CREATE TABLE public.cellline_materials (
-    id bigint NOT NULL,
-    name character varying,
-    source character varying,
-    cell_type character varying,
-    organism jsonb,
-    tissue jsonb,
-    disease jsonb,
-    growth_medium character varying,
-    biosafety_level character varying,
-    variant character varying,
-    mutation character varying,
-    optimal_growth_temp double precision,
-    cryo_pres_medium character varying,
-    gender character varying,
-    description character varying,
-    deleted_at timestamp without time zone,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+                                           id bigint NOT NULL,
+                                           name character varying,
+                                           source character varying,
+                                           cell_type character varying,
+                                           organism jsonb,
+                                           tissue jsonb,
+                                           disease jsonb,
+                                           growth_medium character varying,
+                                           biosafety_level character varying,
+                                           variant character varying,
+                                           mutation character varying,
+                                           optimal_growth_temp double precision,
+                                           cryo_pres_medium character varying,
+                                           gender character varying,
+                                           description character varying,
+                                           deleted_at timestamp without time zone,
+                                           created_at timestamp(6) without time zone NOT NULL,
+                                           updated_at timestamp(6) without time zone NOT NULL
 );
 
 
@@ -693,20 +693,20 @@ ALTER SEQUENCE public.cellline_materials_id_seq OWNED BY public.cellline_materia
 --
 
 CREATE TABLE public.cellline_samples (
-    id bigint NOT NULL,
-    cellline_material_id bigint,
-    cellline_sample_id bigint,
-    amount bigint,
-    unit character varying,
-    passage integer,
-    contamination character varying,
-    name character varying,
-    description character varying,
-    user_id bigint,
-    deleted_at timestamp without time zone,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    short_label character varying
+                                         id bigint NOT NULL,
+                                         cellline_material_id bigint,
+                                         cellline_sample_id bigint,
+                                         amount bigint,
+                                         unit character varying,
+                                         passage integer,
+                                         contamination character varying,
+                                         name character varying,
+                                         description character varying,
+                                         user_id bigint,
+                                         deleted_at timestamp without time zone,
+                                         created_at timestamp(6) without time zone NOT NULL,
+                                         updated_at timestamp(6) without time zone NOT NULL,
+                                         short_label character varying
 );
 
 
@@ -738,12 +738,12 @@ ALTER SEQUENCE public.cellline_samples_id_seq OWNED BY public.cellline_samples.i
 --
 
 CREATE TABLE public.channels (
-    id integer NOT NULL,
-    subject character varying,
-    msg_template jsonb,
-    channel_type integer DEFAULT 0,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                 id integer NOT NULL,
+                                 subject character varying,
+                                 msg_template jsonb,
+                                 channel_type integer DEFAULT 0,
+                                 created_at timestamp without time zone NOT NULL,
+                                 updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -776,10 +776,10 @@ ALTER SEQUENCE public.channels_id_seq OWNED BY public.channels.id;
 --
 
 CREATE TABLE public.chemicals (
-    id bigint NOT NULL,
-    sample_id integer,
-    cas text,
-    chemical_data jsonb
+                                  id bigint NOT NULL,
+                                  sample_id integer,
+                                  cas text,
+                                  chemical_data jsonb
 );
 
 
@@ -811,13 +811,13 @@ ALTER SEQUENCE public.chemicals_id_seq OWNED BY public.chemicals.id;
 --
 
 CREATE TABLE public.code_logs (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    source character varying,
-    source_id integer,
-    value character varying(40),
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                  id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+                                  source character varying,
+                                  source_id integer,
+                                  value character varying(40),
+                                  deleted_at timestamp without time zone,
+                                  created_at timestamp without time zone NOT NULL,
+                                  updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -828,28 +828,28 @@ ALTER TABLE public.code_logs OWNER TO postgres;
 --
 
 CREATE TABLE public.collections (
-    id integer NOT NULL,
-    user_id integer NOT NULL,
-    ancestry character varying,
-    label text NOT NULL,
-    shared_by_id integer,
-    is_shared boolean DEFAULT false,
-    permission_level integer DEFAULT 0,
-    sample_detail_level integer DEFAULT 10,
-    reaction_detail_level integer DEFAULT 10,
-    wellplate_detail_level integer DEFAULT 10,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    "position" integer,
-    screen_detail_level integer DEFAULT 10,
-    is_locked boolean DEFAULT false,
-    deleted_at timestamp without time zone,
-    is_synchronized boolean DEFAULT false NOT NULL,
-    researchplan_detail_level integer DEFAULT 10,
-    element_detail_level integer DEFAULT 10,
-    tabs_segment jsonb DEFAULT '{}'::jsonb,
-    celllinesample_detail_level integer DEFAULT 10,
-    inventory_id bigint
+                                    id integer NOT NULL,
+                                    user_id integer NOT NULL,
+                                    ancestry character varying,
+                                    label text NOT NULL,
+                                    shared_by_id integer,
+                                    is_shared boolean DEFAULT false,
+                                    permission_level integer DEFAULT 0,
+                                    sample_detail_level integer DEFAULT 10,
+                                    reaction_detail_level integer DEFAULT 10,
+                                    wellplate_detail_level integer DEFAULT 10,
+                                    created_at timestamp without time zone NOT NULL,
+                                    updated_at timestamp without time zone NOT NULL,
+                                    "position" integer,
+                                    screen_detail_level integer DEFAULT 10,
+                                    is_locked boolean DEFAULT false,
+                                    deleted_at timestamp without time zone,
+                                    is_synchronized boolean DEFAULT false NOT NULL,
+                                    researchplan_detail_level integer DEFAULT 10,
+                                    element_detail_level integer DEFAULT 10,
+                                    tabs_segment jsonb DEFAULT '{}'::jsonb,
+                                    celllinesample_detail_level integer DEFAULT 10,
+                                    inventory_id bigint
 );
 
 
@@ -860,10 +860,10 @@ ALTER TABLE public.collections OWNER TO postgres;
 --
 
 CREATE TABLE public.collections_celllines (
-    id bigint NOT NULL,
-    collection_id integer,
-    cellline_sample_id integer,
-    deleted_at timestamp without time zone
+                                              id bigint NOT NULL,
+                                              collection_id integer,
+                                              cellline_sample_id integer,
+                                              deleted_at timestamp without time zone
 );
 
 
@@ -895,11 +895,11 @@ ALTER SEQUENCE public.collections_celllines_id_seq OWNED BY public.collections_c
 --
 
 CREATE TABLE public.collections_elements (
-    id integer NOT NULL,
-    collection_id integer,
-    element_id integer,
-    element_type character varying,
-    deleted_at timestamp without time zone
+                                             id integer NOT NULL,
+                                             collection_id integer,
+                                             element_id integer,
+                                             element_type character varying,
+                                             deleted_at timestamp without time zone
 );
 
 
@@ -954,10 +954,10 @@ ALTER SEQUENCE public.collections_id_seq OWNED BY public.collections.id;
 --
 
 CREATE TABLE public.collections_reactions (
-    id integer NOT NULL,
-    collection_id integer,
-    reaction_id integer,
-    deleted_at timestamp without time zone
+                                              id integer NOT NULL,
+                                              collection_id integer,
+                                              reaction_id integer,
+                                              deleted_at timestamp without time zone
 );
 
 
@@ -990,10 +990,10 @@ ALTER SEQUENCE public.collections_reactions_id_seq OWNED BY public.collections_r
 --
 
 CREATE TABLE public.collections_research_plans (
-    id integer NOT NULL,
-    collection_id integer,
-    research_plan_id integer,
-    deleted_at timestamp without time zone
+                                                   id integer NOT NULL,
+                                                   collection_id integer,
+                                                   research_plan_id integer,
+                                                   deleted_at timestamp without time zone
 );
 
 
@@ -1026,10 +1026,10 @@ ALTER SEQUENCE public.collections_research_plans_id_seq OWNED BY public.collecti
 --
 
 CREATE TABLE public.collections_samples (
-    id integer NOT NULL,
-    collection_id integer,
-    sample_id integer,
-    deleted_at timestamp without time zone
+                                            id integer NOT NULL,
+                                            collection_id integer,
+                                            sample_id integer,
+                                            deleted_at timestamp without time zone
 );
 
 
@@ -1062,10 +1062,10 @@ ALTER SEQUENCE public.collections_samples_id_seq OWNED BY public.collections_sam
 --
 
 CREATE TABLE public.collections_screens (
-    id integer NOT NULL,
-    collection_id integer,
-    screen_id integer,
-    deleted_at timestamp without time zone
+                                            id integer NOT NULL,
+                                            collection_id integer,
+                                            screen_id integer,
+                                            deleted_at timestamp without time zone
 );
 
 
@@ -1098,12 +1098,12 @@ ALTER SEQUENCE public.collections_screens_id_seq OWNED BY public.collections_scr
 --
 
 CREATE TABLE public.collections_vessels (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    collection_id bigint,
-    vessel_id uuid,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    deleted_at timestamp without time zone
+                                            id uuid DEFAULT gen_random_uuid() NOT NULL,
+                                            collection_id bigint,
+                                            vessel_id uuid,
+                                            created_at timestamp(6) without time zone NOT NULL,
+                                            updated_at timestamp(6) without time zone NOT NULL,
+                                            deleted_at timestamp without time zone
 );
 
 
@@ -1114,10 +1114,10 @@ ALTER TABLE public.collections_vessels OWNER TO postgres;
 --
 
 CREATE TABLE public.collections_wellplates (
-    id integer NOT NULL,
-    collection_id integer,
-    wellplate_id integer,
-    deleted_at timestamp without time zone
+                                               id integer NOT NULL,
+                                               collection_id integer,
+                                               wellplate_id integer,
+                                               deleted_at timestamp without time zone
 );
 
 
@@ -1150,10 +1150,10 @@ ALTER SEQUENCE public.collections_wellplates_id_seq OWNED BY public.collections_
 --
 
 CREATE TABLE public.collector_errors (
-    id integer NOT NULL,
-    error_code character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                         id integer NOT NULL,
+                                         error_code character varying,
+                                         created_at timestamp without time zone NOT NULL,
+                                         updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -1186,17 +1186,17 @@ ALTER SEQUENCE public.collector_errors_id_seq OWNED BY public.collector_errors.i
 --
 
 CREATE TABLE public.comments (
-    id bigint NOT NULL,
-    content character varying,
-    created_by integer NOT NULL,
-    section character varying,
-    status character varying DEFAULT 'Pending'::character varying,
-    submitter character varying,
-    resolver_name character varying,
-    commentable_id integer,
-    commentable_type character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                 id bigint NOT NULL,
+                                 content character varying,
+                                 created_by integer NOT NULL,
+                                 section character varying,
+                                 status character varying DEFAULT 'Pending'::character varying,
+                                 submitter character varying,
+                                 resolver_name character varying,
+                                 commentable_id integer,
+                                 commentable_type character varying,
+                                 created_at timestamp without time zone NOT NULL,
+                                 updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -1228,26 +1228,26 @@ ALTER SEQUENCE public.comments_id_seq OWNED BY public.comments.id;
 --
 
 CREATE TABLE public.computed_props (
-    id integer NOT NULL,
-    molecule_id integer,
-    max_potential double precision DEFAULT 0.0,
-    min_potential double precision DEFAULT 0.0,
-    mean_potential double precision DEFAULT 0.0,
-    lumo double precision DEFAULT 0.0,
-    homo double precision DEFAULT 0.0,
-    ip double precision DEFAULT 0.0,
-    ea double precision DEFAULT 0.0,
-    dipol_debye double precision DEFAULT 0.0,
-    status integer DEFAULT 0,
-    data jsonb,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    mean_abs_potential double precision DEFAULT 0.0,
-    creator integer DEFAULT 0,
-    sample_id integer DEFAULT 0,
-    tddft jsonb DEFAULT '{}'::jsonb,
-    task_id character varying,
-    deleted_at timestamp without time zone
+                                       id integer NOT NULL,
+                                       molecule_id integer,
+                                       max_potential double precision DEFAULT 0.0,
+                                       min_potential double precision DEFAULT 0.0,
+                                       mean_potential double precision DEFAULT 0.0,
+                                       lumo double precision DEFAULT 0.0,
+                                       homo double precision DEFAULT 0.0,
+                                       ip double precision DEFAULT 0.0,
+                                       ea double precision DEFAULT 0.0,
+                                       dipol_debye double precision DEFAULT 0.0,
+                                       status integer DEFAULT 0,
+                                       data jsonb,
+                                       created_at timestamp without time zone,
+                                       updated_at timestamp without time zone,
+                                       mean_abs_potential double precision DEFAULT 0.0,
+                                       creator integer DEFAULT 0,
+                                       sample_id integer DEFAULT 0,
+                                       tddft jsonb DEFAULT '{}'::jsonb,
+                                       task_id character varying,
+                                       deleted_at timestamp without time zone
 );
 
 
@@ -1280,9 +1280,9 @@ ALTER SEQUENCE public.computed_props_id_seq OWNED BY public.computed_props.id;
 --
 
 CREATE TABLE public.container_hierarchies (
-    ancestor_id integer NOT NULL,
-    descendant_id integer NOT NULL,
-    generations integer NOT NULL
+                                              ancestor_id integer NOT NULL,
+                                              descendant_id integer NOT NULL,
+                                              generations integer NOT NULL
 );
 
 
@@ -1293,18 +1293,18 @@ ALTER TABLE public.container_hierarchies OWNER TO postgres;
 --
 
 CREATE TABLE public.containers (
-    id integer NOT NULL,
-    ancestry character varying,
-    containable_id integer,
-    containable_type character varying,
-    name character varying,
-    container_type character varying,
-    description text,
-    extended_metadata public.hstore DEFAULT ''::public.hstore,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    parent_id integer,
-    plain_text_content text
+                                   id integer NOT NULL,
+                                   ancestry character varying,
+                                   containable_id integer,
+                                   containable_type character varying,
+                                   name character varying,
+                                   container_type character varying,
+                                   description text,
+                                   extended_metadata public.hstore DEFAULT ''::public.hstore,
+                                   created_at timestamp without time zone NOT NULL,
+                                   updated_at timestamp without time zone NOT NULL,
+                                   parent_id integer,
+                                   plain_text_content text
 );
 
 
@@ -1337,28 +1337,28 @@ ALTER SEQUENCE public.containers_id_seq OWNED BY public.containers.id;
 --
 
 CREATE TABLE public.dataset_klasses (
-    id integer NOT NULL,
-    ols_term_id character varying NOT NULL,
-    label character varying NOT NULL,
-    "desc" character varying,
-    properties_template jsonb DEFAULT '{"layers": {}, "select_options": {}}'::jsonb NOT NULL,
-    is_active boolean DEFAULT false NOT NULL,
-    place integer DEFAULT 100 NOT NULL,
-    created_by integer NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    uuid character varying,
-    properties_release jsonb DEFAULT '{}'::jsonb,
-    released_at timestamp without time zone,
-    identifier character varying,
-    sync_time timestamp without time zone,
-    updated_by integer,
-    released_by integer,
-    sync_by integer,
-    admin_ids jsonb DEFAULT '{}'::jsonb,
-    user_ids jsonb DEFAULT '{}'::jsonb,
-    version character varying
+                                        id integer NOT NULL,
+                                        ols_term_id character varying NOT NULL,
+                                        label character varying NOT NULL,
+                                        "desc" character varying,
+                                        properties_template jsonb DEFAULT '{"layers": {}, "select_options": {}}'::jsonb NOT NULL,
+                                        is_active boolean DEFAULT false NOT NULL,
+                                        place integer DEFAULT 100 NOT NULL,
+                                        created_by integer NOT NULL,
+                                        created_at timestamp without time zone NOT NULL,
+                                        updated_at timestamp without time zone,
+                                        deleted_at timestamp without time zone,
+                                        uuid character varying,
+                                        properties_release jsonb DEFAULT '{}'::jsonb,
+                                        released_at timestamp without time zone,
+                                        identifier character varying,
+                                        sync_time timestamp without time zone,
+                                        updated_by integer,
+                                        released_by integer,
+                                        sync_by integer,
+                                        admin_ids jsonb DEFAULT '{}'::jsonb,
+                                        user_ids jsonb DEFAULT '{}'::jsonb,
+                                        version character varying
 );
 
 
@@ -1391,17 +1391,17 @@ ALTER SEQUENCE public.dataset_klasses_id_seq OWNED BY public.dataset_klasses.id;
 --
 
 CREATE TABLE public.dataset_klasses_revisions (
-    id integer NOT NULL,
-    dataset_klass_id integer,
-    uuid character varying,
-    properties_release jsonb DEFAULT '{}'::jsonb,
-    released_at timestamp without time zone,
-    released_by integer,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    version character varying
+                                                  id integer NOT NULL,
+                                                  dataset_klass_id integer,
+                                                  uuid character varying,
+                                                  properties_release jsonb DEFAULT '{}'::jsonb,
+                                                  released_at timestamp without time zone,
+                                                  released_by integer,
+                                                  created_by integer,
+                                                  created_at timestamp without time zone,
+                                                  updated_at timestamp without time zone,
+                                                  deleted_at timestamp without time zone,
+                                                  version character varying
 );
 
 
@@ -1434,17 +1434,17 @@ ALTER SEQUENCE public.dataset_klasses_revisions_id_seq OWNED BY public.dataset_k
 --
 
 CREATE TABLE public.datasets (
-    id integer NOT NULL,
-    dataset_klass_id integer,
-    element_type character varying,
-    element_id integer,
-    properties jsonb,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone,
-    uuid character varying,
-    klass_uuid character varying,
-    deleted_at timestamp without time zone,
-    properties_release jsonb
+                                 id integer NOT NULL,
+                                 dataset_klass_id integer,
+                                 element_type character varying,
+                                 element_id integer,
+                                 properties jsonb,
+                                 created_at timestamp without time zone NOT NULL,
+                                 updated_at timestamp without time zone,
+                                 uuid character varying,
+                                 klass_uuid character varying,
+                                 deleted_at timestamp without time zone,
+                                 properties_release jsonb
 );
 
 
@@ -1477,16 +1477,16 @@ ALTER SEQUENCE public.datasets_id_seq OWNED BY public.datasets.id;
 --
 
 CREATE TABLE public.datasets_revisions (
-    id integer NOT NULL,
-    dataset_id integer,
-    uuid character varying,
-    klass_uuid character varying,
-    properties jsonb DEFAULT '{}'::jsonb,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    properties_release jsonb
+                                           id integer NOT NULL,
+                                           dataset_id integer,
+                                           uuid character varying,
+                                           klass_uuid character varying,
+                                           properties jsonb DEFAULT '{}'::jsonb,
+                                           created_by integer,
+                                           created_at timestamp without time zone,
+                                           updated_at timestamp without time zone,
+                                           deleted_at timestamp without time zone,
+                                           properties_release jsonb
 );
 
 
@@ -1519,19 +1519,19 @@ ALTER SEQUENCE public.datasets_revisions_id_seq OWNED BY public.datasets_revisio
 --
 
 CREATE TABLE public.delayed_jobs (
-    id integer NOT NULL,
-    priority integer DEFAULT 0 NOT NULL,
-    attempts integer DEFAULT 0 NOT NULL,
-    handler text NOT NULL,
-    last_error text,
-    run_at timestamp without time zone,
-    locked_at timestamp without time zone,
-    failed_at timestamp without time zone,
-    locked_by character varying,
-    queue character varying,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    cron character varying
+                                     id integer NOT NULL,
+                                     priority integer DEFAULT 0 NOT NULL,
+                                     attempts integer DEFAULT 0 NOT NULL,
+                                     handler text NOT NULL,
+                                     last_error text,
+                                     run_at timestamp without time zone,
+                                     locked_at timestamp without time zone,
+                                     failed_at timestamp without time zone,
+                                     locked_by character varying,
+                                     queue character varying,
+                                     created_at timestamp without time zone,
+                                     updated_at timestamp without time zone,
+                                     cron character varying
 );
 
 
@@ -1564,30 +1564,30 @@ ALTER SEQUENCE public.delayed_jobs_id_seq OWNED BY public.delayed_jobs.id;
 --
 
 CREATE TABLE public.device_metadata (
-    id integer NOT NULL,
-    device_id integer,
-    doi character varying,
-    url character varying,
-    landing_page character varying,
-    name character varying,
-    type character varying,
-    description character varying,
-    publisher character varying,
-    publication_year integer,
-    manufacturers jsonb,
-    owners jsonb,
-    dates jsonb,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    deleted_at timestamp without time zone,
-    doi_sequence integer,
-    data_cite_prefix character varying,
-    data_cite_created_at timestamp without time zone,
-    data_cite_updated_at timestamp without time zone,
-    data_cite_version integer,
-    data_cite_last_response jsonb DEFAULT '{}'::jsonb,
-    data_cite_state character varying DEFAULT 'draft'::character varying,
-    data_cite_creator_name character varying
+                                        id integer NOT NULL,
+                                        device_id integer,
+                                        doi character varying,
+                                        url character varying,
+                                        landing_page character varying,
+                                        name character varying,
+                                        type character varying,
+                                        description character varying,
+                                        publisher character varying,
+                                        publication_year integer,
+                                        manufacturers jsonb,
+                                        owners jsonb,
+                                        dates jsonb,
+                                        created_at timestamp without time zone NOT NULL,
+                                        updated_at timestamp without time zone NOT NULL,
+                                        deleted_at timestamp without time zone,
+                                        doi_sequence integer,
+                                        data_cite_prefix character varying,
+                                        data_cite_created_at timestamp without time zone,
+                                        data_cite_updated_at timestamp without time zone,
+                                        data_cite_version integer,
+                                        data_cite_last_response jsonb DEFAULT '{}'::jsonb,
+                                        data_cite_state character varying DEFAULT 'draft'::character varying,
+                                        data_cite_creator_name character varying
 );
 
 
@@ -1620,31 +1620,31 @@ ALTER SEQUENCE public.device_metadata_id_seq OWNED BY public.device_metadata.id;
 --
 
 CREATE TABLE public.element_klasses (
-    id integer NOT NULL,
-    name character varying,
-    label character varying,
-    "desc" character varying,
-    icon_name character varying,
-    is_active boolean DEFAULT true NOT NULL,
-    klass_prefix character varying DEFAULT 'E'::character varying NOT NULL,
-    is_generic boolean DEFAULT true NOT NULL,
-    place integer DEFAULT 100 NOT NULL,
-    properties_template jsonb,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    uuid character varying,
-    properties_release jsonb DEFAULT '{}'::jsonb,
-    released_at timestamp without time zone,
-    identifier character varying,
-    sync_time timestamp without time zone,
-    updated_by integer,
-    released_by integer,
-    sync_by integer,
-    admin_ids jsonb DEFAULT '{}'::jsonb,
-    user_ids jsonb DEFAULT '{}'::jsonb,
-    version character varying
+                                        id integer NOT NULL,
+                                        name character varying,
+                                        label character varying,
+                                        "desc" character varying,
+                                        icon_name character varying,
+                                        is_active boolean DEFAULT true NOT NULL,
+                                        klass_prefix character varying DEFAULT 'E'::character varying NOT NULL,
+                                        is_generic boolean DEFAULT true NOT NULL,
+                                        place integer DEFAULT 100 NOT NULL,
+                                        properties_template jsonb,
+                                        created_by integer,
+                                        created_at timestamp without time zone,
+                                        updated_at timestamp without time zone,
+                                        deleted_at timestamp without time zone,
+                                        uuid character varying,
+                                        properties_release jsonb DEFAULT '{}'::jsonb,
+                                        released_at timestamp without time zone,
+                                        identifier character varying,
+                                        sync_time timestamp without time zone,
+                                        updated_by integer,
+                                        released_by integer,
+                                        sync_by integer,
+                                        admin_ids jsonb DEFAULT '{}'::jsonb,
+                                        user_ids jsonb DEFAULT '{}'::jsonb,
+                                        version character varying
 );
 
 
@@ -1677,17 +1677,17 @@ ALTER SEQUENCE public.element_klasses_id_seq OWNED BY public.element_klasses.id;
 --
 
 CREATE TABLE public.element_klasses_revisions (
-    id integer NOT NULL,
-    element_klass_id integer,
-    uuid character varying,
-    properties_release jsonb DEFAULT '{}'::jsonb,
-    released_at timestamp without time zone,
-    released_by integer,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    version character varying
+                                                  id integer NOT NULL,
+                                                  element_klass_id integer,
+                                                  uuid character varying,
+                                                  properties_release jsonb DEFAULT '{}'::jsonb,
+                                                  released_at timestamp without time zone,
+                                                  released_by integer,
+                                                  created_by integer,
+                                                  created_at timestamp without time zone,
+                                                  updated_at timestamp without time zone,
+                                                  deleted_at timestamp without time zone,
+                                                  version character varying
 );
 
 
@@ -1720,12 +1720,12 @@ ALTER SEQUENCE public.element_klasses_revisions_id_seq OWNED BY public.element_k
 --
 
 CREATE TABLE public.element_tags (
-    id integer NOT NULL,
-    taggable_type character varying,
-    taggable_id integer,
-    taggable_data jsonb,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone
+                                     id integer NOT NULL,
+                                     taggable_type character varying,
+                                     taggable_id integer,
+                                     taggable_data jsonb,
+                                     created_at timestamp without time zone,
+                                     updated_at timestamp without time zone
 );
 
 
@@ -1758,13 +1758,13 @@ ALTER SEQUENCE public.element_tags_id_seq OWNED BY public.element_tags.id;
 --
 
 CREATE TABLE public.elemental_compositions (
-    id integer NOT NULL,
-    sample_id integer NOT NULL,
-    composition_type character varying NOT NULL,
-    data public.hstore DEFAULT ''::public.hstore NOT NULL,
-    loading double precision,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone
+                                               id integer NOT NULL,
+                                               sample_id integer NOT NULL,
+                                               composition_type character varying NOT NULL,
+                                               data public.hstore DEFAULT ''::public.hstore NOT NULL,
+                                               loading double precision,
+                                               created_at timestamp without time zone,
+                                               updated_at timestamp without time zone
 );
 
 
@@ -1797,18 +1797,18 @@ ALTER SEQUENCE public.elemental_compositions_id_seq OWNED BY public.elemental_co
 --
 
 CREATE TABLE public.elements (
-    id integer NOT NULL,
-    name character varying,
-    element_klass_id integer,
-    short_label character varying,
-    properties jsonb,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    uuid character varying,
-    klass_uuid character varying,
-    properties_release jsonb
+                                 id integer NOT NULL,
+                                 name character varying,
+                                 element_klass_id integer,
+                                 short_label character varying,
+                                 properties jsonb,
+                                 created_by integer,
+                                 created_at timestamp without time zone,
+                                 updated_at timestamp without time zone,
+                                 deleted_at timestamp without time zone,
+                                 uuid character varying,
+                                 klass_uuid character varying,
+                                 properties_release jsonb
 );
 
 
@@ -1819,13 +1819,13 @@ ALTER TABLE public.elements OWNER TO postgres;
 --
 
 CREATE TABLE public.elements_elements (
-    id bigint NOT NULL,
-    element_id integer,
-    parent_id integer,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone
+                                          id bigint NOT NULL,
+                                          element_id integer,
+                                          parent_id integer,
+                                          created_by integer,
+                                          created_at timestamp without time zone,
+                                          updated_at timestamp without time zone,
+                                          deleted_at timestamp without time zone
 );
 
 
@@ -1879,17 +1879,17 @@ ALTER SEQUENCE public.elements_id_seq OWNED BY public.elements.id;
 --
 
 CREATE TABLE public.elements_revisions (
-    id integer NOT NULL,
-    element_id integer,
-    uuid character varying,
-    klass_uuid character varying,
-    name character varying,
-    properties jsonb DEFAULT '{}'::jsonb,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    properties_release jsonb
+                                           id integer NOT NULL,
+                                           element_id integer,
+                                           uuid character varying,
+                                           klass_uuid character varying,
+                                           name character varying,
+                                           properties jsonb DEFAULT '{}'::jsonb,
+                                           created_by integer,
+                                           created_at timestamp without time zone,
+                                           updated_at timestamp without time zone,
+                                           deleted_at timestamp without time zone,
+                                           properties_release jsonb
 );
 
 
@@ -1922,13 +1922,13 @@ ALTER SEQUENCE public.elements_revisions_id_seq OWNED BY public.elements_revisio
 --
 
 CREATE TABLE public.elements_samples (
-    id integer NOT NULL,
-    element_id integer,
-    sample_id integer,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone
+                                         id integer NOT NULL,
+                                         element_id integer,
+                                         sample_id integer,
+                                         created_by integer,
+                                         created_at timestamp without time zone,
+                                         updated_at timestamp without time zone,
+                                         deleted_at timestamp without time zone
 );
 
 
@@ -1961,21 +1961,21 @@ ALTER SEQUENCE public.elements_samples_id_seq OWNED BY public.elements_samples.i
 --
 
 CREATE TABLE public.experiments (
-    id integer NOT NULL,
-    type character varying(20),
-    name character varying,
-    description text,
-    status character varying(20),
-    parameter jsonb,
-    user_id integer,
-    device_id integer,
-    container_id integer,
-    experimentable_id integer,
-    experimentable_type character varying,
-    ancestry character varying,
-    parent_id integer,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                    id integer NOT NULL,
+                                    type character varying(20),
+                                    name character varying,
+                                    description text,
+                                    status character varying(20),
+                                    parameter jsonb,
+                                    user_id integer,
+                                    device_id integer,
+                                    container_id integer,
+                                    experimentable_id integer,
+                                    experimentable_type character varying,
+                                    ancestry character varying,
+                                    parent_id integer,
+                                    created_at timestamp without time zone NOT NULL,
+                                    updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -2008,27 +2008,27 @@ ALTER SEQUENCE public.experiments_id_seq OWNED BY public.experiments.id;
 --
 
 CREATE TABLE public.fingerprints (
-    id integer NOT NULL,
-    fp0 bit(64),
-    fp1 bit(64),
-    fp2 bit(64),
-    fp3 bit(64),
-    fp4 bit(64),
-    fp5 bit(64),
-    fp6 bit(64),
-    fp7 bit(64),
-    fp8 bit(64),
-    fp9 bit(64),
-    fp10 bit(64),
-    fp11 bit(64),
-    fp12 bit(64),
-    fp13 bit(64),
-    fp14 bit(64),
-    fp15 bit(64),
-    num_set_bits smallint,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    deleted_at time without time zone
+                                     id integer NOT NULL,
+                                     fp0 bit(64),
+                                     fp1 bit(64),
+                                     fp2 bit(64),
+                                     fp3 bit(64),
+                                     fp4 bit(64),
+                                     fp5 bit(64),
+                                     fp6 bit(64),
+                                     fp7 bit(64),
+                                     fp8 bit(64),
+                                     fp9 bit(64),
+                                     fp10 bit(64),
+                                     fp11 bit(64),
+                                     fp12 bit(64),
+                                     fp13 bit(64),
+                                     fp14 bit(64),
+                                     fp15 bit(64),
+                                     num_set_bits smallint,
+                                     created_at timestamp without time zone NOT NULL,
+                                     updated_at timestamp without time zone NOT NULL,
+                                     deleted_at time without time zone
 );
 
 
@@ -2061,12 +2061,12 @@ ALTER SEQUENCE public.fingerprints_id_seq OWNED BY public.fingerprints.id;
 --
 
 CREATE TABLE public.inventories (
-    id bigint NOT NULL,
-    prefix character varying NOT NULL,
-    name character varying NOT NULL,
-    counter integer DEFAULT 0,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+                                    id bigint NOT NULL,
+                                    prefix character varying NOT NULL,
+                                    name character varying NOT NULL,
+                                    counter integer DEFAULT 0,
+                                    created_at timestamp(6) without time zone NOT NULL,
+                                    updated_at timestamp(6) without time zone NOT NULL
 );
 
 
@@ -2098,26 +2098,26 @@ ALTER SEQUENCE public.inventories_id_seq OWNED BY public.inventories.id;
 --
 
 CREATE TABLE public.ketcherails_amino_acids (
-    id integer NOT NULL,
-    moderated_by integer,
-    suggested_by integer,
-    name character varying NOT NULL,
-    molfile text NOT NULL,
-    aid integer DEFAULT 1 NOT NULL,
-    aid2 integer DEFAULT 1 NOT NULL,
-    bid integer DEFAULT 1 NOT NULL,
-    icon_path character varying,
-    sprite_class character varying,
-    status character varying,
-    notes text,
-    approved_at timestamp without time zone,
-    rejected_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    icon_file_name character varying,
-    icon_content_type character varying,
-    icon_file_size integer,
-    icon_updated_at timestamp without time zone
+                                                id integer NOT NULL,
+                                                moderated_by integer,
+                                                suggested_by integer,
+                                                name character varying NOT NULL,
+                                                molfile text NOT NULL,
+                                                aid integer DEFAULT 1 NOT NULL,
+                                                aid2 integer DEFAULT 1 NOT NULL,
+                                                bid integer DEFAULT 1 NOT NULL,
+                                                icon_path character varying,
+                                                sprite_class character varying,
+                                                status character varying,
+                                                notes text,
+                                                approved_at timestamp without time zone,
+                                                rejected_at timestamp without time zone,
+                                                created_at timestamp without time zone NOT NULL,
+                                                updated_at timestamp without time zone NOT NULL,
+                                                icon_file_name character varying,
+                                                icon_content_type character varying,
+                                                icon_file_size integer,
+                                                icon_updated_at timestamp without time zone
 );
 
 
@@ -2150,26 +2150,26 @@ ALTER SEQUENCE public.ketcherails_amino_acids_id_seq OWNED BY public.ketcherails
 --
 
 CREATE TABLE public.ketcherails_atom_abbreviations (
-    id integer NOT NULL,
-    moderated_by integer,
-    suggested_by integer,
-    name character varying NOT NULL,
-    molfile text NOT NULL,
-    aid integer DEFAULT 1 NOT NULL,
-    bid integer DEFAULT 1 NOT NULL,
-    icon_path character varying,
-    sprite_class character varying,
-    status character varying,
-    notes text,
-    approved_at timestamp without time zone,
-    rejected_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    icon_file_name character varying,
-    icon_content_type character varying,
-    icon_file_size integer,
-    icon_updated_at timestamp without time zone,
-    rtl_name character varying
+                                                       id integer NOT NULL,
+                                                       moderated_by integer,
+                                                       suggested_by integer,
+                                                       name character varying NOT NULL,
+                                                       molfile text NOT NULL,
+                                                       aid integer DEFAULT 1 NOT NULL,
+                                                       bid integer DEFAULT 1 NOT NULL,
+                                                       icon_path character varying,
+                                                       sprite_class character varying,
+                                                       status character varying,
+                                                       notes text,
+                                                       approved_at timestamp without time zone,
+                                                       rejected_at timestamp without time zone,
+                                                       created_at timestamp without time zone NOT NULL,
+                                                       updated_at timestamp without time zone NOT NULL,
+                                                       icon_file_name character varying,
+                                                       icon_content_type character varying,
+                                                       icon_file_size integer,
+                                                       icon_updated_at timestamp without time zone,
+                                                       rtl_name character varying
 );
 
 
@@ -2202,24 +2202,24 @@ ALTER SEQUENCE public.ketcherails_atom_abbreviations_id_seq OWNED BY public.ketc
 --
 
 CREATE TABLE public.ketcherails_common_templates (
-    id integer NOT NULL,
-    moderated_by integer,
-    suggested_by integer,
-    name character varying NOT NULL,
-    molfile text NOT NULL,
-    icon_path character varying,
-    sprite_class character varying,
-    notes text,
-    approved_at timestamp without time zone,
-    rejected_at timestamp without time zone,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    template_category_id integer,
-    status character varying,
-    icon_file_name character varying,
-    icon_content_type character varying,
-    icon_file_size integer,
-    icon_updated_at timestamp without time zone
+                                                     id integer NOT NULL,
+                                                     moderated_by integer,
+                                                     suggested_by integer,
+                                                     name character varying NOT NULL,
+                                                     molfile text NOT NULL,
+                                                     icon_path character varying,
+                                                     sprite_class character varying,
+                                                     notes text,
+                                                     approved_at timestamp without time zone,
+                                                     rejected_at timestamp without time zone,
+                                                     created_at timestamp without time zone,
+                                                     updated_at timestamp without time zone,
+                                                     template_category_id integer,
+                                                     status character varying,
+                                                     icon_file_name character varying,
+                                                     icon_content_type character varying,
+                                                     icon_file_size integer,
+                                                     icon_updated_at timestamp without time zone
 );
 
 
@@ -2252,14 +2252,14 @@ ALTER SEQUENCE public.ketcherails_common_templates_id_seq OWNED BY public.ketche
 --
 
 CREATE TABLE public.ketcherails_custom_templates (
-    id integer NOT NULL,
-    user_id integer NOT NULL,
-    name character varying NOT NULL,
-    molfile text NOT NULL,
-    icon_path character varying,
-    sprite_class character varying,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone
+                                                     id integer NOT NULL,
+                                                     user_id integer NOT NULL,
+                                                     name character varying NOT NULL,
+                                                     molfile text NOT NULL,
+                                                     icon_path character varying,
+                                                     sprite_class character varying,
+                                                     created_at timestamp without time zone,
+                                                     updated_at timestamp without time zone
 );
 
 
@@ -2292,15 +2292,15 @@ ALTER SEQUENCE public.ketcherails_custom_templates_id_seq OWNED BY public.ketche
 --
 
 CREATE TABLE public.ketcherails_template_categories (
-    id integer NOT NULL,
-    name character varying NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    icon_file_name character varying,
-    icon_content_type character varying,
-    icon_file_size integer,
-    icon_updated_at timestamp without time zone,
-    sprite_class character varying
+                                                        id integer NOT NULL,
+                                                        name character varying NOT NULL,
+                                                        created_at timestamp without time zone,
+                                                        updated_at timestamp without time zone,
+                                                        icon_file_name character varying,
+                                                        icon_content_type character varying,
+                                                        icon_file_size integer,
+                                                        icon_updated_at timestamp without time zone,
+                                                        sprite_class character varying
 );
 
 
@@ -2333,15 +2333,15 @@ ALTER SEQUENCE public.ketcherails_template_categories_id_seq OWNED BY public.ket
 --
 
 CREATE TABLE public.literals (
-    id integer NOT NULL,
-    literature_id integer,
-    element_id integer,
-    element_type character varying(40),
-    category character varying(40),
-    user_id integer,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    litype character varying
+                                 id integer NOT NULL,
+                                 literature_id integer,
+                                 element_id integer,
+                                 element_type character varying(40),
+                                 category character varying(40),
+                                 user_id integer,
+                                 created_at timestamp without time zone NOT NULL,
+                                 updated_at timestamp without time zone NOT NULL,
+                                 litype character varying
 );
 
 
@@ -2352,15 +2352,15 @@ ALTER TABLE public.literals OWNER TO postgres;
 --
 
 CREATE TABLE public.literatures (
-    id integer NOT NULL,
-    title character varying,
-    url character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    deleted_at timestamp without time zone,
-    refs jsonb,
-    doi character varying,
-    isbn character varying
+                                    id integer NOT NULL,
+                                    title character varying,
+                                    url character varying,
+                                    created_at timestamp without time zone NOT NULL,
+                                    updated_at timestamp without time zone NOT NULL,
+                                    deleted_at timestamp without time zone,
+                                    refs jsonb,
+                                    doi character varying,
+                                    isbn character varying
 );
 
 
@@ -2371,38 +2371,38 @@ ALTER TABLE public.literatures OWNER TO postgres;
 --
 
 CREATE TABLE public.reactions (
-    id integer NOT NULL,
-    name character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    description text,
-    timestamp_start character varying,
-    timestamp_stop character varying,
-    observation text,
-    purification character varying[] DEFAULT '{}'::character varying[],
-    dangerous_products character varying[] DEFAULT '{}'::character varying[],
-    tlc_solvents character varying,
-    tlc_description text,
-    rf_value character varying,
-    temperature jsonb DEFAULT '{"data": [], "userText": "", "valueUnit": "°C"}'::jsonb,
-    status character varying,
-    reaction_svg_file character varying,
-    solvent character varying,
-    deleted_at timestamp without time zone,
-    short_label character varying,
-    created_by integer,
-    role character varying,
-    origin jsonb,
-    rinchi_string text,
-    rinchi_long_key text,
-    rinchi_short_key character varying,
-    rinchi_web_key character varying,
-    duration character varying,
-    rxno character varying,
-    conditions character varying,
-    variations jsonb DEFAULT '[]'::jsonb,
-    plain_text_description text,
-    plain_text_observation text
+                                  id integer NOT NULL,
+                                  name character varying,
+                                  created_at timestamp without time zone NOT NULL,
+                                  updated_at timestamp without time zone NOT NULL,
+                                  description text,
+                                  timestamp_start character varying,
+                                  timestamp_stop character varying,
+                                  observation text,
+                                  purification character varying[] DEFAULT '{}'::character varying[],
+                                  dangerous_products character varying[] DEFAULT '{}'::character varying[],
+                                  tlc_solvents character varying,
+                                  tlc_description text,
+                                  rf_value character varying,
+                                  temperature jsonb DEFAULT '{"data": [], "userText": "", "valueUnit": "°C"}'::jsonb,
+                                  status character varying,
+                                  reaction_svg_file character varying,
+                                  solvent character varying,
+                                  deleted_at timestamp without time zone,
+                                  short_label character varying,
+                                  created_by integer,
+                                  role character varying,
+                                  origin jsonb,
+                                  rinchi_string text,
+                                  rinchi_long_key text,
+                                  rinchi_short_key character varying,
+                                  rinchi_web_key character varying,
+                                  duration character varying,
+                                  rxno character varying,
+                                  conditions character varying,
+                                  variations jsonb DEFAULT '[]'::jsonb,
+                                  plain_text_description text,
+                                  plain_text_observation text
 );
 
 
@@ -2413,48 +2413,48 @@ ALTER TABLE public.reactions OWNER TO postgres;
 --
 
 CREATE TABLE public.samples (
-    id integer NOT NULL,
-    name character varying,
-    target_amount_value double precision DEFAULT 0.0,
-    target_amount_unit character varying DEFAULT 'g'::character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    description text DEFAULT ''::text,
-    molecule_id integer,
-    molfile bytea,
-    purity double precision DEFAULT 1.0,
-    deprecated_solvent character varying DEFAULT ''::character varying,
-    impurities character varying DEFAULT ''::character varying,
-    location character varying DEFAULT ''::character varying,
-    is_top_secret boolean DEFAULT false,
-    ancestry character varying,
-    external_label character varying DEFAULT ''::character varying,
-    created_by integer,
-    short_label character varying,
-    real_amount_value double precision,
-    real_amount_unit character varying,
-    imported_readout character varying,
-    deleted_at timestamp without time zone,
-    sample_svg_file character varying,
-    user_id integer,
-    identifier character varying,
-    density double precision DEFAULT 0.0,
-    melting_point numrange,
-    boiling_point numrange,
-    fingerprint_id integer,
-    xref jsonb DEFAULT '{}'::jsonb,
-    molarity_value double precision DEFAULT 0.0,
-    molarity_unit character varying DEFAULT 'M'::character varying,
-    molecule_name_id integer,
-    molfile_version character varying(20),
-    stereo jsonb,
-    metrics character varying DEFAULT 'mmm'::character varying,
-    decoupled boolean DEFAULT false NOT NULL,
-    molecular_mass double precision,
-    sum_formula character varying,
-    solvent jsonb,
-    dry_solvent boolean DEFAULT false,
-    inventory_sample boolean DEFAULT false
+                                id integer NOT NULL,
+                                name character varying,
+                                target_amount_value double precision DEFAULT 0.0,
+                                target_amount_unit character varying DEFAULT 'g'::character varying,
+                                created_at timestamp without time zone NOT NULL,
+                                updated_at timestamp without time zone NOT NULL,
+                                description text DEFAULT ''::text,
+                                molecule_id integer,
+                                molfile bytea,
+                                purity double precision DEFAULT 1.0,
+                                deprecated_solvent character varying DEFAULT ''::character varying,
+                                impurities character varying DEFAULT ''::character varying,
+                                location character varying DEFAULT ''::character varying,
+                                is_top_secret boolean DEFAULT false,
+                                ancestry character varying,
+                                external_label character varying DEFAULT ''::character varying,
+                                created_by integer,
+                                short_label character varying,
+                                real_amount_value double precision,
+                                real_amount_unit character varying,
+                                imported_readout character varying,
+                                deleted_at timestamp without time zone,
+                                sample_svg_file character varying,
+                                user_id integer,
+                                identifier character varying,
+                                density double precision DEFAULT 0.0,
+                                melting_point numrange,
+                                boiling_point numrange,
+                                fingerprint_id integer,
+                                xref jsonb DEFAULT '{}'::jsonb,
+                                molarity_value double precision DEFAULT 0.0,
+                                molarity_unit character varying DEFAULT 'M'::character varying,
+                                molecule_name_id integer,
+                                molfile_version character varying(20),
+                                stereo jsonb,
+                                metrics character varying DEFAULT 'mmm'::character varying,
+                                decoupled boolean DEFAULT false NOT NULL,
+                                molecular_mass double precision,
+                                sum_formula character varying,
+                                solvent jsonb,
+                                dry_solvent boolean DEFAULT false,
+                                inventory_sample boolean DEFAULT false
 );
 
 
@@ -2465,28 +2465,28 @@ ALTER TABLE public.samples OWNER TO postgres;
 --
 
 CREATE VIEW public.literal_groups AS
- SELECT lits.element_type,
-    lits.element_id,
-    lits.literature_id,
-    lits.category,
-    lits.count,
-    literatures.title,
-    literatures.doi,
-    literatures.url,
-    literatures.refs,
-    COALESCE(reactions.short_label, samples.short_label) AS short_label,
-    COALESCE(reactions.name, samples.name) AS name,
-    samples.external_label,
-    COALESCE(reactions.updated_at, samples.updated_at) AS element_updated_at
-   FROM (((( SELECT literals.element_type,
-            literals.element_id,
-            literals.literature_id,
-            literals.category,
-            count(*) AS count
-           FROM public.literals
+SELECT lits.element_type,
+       lits.element_id,
+       lits.literature_id,
+       lits.category,
+       lits.count,
+       literatures.title,
+       literatures.doi,
+       literatures.url,
+       literatures.refs,
+       COALESCE(reactions.short_label, samples.short_label) AS short_label,
+       COALESCE(reactions.name, samples.name) AS name,
+       samples.external_label,
+       COALESCE(reactions.updated_at, samples.updated_at) AS element_updated_at
+FROM (((( SELECT literals.element_type,
+                 literals.element_id,
+                 literals.literature_id,
+                 literals.category,
+                 count(*) AS count
+          FROM public.literals
           GROUP BY literals.element_type, literals.element_id, literals.literature_id, literals.category) lits
-     JOIN public.literatures ON ((lits.literature_id = literatures.id)))
-     LEFT JOIN public.samples ON ((((lits.element_type)::text = 'Sample'::text) AND (lits.element_id = samples.id))))
+    JOIN public.literatures ON ((lits.literature_id = literatures.id)))
+    LEFT JOIN public.samples ON ((((lits.element_type)::text = 'Sample'::text) AND (lits.element_id = samples.id))))
      LEFT JOIN public.reactions ON ((((lits.element_type)::text = 'Reaction'::text) AND (lits.element_id = reactions.id))));
 
 
@@ -2541,16 +2541,16 @@ ALTER SEQUENCE public.literatures_id_seq OWNED BY public.literatures.id;
 --
 
 CREATE TABLE public.matrices (
-    id integer NOT NULL,
-    name character varying NOT NULL,
-    enabled boolean DEFAULT false,
-    label character varying,
-    include_ids integer[] DEFAULT '{}'::integer[],
-    exclude_ids integer[] DEFAULT '{}'::integer[],
-    configs jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone
+                                 id integer NOT NULL,
+                                 name character varying NOT NULL,
+                                 enabled boolean DEFAULT false,
+                                 label character varying,
+                                 include_ids integer[] DEFAULT '{}'::integer[],
+                                 exclude_ids integer[] DEFAULT '{}'::integer[],
+                                 configs jsonb DEFAULT '{}'::jsonb NOT NULL,
+                                 created_at timestamp without time zone,
+                                 updated_at timestamp without time zone,
+                                 deleted_at timestamp without time zone
 );
 
 
@@ -2583,17 +2583,17 @@ ALTER SEQUENCE public.matrices_id_seq OWNED BY public.matrices.id;
 --
 
 CREATE TABLE public.measurements (
-    id bigint NOT NULL,
-    description character varying NOT NULL,
-    value numeric NOT NULL,
-    unit character varying NOT NULL,
-    deleted_at timestamp without time zone,
-    well_id bigint,
-    sample_id bigint NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    source_type character varying,
-    source_id bigint
+                                     id bigint NOT NULL,
+                                     description character varying NOT NULL,
+                                     value numeric NOT NULL,
+                                     unit character varying NOT NULL,
+                                     deleted_at timestamp without time zone,
+                                     well_id bigint,
+                                     sample_id bigint NOT NULL,
+                                     created_at timestamp without time zone NOT NULL,
+                                     updated_at timestamp without time zone NOT NULL,
+                                     source_type character varying,
+                                     source_id bigint
 );
 
 
@@ -2625,12 +2625,12 @@ ALTER SEQUENCE public.measurements_id_seq OWNED BY public.measurements.id;
 --
 
 CREATE TABLE public.messages (
-    id integer NOT NULL,
-    channel_id integer,
-    content jsonb NOT NULL,
-    created_by integer NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                 id integer NOT NULL,
+                                 channel_id integer,
+                                 content jsonb NOT NULL,
+                                 created_by integer NOT NULL,
+                                 created_at timestamp without time zone NOT NULL,
+                                 updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -2663,12 +2663,12 @@ ALTER SEQUENCE public.messages_id_seq OWNED BY public.messages.id;
 --
 
 CREATE TABLE public.metadata (
-    id bigint NOT NULL,
-    collection_id integer,
-    metadata jsonb,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                 id bigint NOT NULL,
+                                 collection_id integer,
+                                 metadata jsonb,
+                                 deleted_at timestamp without time zone,
+                                 created_at timestamp without time zone NOT NULL,
+                                 updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -2700,14 +2700,14 @@ ALTER SEQUENCE public.metadata_id_seq OWNED BY public.metadata.id;
 --
 
 CREATE TABLE public.molecule_names (
-    id integer NOT NULL,
-    molecule_id integer,
-    user_id integer,
-    description text,
-    name character varying NOT NULL,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                       id integer NOT NULL,
+                                       molecule_id integer,
+                                       user_id integer,
+                                       description text,
+                                       name character varying NOT NULL,
+                                       deleted_at timestamp without time zone,
+                                       created_at timestamp without time zone NOT NULL,
+                                       updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -2740,26 +2740,26 @@ ALTER SEQUENCE public.molecule_names_id_seq OWNED BY public.molecule_names.id;
 --
 
 CREATE TABLE public.molecules (
-    id integer NOT NULL,
-    inchikey character varying,
-    inchistring character varying,
-    density double precision DEFAULT 0.0,
-    molecular_weight double precision,
-    molfile bytea,
-    melting_point double precision,
-    boiling_point double precision,
-    sum_formular character varying,
-    names character varying[] DEFAULT '{}'::character varying[],
-    iupac_name character varying,
-    molecule_svg_file character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    deleted_at timestamp without time zone,
-    is_partial boolean DEFAULT false NOT NULL,
-    exact_molecular_weight double precision,
-    cano_smiles character varying,
-    cas text,
-    molfile_version character varying(20)
+                                  id integer NOT NULL,
+                                  inchikey character varying,
+                                  inchistring character varying,
+                                  density double precision DEFAULT 0.0,
+                                  molecular_weight double precision,
+                                  molfile bytea,
+                                  melting_point double precision,
+                                  boiling_point double precision,
+                                  sum_formular character varying,
+                                  names character varying[] DEFAULT '{}'::character varying[],
+                                  iupac_name character varying,
+                                  molecule_svg_file character varying,
+                                  created_at timestamp without time zone NOT NULL,
+                                  updated_at timestamp without time zone NOT NULL,
+                                  deleted_at timestamp without time zone,
+                                  is_partial boolean DEFAULT false NOT NULL,
+                                  exact_molecular_weight double precision,
+                                  cano_smiles character varying,
+                                  cas text,
+                                  molfile_version character varying(20)
 );
 
 
@@ -2792,14 +2792,14 @@ ALTER SEQUENCE public.molecules_id_seq OWNED BY public.molecules.id;
 --
 
 CREATE TABLE public.nmr_sim_nmr_simulations (
-    id integer NOT NULL,
-    molecule_id integer,
-    path_1h text,
-    path_13c text,
-    source text,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                                id integer NOT NULL,
+                                                molecule_id integer,
+                                                path_1h text,
+                                                path_13c text,
+                                                source text,
+                                                deleted_at timestamp without time zone,
+                                                created_at timestamp without time zone NOT NULL,
+                                                updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -2832,12 +2832,12 @@ ALTER SEQUENCE public.nmr_sim_nmr_simulations_id_seq OWNED BY public.nmr_sim_nmr
 --
 
 CREATE TABLE public.notifications (
-    id integer NOT NULL,
-    message_id integer,
-    user_id integer,
-    is_ack integer DEFAULT 0,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                      id integer NOT NULL,
+                                      message_id integer,
+                                      user_id integer,
+                                      is_ack integer DEFAULT 0,
+                                      created_at timestamp without time zone NOT NULL,
+                                      updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -2870,40 +2870,40 @@ ALTER SEQUENCE public.notifications_id_seq OWNED BY public.notifications.id;
 --
 
 CREATE TABLE public.users (
-    id integer NOT NULL,
-    email character varying DEFAULT ''::character varying NOT NULL,
-    encrypted_password character varying DEFAULT ''::character varying NOT NULL,
-    reset_password_token character varying,
-    reset_password_sent_at timestamp without time zone,
-    remember_created_at timestamp without time zone,
-    sign_in_count integer DEFAULT 0 NOT NULL,
-    current_sign_in_at timestamp without time zone,
-    last_sign_in_at timestamp without time zone,
-    current_sign_in_ip inet,
-    last_sign_in_ip inet,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    name character varying,
-    first_name character varying NOT NULL,
-    last_name character varying NOT NULL,
-    deleted_at timestamp without time zone,
-    counters public.hstore DEFAULT '"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"'::public.hstore NOT NULL,
-    name_abbreviation character varying(12),
-    type character varying DEFAULT 'Person'::character varying,
-    reaction_name_prefix character varying(3) DEFAULT 'R'::character varying,
-    confirmation_token character varying,
-    confirmed_at timestamp without time zone,
-    confirmation_sent_at timestamp without time zone,
-    unconfirmed_email character varying,
-    layout public.hstore DEFAULT '"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"'::public.hstore NOT NULL,
-    selected_device_id integer,
-    failed_attempts integer DEFAULT 0 NOT NULL,
-    unlock_token character varying,
-    locked_at timestamp without time zone,
-    account_active boolean,
-    matrix integer DEFAULT 0,
-    providers jsonb,
-    is_super_device boolean DEFAULT false
+                              id integer NOT NULL,
+                              email character varying DEFAULT ''::character varying NOT NULL,
+                              encrypted_password character varying DEFAULT ''::character varying NOT NULL,
+                              reset_password_token character varying,
+                              reset_password_sent_at timestamp without time zone,
+                              remember_created_at timestamp without time zone,
+                              sign_in_count integer DEFAULT 0 NOT NULL,
+                              current_sign_in_at timestamp without time zone,
+                              last_sign_in_at timestamp without time zone,
+                              current_sign_in_ip inet,
+                              last_sign_in_ip inet,
+                              created_at timestamp without time zone NOT NULL,
+                              updated_at timestamp without time zone NOT NULL,
+                              name character varying,
+                              first_name character varying NOT NULL,
+                              last_name character varying NOT NULL,
+                              deleted_at timestamp without time zone,
+                              counters public.hstore DEFAULT '"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"'::public.hstore NOT NULL,
+                              name_abbreviation character varying(12),
+                              type character varying DEFAULT 'Person'::character varying,
+                              reaction_name_prefix character varying(3) DEFAULT 'R'::character varying,
+                              confirmation_token character varying,
+                              confirmed_at timestamp without time zone,
+                              confirmation_sent_at timestamp without time zone,
+                              unconfirmed_email character varying,
+                              layout public.hstore DEFAULT '"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"'::public.hstore NOT NULL,
+                              selected_device_id integer,
+                              failed_attempts integer DEFAULT 0 NOT NULL,
+                              unlock_token character varying,
+                              locked_at timestamp without time zone,
+                              account_active boolean,
+                              matrix integer DEFAULT 0,
+                              providers jsonb,
+                              is_super_device boolean DEFAULT false
 );
 
 
@@ -2914,14 +2914,14 @@ ALTER TABLE public.users OWNER TO postgres;
 --
 
 CREATE VIEW public.notify_messages AS
- SELECT notifications.id,
-    messages.id AS message_id,
-    channels.subject,
-    messages.content,
-    notifications.created_at,
-    notifications.updated_at,
-    users.id AS sender_id,
-    (((users.first_name)::text || chr(32)) || (users.last_name)::text) AS sender_name,
+SELECT notifications.id,
+       messages.id AS message_id,
+       channels.subject,
+       messages.content,
+       notifications.created_at,
+       notifications.updated_at,
+       users.id AS sender_id,
+       (((users.first_name)::text || chr(32)) || (users.last_name)::text) AS sender_name,
     channels.channel_type,
     notifications.user_id AS receiver_id,
     notifications.is_ack
@@ -2939,19 +2939,19 @@ ALTER TABLE public.notify_messages OWNER TO postgres;
 --
 
 CREATE TABLE public.ols_terms (
-    id integer NOT NULL,
-    owl_name character varying,
-    term_id character varying,
-    ancestry character varying,
-    ancestry_term_id character varying,
-    label character varying,
-    synonym character varying,
-    synonyms jsonb,
-    "desc" character varying,
-    metadata jsonb,
-    is_enabled boolean DEFAULT true,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                  id integer NOT NULL,
+                                  owl_name character varying,
+                                  term_id character varying,
+                                  ancestry character varying,
+                                  ancestry_term_id character varying,
+                                  label character varying,
+                                  synonym character varying,
+                                  synonyms jsonb,
+                                  "desc" character varying,
+                                  metadata jsonb,
+                                  is_enabled boolean DEFAULT true,
+                                  created_at timestamp without time zone NOT NULL,
+                                  updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -2984,12 +2984,12 @@ ALTER SEQUENCE public.ols_terms_id_seq OWNED BY public.ols_terms.id;
 --
 
 CREATE TABLE public.pg_search_documents (
-    id integer NOT NULL,
-    content text,
-    searchable_type character varying,
-    searchable_id integer,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                            id integer NOT NULL,
+                                            content text,
+                                            searchable_type character varying,
+                                            searchable_id integer,
+                                            created_at timestamp without time zone NOT NULL,
+                                            updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -3022,12 +3022,12 @@ ALTER SEQUENCE public.pg_search_documents_id_seq OWNED BY public.pg_search_docum
 --
 
 CREATE TABLE public.predictions (
-    id integer NOT NULL,
-    predictable_type character varying,
-    predictable_id integer,
-    decision jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone
+                                    id integer NOT NULL,
+                                    predictable_type character varying,
+                                    predictable_id integer,
+                                    decision jsonb DEFAULT '{}'::jsonb NOT NULL,
+                                    created_at timestamp without time zone,
+                                    updated_at timestamp without time zone
 );
 
 
@@ -3060,13 +3060,13 @@ ALTER SEQUENCE public.predictions_id_seq OWNED BY public.predictions.id;
 --
 
 CREATE TABLE public.private_notes (
-    id bigint NOT NULL,
-    content character varying,
-    created_by integer NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    noteable_id integer,
-    noteable_type character varying
+                                      id bigint NOT NULL,
+                                      content character varying,
+                                      created_by integer NOT NULL,
+                                      created_at timestamp without time zone NOT NULL,
+                                      updated_at timestamp without time zone NOT NULL,
+                                      noteable_id integer,
+                                      noteable_type character varying
 );
 
 
@@ -3098,16 +3098,16 @@ ALTER SEQUENCE public.private_notes_id_seq OWNED BY public.private_notes.id;
 --
 
 CREATE TABLE public.profiles (
-    id integer NOT NULL,
-    show_external_name boolean DEFAULT false,
-    user_id integer NOT NULL,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    curation integer DEFAULT 2,
-    show_sample_name boolean DEFAULT false,
-    show_sample_short_label boolean DEFAULT false
+                                 id integer NOT NULL,
+                                 show_external_name boolean DEFAULT false,
+                                 user_id integer NOT NULL,
+                                 deleted_at timestamp without time zone,
+                                 created_at timestamp without time zone NOT NULL,
+                                 updated_at timestamp without time zone NOT NULL,
+                                 data jsonb DEFAULT '{}'::jsonb NOT NULL,
+                                 curation integer DEFAULT 2,
+                                 show_sample_name boolean DEFAULT false,
+                                 show_sample_short_label boolean DEFAULT false
 );
 
 
@@ -3162,17 +3162,17 @@ ALTER SEQUENCE public.reactions_id_seq OWNED BY public.reactions.id;
 --
 
 CREATE TABLE public.reactions_samples (
-    id integer NOT NULL,
-    reaction_id integer,
-    sample_id integer,
-    reference boolean,
-    equivalent double precision,
-    "position" integer,
-    type character varying,
-    deleted_at timestamp without time zone,
-    waste boolean DEFAULT false,
-    coefficient double precision DEFAULT 1.0,
-    show_label boolean DEFAULT false NOT NULL
+                                          id integer NOT NULL,
+                                          reaction_id integer,
+                                          sample_id integer,
+                                          reference boolean,
+                                          equivalent double precision,
+                                          "position" integer,
+                                          type character varying,
+                                          deleted_at timestamp without time zone,
+                                          waste boolean DEFAULT false,
+                                          coefficient double precision DEFAULT 1.0,
+                                          show_label boolean DEFAULT false NOT NULL
 );
 
 
@@ -3205,12 +3205,12 @@ ALTER SEQUENCE public.reactions_samples_id_seq OWNED BY public.reactions_samples
 --
 
 CREATE TABLE public.report_templates (
-    id integer NOT NULL,
-    name character varying NOT NULL,
-    report_type character varying NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    attachment_id integer
+                                         id integer NOT NULL,
+                                         name character varying NOT NULL,
+                                         report_type character varying NOT NULL,
+                                         created_at timestamp without time zone NOT NULL,
+                                         updated_at timestamp without time zone NOT NULL,
+                                         attachment_id integer
 );
 
 
@@ -3243,24 +3243,24 @@ ALTER SEQUENCE public.report_templates_id_seq OWNED BY public.report_templates.i
 --
 
 CREATE TABLE public.reports (
-    id integer NOT NULL,
-    author_id integer,
-    file_name character varying,
-    file_description text,
-    configs text,
-    sample_settings text,
-    reaction_settings text,
-    objects text,
-    img_format character varying,
-    file_path character varying,
-    generated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    template character varying DEFAULT 'standard'::character varying,
-    mol_serials text DEFAULT '--- []
+                                id integer NOT NULL,
+                                author_id integer,
+                                file_name character varying,
+                                file_description text,
+                                configs text,
+                                sample_settings text,
+                                reaction_settings text,
+                                objects text,
+                                img_format character varying,
+                                file_path character varying,
+                                generated_at timestamp without time zone,
+                                deleted_at timestamp without time zone,
+                                created_at timestamp without time zone NOT NULL,
+                                updated_at timestamp without time zone NOT NULL,
+                                template character varying DEFAULT 'standard'::character varying,
+                                mol_serials text DEFAULT '--- []
 '::text,
-    si_reaction_settings text DEFAULT '---
+                                si_reaction_settings text DEFAULT '---
 Name: true
 CAS: true
 Formula: true
@@ -3270,9 +3270,9 @@ Molecular Mass: true
 Exact Mass: true
 EA: true
 '::text,
-    prd_atts text DEFAULT '--- []
+                                prd_atts text DEFAULT '--- []
 '::text,
-    report_templates_id integer
+                                report_templates_id integer
 );
 
 
@@ -3305,13 +3305,13 @@ ALTER SEQUENCE public.reports_id_seq OWNED BY public.reports.id;
 --
 
 CREATE TABLE public.reports_users (
-    id integer NOT NULL,
-    user_id integer,
-    report_id integer,
-    downloaded_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                      id integer NOT NULL,
+                                      user_id integer,
+                                      report_id integer,
+                                      downloaded_at timestamp without time zone,
+                                      deleted_at timestamp without time zone,
+                                      created_at timestamp without time zone NOT NULL,
+                                      updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -3344,39 +3344,39 @@ ALTER SEQUENCE public.reports_users_id_seq OWNED BY public.reports_users.id;
 --
 
 CREATE TABLE public.research_plan_metadata (
-    id integer NOT NULL,
-    research_plan_id integer,
-    doi character varying,
-    url character varying,
-    landing_page character varying,
-    title character varying,
-    type character varying,
-    publisher character varying,
-    publication_year integer,
-    dates jsonb,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    deleted_at timestamp without time zone,
-    data_cite_prefix character varying,
-    data_cite_created_at timestamp without time zone,
-    data_cite_updated_at timestamp without time zone,
-    data_cite_version integer,
-    data_cite_last_response jsonb DEFAULT '{}'::jsonb,
-    data_cite_state character varying DEFAULT 'draft'::character varying,
-    data_cite_creator_name character varying,
-    description jsonb,
-    creator text,
-    affiliation text,
-    contributor text,
-    language character varying,
-    rights text,
-    format character varying,
-    version character varying,
-    geo_location jsonb,
-    funding_reference jsonb,
-    subject text,
-    alternate_identifier jsonb,
-    related_identifier jsonb
+                                               id integer NOT NULL,
+                                               research_plan_id integer,
+                                               doi character varying,
+                                               url character varying,
+                                               landing_page character varying,
+                                               title character varying,
+                                               type character varying,
+                                               publisher character varying,
+                                               publication_year integer,
+                                               dates jsonb,
+                                               created_at timestamp without time zone NOT NULL,
+                                               updated_at timestamp without time zone NOT NULL,
+                                               deleted_at timestamp without time zone,
+                                               data_cite_prefix character varying,
+                                               data_cite_created_at timestamp without time zone,
+                                               data_cite_updated_at timestamp without time zone,
+                                               data_cite_version integer,
+                                               data_cite_last_response jsonb DEFAULT '{}'::jsonb,
+                                               data_cite_state character varying DEFAULT 'draft'::character varying,
+                                               data_cite_creator_name character varying,
+                                               description jsonb,
+                                               creator text,
+                                               affiliation text,
+                                               contributor text,
+                                               language character varying,
+                                               rights text,
+                                               format character varying,
+                                               version character varying,
+                                               geo_location jsonb,
+                                               funding_reference jsonb,
+                                               subject text,
+                                               alternate_identifier jsonb,
+                                               related_identifier jsonb
 );
 
 
@@ -3409,13 +3409,13 @@ ALTER SEQUENCE public.research_plan_metadata_id_seq OWNED BY public.research_pla
 --
 
 CREATE TABLE public.research_plan_table_schemas (
-    id integer NOT NULL,
-    name character varying,
-    value jsonb,
-    created_by integer NOT NULL,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                                    id integer NOT NULL,
+                                                    name character varying,
+                                                    value jsonb,
+                                                    created_by integer NOT NULL,
+                                                    deleted_at timestamp without time zone,
+                                                    created_at timestamp without time zone NOT NULL,
+                                                    updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -3448,13 +3448,13 @@ ALTER SEQUENCE public.research_plan_table_schemas_id_seq OWNED BY public.researc
 --
 
 CREATE TABLE public.research_plans (
-    id integer NOT NULL,
-    name character varying NOT NULL,
-    created_by integer NOT NULL,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    body jsonb
+                                       id integer NOT NULL,
+                                       name character varying NOT NULL,
+                                       created_by integer NOT NULL,
+                                       deleted_at timestamp without time zone,
+                                       created_at timestamp without time zone NOT NULL,
+                                       updated_at timestamp without time zone NOT NULL,
+                                       body jsonb
 );
 
 
@@ -3487,12 +3487,12 @@ ALTER SEQUENCE public.research_plans_id_seq OWNED BY public.research_plans.id;
 --
 
 CREATE TABLE public.research_plans_screens (
-    screen_id bigint NOT NULL,
-    research_plan_id bigint NOT NULL,
-    id bigint NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone
+                                               screen_id bigint NOT NULL,
+                                               research_plan_id bigint NOT NULL,
+                                               id bigint NOT NULL,
+                                               created_at timestamp without time zone,
+                                               updated_at timestamp without time zone,
+                                               deleted_at timestamp without time zone
 );
 
 
@@ -3524,12 +3524,12 @@ ALTER SEQUENCE public.research_plans_screens_id_seq OWNED BY public.research_pla
 --
 
 CREATE TABLE public.research_plans_wellplates (
-    research_plan_id bigint NOT NULL,
-    wellplate_id bigint NOT NULL,
-    id bigint NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone
+                                                  research_plan_id bigint NOT NULL,
+                                                  wellplate_id bigint NOT NULL,
+                                                  id bigint NOT NULL,
+                                                  created_at timestamp without time zone,
+                                                  updated_at timestamp without time zone,
+                                                  deleted_at timestamp without time zone
 );
 
 
@@ -3561,12 +3561,12 @@ ALTER SEQUENCE public.research_plans_wellplates_id_seq OWNED BY public.research_
 --
 
 CREATE TABLE public.residues (
-    id integer NOT NULL,
-    sample_id integer,
-    residue_type character varying,
-    custom_info public.hstore,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                 id integer NOT NULL,
+                                 sample_id integer,
+                                 residue_type character varying,
+                                 custom_info public.hstore,
+                                 created_at timestamp without time zone NOT NULL,
+                                 updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -3599,15 +3599,15 @@ ALTER SEQUENCE public.residues_id_seq OWNED BY public.residues.id;
 --
 
 CREATE TABLE public.sample_tasks (
-    id bigint NOT NULL,
-    result_value double precision,
-    result_unit character varying DEFAULT 'g'::character varying NOT NULL,
-    description character varying,
-    creator_id bigint NOT NULL,
-    sample_id bigint,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    required_scan_results integer DEFAULT 1 NOT NULL
+                                     id bigint NOT NULL,
+                                     result_value double precision,
+                                     result_unit character varying DEFAULT 'g'::character varying NOT NULL,
+                                     description character varying,
+                                     creator_id bigint NOT NULL,
+                                     sample_id bigint,
+                                     created_at timestamp without time zone NOT NULL,
+                                     updated_at timestamp without time zone NOT NULL,
+                                     required_scan_results integer DEFAULT 1 NOT NULL
 );
 
 
@@ -3661,14 +3661,14 @@ ALTER SEQUENCE public.samples_id_seq OWNED BY public.samples.id;
 --
 
 CREATE TABLE public.scan_results (
-    id bigint NOT NULL,
-    measurement_value double precision NOT NULL,
-    measurement_unit character varying DEFAULT 'g'::character varying NOT NULL,
-    title character varying,
-    "position" integer DEFAULT 0 NOT NULL,
-    sample_task_id bigint,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+                                     id bigint NOT NULL,
+                                     measurement_value double precision NOT NULL,
+                                     measurement_unit character varying DEFAULT 'g'::character varying NOT NULL,
+                                     title character varying,
+                                     "position" integer DEFAULT 0 NOT NULL,
+                                     sample_task_id bigint,
+                                     created_at timestamp(6) without time zone NOT NULL,
+                                     updated_at timestamp(6) without time zone NOT NULL
 );
 
 
@@ -3700,7 +3700,7 @@ ALTER SEQUENCE public.scan_results_id_seq OWNED BY public.scan_results.id;
 --
 
 CREATE TABLE public.schema_migrations (
-    version character varying NOT NULL
+                                          version character varying NOT NULL
 );
 
 
@@ -3711,12 +3711,12 @@ ALTER TABLE public.schema_migrations OWNER TO postgres;
 --
 
 CREATE TABLE public.scifinder_n_credentials (
-    id bigint NOT NULL,
-    access_token character varying NOT NULL,
-    refresh_token character varying,
-    expires_at timestamp without time zone NOT NULL,
-    created_by integer NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                                id bigint NOT NULL,
+                                                access_token character varying NOT NULL,
+                                                refresh_token character varying,
+                                                expires_at timestamp without time zone NOT NULL,
+                                                created_by integer NOT NULL,
+                                                updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -3748,18 +3748,18 @@ ALTER SEQUENCE public.scifinder_n_credentials_id_seq OWNED BY public.scifinder_n
 --
 
 CREATE TABLE public.screens (
-    id integer NOT NULL,
-    description character varying,
-    name character varying,
-    result character varying,
-    collaborator character varying,
-    conditions character varying,
-    requirements character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    deleted_at timestamp without time zone,
-    component_graph_data jsonb DEFAULT '{}'::jsonb,
-    plain_text_description text
+                                id integer NOT NULL,
+                                description character varying,
+                                name character varying,
+                                result character varying,
+                                collaborator character varying,
+                                conditions character varying,
+                                requirements character varying,
+                                created_at timestamp without time zone NOT NULL,
+                                updated_at timestamp without time zone NOT NULL,
+                                deleted_at timestamp without time zone,
+                                component_graph_data jsonb DEFAULT '{}'::jsonb,
+                                plain_text_description text
 );
 
 
@@ -3792,10 +3792,10 @@ ALTER SEQUENCE public.screens_id_seq OWNED BY public.screens.id;
 --
 
 CREATE TABLE public.screens_wellplates (
-    id integer NOT NULL,
-    screen_id integer,
-    wellplate_id integer,
-    deleted_at timestamp without time zone
+                                           id integer NOT NULL,
+                                           screen_id integer,
+                                           wellplate_id integer,
+                                           deleted_at timestamp without time zone
 );
 
 
@@ -3828,28 +3828,28 @@ ALTER SEQUENCE public.screens_wellplates_id_seq OWNED BY public.screens_wellplat
 --
 
 CREATE TABLE public.segment_klasses (
-    id integer NOT NULL,
-    element_klass_id integer,
-    label character varying NOT NULL,
-    "desc" character varying,
-    properties_template jsonb,
-    is_active boolean DEFAULT true NOT NULL,
-    place integer DEFAULT 100 NOT NULL,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    uuid character varying,
-    properties_release jsonb DEFAULT '{}'::jsonb,
-    released_at timestamp without time zone,
-    identifier character varying,
-    sync_time timestamp without time zone,
-    updated_by integer,
-    released_by integer,
-    sync_by integer,
-    admin_ids jsonb DEFAULT '{}'::jsonb,
-    user_ids jsonb DEFAULT '{}'::jsonb,
-    version character varying
+                                        id integer NOT NULL,
+                                        element_klass_id integer,
+                                        label character varying NOT NULL,
+                                        "desc" character varying,
+                                        properties_template jsonb,
+                                        is_active boolean DEFAULT true NOT NULL,
+                                        place integer DEFAULT 100 NOT NULL,
+                                        created_by integer,
+                                        created_at timestamp without time zone,
+                                        updated_at timestamp without time zone,
+                                        deleted_at timestamp without time zone,
+                                        uuid character varying,
+                                        properties_release jsonb DEFAULT '{}'::jsonb,
+                                        released_at timestamp without time zone,
+                                        identifier character varying,
+                                        sync_time timestamp without time zone,
+                                        updated_by integer,
+                                        released_by integer,
+                                        sync_by integer,
+                                        admin_ids jsonb DEFAULT '{}'::jsonb,
+                                        user_ids jsonb DEFAULT '{}'::jsonb,
+                                        version character varying
 );
 
 
@@ -3882,17 +3882,17 @@ ALTER SEQUENCE public.segment_klasses_id_seq OWNED BY public.segment_klasses.id;
 --
 
 CREATE TABLE public.segment_klasses_revisions (
-    id integer NOT NULL,
-    segment_klass_id integer,
-    uuid character varying,
-    properties_release jsonb DEFAULT '{}'::jsonb,
-    released_at timestamp without time zone,
-    released_by integer,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    version character varying
+                                                  id integer NOT NULL,
+                                                  segment_klass_id integer,
+                                                  uuid character varying,
+                                                  properties_release jsonb DEFAULT '{}'::jsonb,
+                                                  released_at timestamp without time zone,
+                                                  released_by integer,
+                                                  created_by integer,
+                                                  created_at timestamp without time zone,
+                                                  updated_at timestamp without time zone,
+                                                  deleted_at timestamp without time zone,
+                                                  version character varying
 );
 
 
@@ -3925,18 +3925,18 @@ ALTER SEQUENCE public.segment_klasses_revisions_id_seq OWNED BY public.segment_k
 --
 
 CREATE TABLE public.segments (
-    id integer NOT NULL,
-    segment_klass_id integer,
-    element_type character varying,
-    element_id integer,
-    properties jsonb,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    uuid character varying,
-    klass_uuid character varying,
-    properties_release jsonb
+                                 id integer NOT NULL,
+                                 segment_klass_id integer,
+                                 element_type character varying,
+                                 element_id integer,
+                                 properties jsonb,
+                                 created_by integer,
+                                 created_at timestamp without time zone,
+                                 updated_at timestamp without time zone,
+                                 deleted_at timestamp without time zone,
+                                 uuid character varying,
+                                 klass_uuid character varying,
+                                 properties_release jsonb
 );
 
 
@@ -3969,16 +3969,16 @@ ALTER SEQUENCE public.segments_id_seq OWNED BY public.segments.id;
 --
 
 CREATE TABLE public.segments_revisions (
-    id integer NOT NULL,
-    segment_id integer,
-    uuid character varying,
-    klass_uuid character varying,
-    properties jsonb DEFAULT '{}'::jsonb,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    properties_release jsonb
+                                           id integer NOT NULL,
+                                           segment_id integer,
+                                           uuid character varying,
+                                           klass_uuid character varying,
+                                           properties jsonb DEFAULT '{}'::jsonb,
+                                           created_by integer,
+                                           created_at timestamp without time zone,
+                                           updated_at timestamp without time zone,
+                                           deleted_at timestamp without time zone,
+                                           properties_release jsonb
 );
 
 
@@ -4011,11 +4011,11 @@ ALTER SEQUENCE public.segments_revisions_id_seq OWNED BY public.segments_revisio
 --
 
 CREATE TABLE public.subscriptions (
-    id integer NOT NULL,
-    channel_id integer,
-    user_id integer,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                      id integer NOT NULL,
+                                      channel_id integer,
+                                      user_id integer,
+                                      created_at timestamp without time zone NOT NULL,
+                                      updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -4048,22 +4048,22 @@ ALTER SEQUENCE public.subscriptions_id_seq OWNED BY public.subscriptions.id;
 --
 
 CREATE TABLE public.sync_collections_users (
-    id integer NOT NULL,
-    user_id integer,
-    collection_id integer,
-    shared_by_id integer,
-    permission_level integer DEFAULT 0,
-    sample_detail_level integer DEFAULT 0,
-    reaction_detail_level integer DEFAULT 0,
-    wellplate_detail_level integer DEFAULT 0,
-    screen_detail_level integer DEFAULT 0,
-    fake_ancestry character varying,
-    researchplan_detail_level integer DEFAULT 10,
-    label character varying,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    element_detail_level integer DEFAULT 10,
-    celllinesample_detail_level integer DEFAULT 10
+                                               id integer NOT NULL,
+                                               user_id integer,
+                                               collection_id integer,
+                                               shared_by_id integer,
+                                               permission_level integer DEFAULT 0,
+                                               sample_detail_level integer DEFAULT 0,
+                                               reaction_detail_level integer DEFAULT 0,
+                                               wellplate_detail_level integer DEFAULT 0,
+                                               screen_detail_level integer DEFAULT 0,
+                                               fake_ancestry character varying,
+                                               researchplan_detail_level integer DEFAULT 10,
+                                               label character varying,
+                                               created_at timestamp without time zone,
+                                               updated_at timestamp without time zone,
+                                               element_detail_level integer DEFAULT 10,
+                                               celllinesample_detail_level integer DEFAULT 10
 );
 
 
@@ -4096,14 +4096,14 @@ ALTER SEQUENCE public.sync_collections_users_id_seq OWNED BY public.sync_collect
 --
 
 CREATE TABLE public.text_templates (
-    id integer NOT NULL,
-    type character varying,
-    user_id integer NOT NULL,
-    name character varying,
-    data jsonb DEFAULT '{}'::jsonb,
-    deleted_at timestamp without time zone,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
+                                       id integer NOT NULL,
+                                       type character varying,
+                                       user_id integer NOT NULL,
+                                       name character varying,
+                                       data jsonb DEFAULT '{}'::jsonb,
+                                       deleted_at timestamp without time zone,
+                                       created_at timestamp without time zone NOT NULL,
+                                       updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -4136,15 +4136,15 @@ ALTER SEQUENCE public.text_templates_id_seq OWNED BY public.text_templates.id;
 --
 
 CREATE TABLE public.user_affiliations (
-    id integer NOT NULL,
-    user_id integer,
-    affiliation_id integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    "from" date,
-    "to" date,
-    main boolean
+                                          id integer NOT NULL,
+                                          user_id integer,
+                                          affiliation_id integer,
+                                          created_at timestamp without time zone,
+                                          updated_at timestamp without time zone,
+                                          deleted_at timestamp without time zone,
+                                          "from" date,
+                                          "to" date,
+                                          main boolean
 );
 
 
@@ -4177,16 +4177,16 @@ ALTER SEQUENCE public.user_affiliations_id_seq OWNED BY public.user_affiliations
 --
 
 CREATE TABLE public.user_labels (
-    id integer NOT NULL,
-    user_id integer,
-    title character varying NOT NULL,
-    description character varying,
-    color character varying NOT NULL,
-    access_level integer DEFAULT 0,
-    "position" integer DEFAULT 10,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone
+                                    id integer NOT NULL,
+                                    user_id integer,
+                                    title character varying NOT NULL,
+                                    description character varying,
+                                    color character varying NOT NULL,
+                                    access_level integer DEFAULT 0,
+                                    "position" integer DEFAULT 10,
+                                    created_at timestamp without time zone,
+                                    updated_at timestamp without time zone,
+                                    deleted_at timestamp without time zone
 );
 
 
@@ -4219,9 +4219,9 @@ ALTER SEQUENCE public.user_labels_id_seq OWNED BY public.user_labels.id;
 --
 
 CREATE TABLE public.users_admins (
-    id integer NOT NULL,
-    user_id integer,
-    admin_id integer
+                                     id integer NOT NULL,
+                                     user_id integer,
+                                     admin_id integer
 );
 
 
@@ -4254,9 +4254,9 @@ ALTER SEQUENCE public.users_admins_id_seq OWNED BY public.users_admins.id;
 --
 
 CREATE TABLE public.users_devices (
-    id integer NOT NULL,
-    user_id integer,
-    device_id integer
+                                      id integer NOT NULL,
+                                      user_id integer,
+                                      device_id integer
 );
 
 
@@ -4289,9 +4289,9 @@ ALTER SEQUENCE public.users_devices_id_seq OWNED BY public.users_devices.id;
 --
 
 CREATE TABLE public.users_groups (
-    id integer NOT NULL,
-    user_id integer,
-    group_id integer
+                                     id integer NOT NULL,
+                                     user_id integer,
+                                     group_id integer
 );
 
 
@@ -4346,18 +4346,18 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 --
 
 CREATE VIEW public.v_samples_collections AS
- SELECT cols.id AS cols_id,
-    cols.user_id AS cols_user_id,
-    cols.sample_detail_level AS cols_sample_detail_level,
-    cols.wellplate_detail_level AS cols_wellplate_detail_level,
-    cols.shared_by_id AS cols_shared_by_id,
-    cols.is_shared AS cols_is_shared,
-    samples.id AS sams_id,
-    samples.name AS sams_name
-   FROM ((public.collections cols
-     JOIN public.collections_samples col_samples ON (((col_samples.collection_id = cols.id) AND (col_samples.deleted_at IS NULL))))
-     JOIN public.samples ON (((samples.id = col_samples.sample_id) AND (samples.deleted_at IS NULL))))
-  WHERE (cols.deleted_at IS NULL);
+SELECT cols.id AS cols_id,
+       cols.user_id AS cols_user_id,
+       cols.sample_detail_level AS cols_sample_detail_level,
+       cols.wellplate_detail_level AS cols_wellplate_detail_level,
+       cols.shared_by_id AS cols_shared_by_id,
+       cols.is_shared AS cols_is_shared,
+       samples.id AS sams_id,
+       samples.name AS sams_name
+FROM ((public.collections cols
+    JOIN public.collections_samples col_samples ON (((col_samples.collection_id = cols.id) AND (col_samples.deleted_at IS NULL))))
+    JOIN public.samples ON (((samples.id = col_samples.sample_id) AND (samples.deleted_at IS NULL))))
+WHERE (cols.deleted_at IS NULL);
 
 
 ALTER TABLE public.v_samples_collections OWNER TO postgres;
@@ -4367,19 +4367,19 @@ ALTER TABLE public.v_samples_collections OWNER TO postgres;
 --
 
 CREATE TABLE public.vessel_templates (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name character varying,
-    details character varying,
-    material_details character varying,
-    material_type character varying,
-    vessel_type character varying,
-    volume_amount double precision,
-    volume_unit character varying,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    deleted_at timestamp without time zone,
-    weight_amount double precision,
-    weight_unit character varying
+                                         id uuid DEFAULT gen_random_uuid() NOT NULL,
+                                         name character varying,
+                                         details character varying,
+                                         material_details character varying,
+                                         material_type character varying,
+                                         vessel_type character varying,
+                                         volume_amount double precision,
+                                         volume_unit character varying,
+                                         created_at timestamp(6) without time zone NOT NULL,
+                                         updated_at timestamp(6) without time zone NOT NULL,
+                                         deleted_at timestamp without time zone,
+                                         weight_amount double precision,
+                                         weight_unit character varying
 );
 
 
@@ -4390,17 +4390,17 @@ ALTER TABLE public.vessel_templates OWNER TO postgres;
 --
 
 CREATE TABLE public.vessels (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    vessel_template_id uuid,
-    user_id bigint,
-    name character varying,
-    description character varying,
-    short_label character varying,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    deleted_at timestamp without time zone,
-    bar_code character varying,
-    qr_code character varying
+                                id uuid DEFAULT gen_random_uuid() NOT NULL,
+                                vessel_template_id uuid,
+                                user_id bigint,
+                                name character varying,
+                                description character varying,
+                                short_label character varying,
+                                created_at timestamp(6) without time zone NOT NULL,
+                                updated_at timestamp(6) without time zone NOT NULL,
+                                deleted_at timestamp without time zone,
+                                bar_code character varying,
+                                qr_code character varying
 );
 
 
@@ -4411,16 +4411,16 @@ ALTER TABLE public.vessels OWNER TO postgres;
 --
 
 CREATE TABLE public.wellplates (
-    id integer NOT NULL,
-    name character varying,
-    size integer,
-    description character varying,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    deleted_at timestamp without time zone,
-    short_label character varying,
-    readout_titles jsonb DEFAULT '["Readout"]'::jsonb,
-    plain_text_description text
+                                   id integer NOT NULL,
+                                   name character varying,
+                                   size integer,
+                                   description character varying,
+                                   created_at timestamp without time zone NOT NULL,
+                                   updated_at timestamp without time zone NOT NULL,
+                                   deleted_at timestamp without time zone,
+                                   short_label character varying,
+                                   readout_titles jsonb DEFAULT '["Readout"]'::jsonb,
+                                   plain_text_description text
 );
 
 
@@ -4453,18 +4453,18 @@ ALTER SEQUENCE public.wellplates_id_seq OWNED BY public.wellplates.id;
 --
 
 CREATE TABLE public.wells (
-    id integer NOT NULL,
-    sample_id integer,
-    wellplate_id integer NOT NULL,
-    position_x integer,
-    position_y integer,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL,
-    additive character varying,
-    deleted_at timestamp without time zone,
-    readouts jsonb DEFAULT '[{"unit": "", "value": ""}]'::jsonb,
-    label character varying DEFAULT 'Molecular structure'::character varying NOT NULL,
-    color_code character varying
+                              id integer NOT NULL,
+                              sample_id integer,
+                              wellplate_id integer NOT NULL,
+                              position_x integer,
+                              position_y integer,
+                              created_at timestamp without time zone NOT NULL,
+                              updated_at timestamp without time zone NOT NULL,
+                              additive character varying,
+                              deleted_at timestamp without time zone,
+                              readouts jsonb DEFAULT '[{"unit": "", "value": ""}]'::jsonb,
+                              label character varying DEFAULT 'Molecular structure'::character varying NOT NULL,
+                              color_code character varying
 );
 
 
@@ -5271,6 +5271,7 @@ COPY public.collections (id, user_id, ancestry, label, shared_by_id, is_shared, 
 8	7	\N	chemotion-repository.net	\N	f	0	10	10	10	2024-02-16 08:52:48.558915	2024-02-16 08:52:48.558915	1	10	t	\N	f	10	10	{}	10	\N
 9	7	\N	All	\N	f	0	10	10	10	2024-02-16 08:52:48.561313	2024-02-16 08:52:48.561313	0	10	t	\N	f	10	10	{}	10	\N
 10	8	\N	All	\N	f	0	10	10	10	2024-02-16 08:53:15.379007	2024-02-16 08:53:15.379007	0	10	t	\N	f	10	10	{}	10	\N
+11	7	\N	FIXED	\N	f	0	10	10	10	2024-03-21 10:31:23.524241	2024-03-21 10:40:57.388683	1	10	f	\N	f	10	10	{}	10	\N
 \.
 
 
@@ -5291,6 +5292,12 @@ COPY public.collections_elements (id, collection_id, element_id, element_type, d
 2	2	1	\N	\N
 3	4	2	\N	\N
 4	2	2	\N	\N
+5	11	3	\N	\N
+6	9	3	\N	\N
+7	11	4	\N	\N
+8	9	4	\N	\N
+9	11	5	\N	\N
+10	9	5	\N	\N
 \.
 
 
@@ -5384,6 +5391,15 @@ COPY public.container_hierarchies (ancestor_id, descendant_id, generations) FROM
 7	7	0
 6	7	1
 8	8	0
+9	9	0
+10	10	0
+9	10	1
+11	11	0
+12	12	0
+11	12	1
+13	13	0
+14	14	0
+13	14	1
 \.
 
 
@@ -5400,6 +5416,12 @@ COPY public.containers (id, ancestry, containable_id, containable_type, name, co
 7	\N	\N	\N	new	analyses		"report"=>"true"	2024-02-16 08:49:01.378426	2024-02-16 08:49:01.378426	6	\N
 6	\N	2	Labimotion::Element	\N	\N			2024-02-16 08:49:01.352578	2024-02-16 08:49:01.398714	\N	\N
 8	\N	7	User	inbox	root	\N		2024-02-16 09:48:37.45738	2024-02-16 09:48:37.480074	\N	\N
+10	\N	\N	\N	new	analyses		"report"=>"true"	2024-03-21 10:32:02.11686	2024-03-21 10:32:02.11686	9	\N
+9	\N	3	Labimotion::Element	\N	\N			2024-03-21 10:32:02.092653	2024-03-21 10:32:02.138395	\N	\N
+12	\N	\N	\N	new	analyses		"report"=>"true"	2024-03-21 10:41:42.596332	2024-03-21 10:41:42.596332	11	\N
+11	\N	4	Labimotion::Element	\N	\N			2024-03-21 10:41:42.572604	2024-03-21 10:41:42.617244	\N	\N
+14	\N	\N	\N	new	analyses		"report"=>"true"	2024-03-21 12:13:25.314721	2024-03-21 12:13:25.314721	13	\N
+13	\N	5	Labimotion::Element	\N	\N			2024-03-21 12:13:25.292371	2024-03-21 12:13:25.333296	\N	\N
 \.
 
 
@@ -5459,9 +5481,10 @@ COPY public.delayed_jobs (id, priority, attempts, handler, last_error, run_at, l
 4	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: SendWelcomeEmailJob\n  job_id: a1a2ca67-346e-4ce0-9ae5-786f127c54d7\n  provider_job_id: \n  queue_name: send_welcome_email\n  priority: \n  arguments:\n  - 2\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-01-23T15:12:02Z'\n	\N	2024-01-23 15:12:02.389971	\N	\N	\N	send_welcome_email	2024-01-23 15:12:02.390022	2024-01-23 15:12:02.390022	\N
 8	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemSingleLcssJob\n  job_id: 3dd6a363-e183-4f24-8451-b789ed6149c1\n  provider_job_id: \n  queue_name: single_pubchem_lcss\n  priority: \n  arguments:\n  - _aj_globalid: gid://chemotion/Molecule/1\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-01-23T15:17:17Z'\n	\N	2024-01-23 15:17:17.554768	\N	\N	\N	single_pubchem_lcss	2024-01-23 15:17:17.554811	2024-01-23 15:17:17.554811	\N
 57	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: SendWelcomeEmailJob\n  job_id: bb57340f-7049-4579-975a-e409e29a9a2e\n  provider_job_id: \n  queue_name: send_welcome_email\n  priority: \n  arguments:\n  - 7\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-02-16T08:52:48Z'\n	\N	2024-02-16 08:52:48.633409	\N	\N	\N	send_welcome_email	2024-02-16 08:52:48.633441	2024-02-16 08:52:48.633441	\N
-61	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemCidJob\n  job_id: 6aea0a4a-51fa-48db-b925-b5f7f9c70b49\n  provider_job_id: \n  queue_name: pubchem\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-02-16T09:48:27Z'\n	\N	2024-02-16 09:48:27.571841	\N	\N	\N	pubchem	2024-02-16 09:48:27.571873	2024-02-16 09:48:27.571873	3 1 * * 6
-62	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemLcssJob\n  job_id: e79f02ea-1a78-46c5-9c39-07c78c458824\n  provider_job_id: \n  queue_name: pubchemLcss\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-02-16T09:48:27Z'\n	\N	2024-02-16 09:48:27.579908	\N	\N	\N	pubchemLcss	2024-02-16 09:48:27.57993	2024-02-16 09:48:27.57993	30 7 * * 7
-63	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: RefreshElementTagJob\n  job_id: c6cfc1c2-bb81-435b-8e27-c348786a9ed3\n  provider_job_id: \n  queue_name: refresh_element_tag\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-02-16T09:48:27Z'\n	\N	2024-02-16 09:48:27.587294	\N	\N	\N	refresh_element_tag	2024-02-16 09:48:27.587314	2024-02-16 09:48:27.587314	15 22 * * 7
+88	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: CollectDataFromMailJob\n  job_id: 1eb05d15-bc7f-4fb8-b504-455414c74953\n  provider_job_id: \n  queue_name: collect_data\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-03-21T12:12:49Z'\n	\N	2024-03-21 12:12:49.611207	\N	\N	\N	collect_data	2024-03-21 12:12:49.611243	2024-03-21 12:12:49.611243	0/1 * * * *
+89	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemCidJob\n  job_id: c57d0d82-bc39-4dcf-bdef-b57bb2799459\n  provider_job_id: \n  queue_name: pubchem\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-03-21T12:12:49Z'\n	\N	2024-03-21 12:12:49.619314	\N	\N	\N	pubchem	2024-03-21 12:12:49.619337	2024-03-21 12:12:49.619337	6 13 * * 7
+90	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemLcssJob\n  job_id: 4457c777-57ca-4cd7-90f3-3ec438dc20a4\n  provider_job_id: \n  queue_name: pubchemLcss\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-03-21T12:12:49Z'\n	\N	2024-03-21 12:12:49.627006	\N	\N	\N	pubchemLcss	2024-03-21 12:12:49.627033	2024-03-21 12:12:49.627033	52 14 * * 7
+91	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: RefreshElementTagJob\n  job_id: 7c814f37-6046-489f-88a9-495053834368\n  provider_job_id: \n  queue_name: refresh_element_tag\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-03-21T12:12:49Z'\n	\N	2024-03-21 12:12:49.634822	\N	\N	\N	refresh_element_tag	2024-03-21 12:12:49.634844	2024-03-21 12:12:49.634844	53 21 * * 6
 \.
 
 
@@ -5485,6 +5508,7 @@ COPY public.element_klasses (id, name, label, "desc", icon_name, is_active, klas
 4	wellplate	Wellplate	ELN Wellplate	icon-wellplate	t		f	3	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "85e19d00-7d22-4310-911c-ba17f234992e", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.352871	2024-01-23 13:44:01.730194	\N	85e19d00-7d22-4310-911c-ba17f234992e	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "85e19d00-7d22-4310-911c-ba17f234992e", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.73005	\N	\N	\N	\N	\N	{}	{}	\N
 5	screen	Screen	ELN Screen	icon-screen	t		f	4	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "6e8c7739-908b-4026-a38c-eee668384baf", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.357755	2024-01-23 13:44:01.735334	\N	6e8c7739-908b-4026-a38c-eee668384baf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "6e8c7739-908b-4026-a38c-eee668384baf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.735182	\N	\N	\N	\N	\N	{}	{}	\N
 7	try	Tryout		fa fa-check-square	t	T	t	100	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2	2024-01-24 07:02:39.227237	2024-02-16 08:48:17.518719	\N	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2024-02-16 08:48:17.518249	\N	\N	2	2	\N	{}	{}	2.0
+8	wrk	Workflow		fa fa-sort-amount-asc	t	WRK	t	100	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	7	2024-03-20 11:27:36.257767	2024-03-21 10:38:44.894667	\N	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	2024-03-21 10:38:44.892811	\N	\N	7	7	\N	{}	{}	2.0
 \.
 
 
@@ -5503,6 +5527,9 @@ COPY public.element_klasses_revisions (id, element_klass_id, uuid, properties_re
 8	7	30e78480-dfa1-4e62-8260-8e7896ec7cad	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-01-24 07:03:05.11925	2	\N	2024-01-24 07:03:05.126699	2024-01-24 07:03:05.126699	\N	1.0
 9	7	e53fa6b1-4ff8-4798-b7cb-799cd7048340	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "e53fa6b1-4ff8-4798-b7cb-799cd7048340", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.1", "identifier": null, "select_options": {}}	2024-02-16 08:48:13.380617	2	\N	2024-02-16 08:48:13.389489	2024-02-16 08:48:13.389489	\N	1.1
 10	7	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2024-02-16 08:48:17.518249	2	\N	2024-02-16 08:48:17.527177	2024-02-16 08:48:17.527177	\N	2.0
+11	8	27604871-84ad-4c55-80a0-5698118c9ef1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.4"}, "uuid": "27604871-84ad-4c55-80a0-5698118c9ef1", "klass": "ElementKlass", "layers": {}, "select_options": {}}	2024-03-20 11:27:36.266044	7	\N	2024-03-20 11:27:36.281682	2024-03-20 11:27:36.281682	\N	\N
+12	8	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}	2024-03-20 11:30:11.226838	7	\N	2024-03-20 11:30:11.242658	2024-03-20 11:30:11.242658	\N	1.0
+13	8	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	2024-03-21 10:38:44.892811	7	\N	2024-03-21 10:38:44.936366	2024-03-21 10:38:44.936366	\N	2.0
 \.
 
 
@@ -5515,6 +5542,9 @@ COPY public.element_tags (id, taggable_type, taggable_id, taggable_data, created
 2	Sample	1	{"collection_labels": [{"id": 4, "name": "TEST 1", "user_id": 2, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-01-23 15:17:46.432546	2024-01-23 15:17:46.432546
 3	Labimotion::Element	1	{"collection_labels": [{"id": 4, "name": "TEST 1", "user_id": 2, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-01-24 08:17:12.533055	2024-01-24 08:17:12.533055
 4	Labimotion::Element	2	{"collection_labels": [{"id": 4, "name": "TEST 1", "user_id": 2, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-02-16 08:49:01.289356	2024-02-16 08:49:01.289356
+5	Labimotion::Element	3	{"collection_labels": [{"id": 11, "name": "API_TEST_a3a7c777-6924-4ab2-a1b3-18c959051931", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 10:32:02.045545	2024-03-21 10:32:02.045545
+6	Labimotion::Element	4	{"collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 10:41:42.526193	2024-03-21 10:41:42.526193
+7	Labimotion::Element	5	{"collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 12:13:25.247046	2024-03-21 12:13:25.247046
 \.
 
 
@@ -5535,6 +5565,9 @@ COPY public.elemental_compositions (id, sample_id, composition_type, data, loadi
 COPY public.elements (id, name, element_klass_id, short_label, properties, created_by, created_at, updated_at, deleted_at, uuid, klass_uuid, properties_release) FROM stdin;
 1	New Tryout	7	MSU-T1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "face37f2-4760-4197-9d10-114d78264448", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "klass_uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad"}	2	2024-01-24 08:17:12.523778	2024-01-24 08:17:12.523778	\N	face37f2-4760-4197-9d10-114d78264448	30e78480-dfa1-4e62-8260-8e7896ec7cad	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}
 2	New Tryout	7	MSU-T2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "08eaf995-65ad-4f33-90e1-2f552a740ffa", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "value": "HALLO", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "klass_uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6"}	2	2024-02-16 08:49:01.282633	2024-02-16 08:49:01.282633	\N	08eaf995-65ad-4f33-90e1-2f552a740ffa	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}
+3	New Workflow	8	API-WRK1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "bbedce98-ca37-48da-999c-1b020b3772f5", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "72d43a4c-dfca-4675-be87-ac294835412d", "position": 10, "timeRecord": "", "wf_position": 1}}, "version": "1.0", "identifier": null, "klass_uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6"}	7	2024-03-21 10:32:02.030721	2024-03-21 10:32:02.030721	\N	bbedce98-ca37-48da-999c-1b020b3772f5	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}
+4	New Workflow	8	API-WRK2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "85006e6b-5990-4324-bbac-5d069cd31150", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "d7c31a6d-f2d5-453b-9b90-2b0ea03b24e0", "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"ai": [], "wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_info": {"node_id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "source_layer": "three"}, "position": 40, "timeRecord": "", "wf_position": 2}, "four": {"ai": [], "wf": false, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_uuid": null, "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "f1fb38f9-5e28-48a1-b5de-3fce70ef7a18", "position": 40, "timeRecord": "", "wf_position": 1}, "three.1": {"ai": [], "wf": true, "key": "three.1", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "source_layer": "one"}, "position": 20, "timeRecord": "", "wf_position": 2}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 10:41:42.513557	2024-03-21 10:41:42.513557	\N	85006e6b-5990-4324-bbac-5d069cd31150	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}
+5	New Workflow	8	API-WRK3	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "4b23e4ca-9994-4b85-aadb-062bf15e9af2", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "389460bf-1f80-40c6-ab6b-32e1ed58435d", "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "3767b63b-5a94-4564-9eb3-275c1a94231c", "position": 40, "timeRecord": "", "wf_position": 1}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 12:13:25.234452	2024-03-21 12:13:25.234452	\N	4b23e4ca-9994-4b85-aadb-062bf15e9af2	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}
 \.
 
 
@@ -5553,6 +5586,9 @@ COPY public.elements_elements (id, element_id, parent_id, created_by, created_at
 COPY public.elements_revisions (id, element_id, uuid, klass_uuid, name, properties, created_by, created_at, updated_at, deleted_at, properties_release) FROM stdin;
 1	1	face37f2-4760-4197-9d10-114d78264448	30e78480-dfa1-4e62-8260-8e7896ec7cad	New Tryout	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "face37f2-4760-4197-9d10-114d78264448", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "klass_uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad"}	\N	2024-01-24 08:17:12.645707	2024-01-24 08:17:12.645707	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}
 2	2	08eaf995-65ad-4f33-90e1-2f552a740ffa	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	New Tryout	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "08eaf995-65ad-4f33-90e1-2f552a740ffa", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "value": "HALLO", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "klass_uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6"}	\N	2024-02-16 08:49:01.416848	2024-02-16 08:49:01.416848	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}
+3	3	bbedce98-ca37-48da-999c-1b020b3772f5	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "bbedce98-ca37-48da-999c-1b020b3772f5", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "72d43a4c-dfca-4675-be87-ac294835412d", "position": 10, "timeRecord": "", "wf_position": 1}}, "version": "1.0", "identifier": null, "klass_uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6"}	\N	2024-03-21 10:32:02.156786	2024-03-21 10:32:02.156786	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}
+4	4	85006e6b-5990-4324-bbac-5d069cd31150	078843ad-4de4-40b0-bca8-136a06459f50	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "85006e6b-5990-4324-bbac-5d069cd31150", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "d7c31a6d-f2d5-453b-9b90-2b0ea03b24e0", "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"ai": [], "wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_info": {"node_id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "source_layer": "three"}, "position": 40, "timeRecord": "", "wf_position": 2}, "four": {"ai": [], "wf": false, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_uuid": null, "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "f1fb38f9-5e28-48a1-b5de-3fce70ef7a18", "position": 40, "timeRecord": "", "wf_position": 1}, "three.1": {"ai": [], "wf": true, "key": "three.1", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "source_layer": "one"}, "position": 20, "timeRecord": "", "wf_position": 2}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	\N	2024-03-21 10:41:42.638735	2024-03-21 10:41:42.638735	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}
+5	5	4b23e4ca-9994-4b85-aadb-062bf15e9af2	078843ad-4de4-40b0-bca8-136a06459f50	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "4b23e4ca-9994-4b85-aadb-062bf15e9af2", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "389460bf-1f80-40c6-ab6b-32e1ed58435d", "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "3767b63b-5a94-4564-9eb3-275c1a94231c", "position": 40, "timeRecord": "", "wf_position": 1}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	\N	2024-03-21 12:13:25.354497	2024-03-21 12:13:25.354497	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}
 \.
 
 
@@ -5743,6 +5779,9 @@ COPY public.pg_search_documents (id, content, searchable_type, searchable_id, cr
 1	 MSU-1  H3N azane InChI=1S/H3N/h1H3 QGZKDVFQNNGYKY-UHFFFAOYSA-N N 	Sample	1	2024-01-23 15:17:46.459018	2024-01-23 15:17:46.459018
 2	New Tryout MSU-T1	Labimotion::Element	1	2024-01-24 08:17:12.553358	2024-01-24 08:17:12.553358
 3	New Tryout MSU-T2	Labimotion::Element	2	2024-02-16 08:49:01.338016	2024-02-16 08:49:01.338016
+4	New Workflow API-WRK1	Labimotion::Element	3	2024-03-21 10:32:02.072924	2024-03-21 10:32:02.072924
+5	New Workflow API-WRK2	Labimotion::Element	4	2024-03-21 10:41:42.5524	2024-03-21 10:41:42.5524
+6	New Workflow API-WRK3	Labimotion::Element	5	2024-03-21 12:13:25.273091	2024-03-21 12:13:25.273091
 \.
 
 
@@ -5773,7 +5812,7 @@ COPY public.profiles (id, show_external_name, user_id, deleted_at, created_at, u
 4	f	5	\N	2024-02-16 08:50:38.515631	2024-02-16 08:50:38.515631	{}	2	f	f
 5	f	6	\N	2024-02-16 08:51:22.3029	2024-02-16 08:51:22.3029	{}	2	f	f
 7	f	8	\N	2024-02-16 08:53:15.389988	2024-02-16 08:53:15.389988	{}	2	f	f
-6	f	7	\N	2024-02-16 08:52:48.565375	2024-02-16 08:53:40.930084	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"sample": 1, "screen": 4, "reaction": 2, "cell_line": -1000, "wellplate": 3, "research_plan": 5}, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": true, "is_templates_moderator": true}	2	f	f
+6	f	7	\N	2024-02-16 08:52:48.565375	2024-03-21 12:13:12.53115	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": -2, "wrk": 1, "sample": 2, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6}, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": true, "layout_detail_sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": true, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f
 \.
 
 
@@ -6242,6 +6281,7 @@ COPY public.schema_migrations (version) FROM stdin;
 20231219152154
 20231219162631
 20240129134421
+20240320122428
 \.
 
 
@@ -6438,8 +6478,8 @@ COPY public.users (id, email, encrypted_password, reset_password_token, reset_pa
 4	m.staran@live.com	$2a$10$83ZsXImGxdzkGSvoRF1C7uCc5R8pmpWMW9Wa0Q7sZpK/wI6TJuCBG	\N	\N	\N	4	2024-02-16 08:50:01.890402	2024-01-24 07:05:40.449547	127.0.0.1	127.0.0.1	2024-01-24 07:01:45.775235	2024-02-16 08:50:01.890641	\N	Martin	Starman	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	MSA	Admin	R	ix5afEaByUe6Ccs4QWMS	2024-01-24 07:01:45.775487	2024-01-24 07:01:45.775465	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
 5	td@kit.edu	$2a$10$H6mlnZXkBajzFg2cUabuRe.Rfinxjh8niL1XVPD5sSrXWhvAUb2cG	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:50:38.507891	2024-02-16 08:50:38.507891	\N	Test Device 1	T.D	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	TD	Device	R	WZLhgByxwfLrutY8W6Zc	\N	2024-02-16 08:50:38.508079	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	480	\N	f
 6	ad@git.edu	$2a$10$kyAy3TkHHh4qi.Iyf8eOzuRDGwy4unwo4rHk2O/BQXD5gKjCz85KW	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:51:22.295244	2024-02-16 08:51:24.672829	\N	Admin Device 2	A.Device	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	AD	Device	R	Z4mD5X27fx6n7i6qfbSH	\N	2024-02-16 08:51:22.295298	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	480	\N	t
-7	api@kit.edu	$2a$10$XJAIhBoWNwxvqOIAoXWZiO6/kcy3e2ZTrhWEbwhYn6Rs4wR7D95Ma	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:52:48.555419	2024-02-16 08:52:48.555419	\N	API	User	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	API	Person	R	4yRJG5yc33Gq6qpjr-p3	2024-02-16 08:52:48.555698	2024-02-16 08:52:48.555671	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
 8	admin@kit.edu	$2a$10$RaQTg0SutLSH5UR0ImRpZuXmFwLgqsU/WMXMqTO7aJfpz9h4UCAgu	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:53:15.375483	2024-02-16 08:53:44.605317	\N	Admin	User	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADI	Admin	R	iAfqy7KWJsZTX51WtYbF	2024-02-16 08:53:15.37572	2024-02-16 08:53:15.375696	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
+7	api@kit.edu	$2a$10$XJAIhBoWNwxvqOIAoXWZiO6/kcy3e2ZTrhWEbwhYn6Rs4wR7D95Ma	\N	\N	\N	1	2024-03-21 10:40:11.053361	2024-03-21 10:40:11.053361	127.0.0.1	127.0.0.1	2024-02-16 08:52:48.555419	2024-03-21 12:13:25.259028	\N	API	User	\N	"wrk"=>"3", "samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	API	Person	R	4yRJG5yc33Gq6qpjr-p3	2024-02-16 08:52:48.555698	2024-02-16 08:52:48.555671	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
 \.
 
 
@@ -6580,14 +6620,14 @@ SELECT pg_catalog.setval('public.collections_celllines_id_seq', 1, false);
 -- Name: collections_elements_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.collections_elements_id_seq', 4, true);
+SELECT pg_catalog.setval('public.collections_elements_id_seq', 10, true);
 
 
 --
 -- Name: collections_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.collections_id_seq', 10, true);
+SELECT pg_catalog.setval('public.collections_id_seq', 11, true);
 
 
 --
@@ -6650,7 +6690,7 @@ SELECT pg_catalog.setval('public.computed_props_id_seq', 1, false);
 -- Name: containers_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.containers_id_seq', 8, true);
+SELECT pg_catalog.setval('public.containers_id_seq', 14, true);
 
 
 --
@@ -6685,7 +6725,7 @@ SELECT pg_catalog.setval('public.datasets_revisions_id_seq', 1, false);
 -- Name: delayed_jobs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.delayed_jobs_id_seq', 63, true);
+SELECT pg_catalog.setval('public.delayed_jobs_id_seq', 91, true);
 
 
 --
@@ -6699,21 +6739,21 @@ SELECT pg_catalog.setval('public.device_metadata_id_seq', 1, false);
 -- Name: element_klasses_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.element_klasses_id_seq', 7, true);
+SELECT pg_catalog.setval('public.element_klasses_id_seq', 8, true);
 
 
 --
 -- Name: element_klasses_revisions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.element_klasses_revisions_id_seq', 10, true);
+SELECT pg_catalog.setval('public.element_klasses_revisions_id_seq', 13, true);
 
 
 --
 -- Name: element_tags_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.element_tags_id_seq', 4, true);
+SELECT pg_catalog.setval('public.element_tags_id_seq', 7, true);
 
 
 --
@@ -6734,14 +6774,14 @@ SELECT pg_catalog.setval('public.elements_elements_id_seq', 1, false);
 -- Name: elements_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.elements_id_seq', 2, true);
+SELECT pg_catalog.setval('public.elements_id_seq', 5, true);
 
 
 --
 -- Name: elements_revisions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.elements_revisions_id_seq', 2, true);
+SELECT pg_catalog.setval('public.elements_revisions_id_seq', 5, true);
 
 
 --
@@ -6888,7 +6928,7 @@ SELECT pg_catalog.setval('public.ols_terms_id_seq', 1, false);
 -- Name: pg_search_documents_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.pg_search_documents_id_seq', 3, true);
+SELECT pg_catalog.setval('public.pg_search_documents_id_seq', 6, true);
 
 
 --

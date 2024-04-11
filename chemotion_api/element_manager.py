@@ -1,3 +1,4 @@
+import copy
 import json
 import uuid
 
@@ -78,6 +79,12 @@ class ElementManager:
         else:
             res = self._session.get('api/v1/generic_elements/klass.json', params={'name': type_name})
             klass_obj = res.json().get('klass')
+            properties_release = copy.deepcopy(klass_obj['properties_release'])
+            for key, layer in klass_obj['properties_release']['layers'].items():
+                if not layer['wf']:
+                    properties_release['layers'][key]['ai'] = []
+                else:
+                    del properties_release['layers'][key]
             data = {
                     "type": type_name,
                     "is_new": True,
@@ -86,7 +93,7 @@ class ElementManager:
                     "klassType": "GenericEl",
                     "element_klass": klass_obj,
                     "element_klass_id": klass_obj['id'],
-                    "properties": klass_obj['properties_release'],
+                    "properties": properties_release,
                     "properties_release": klass_obj['properties_release'],
                     "attachments": [],
                     "files": [],
@@ -100,7 +107,6 @@ class ElementManager:
         data['collection_id'] = collection_id
         data['short_label'] = self._get_short_label(type_name)
         data['segments'] = []
-        data['is_new'] = True
         return data
 
     def build_solvent_sample(self, name, collection_id):

@@ -90,6 +90,8 @@ class ResearchPlan(AbstractElement):
                         id=value.get('reaction_id'), element_type='reaction')
 
     def _parse_text(self, value):
+        if isinstance(value, str):
+            return value
         return value.get('ops')
 
     def _parse_image(self, value):

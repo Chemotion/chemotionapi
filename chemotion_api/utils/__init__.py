@@ -1,11 +1,12 @@
 import uuid
+from collections import OrderedDict
 
 
 def add_to_dict(obj: dict, key: str, val: any) -> str:
     origen_key = key
-    idx = 0
+    idx = 1
     while key in obj and obj[key] is not None:
-        key = "{}({})".format(origen_key, idx)
+        key = "{}.{}".format(origen_key, idx)
         idx += 1
 
     obj[key] = val
@@ -40,16 +41,17 @@ def parse_generic_field(field: dict) -> dict[str, any]:
     return {'values': field.get('value'), 'obj_mapping': field.get('id', field.get('field'))}
 
 
-def parse_generic_layer(layer: dict) -> dict[str, dict]:
+def parse_generic_layer(key: str, layer: dict) -> dict[str, dict]:
     temp_layer = {}
-    temp_id_layer = {'__key': layer.get('key')}
+    temp_id_layer = {'__key': key}
     fields = layer.get('fields', [])
     fields.sort(key=lambda x: x.get('position'))
     for field in fields:
-        temp_field = parse_generic_field(field)
-        field_name = field.get('label') if len(field.get('label')) > 0 else field.get('field')
-        key = add_to_dict(temp_layer, field_name, temp_field.get('values'))
-        temp_id_layer[key] = temp_field.get('obj_mapping')
+        if field.get('type') != 'wf-next':
+            temp_field = parse_generic_field(field)
+            field_name = field.get('label') if len(field.get('label')) > 0 else field.get('field')
+            key = add_to_dict(temp_layer, field_name, temp_field.get('values'))
+            temp_id_layer[key] = temp_field.get('obj_mapping')
 
     return {'values': temp_layer, 'obj_mapping': temp_id_layer}
 
@@ -57,14 +59,17 @@ def parse_generic_layer(layer: dict) -> dict[str, dict]:
 def parse_generic_object_json(segment_json_data: dict) -> dict:
     temp_segment = {}
     temp_id_segment = {'__id': segment_json_data.get('id')}
-    layers = list(segment_json_data.get('properties', {}).get('layers', {}).values())
-    layers.sort(key=lambda x: x.get('position'))
-    for layer in layers:
-        temp_layer = parse_generic_layer(layer)
-        layer_name = layer.get('label') if len(layer.get('label')) > 0 else layer.get('key')
-        key = add_to_dict(temp_segment, layer_name, temp_layer.get('values'))
-        temp_id_segment[key] = temp_layer.get('obj_mapping')
+    layers = OrderedDict(sorted(segment_json_data.get('properties', {}).get('layers', {}).items(), key=lambda x: x[1].get('position')))
+    for key, layer in layers.items():
+        parse_generic_object_layer_json(key, layer, temp_segment, temp_id_segment)
     return {'values': temp_segment, 'obj_mapping': temp_id_segment}
+
+
+def parse_generic_object_layer_json(key, layer, values, obj_mapping):
+    temp_layer = parse_generic_layer(key, layer)
+    layer_name = layer.get('label') if len(layer.get('label')) > 0 else layer.get('key')
+    key = add_to_dict(values, layer_name, temp_layer.get('values'))
+    obj_mapping[key] = temp_layer.get('obj_mapping')
 
 
 def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str = None) -> dict[str, any]:
