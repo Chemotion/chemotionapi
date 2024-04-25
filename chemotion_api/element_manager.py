@@ -36,16 +36,20 @@ class ElementManager:
         all_classes = {}
         for x in res.json()['klass']:
             all_classes[x['name']] = x
+        all_classes['generic_element'] = {
+            'is_generic': True,
+            'name': 'generic_element',
+            'label': 'generic_element'
+        }
+
         return all_classes
 
     def _init_container(self):
         return init_container()
 
-
     def _get_user(self):
         u = User.load_me(self._session)
         return u
-
 
     def _get_short_label(self, type_name):
         u = self._get_user()
@@ -86,22 +90,18 @@ class ElementManager:
                 else:
                     del properties_release['layers'][key]
             data = {
-                    "type": type_name,
-                    "is_new": True,
-                    "name": f"New {klass_obj['label']}",
-                    "can_copy": True,
-                    "klassType": "GenericEl",
-                    "element_klass": klass_obj,
-                    "element_klass_id": klass_obj['id'],
-                    "properties": properties_release,
-                    "properties_release": klass_obj['properties_release'],
-                    "attachments": [],
-                    "files": [],
+                "type": type_name,
+                "is_new": True,
+                "name": f"New {klass_obj['label']}",
+                "can_copy": True,
+                "klassType": "GenericEl",
+                "element_klass": klass_obj,
+                "element_klass_id": klass_obj['id'],
+                "properties": properties_release,
+                "properties_release": klass_obj['properties_release'],
+                "attachments": [],
+                "files": [],
             }
-
-
-
-
 
         data['container'] = self._init_container()
         data['collection_id'] = collection_id
@@ -112,7 +112,9 @@ class ElementManager:
     def build_solvent_sample(self, name, collection_id):
         solvent_info = self.get_solvent_list().get(name)
         if solvent_info is None:
-            raise KeyError('Solver: "{}" is not available. Run instance.get_solvent_list() to see all valid solver names'.format(name))
+            raise KeyError(
+                'Solver: "{}" is not available. Run instance.get_solvent_list() to see all valid solver names'.format(
+                    name))
         sample_data = self.build_new('sample', collection_id)
 
         mol = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'])

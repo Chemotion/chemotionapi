@@ -32,6 +32,8 @@ class Workflow:
         return start
 
     def _parse_wf(self):
+        if self.nodes is None:
+            return {}
         current_node = next(x for x in self.nodes if x['id'] == '1')
         start = self._parse_wf_reg(current_node)
         return start['next']

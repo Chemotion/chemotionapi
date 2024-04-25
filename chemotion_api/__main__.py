@@ -63,14 +63,14 @@ def cli():
     pass
 
 
-@cli.command("Fetch all available Version of Chemotion")
+@cli.command(help="Fetch all available Version of Chemotion")
 @add_options()
 def available_versions():
     a = InstanceManager.get_versions()
     click.echo('\n'.join(a))
 
 
-@cli.command("Check all running containers")
+@cli.command(help="Check all running containers")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @add_options()
@@ -79,7 +79,7 @@ def check(docker_compose_path):
     InstanceManager(df).check()
 
 
-@cli.command("Same as docker-compose up <services>")
+@cli.command(help="Same as docker-compose up <services>")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @add_options()
@@ -96,7 +96,7 @@ def up(docker_compose_path, services):
     click.echo('Docker-compose is up!')
 
 
-@cli.command("Same as docker-compose stop <services>")
+@cli.command(help="Same as docker-compose stop <services>")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @add_options()
@@ -113,7 +113,7 @@ def stop(docker_compose_path, services):
     click.echo('Docker-compose is stoped!')
 
 
-@cli.command("Same as docker-compose down <services>")
+@cli.command(help="Same as docker-compose down <services>")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @add_options()
@@ -130,7 +130,7 @@ def down(docker_compose_path, services):
     click.echo('Docker-compose is down!')
 
 
-@cli.command("Create a new docker-compose file and all needed basic setting for a new chemotion instance.")
+@cli.command(help="Create a new docker-compose file and all needed basic setting for a new chemotion instance.")
 @click.option('--ignore_exist', is_flag=True,
               help='If set it will not raise an error in case the target folder is not empty.', default=False)
 @click.option('--docker_compose_path', '-df', prompt='Your name',

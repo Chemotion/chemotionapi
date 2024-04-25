@@ -3,6 +3,8 @@ import json
 import requests
 from dateutil.parser import parse as parsedate
 
+from chemotion_api.schema_manager import SchemaManager
+
 
 class Connection(requests.Session):
     def __init__(self, host_url: str, verify_ssl: bool = True):
@@ -11,6 +13,15 @@ class Connection(requests.Session):
         self._verify = verify_ssl
         self._bearer_token = None
         self.tzinfo = None
+        self._schema_manager = None
+
+    @property
+    def schema_manager(self) -> SchemaManager:
+        if self._schema_manager is None:
+            res = self.get('/about')
+            self._schema_manager = SchemaManager(res)
+        return self._schema_manager
+
 
     def reset_bearer_token(self):
         self._bearer_token = None

@@ -22,6 +22,9 @@ def test_new_generics(instance_with_collection):
     with pytest.raises(ValueError) as e:
         instance.get_generic_by_label('NO VALID LABEL', 1)
 
+    test = instance.get_json_ld_id(a1.json_ld['@id'])
+    assert test.json_ld == a1.json_ld
+
 def test_table_generics(instance_with_collection):
     instance: Instance = instance_with_collection['instance']
     col = instance_with_collection['main_collection']

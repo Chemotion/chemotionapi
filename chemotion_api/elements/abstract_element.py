@@ -146,11 +146,15 @@ class AbstractElement:
             self.load()
         else:
             raise ValueError("Either 'json_data' or 'id' and 'element_type' must be provided during initialization")
+        schema_version = self.json_data.get('element_klass', {}).get('version', '')
+        self.json_ld = {
+            '@id': f"{self._session._host_url}{self.get_url(self.element_type)}/{self.id}.json" if self.id is not None else uuid.uuid4().__str__(),
+            '@type': self._session.schema_manager.generate_model_type(self.element_type, schema_version)
+        }
 
     def load(self):
-
         payload = {}
-        res = self._session.get("{}/{}.json".format(self.__class__.get_url(self.element_type), self.id),
+        res = self._session.get(f"{self.__class__.get_url(self.element_type)}/{self.id}.json",
                                 data=payload)
         if res.status_code != 200:
             raise RequestException("{} -> {}".format(res.status_code, res.text))

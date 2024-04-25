@@ -33,6 +33,8 @@ def test_new_sample_success(instance_with_collection):
     assert sample_a.properties['solvent'][0]['label'] == 'borane'
     assert sample_a.properties['solvent'][1]['smiles'] == '[2H]C(Cl)(Cl)Cl'
 
+    test = logged_in_instance.get_json_ld_id(sample_a.json_ld['@id'])
+    assert test.json_ld == sample_a.json_ld
 
 def test_new_sample_decupled_success(instance_with_collection):
     m_col = instance_with_collection['main_collection']

@@ -6,8 +6,9 @@ from chemotion_api.collection import RootCollection
 from chemotion_api.element_manager import ElementManager
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
 from requests.exceptions import ConnectionError
-
-from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan
+from urllib.parse import urlparse
+from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
+    AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection
 
@@ -241,6 +242,18 @@ class Instance:
             if elem['label'] == label:
                 return self.get_generic_by_name(elem_name, id)
         raise ValueError(f'Could not find a generic element with the label: "{label}"')
+
+    def get_json_ld_id(self, id: str) -> AbstractElement:
+        o = urlparse(id)
+        if not self._con.host_url.startswith(f'{o.scheme}://{o.hostname}'):
+            raise ValueError('Host dose not fit!')
+        path_array = o.path.split('/')
+        elem = self.all_element_classes.get(path_array[-2][:-1])
+        if elem is None:
+            raise ValueError(f'Could not find a generic element under the name: "{path_array[-2]}"')
+        e = ElementSet(self._con, elem)
+        return e.load_element(int(path_array[-1][:-5]))
+
 
     def molecule(self):
         return MoleculeManager(self._con)

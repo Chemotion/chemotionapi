@@ -2,14 +2,6 @@
 
 | PLEASE NOTICE: This version is far from beeing ready. |
 |-------------------------------------------------------|
-## Open ToDos
-<ul> 
-<li>The generic elements section is not implemented </li>
-<li>The research plan section is not implemented </li>
-<li>The admin functions are not implemented </li>
-<li>Create dataset function is not implemented </li>
-<li>Share and Sync functions are not implemented </li>
-</ul> 
 
 A python api for [Chemotion](https://chemotion.net/). Chemotion is a Electronic Laboratory Notebook (ELN) developed at
 the KIT is a web-based platform designed to help researchers manage and organize their experimental data in a secure and
@@ -23,7 +15,7 @@ workflows that leverage the ELN's capabilities and streamline their research pro
 
 # Installation
 
-At the moment this package has not been daploayed to **PyPI**.To install, simply clone the package to a directory of
+To install it from the Repo, simply clone the package to a directory of
 your choice:
 
 ```shell
