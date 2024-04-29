@@ -31,8 +31,30 @@ class ElementSet(list):
             raise TypeError("Length cant be predicted if you use IRI typs")
 
     def __getitem__(self, item):
+        if isinstance(item, slice):
+            start = item.start if item.start is not None else 0
+            last = item.stop - start
+            if last < 0 or item.stop < 0 or start < 0:
+                raise TypeError(f"Negative index is not supported")
+            per_page =  self._per_page
+            if item.start is not None:
+                self._per_page = start
+                start_page = 2
+            else:
+                self._per_page = min(10, last)
+                start_page = 1
+            res_list = []
+            for x in self.iter_elements(start_page):
+                res_list.append(x)
+                if(len(res_list) == last):
+                    break
+            self._per_page = per_page
+            return res_list
+
         if self._iri_filter is not None:
             raise TypeError(f"Index is prohibited if you use IRI types")
+        if item < 0:
+            raise TypeError(f"Negative index is not supported")
         page = (item // self._per_page) + 1
         if page != self._page:
             self._set_page(page)
@@ -60,8 +82,8 @@ class ElementSet(list):
             return True
         return False
 
-    def iter_elements(self):
-        self._page = 0
+    def iter_elements(self, start_page = 1):
+        self._page = start_page - 1
         while self._set_page(self.page + 1):
             for elem in super().__iter__():
                 if self._iri_filter is None or self._iri_filter == elem.json_ld['@type']:

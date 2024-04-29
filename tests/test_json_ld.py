@@ -1,6 +1,21 @@
 import pytest
 
 from chemotion_api import Instance
+def test_sliceing(instance_with_test_samples):
+    instance: Instance = instance_with_test_samples['instance']
+    mc = instance_with_test_samples['main_collection']
+    samples = mc.get_samples()[:2]
+    assert len(samples) == 2
+    try:
+        mc.get_samples()[-1]
+        assert False
+    except:
+        assert True
+    try:
+        mc.get_samples()[:-1]
+        assert False
+    except:
+        assert True
 def test_new_generics(instance_with_test_samples):
     instance: Instance = instance_with_test_samples['instance']
 
