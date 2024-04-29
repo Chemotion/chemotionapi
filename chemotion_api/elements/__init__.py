@@ -19,11 +19,31 @@ class ElementSet(list):
         self._page = 1
         self.max_page = 1
         self._per_page = 10
+        self._iri_filter = None
+
+    def set_iri_filter(self, iri):
+        self._iri_filter = iri
+
+    def __len__(self):
+        if self._iri_filter is None:
+            return self._length
+        else:
+            raise TypeError("Length cant be predicted if you use IRI typs")
 
     def __getitem__(self, item):
-        elm = super().__getitem__(item)
+        if self._iri_filter is not None:
+            raise TypeError(f"Index is prohibited if you use IRI types")
+        page = (item // self._per_page) + 1
+        if page != self._page:
+            self._set_page(page)
+        idx = item % self._per_page
+        elm: AbstractElement = super().__getitem__(idx)
         elm.load()
         return elm
+
+    def __iter__(self):
+        for x in self.iter_elements():
+            yield x
 
     @property
     def page(self):
@@ -43,8 +63,9 @@ class ElementSet(list):
     def iter_elements(self):
         self._page = 0
         while self._set_page(self.page + 1):
-            for elem in self:
-                yield elem
+            for elem in super().__iter__():
+                if self._iri_filter is None or self._iri_filter == elem.json_ld['@type']:
+                    yield elem
 
     def iter_pages(self):
         self._page = 0
@@ -82,6 +103,7 @@ class ElementSet(list):
 
         try:
             self.max_page = int(res.headers.get('X-Total-Pages', 1))
+            self._length = int(res.headers.get('X-Total', 0))
         except:
             pass
         self.clear()

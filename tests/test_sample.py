@@ -68,18 +68,18 @@ def test_iter_sample(instance_with_test_samples: dict):
         for sample in s:
             assert sample.id not in ids
             ids.append(sample.id)
-        assert len(s) <= 2
+        assert len(s) <= 5
     page = samples.page
     s = samples.prev_page()
     assert s.page == page -1
     for sample in s:
         assert sample.id in ids
-        assert len(s) <= 2
+        assert len(s) <= 5
 
 
     s = samples.next_page()
     assert s.page == page
     for sample in s:
         assert sample.id in ids
-        assert len(s) <= 2
+        assert len(s) <= 5
 

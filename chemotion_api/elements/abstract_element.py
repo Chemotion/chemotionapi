@@ -135,22 +135,42 @@ class AbstractElement:
         self._session = session
         self.name = ''
         self.last_update = None
+        self._element_type = element_type
+        self._id = id
+        self.json_ld = {}
         if json_data is not None:
             attachments_data = json_data.get('attachments')
             if attachments_data is not None:
                 self.attachments = Attachments(self._session, attachments_data)
             self._set_json_data(json_data)
         elif id is not None and element_type is not None:
-            self.id = id
-            self.element_type = element_type
             self.load()
         else:
             raise ValueError("Either 'json_data' or 'id' and 'element_type' must be provided during initialization")
-        schema_version = self.json_data.get('element_klass', {}).get('version', '')
-        self.json_ld = {
-            '@id': f"{self._session._host_url}{self.get_url(self.element_type)}/{self.id}.json" if self.id is not None else uuid.uuid4().__str__(),
-            '@type': self._session.schema_manager.generate_model_type(self.element_type, schema_version)
-        }
+
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, id_val):
+        self._id = id_val
+        if self.json_data is not None:
+            self.json_ld['@id'] = f"{self._session._host_url}{self.get_url(self.element_type)}/{self.id}.json" if self.id is not None else uuid.uuid4().__str__()
+
+
+    @property
+    def element_type(self):
+        return self._element_type
+
+    @element_type.setter
+    def element_type(self, element_type_val):
+        self._element_type = element_type_val
+        if self.json_data is not None:
+            schema_version = self.json_data.get('properties', {}).get('version')
+            self.json_ld['@type'] = self._session.schema_manager.generate_model_type(self.element_type, schema_version)
+
 
     def load(self):
         payload = {}
@@ -183,8 +203,8 @@ class AbstractElement:
         self.name = json_data.get('name', '')
 
         self.short_label = self.json_data.get('short_label')
-        self.id = json_data.get('id')
         self.element_type = json_data.get('type')
+        self.id = json_data.get('id')
 
         self.properties: dict = self._parse_properties()
         self.analyses: list[dict] = self._parse_analyses()
@@ -242,6 +262,12 @@ class AbstractElement:
         if self.id is not None:
             return "/api/v1/{}s/{}".format(self.json_data.get('type'), self.id)
         return "/api/v1/{}s/".format(self.json_data.get('type'))
+
+    def __eq__(self, other):
+        return isinstance(other, AbstractElement) and self.json_ld['@id'] == other.json_ld['@id']
+
+    def __ne__(self, other):
+        return not isinstance(other, AbstractElement) or self.json_ld['@id'] != other.json_ld['@id']
 
     def _parse_properties(self) -> dict:
         raise NotImplemented

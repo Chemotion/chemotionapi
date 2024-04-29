@@ -1,5 +1,6 @@
 import json
 import os
+from urllib.parse import urlparse
 from enum import Enum
 from random import random
 from typing import TypeVar
@@ -123,6 +124,23 @@ class AbstractCollection:
             raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
+    def get_elements_of_iri(self, element_type: str, per_page=10) -> ElementSet:
+        """
+        Gets all elements of given IRI type.
+        :param element_type: IRI string chemotion:xxx/xxx/xxx
+        :param per_page: How many Elements per page
+        :return:
+        """
+        root = self.get_root()
+        if element_type in root._element_manager.all_types:
+            o = urlparse(element_type)
+            e = ElementSet(root._session, root._element_manager.all_classes.get(o.path.split('/')[1]), self.id,
+                           self.is_sync)
+            e.load_elements(per_page)
+            e.set_iri_filter(element_type)
+            return e
+        raise ValueError(f'Could not find a element with the IRI: "{element_type}"')
+
     def get_samples(self, per_page=10) -> ElementSet:
         root = self.get_root()
         e = ElementSet(root._session, root._element_manager.all_classes.get('sample'), self.id,
@@ -204,6 +222,17 @@ class AbstractEditableCollection(AbstractCollection):
             if elem['label'] == label:
                 return self._create_new_element(elem_name)
         raise ValueError(f'Could not find a generic element with the label: "{label}"')
+
+    def new_element_by_iri(self, element_type: str) -> AbstractElement:
+        """
+        Creates a new element of given IRI type. However, if the type is generic the generated element is of the newest type.
+        :param element_type: IRI string chemotion:xxx/xxx/xxx
+        :return:
+        """
+        if element_type in self.get_root()._element_manager.all_types:
+            o = urlparse(element_type)
+            return self._create_new_element(o.path.split('/')[1])
+        raise ValueError(f'Could not find a generic element with the label: "{element_type}"')
 
     def _create_new_element(self, type_name) -> AbstractElement:
         root = self.get_root()
@@ -295,7 +324,6 @@ class Collection(AbstractEditableCollection):
         res = self.get_root()._session.post('/api/v1/syncCollections/', data=data)
         if res.status_code != 201:
             raise ConnectionError(f"{res.status_code} -> {res.text}")
-
 
 
 class RootSyncCollection(AbstractCollection):

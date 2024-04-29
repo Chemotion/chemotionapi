@@ -60,6 +60,13 @@ class Instance:
             raise ConnectionError('Could not ping the Chemotion instance: {}'.format(self.host_url))
         return self
 
+    def get_all_types(self) -> list[str]:
+        """
+        Generates a list af all JSON LD types in the system.
+        :return: List of JSON LD types
+        """
+        return self.element_manager.all_types
+
     def login(self, user: str, password: str) -> TInstance:
         """
         This login methode allows you to log in to a chemotion instance.
@@ -253,7 +260,6 @@ class Instance:
             raise ValueError(f'Could not find a generic element under the name: "{path_array[-2]}"')
         e = ElementSet(self._con, elem)
         return e.load_element(int(path_array[-1][:-5]))
-
 
     def molecule(self):
         return MoleculeManager(self._con)

@@ -19,6 +19,7 @@ class ElementManager:
     def __init__(self, session: Connection):
         self._session = session
         self._all_classes = None
+        self._all_types = None
         self.is_loaded = False
 
     @property
@@ -27,6 +28,39 @@ class ElementManager:
             self._all_classes = self.get_all_classes()
             self.is_loaded = True
         return self._all_classes
+
+
+    @property
+    def all_types(self) -> list[str]:
+        """
+        Generates a list af all JSON LD types in the system.
+        :return: List of JSON LD types
+        """
+        if self._all_types is None:
+            self._all_types = []
+            for name, versions in  self.all_version_of_generic_class.items():
+                for v in versions:
+                    self._all_types.append(self._session.schema_manager.generate_model_type(name, v))
+            self._all_types.sort()
+
+        return self._all_types
+
+    @property
+    def all_version_of_generic_class(self) -> dict[str: set[str]]:
+        version_list = {}
+        for name, class_obj in self.all_classes.items():
+            if not class_obj['is_generic']:
+                version_list[name] = {None}
+            elif 'id' in class_obj:
+                version_list[name] = set()
+                res = self._session.get(f"/api/v1/generic_elements/klass_revisions.json?id={class_obj['id']}&klass=ElementKlass")
+                if res.status_code != 200:
+                    raise RequestException('Counld not get the genetic elements')
+                for revision in res.json()['revisions']:
+                    if revision['version'] is not None:
+                        version_list[name].add(revision['version'])
+        return version_list
+
 
     def get_all_classes(self):
         get_url = "/api/v1/generic_elements/klasses.json"
