@@ -41,7 +41,7 @@ class ElementManager:
             for name, versions in  self.all_version_of_generic_class.items():
                 for v in versions:
                     self._all_types.append(self._session.schema_manager.generate_model_type(name, v))
-            self._all_types.sort()
+            self._all_types.sort(reverse=True)
 
         return self._all_types
 

@@ -46,6 +46,7 @@ echo "DB loaded: $BASEDIR/test.sql"
 cd $ELN_PATH
 . /home/martint/.asdf/asdf.sh
 asdf shell ruby 2.7.8
+ruby --version
 ruby -x $ELN_PATH/bin/bundle exec ruby $ELN_PATH/bin/rails db:migrate
 
 if lsof -Pi :$PORT_NUMBER -sTCP:LISTEN -t >/dev/null ; then

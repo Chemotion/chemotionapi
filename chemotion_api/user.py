@@ -253,7 +253,7 @@ class Admin(Person):
             "password": password,
             "type": "Person"
         }
-        url = "/api/v1/admin_user/newUser/"
+        url = "/api/v1/admin/users/"
         res = self._session.post(url, data=data)
         if res.status_code != 201:
             raise ConnectionError(f'{res.status_code} -> {res.text}')

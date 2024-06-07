@@ -8,6 +8,7 @@ from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.connection import Connection
 from requests.exceptions import RequestException
 
+
 class ElementSet(list):
     def __init__(self, session: Connection, element_type: dict,
                  collection_id: int = None, collection_is_sync: bool = False):
@@ -28,15 +29,16 @@ class ElementSet(list):
         if self._iri_filter is None:
             return self._length
         else:
-            raise TypeError("Length cant be predicted if you use IRI typs")
+            raise TypeError("Length cannot be predicted if you use IRI typs")
 
     def __getitem__(self, item):
         if isinstance(item, slice):
             start = item.start if item.start is not None else 0
-            last = item.stop - start
-            if last < 0 or item.stop < 0 or start < 0:
+            stop = item.stop if item.stop is not None else len(self)
+            last = stop - start
+            if last <= 0 or stop < 0 or start < 0:
                 raise TypeError(f"Negative index is not supported")
-            per_page =  self._per_page
+            per_page = self._per_page
             if item.start is not None:
                 self._per_page = start
                 start_page = 2
@@ -46,7 +48,7 @@ class ElementSet(list):
             res_list = []
             for x in self.iter_elements(start_page):
                 res_list.append(x)
-                if(len(res_list) == last):
+                if (len(res_list) == last):
                     break
             self._per_page = per_page
             return res_list
@@ -82,7 +84,7 @@ class ElementSet(list):
             return True
         return False
 
-    def iter_elements(self, start_page = 1):
+    def iter_elements(self, start_page=1):
         self._page = start_page - 1
         while self._set_page(self.page + 1):
             for elem in super().__iter__():
