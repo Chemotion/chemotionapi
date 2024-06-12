@@ -243,11 +243,12 @@ class AbstractElement:
 
     def clean_data(self):
         cleaned_data = {
-            'name': self.name,
             'id': self.id or uuid.uuid4().__str__(),
             'is_new': self.id is None,
             'type': self.element_type
         }
+        if isinstance(self.name, str):
+            self.json_data['name'] = self.name
         if 'collection_id' in self.json_data:
             cleaned_data['collection_id'] = self.json_data['collection_id']
         if 'container' in self.json_data:
