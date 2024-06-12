@@ -138,10 +138,13 @@ class Group(User):
         super().__init__(session)
 
     def add_users(self, *users: Person):
+        return self.add_users_by_id(*[u.id for u in users])
+
+    def add_users_by_id(self, *users: int):
         payload = {
             'action': "NodeAdd",
             'actionType': "Person",
-            'add_users': [u.id for u in users],
+            'add_users': users,
             'id': self.id,
             'rootType': "Group",
         }
