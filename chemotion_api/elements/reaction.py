@@ -113,6 +113,10 @@ class Reaction(AbstractElement):
         serialize_data['observation'] = self.properties.get('observation')
         serialize_data['purification'] = self.properties.get('purification')
         serialize_data['status'] = self.properties.get('status')
+        if  self.properties.get('status') in ['Planned', 'Running', 'Done', 'Analyses Pending', 'Successful', 'Not Successful']:
+            serialize_data['status'] = self.properties.get('status')
+        else:
+            serialize_data['status'] = self.json_data.get('status')
 
         serialize_data['tlc_solvents'] = self.json_data.get('tlc_solvents')
         serialize_data['tlc_description'] = self.json_data.get('tlc_description')
@@ -121,7 +125,6 @@ class Reaction(AbstractElement):
         serialize_data['rf_value'] = self.json_data.get('rf_value')
         serialize_data['rxno'] = self.json_data.get('rxno', '')
         serialize_data['short_label'] = self.json_data.get('short_label')
-        serialize_data['status'] = self.json_data.get('status')
         serialize_data['literatures'] = self.json_data.get('literatures')
 
 
