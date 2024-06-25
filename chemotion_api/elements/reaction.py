@@ -40,7 +40,7 @@ class Reaction(AbstractElement):
         self._svg_file = self.json_data.get('reaction_svg_file')
 
     def load_image(self) -> str:
-        image_url = "/images/samples/{}".format(self._svg_file)
+        image_url = "/images/reactions/{}".format(self._svg_file)
         res = self._session.get(image_url)
         return res.text
 
