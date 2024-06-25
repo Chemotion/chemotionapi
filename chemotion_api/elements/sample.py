@@ -2,6 +2,8 @@ import json
 import re
 import copy
 
+from requests import Response
+
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.empty_elements import init_container
 from collections.abc import MutableMapping
@@ -109,12 +111,12 @@ class Sample(AbstractElement):
         self.is_split = json_data.get('is_split', False)
         self._children_count = json_data.get('children_count', )
 
-    def load_image(self) -> bytes:
+    def load_image(self) -> Response:
         image_url = "/images/samples/{}".format(self._svg_file)
         res = self._session.get(image_url)
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
-        return res.content
+        return res
 
     def split(self):
         self.save()

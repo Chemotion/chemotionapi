@@ -1,3 +1,5 @@
+from requests import Response
+
 from chemotion_api.elements.abstract_element import AbstractElement
 from datetime import datetime
 
@@ -39,12 +41,12 @@ class Reaction(AbstractElement):
         super()._set_json_data(json_data)
         self._svg_file = self.json_data.get('reaction_svg_file')
 
-    def load_image(self) -> bytes:
+    def load_image(self) -> Response:
         image_url = "/images/reactions/{}".format(self._svg_file)
         res = self._session.get(image_url)
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
-        return res.content
+        return res
 
     def _parse_properties(self) -> dict:
         reaction_elements = {}
