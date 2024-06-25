@@ -39,10 +39,10 @@ class Reaction(AbstractElement):
         super()._set_json_data(json_data)
         self._svg_file = self.json_data.get('reaction_svg_file')
 
-    def load_image(self) -> str:
+    def load_image(self) -> bytes:
         image_url = "/images/reactions/{}".format(self._svg_file)
         res = self._session.get(image_url)
-        return res.text
+        return res.content
 
     def _parse_properties(self) -> dict:
         reaction_elements = {}
