@@ -42,6 +42,8 @@ class Reaction(AbstractElement):
     def load_image(self) -> bytes:
         image_url = "/images/reactions/{}".format(self._svg_file)
         res = self._session.get(image_url)
+        if res.status_code != 200:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         return res.content
 
     def _parse_properties(self) -> dict:
