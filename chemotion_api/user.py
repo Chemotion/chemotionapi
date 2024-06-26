@@ -111,6 +111,26 @@ class User(abc.ABC):
         return [Person(_session).populate(x) for x in res.json()["users"]]
 
 
+class Group(User):
+
+    def __init__(self, session: Connection):
+        super().__init__(session)
+
+    def add_users(self, *users: User):
+        return self.add_users_by_id(*[u.id for u in users if u.is_person()])
+
+    def add_users_by_id(self, *users: int):
+        payload = {
+            'action': "NodeAdd",
+            'actionType': "Person",
+            'add_users': users,
+            'id': self.id,
+            'rootType': "Group",
+        }
+        res = self._session.put(f'/api/v1/admin/group_device/update/{self.id}', data=payload)
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+
 
 class Person(User):
 
@@ -131,26 +151,26 @@ class Person(User):
         self.counters: dict[str:str] | None = None
         self.generic_admin: dict[str:bool] = None
 
-
-class Group(User):
-
-    def __init__(self, session: Connection):
-        super().__init__(session)
-
-    def add_users(self, *users: Person):
-        return self.add_users_by_id(*[u.id for u in users])
-
-    def add_users_by_id(self, *users: int):
-        payload = {
-            'action': "NodeAdd",
-            'actionType': "Person",
-            'add_users': users,
-            'id': self.id,
-            'rootType': "Group",
+    def create_group(self, first_name: str, last_name: str, name_abbreviation: str) -> Group:
+        data = {
+            'group_param': {
+                "first_name": first_name,
+                "last_name": last_name,
+                "name_abbreviation": name_abbreviation,
+                "users": [
+                    self.id
+                ]
+            }
         }
-        res = self._session.put(f'/api/v1/admin/group_device/update/{self.id}', data=payload)
-        if res.status_code != 200:
+        url = "/api/v1/groups/create"
+        res = self._session.post(url, data=data)
+        if res.status_code != 201:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
+        data = res.json()
+        if 'error' in data:
+            raise ConnectionError(f'{res.text}')
+
+        return Group(self._session).populate(data)
 
 
 class Device(User):
@@ -247,7 +267,8 @@ class Admin(Person):
                                          name_abbreviation=name_abbreviation, rootType='Group')
         return Group(self._session).populate(data)
 
-    def create_person(self, first_name: str, last_name: str, name_abbreviation: str, password: str, email: str) -> Person:
+    def create_person(self, first_name: str, last_name: str, name_abbreviation: str, password: str,
+                      email: str) -> Person:
         data = {
             "email": email,
             "first_name": first_name,
@@ -261,7 +282,8 @@ class Admin(Person):
         if res.status_code != 201:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
 
-        return [x for x in self.find_user_by_name(self._session, f"{first_name} {last_name}") if x.name_abbreviation == name_abbreviation][0]
+        return [x for x in self.find_user_by_name(self._session, f"{first_name} {last_name}") if
+                x.name_abbreviation == name_abbreviation][0]
 
     def _create_group_device(self, first_name: str, last_name: str, name_abbreviation: str, rootType: str):
         url = '/api/v1/admin/group_device/create'
