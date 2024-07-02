@@ -169,7 +169,7 @@ class Person(User):
         if 'error' in data:
             raise ConnectionError(f'{res.text}')
 
-        return Group(self._session).populate(data)
+        return Group(self._session).populate(data['group'])
 
 
 class Device(User):
