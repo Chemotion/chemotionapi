@@ -117,19 +117,18 @@ class Group(User):
         super().__init__(session)
 
     def add_users(self, *users: User):
-        return self.add_users_by_id(*[u.id for u in users if u.is_person()])
+        return self.add_users_to_group_by_id(*[u.id for u in users if u.is_person()])
 
     def add_users_by_id(self, *users: int):
         payload = {
-            'action': "NodeAdd",
-            'actionType': "Person",
+            'destroy_group': False,
             'add_users': users,
-            'id': self.id,
-            'rootType': "Group",
+            'id': self.id
         }
-        res = self._session.put(f'/api/v1/admin/group_device/update/{self.id}', data=payload)
+        res = self._session.put(f'/api/v1/groups/upd/{self.id}', data=payload)
         if res.status_code != 200:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
+
 
 
 class Person(User):
@@ -348,3 +347,18 @@ class DeviceManager:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
 
         return Device(self._session).populate(res.json())
+
+    def add_users_to_group(self, group: Group, *users: User):
+        return self.add_users_to_group_by_id(group, *[u.id for u in users if u.is_person()])
+
+    def add_users_to_group_by_id(self, group: Group, *users: int):
+        payload = {
+            'action': "NodeAdd",
+            'actionType': "Person",
+            'add_users': users,
+            'id': group.id,
+            'rootType': "Group",
+        }
+        res = self._session.put(f'/api/v1/admin/group_device/update/{group.id}', data=payload)
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
