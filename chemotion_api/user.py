@@ -168,7 +168,7 @@ class Person(User):
         data = res.json()
         if 'error' in data:
             raise ConnectionError(f'{res.text}')
-
+        data['type'] = 'group'
         return Group(self._session).populate(data['group'])
 
 
