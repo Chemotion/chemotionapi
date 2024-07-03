@@ -48,7 +48,7 @@ class InstanceManager:
     def check(self):
         self._check_file()
 
-        command = ['docker-compose', '-f', self._df_name, 'ps']
+        command = ['docker compose', '-f', self._df_name, 'ps']
         proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=self._df_dir)
         stdout, stderr = proc.communicate()
         a = stdout.decode()
@@ -82,7 +82,7 @@ class InstanceManager:
     def create_images(self):
         self._check_file()
 
-        command = ['docker-compose', '-f', self._df_name, 'up', '--no-star']
+        command = ['docker compose', '-f', self._df_name, 'up', '--no-star']
         proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=self._df_dir)
         return proc.communicate()
 
@@ -110,7 +110,7 @@ class InstanceManager:
         if not all(kwargs.values()) and any(kwargs.values()):
             command_suffix = [k for (k, v) in kwargs.items() if v]
 
-        command = ['docker-compose', '-f', self._df_name, 'start'] + command_suffix
+        command = ['docker compose', '-f', self._df_name, 'start'] + command_suffix
         proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=self._df_dir)
         stdout, stderr = proc.communicate()
         return stdout
@@ -129,7 +129,7 @@ class InstanceManager:
         if not all(kwargs.values()) and any(kwargs.values()):
             command_suffix = [k for (k, v) in kwargs.items() if v]
 
-        command = ['docker-compose', '-f', self._df_name, stop_or_down] + command_suffix
+        command = ['docker compose', '-f', self._df_name, stop_or_down] + command_suffix
         proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=self._df_dir)
         stdout, stderr = proc.communicate()
         return stdout

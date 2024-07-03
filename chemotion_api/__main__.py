@@ -141,7 +141,7 @@ def down(docker_compose_path, services):
               help='Public URL on which the ELN can be reached ', default='http://localhost:<ELN_PORT>')
 @click.option('--eln_port', '-p', prompt='Port on which the ELN can be reached',
               help='Port on which the ELN can be reached from the host', default=4000)
-@click.option('--postgres_port', prompt='Port on which the ELN can be reached',
+@click.option('--postgres_port', prompt='Port on which the Postgres DB can be reached',
               help='Port on which the Postgresql DB can be reached from the host', default=5432)
 @add_options()
 def new(ignore_exist, docker_compose_path, version, url, eln_port, postgres_port):
@@ -198,13 +198,13 @@ def update_version(docker_compose_path, version):
 @cli.command(help="Make a dump of the Chemotion PostgreSQL")
 @click.option('--docker_compose_path', '-df',
               help="The path to the Docker Compose directory is not required. "
-                   "If either the specified docker_compose_path or the current "
-                   "working directory leads to a docker-compose.yml file, the "
+                   "However, either the specified docker_compose_path or the current "
+                   "working directory have to lead to a docker-compose.yml file, the "
                    "script automatically retrieves the PostgreSQL port specified "
                    "in the Docker Compose file, utilizing it as the default value "
                    "for the port argument.", default='./docker-compose.yml')
-@click.option('--tar_file', '-f', prompt='Your tar dump file',
-              help='Path to tar dump file', required=False, default='<db_name>_<time_stamp>.tar')
+@click.option('--tar_file', '-f', prompt='Output tar dump file',
+              help='Path to output tar dump file', required=False, default='<db_name>_<time_stamp>.tar')
 @add_options()
 @add_db_options()
 def backup(docker_compose_path, tar_file, **kwargs):
@@ -220,8 +220,8 @@ def backup(docker_compose_path, tar_file, **kwargs):
 @cli.command(help="Restore a ProstgreSQL dump. MAke sure it is a valid dump in a tar format.")
 @click.option('--docker_compose_path', '-df',
               help="The path to the Docker Compose directory is not required. "
-                   "If either the specified docker_compose_path or the current "
-                   "working directory leads to a docker-compose.yml file, the "
+                   "However, either the specified docker_compose_path or the current "
+                   "working directory have to lead to a docker-compose.yml file, the "
                    "script automatically retrieves the PostgreSQL port specified "
                    "in the Docker Compose file, utilizing it as the default value "
                    "for the port argument.", default='./docker-compose.yml')

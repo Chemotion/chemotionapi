@@ -42,7 +42,7 @@ services:
     environment:
       - CONFIG_ROLE=worker
       - SECRET_KEY_BASE=3b4576cc0m927897n56v
-      - PUBLIC_URL=https://chemotion.knmf.kit.edu
+      - PUBLIC_URL={{url}}
     depends_on:
       - db
       - eln
@@ -69,6 +69,8 @@ services:
       - ./shared/backup:/backup
       - chemotion_data:/chemotion/data/
       - chemotion_app:/chemotion/app
+    expose:
+      - 4000
     ports:
       - {{ eln_port }}:4000
     networks:
