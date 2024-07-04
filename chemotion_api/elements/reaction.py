@@ -24,14 +24,14 @@ class MaterialList(list):
 
 class Temperature(dict):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(data = kwargs.get('data', []))
 
-    def add_time_point(self, hour, minute, second, temperature):
+    def add_time_point(self, hour: int, minute: int, second: int, temperature: float):
         data = self.get('data')
         if data is None:
             self['data'] = []
             data = self['data']
-        data.append({'time': f'{hour}:{minute}:{second}', 'value': temperature})
+        data.append({'time': f'{str(hour).zfill(2)}:{str(minute).zfill(2)}:{str(second).zfill(2)}', 'value': str(temperature)})
 
 
 class Reaction(AbstractElement):

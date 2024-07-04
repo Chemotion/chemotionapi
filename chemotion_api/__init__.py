@@ -4,7 +4,6 @@ from typing import TypeVar
 from chemotion_api.collection import RootCollection
 from chemotion_api.element_manager import ElementManager
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
-from requests.exceptions import ConnectionError
 from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
     AbstractElement
@@ -26,11 +25,10 @@ class Instance:
     Usage::
 
     >>> from chemotion_api import Instance
-    >>> from  requests.exceptions import ConnectionError as CE
     >>> import logging
     >>> try:
     >>>     s = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
-    >>> except CE as e:
+    >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({s.host_url}) cannot be established")
 
 
@@ -76,7 +74,7 @@ class Instance:
 
         :return: the instance self
 
-        :raises ConnectionError (requests.exceptions.ConnectionError) if the connection cannot be established.
+        :raises ConnectionError: if the connection cannot be established.
         """
         ping_url = "/api/v1/public/ping"
         res = self._con.get(url_path=ping_url)
@@ -101,7 +99,7 @@ class Instance:
 
         :return: the instance itself
 
-        :raise ConnectionError (requests.exceptions.ConnectionError) if the logging was not successful.
+        :raise ConnectionError: if the logging was not successful.
         """
 
         payload = {'username': user, 'password': password}
@@ -126,7 +124,7 @@ class Instance:
 
         :return: the instance itself
 
-        :raise ConnectionError (requests.exceptions.ConnectionError) if the logging was not successful.
+        :raise ConnectionError: if the logging was not successful.
         """
 
         self._con.set_bearer_token(jwt_token)
@@ -192,8 +190,7 @@ class Instance:
 
         :param id: The Database ID of the desired Element
         :return: a Reacton object
-
-         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         e = ElementSet(self._con, self.all_element_classes.get('reaction'))
         return typing.cast(Reaction, e.load_element(id))
@@ -207,8 +204,7 @@ class Instance:
 
         :param id: The Database ID of the desired Element
         :return: a Reacton object
-
-         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         e = ElementSet(self._con, self.all_element_classes.get('wellplate'))
         return typing.cast(Wellplate, e.load_element(id))
@@ -222,8 +218,7 @@ class Instance:
 
         :param id: The Database ID of the desired Element
         :return: a ResearchPlan object
-
-         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         e = ElementSet(self._con, self.all_element_classes.get('research_plan'))
         return typing.cast(ResearchPlan, e.load_element(id))
@@ -237,8 +232,7 @@ class Instance:
 
         :param id: The Database ID of the desired Element
         :return: a Sample object
-
-         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         e = ElementSet(self._con, self.all_element_classes.get('sample'))
         return typing.cast(Sample, e.load_element(id))
@@ -254,7 +248,7 @@ class Instance:
         :param id: The Database ID of the desired Element
         :return: a Sample object
 
-         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         elem = self.all_element_classes.get(name)
         if elem is None:
@@ -273,7 +267,7 @@ class Instance:
         :param id: The Database ID of the desired Element
         :return: a Sample object
 
-         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         for (elem_name, elem) in self.all_element_classes.items():
             if elem['label'] == label:

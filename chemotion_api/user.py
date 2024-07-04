@@ -3,8 +3,6 @@ import hashlib
 import json
 import re
 import uuid
-
-from requests.exceptions import ConnectionError
 from chemotion_api.connection import Connection
 
 MAX_UPLOAD_SIZE = 5000
@@ -117,7 +115,7 @@ class Group(User):
         super().__init__(session)
 
     def add_users(self, *users: User):
-        return self.add_users_to_group_by_id(*[u.id for u in users if u.is_person()])
+        return self.add_users_by_id(*[u.id for u in users if u.is_person()])
 
     def add_users_by_id(self, *users: int):
         payload = {

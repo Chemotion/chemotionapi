@@ -18,3 +18,7 @@ The root collection organizes the standard Collections:
     :inherited-members:
 
 .. autoenum:: chemotion_api.collection.SyncPermission
+
+The RootCollection as also a property to get the RootSyncCollection
+
+.. autoclass:: chemotion_api.collection.RootSyncCollection

@@ -6,13 +6,26 @@
 Welcome to ChemotionAPI's documentation!
 ========================================
 
+This is a python api for [Chemotion](https://chemotion.net/). Chemotion is a Electronic Laboratory Notebook (ELN) it is developed at
+the KIT. Chemotion is a web-based platform designed to help researchers manage and organize their experimental data in a secure and
+efficient manner.
+
+The ChemotionApi Python package is a wrapper for the RESTful API built on top of the Ruby on Rails
+framework that allows users to interact with Chemotion ELN. The package provides a simple and intuitive
+interface for creating, retrieving, updating, and deleting data stored in the ELN using Python. With
+its RESTful architecture and comprehensive documentation, the ChemotionApi allows users to build custom applications and
+workflows that leverage the ELN's capabilities and streamline their research processes.
+
+
 .. py:function:: enumerate(sequence[, start=0])
 
 .. toctree::
    :maxdepth: 2
 
+   Examples
    Instance
    Collection
+   Elements
 
 
 Indices and tables

@@ -413,6 +413,9 @@ class AbstractEditableCollection(AbstractCollection):
 
 
 class Collection(AbstractEditableCollection):
+    """
+    The collection object represents the standard collection owned by the current user
+    """
 
     def __init__(self, collection_json: dict = None):
         super().__init__()
@@ -431,6 +434,10 @@ class Collection(AbstractEditableCollection):
     collection_json: dict = None
 
     def set_json(self, collection_json):
+        """
+        Set the json data received from the server
+        :param collection_json: JSON object representing the collection
+        """
         if collection_json is None:
             collection_json = self._get_new_json()
 
@@ -456,19 +463,39 @@ class Collection(AbstractEditableCollection):
             yield (key, val)
 
     def to_json(self):
+        """
+        Generates a dict containing all list of all children collection
+        :return: list of children as savable JSON
+        """
         as_dict = dict(self)
         return super().to_json() | as_dict
 
-    def move(self, dest):
+    def move(self, dest: str | list[str], case_insensitive: bool = False):
+        """
+        Moves this collection to a dest path.
+        :param dest: is either a string based on a unix path or a list
+        :param case_insensitive: If true the cases of path are taken into account
+        :return: Collection the path points to
+        """
+
         abs_path = self.get_path()
         dest = os.path.abspath(os.path.join(os.path.dirname(abs_path), dest))
-        self.get_root().move(abs_path, dest)
+        self.get_root().move(abs_path, dest, case_insensitive)
 
     def delete(self):
+        """
+        Deletes this collection.
+        """
         abs_path = self.get_path()
         self.get_root().delete(abs_path)
 
-    def add_collection(self, name):
+    def add_collection(self, name: str):
+        """
+        Creates a new child collection. The collection is not saved.
+        Please reload the collection after saving it.
+        :param name: new collection`s name
+        :return: new Collection (not saved)
+        """
         abs_path = os.path.join(self.get_path(), name)
         return self.get_root().add_collection(abs_path)
 
@@ -501,6 +528,10 @@ class Collection(AbstractEditableCollection):
 
 
 class RootSyncCollection(AbstractCollection):
+    """
+    This can be used amost like the root collection object.
+    However, you cannot move, delete or create its child collections
+    """
 
     def __init__(self, session: Connection, element_manager: ElementManager):
         super().__init__()
@@ -645,7 +676,7 @@ class RootCollection(AbstractCollection):
         current_pos = self
         for col_label in self._prepare_path(col_path):
             current_pos = next((x for x in current_pos.children if
-                                AbstractCollection.prepare_label(x.label, case_insensitive) == col_label), None)
+                                x.prepare_label(case_insensitive) == col_label), None)
             if current_pos is None:
                 raise ModuleNotFoundError("'{}' Collection Not Found".format('/'.join(col_path)))
         return current_pos
@@ -675,7 +706,6 @@ class RootCollection(AbstractCollection):
         Deletes a collection at the src path.
         :param src: is either a string based on a unix path or a list
         :param case_insensitive: If true the cases of path are taken into account
-        :return: Collection the path points to
         """
 
         prepared_src = self._prepare_path(src, case_insensitive)

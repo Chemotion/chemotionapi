@@ -10,6 +10,10 @@ from requests.exceptions import RequestException
 
 
 class ElementSet(list):
+    """
+    The ElementSet class allows you to access all elements of a type in a collection.
+    You can iterate over them or filter them using an IRI filter.
+    """
     def __init__(self, session: Connection, element_type: dict,
                  collection_id: int = None, collection_is_sync: bool = False):
         super().__init__()
