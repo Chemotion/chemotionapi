@@ -16,9 +16,6 @@ interface for creating, retrieving, updating, and deleting data stored in the EL
 its RESTful architecture and comprehensive documentation, the ChemotionApi allows users to build custom applications and
 workflows that leverage the ELN's capabilities and streamline their research processes.
 
-
-.. py:function:: enumerate(sequence[, start=0])
-
 .. toctree::
    :maxdepth: 2
 
