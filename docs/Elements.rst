@@ -5,7 +5,8 @@ The API can handle different kinds of elements from Chemotion.
 It can read and write Samples, Reactions, Wellplates, and Research Plans
 as well as Generic Elements.
 
-1) **How to load Elements**
+How to load Elements
+******************************
 
 Single elements can be fetched directly from the instance,
 whereas lists of elements must be fetched by a collection.
@@ -67,7 +68,45 @@ The following nonsense code snippet introduces the workflow:
     except requests.exceptions.RequestException as e:
         pass
 
-2) **How to create Elements**
+How to create Elements
+******************************
+
+To make a new entry in the ELN, you must first select the collection in which the element is to be created. Collection objects have the appropriate methods for creating objects.
+
+The following methods can be used to create the standard objects. All of them have no parameters and create an empty object corresponding to its type.
+
+The created object is not saved and must be saved explicitly so that the entry is transferred to the ELN.
+
+* :meth:`chemotion_api.collection.Collection.new_samples`
+* :meth:`chemotion_api.collection.Collection.new_reaction`
+* :meth:`chemotion_api.collection.Collection.new_research_plan`
+* :meth:`chemotion_api.collection.Collection.new_wellplate`
+
+To create a generic element, the type must be specified as a parameter. Either by the human readable lable or by the system internal name:
+
+* :meth:`chemotion_api.collection.Collection.new_generic`
+* :meth:`chemotion_api.collection.Collection.new_generic_by_label`
+
+Since a sample cannot be created without a molecule (not by default at least), there is also the shortcut using the following methods
+
+* :meth:`chemotion_api.collection.Collection.new_sample_smiles`
+* :meth:`chemotion_api.collection.Collection.new_solvent`
+
+And finally, all objects can be created using the IRI-based method:
+
+* :meth:`chemotion_api.collection.Collection.new_element_by_iri`
 
 
-3) **How to work with Elements**
+.. code-block:: python
+
+    try:
+        col = instance.get_root_collection().get_collection('Main Test')
+        sample = col.new_sample_smiles('XXX')
+        sample.save()
+    except requests.exceptions.RequestException as e:
+        pass
+
+
+How to work with Elements
+********************************
+

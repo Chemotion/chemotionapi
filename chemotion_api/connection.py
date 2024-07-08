@@ -2,7 +2,7 @@ import json
 
 import requests
 from dateutil.parser import parse as parsedate
-
+from requests.exceptions import ConnectionError as CError
 from chemotion_api.schema_manager import SchemaManager
 
 
@@ -60,11 +60,14 @@ class Connection(requests.Session):
         elif 'data' in kwargs and not isinstance(kwargs['data'], str) and kwargs['headers'].get(
                 'Content-Type') == 'application/json':
             kwargs['data'] = json.dumps(kwargs.get('data', {}))
-
-        res = getattr(super(), method)(**kwargs)
+        try:
+            res = getattr(super(), method)(**kwargs)
+        except CError as e:
+            raise ConnectionError(str(e))
         if self.tzinfo is None:
             if 'Date' in res.headers:
                 self.tzinfo = parsedate(res.headers['Date']).astimezone().tzinfo
+
         return res
 
     def get_default_session_header(self) -> dict[str, str]:

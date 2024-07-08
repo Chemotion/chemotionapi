@@ -1,16 +1,15 @@
 import pytest
-from  requests.exceptions import ConnectionError
 from chemotion_api import Instance
 
 
 def test_all_types(instance_with_collection):
     instance: Instance = instance_with_collection['instance']
-    assert list(instance.get_all_types()) == ['chmotion:type/wellplate/1.9.2',
-                                              'chmotion:type/screen/1.9.2',
-                                              'chmotion:type/sample/1.9.2',
-                                              'chmotion:type/research_plan/1.9.2',
-                                              'chmotion:type/reaction/1.9.2',
-                                              'chmotion:type/cell_line/1.9.2',
+    assert list(instance.get_all_types()) == ['chmotion:type/wellplate/1.9.3',
+                                              'chmotion:type/screen/1.9.3',
+                                              'chmotion:type/sample/1.9.3',
+                                              'chmotion:type/research_plan/1.9.3',
+                                              'chmotion:type/reaction/1.9.3',
+                                              'chmotion:type/cell_line/1.9.3',
                                               'chmotion:generic_type/wrk/2.0',
                                               'chmotion:generic_type/wrk/1.0',
                                               'chmotion:generic_type/try/2.0',

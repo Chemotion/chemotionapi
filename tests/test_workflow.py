@@ -29,11 +29,23 @@ def test_next_wf(instance_with_collection):
 
     a = col.new_generic('wrk')
     a.save()
-    wf_next_options = a.wf_next_options()
+    wf_next_options = a.wf_next_options(flat=False)
     a.wf_next(**wf_next_options[1]['options'][0])
     wf_tree = a.wf_tree()
     current_workflow = a.wf_current_workflow()
     assert current_workflow == [['Nr 1'], ['Nr 3', 'Nr 2']]
+    assert wf_tree == {'Nr 1': [{'Nr 3': [{'Nr 2': []}, {'Nr 4': []}]}, {'Nr 2': []}], 'Nr 3': [{'Nr 2': []}, {'Nr 4': []}]}
+
+def test_next_wf_flat(instance_with_collection):
+    col = instance_with_collection['main_collection']
+
+    a = col.new_generic('wrk')
+    a.save()
+    wf_next_options = a.wf_next_options()
+    a.wf_next(**wf_next_options[0])
+    wf_tree = a.wf_tree()
+    current_workflow = a.wf_current_workflow()
+    assert current_workflow == [['Nr 1', 'Nr 3'], ['Nr 3']]
     assert wf_tree == {'Nr 1': [{'Nr 3': [{'Nr 2': []}, {'Nr 4': []}]}, {'Nr 2': []}], 'Nr 3': [{'Nr 2': []}, {'Nr 4': []}]}
 
 def test_next_blank_wf(instance_with_collection):

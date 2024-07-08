@@ -7,7 +7,7 @@ class WorkflowInterface(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def wf_next_options(self) -> list:
+    def wf_next_options(self, flat=True) -> list:
         raise NotImplementedError()
 
     @abstractmethod

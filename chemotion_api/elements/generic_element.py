@@ -43,8 +43,8 @@ class GenericElement(AbstractElement, WorkflowInterface):
             wfs.append([x['label'] for x in wf['layers']])
         return wfs
 
-    def wf_next_options(self) -> list:
-        return self.workflow.next_options()
+    def wf_next_options(self, flat: bool = True) -> list:
+        return self.workflow.next_options(flat)
 
     def wf_next(self, layer_id: None | str = None, wf_idx: int = 0, wf_id: str = None, **kwargs):
         key, layer = self.workflow.next(

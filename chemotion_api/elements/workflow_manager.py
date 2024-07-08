@@ -112,7 +112,7 @@ class Workflow:
                     'id': layers[0]['wf_uuid']
                 })
 
-    def next_options(self):
+    def next_options(self, flat = True):
         result = []
         for wf in self._wfs:
             layer = wf['layers'][-1]
@@ -127,6 +127,13 @@ class Workflow:
                     'label': ' -> '.join([x['label'] for x in wf['layers']]),
                     'options': options
                 })
+        if flat:
+            flat_res = []
+            for x in result:
+                for o in x['options']:
+                    o['source_layer'] = x['label']
+                    flat_res.append(o)
+            return flat_res
         return result
 
     def add_layer(self, json_data, layer_label, pos):
