@@ -17,6 +17,18 @@ TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
 
 
+def _col_path_join(path_part: str, *path_parts: str) -> str:
+    path_parts_list = list(path_parts)
+    path_parts_list.reverse()
+    for i, x in enumerate(path_parts):
+        if x.startswith('/'):
+            if i == 0:
+                return _col_path_join(x)
+            return _col_path_join(x, *path_parts[-i:])
+    path_parts_str = '/'.join(path_parts)
+    return f'{path_part}/{path_parts_str}'.replace('//', '/').replace('//', '/')
+
+
 class SyncPermission(Enum):
     Read = 0
     Write = 1
@@ -182,7 +194,7 @@ class AbstractCollection:
         abs_path = self.get_path()
         if col_path.__class__ is not str:
             col_path = '/'.join(col_path)
-        return self.get_root().get_collection(os.path.join(abs_path, col_path), case_insensitive)
+        return self.get_root().get_collection(_col_path_join(abs_path, col_path), case_insensitive)
 
     def get_or_create_collection(self, col_path: str | list[str],
                                  case_insensitive: bool = False) -> TAbstractCollection:
@@ -479,7 +491,7 @@ class Collection(AbstractEditableCollection):
         """
 
         abs_path = self.get_path()
-        dest = os.path.abspath(os.path.join(os.path.dirname(abs_path), dest))
+        dest = _col_path_join(os.path.dirname(abs_path), dest)
         self.get_root().move(abs_path, dest, case_insensitive)
 
     def delete(self):
@@ -496,7 +508,7 @@ class Collection(AbstractEditableCollection):
         :param name: new collection`s name
         :return: new Collection (not saved)
         """
-        abs_path = os.path.join(self.get_path(), name)
+        abs_path = _col_path_join(self.get_path(), name)
         return self.get_root().add_collection(abs_path)
 
     def share(self, permission_level: SyncPermission, *users: Person | Group):

@@ -40,7 +40,7 @@ def test_move_collection(prepare_manipulation):
     name = prepare_manipulation['name']
     root_col = prepare_manipulation['root_col']
     b = prepare_manipulation['b_col']
-    b.move('/{}/A'.format(name))
+    b.move(f'/{name}/A')
     root_col.save()
     with pytest.raises(ModuleNotFoundError) as e:
         root_col.get_collection(name + '/B')

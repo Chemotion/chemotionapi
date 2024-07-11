@@ -11,7 +11,7 @@ from chemotion_api.elements.attachments import Attachments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
-    clean_generic_object_json, merge_dicts
+    clean_generic_object_json, merge_dicts, snake_to_camel_case
 
 from requests.exceptions import RequestException
 
@@ -239,7 +239,7 @@ class AbstractElement:
             res_json = merge_dicts(self.json_data, res_json.get(self.element_type, res_json.get('element')))
             self._set_json_data(res_json)
         if self.attachments is not None:
-            self.attachments.save(self.id)
+            self.attachments.save(self.id, snake_to_camel_case(self.get_response_key(self.element_type)))
 
     def clean_data(self):
         cleaned_data = {

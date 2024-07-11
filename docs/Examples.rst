@@ -14,6 +14,29 @@ The package has been published on PyPi, it can be install using pip.
 For instructions about how to install, as well as the full documentation of, ``imagemagick`` please refer `here <https://imagemagick.org/index.php>`__.
 For instructions about how to install, as well as the full documentation of, ``PostgreSQL`` please refer `here <https://www.postgresql.org/>`__.
 
+Installing imagemagick
+_________________________
+
+**Debian/Ubuntu**
+
+
+.. code-block:: sh
+
+    sudo apt-get install libmagic1
+
+**Windows**
+
+You'll need DLLs for libmagic. @julian-r maintains a pypi package with the DLLs, you can fetch it with:
+
+.. code-block:: sh
+
+    pip install python-magic-bin
+
+**OSX**
+
+* When using Homebrew: brew install libmagic
+* When using macports: port install file
+
 Example 1) Create a new Reacton
 **************************************************
 .. code-block:: python
@@ -120,8 +143,50 @@ Example 2) Share a Collection
         stg.add_users(*users)
         # Share collection with STG
         instance.get_root_collection().get_collection('Main Test').share(SyncPermission.Write, stg)
+        # Save reaction
+        reaction.save()
 
-Example 3) Instance CLI
+Example 3) Upload/Load Attachment
+**************************************************
+
+.. code-block:: python
+
+    """
+    In This example we load a Research Plan and add an attachment
+
+    1) Load a Research Plan
+    2) Add an attachment
+    3) Save an attachment as file
+    """
+
+    from chemotion_api.collection import SyncPermission
+    from chemotion_api.user import Person, Group
+
+    from chemotion_api import Instance
+
+    if __name__ == '__main__':
+        # Initialize a new Instance connection
+        instance = Instance('http://localhost:3354')
+        try:
+            # Test if the host is available and login using your username and password
+            instance.test_connection().login('MSU', '1234qweR!')
+        except ConnectionError:
+            # Exit if connection fails
+            exit(1)
+        except PermissionError:
+            # Exit if Login fails
+            exit(2)
+        # Get your user data
+        s = instance.get_research_plan(1)
+
+        s.attachments.add_file('./GeneralSetup.png')
+        s.save()
+
+        f = s.attachments.load_attachment(filename="./GeneralSetup.png")
+        os.makedirs('./TEST_TO_DEL', exist_ok=True)
+        f.save_file('./TEST_TO_DEL')
+
+Example 4) Instance CLI
 **************************************************
 
 .. code-block:: sh
@@ -157,7 +222,8 @@ Example 3) Instance CLI
     Specify a version [latest]: 1.9.3
     Public ELN url [http://localhost:<ELN_PORT>]:
     Port on which the ELN can be reached [4000]:
-    Port on which the ELN can be reached [5432]:
+    Port on which the PostgreSQL can be reached [5432]:
+    Port on which the Adminer can be reached [8080]:
 
     # Run Instance
     > chemotion_api up

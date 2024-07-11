@@ -3,7 +3,7 @@ import os
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 
-def walk_productive_template(url, eln_port, postgres_port, msconvert, spectra, eln, ketchersvc, converter, **kwargs):
+def walk_productive_template(url, eln_port, postgres_port, adminer_port, msconvert, spectra, eln, ketchersvc, converter, **kwargs):
     main_root_dir = os.path.join(os.path.dirname(__file__), 'templates/productive')
     for root, dir, files in os.walk(main_root_dir):
 
@@ -13,7 +13,7 @@ def walk_productive_template(url, eln_port, postgres_port, msconvert, spectra, e
             autoescape=select_autoescape()
         )
 
-        context = dict(url=url, eln_port=eln_port, postgres_port=postgres_port,
+        context = dict(url=url, eln_port=eln_port, postgres_port=postgres_port, adminer_port=adminer_port,
                        msconvert=msconvert, spectra=spectra, eln=eln, ketchersvc=ketchersvc, converter=converter, **kwargs)
 
         for f in files:

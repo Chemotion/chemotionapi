@@ -54,10 +54,11 @@ The following nonsense code snippet introduces the workflow:
     except requests.exceptions.RequestException as e:
         pass
 
+
 The JSON LD alternative for loading lists of elements uses the
 the JSON LD property *@type* :meth:`chemotion_api.collection.Collection.get_elements_of_iri`
-This type contains teh version and the type Element.
-The following nonsense code snippet introduces the workflow:
+This type contains the version and the element type.
+The following nonsensical code snippet introduces the workflow:
 
 .. code-block:: python
 
@@ -67,6 +68,8 @@ The following nonsense code snippet introduces the workflow:
         sample_list = col.get_elements_of_iri(sample.json_ld['@type'])
     except requests.exceptions.RequestException as e:
         pass
+
+Please note that not all information may be loaded when loading listed elements (through the collection). To reload all information, the *load()* method of the corresponding element can be used.
 
 How to create Elements
 ******************************
@@ -82,7 +85,7 @@ The created object is not saved and must be saved explicitly so that the entry i
 * :meth:`chemotion_api.collection.Collection.new_research_plan`
 * :meth:`chemotion_api.collection.Collection.new_wellplate`
 
-To create a generic element, the type must be specified as a parameter. Either by the human readable lable or by the system internal name:
+To create a generic element, the type must be specified as a parameter. Either by the human-readable label or by the system-internal name:
 
 * :meth:`chemotion_api.collection.Collection.new_generic`
 * :meth:`chemotion_api.collection.Collection.new_generic_by_label`
@@ -106,7 +109,10 @@ And finally, all objects can be created using the IRI-based method:
     except requests.exceptions.RequestException as e:
         pass
 
-
 How to work with Elements
 ********************************
 
+All Objects have a set of common properties and methods.
+
+.. autoclass:: chemotion_api.elements.abstract_element.AbstractElement
+    :members:

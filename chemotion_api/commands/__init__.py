@@ -31,7 +31,6 @@ class InstanceManager:
         df = self._check_file()
         return get_db_port(df)
 
-
     def update(self, version=None):
         df = self._check_file()
         images = self.get_image_of_versions(version)
@@ -56,7 +55,7 @@ class InstanceManager:
         return [[y.strip() for y in x.split('   ') if y.strip() != ''] for x in a.split('\n')[2:]]
 
     def new_instance(self, version: str | None = None, url: None | str = None, postgres_port: int = 5432,
-                     eln_port: int = 4000, cwd=None):
+                     eln_port: int = 4000, adminer_port: int = 8080, cwd=None):
         images = self.get_image_of_versions(version)
         if cwd is None:
             cwd = self._df_dir
@@ -70,7 +69,7 @@ class InstanceManager:
             raise ValueError(f'{cwd} is not empty!')
         if url is None:
             url = f'http://localhost:{eln_port}'
-        for (is_file, name, content) in walk_productive_template(url, eln_port, postgres_port, **images):
+        for (is_file, name, content) in walk_productive_template(url, eln_port, postgres_port, adminer_port, **images):
             if is_file:
                 with open(os.path.join(cwd, name), 'w+') as f:
                     f.write(content)
@@ -94,7 +93,7 @@ class InstanceManager:
     def stop(self, eln: bool = False, db: bool = False, worker: bool = False, ketchersvc: bool = False,
              msconvert: bool = False, spectra: bool = False, converter: bool = False):
         return self._stop(eln=eln, db=db, worker=worker, ketchersvc=ketchersvc, msconvert=msconvert, spectra=spectra,
-                        converter=converter)
+                          converter=converter)
 
     def down(self, eln: bool = False, db: bool = False, worker: bool = False, ketchersvc: bool = False,
              msconvert: bool = False, spectra: bool = False, converter: bool = False):
@@ -140,6 +139,7 @@ class InstanceManager:
             return True
         except FileNotFoundError:
             return False
+
     def _check_file(self) -> str:
         df = str(os.path.join(self._df_dir, self._df_name))
         if not os.path.exists(df):

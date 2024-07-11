@@ -142,14 +142,16 @@ def down(docker_compose_path, services):
 @click.option('--eln_port', '-p', prompt='Port on which the ELN can be reached',
               help='Port on which the ELN can be reached from the host', default=4000)
 @click.option('--postgres_port', prompt='Port on which the Postgres DB can be reached',
-              help='Port on which the Postgresql DB can be reached from the host', default=5432)
+              help='Port on which the PostgreSQL DB can be reached from the host', default=5432)
+@click.option('--adminer_port', prompt='Port on which the Adminer can be reached',
+              help='Port on which the Adminer can be reached from the host', default=8080)
 @add_options()
-def new(ignore_exist, docker_compose_path, version, url, eln_port, postgres_port):
+def new(ignore_exist, docker_compose_path, version, url, eln_port, postgres_port, adminer_port):
     if url == 'http://localhost:<ELN_PORT>':
         url = str(url).replace('<ELN_PORT>', str(eln_port))
     df = os.path.abspath(os.path.join(os.getcwd(), docker_compose_path))
     try:
-        InstanceManager(df).new_instance(version=version, url=url, eln_port=eln_port, postgres_port=postgres_port)
+        InstanceManager(df).new_instance(version=version, url=url, eln_port=eln_port, postgres_port=postgres_port, adminer_port=adminer_port)
     except ValueError as e:
         if not ignore_exist:
             raise click.ClickException(e.__str__())

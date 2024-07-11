@@ -23,6 +23,7 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    Instance
    Collection
    Elements
+   Attachments
 
 
 Indices and tables

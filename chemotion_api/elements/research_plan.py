@@ -131,7 +131,11 @@ class ResearchPlan(AbstractElement):
         return body_obj
 
     def add_image(self, image_path: str) -> dict:
+        if not image_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
+            raise ValueError('File is not a image!')
         file_obj = self.attachments.add_file(image_path)
+        file_obj['is_image_field'] = True
+        file_obj['ancestor'] = None
         body_obj = self._add_new_element(BodyElements.image)
 
         body_obj['value'] = file_obj

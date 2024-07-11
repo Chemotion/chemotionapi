@@ -163,3 +163,6 @@ def _merge_dicts(a: dict|list, b: dict|list, path: list = None):
         else:
             set_values(a, key, b_val)
     return a
+
+def snake_to_camel_case(snake_str):
+    return "".join(x.capitalize() for x in snake_str.lower().split("_"))

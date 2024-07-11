@@ -15,7 +15,13 @@ services:
       - chemotion_db:/var/lib/postgresql/data/
     networks:
       - chemotion
-
+  admin:
+    image: adminer
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - {{ adminer_port }}:8080
   msconvert:
     image: {{ msconvert }}
     restart: unless-stopped
