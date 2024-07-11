@@ -38,6 +38,7 @@ class Attachment(dict):
     def load_file(self) -> bytes:
         """
         Loads an attachment file as binary object
+
         :return:  file as binary object
         """
         res = self._con.get(f"/api/v1/attachments/{self['id']}")
@@ -49,7 +50,9 @@ class Attachment(dict):
     def save_file(self, directory: str = '.') -> str:
         """
         Loads an attachment file to your local filesystem
+
         :param directory: path to the directory where the file shell be saved
+
         :return: full path to the file
         """
         if not os.path.isdir(directory):
@@ -98,10 +101,11 @@ class Attachments:
         self._to_uploads = []
 
     @property
-    def attachment_data(self):
+    def attachment_data(self) -> list:
         """
         The Attachment data contains all information needed to save the Attachments.
-        :return:
+
+        :return: List of all attachment data
         """
         return self._attachment_data + self._new_attachment_data
 
@@ -110,10 +114,13 @@ class Attachments:
         """
         Loads an attachment from the server. One of the parameters Id, Identifier or filename must be set in order to find the desired attachment.
         If Id is set, all other parameters are ignored; if Identifier is set, filename is ignored.
+
         :param id: DB id of the attachment
         :param identifier: UUID of the attachment
         :param filename: name of the attachment
+
         :raises ValueError: If no file fits the parameters.
+
         :return: Attachment Object
         """
         if id is not None:
@@ -135,7 +142,9 @@ class Attachments:
     def add_file(self, file_path: str) -> dict:
         """
         Adds a file to the elements attachment container
+
         :param file_path: Path to the file to be uploaded on your device
+
         :return: a summary of the file
         """
         filename = os.path.basename(file_path)
@@ -175,8 +184,10 @@ class Attachments:
     def save(self, id: int, element_type: str) -> requests.Response:
         """
         Updates or creates the Attachments of an Element after saving it!
+
         :param id: ID of the element
         :param element_type: must be in 'Element' or 'ResearchPlan'
+
         :return: response of the request
         """
         if element_type == 'Element':

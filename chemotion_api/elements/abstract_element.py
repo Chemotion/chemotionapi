@@ -126,53 +126,139 @@ class Segment(dict):
 
 
 class AbstractElement:
-    element_type = None
+    """
+    This abstract element is the basis for all chemotion-api elements. It provides all the necessary functions and properties to work with these elements.
+    It contains. For more details check the Element classes out.
+    """
 
     def __init__(self, generic_segments: GenericSegments, session: Connection, json_data: dict = None, id: int = None,
                  element_type: str = None):
-        self.attachments: Attachments | None = None
+        self._attachments: Attachments | None = None
         self._generic_segments = generic_segments
         self._session = session
-        self.name = ''
-        self.last_update = None
+
+        self._short_label = None
+        self._properties = None
+        self._analyses = None
+        self._segments = None
+        # Name of element
+        self.name: str = ''
+        # Last update of the element
+        self.last_update: datetime | None = None
         self._element_type = element_type
         self._id = id
-        self.json_ld = {}
+        # Json LD description of the element. It contains @type and @ID
+        self.json_ld: dict = {}
+        # Json data contains the raw data fetched from the server
+        self.json_data: dict | None = None
         if json_data is not None:
-            attachments_data = json_data.get('attachments')
-            if attachments_data is not None:
-                self.attachments = Attachments(self._session, attachments_data)
             self._set_json_data(json_data)
         elif id is not None and element_type is not None:
             self.load()
         else:
             raise ValueError("Either 'json_data' or 'id' and 'element_type' must be provided during initialization")
 
+    @property
+    def short_label(self) -> str | None:
+        """
+        The short label of en element if available
+
+        :return: short label of en element
+        """
+        return self._short_label
 
     @property
-    def id(self):
+    def properties(self) -> dict:
+        """
+        The properties property contains all data from the main tab of the elements in Chemotion.
+
+        :return: Element properties
+        """
+        return self._properties
+
+    @property
+    def analyses(self) -> Analyses:
+        """
+        With the analyses object one can read and write all information from the analysis Tab in Chemotion.
+
+        :return: Analyses object
+        """
+        return self._analyses
+
+    @property
+    def segments(self) -> Segment:
+        """
+        Contains all segments (tabs) of elements in Chemotion.
+        It contains generic elements as well as the proerties and the analyses segment
+
+        :return: Segment object
+        """
+        return self._segments
+
+    @property
+    def attachments(self) -> Attachments | None:
+        """
+        Attachment container of the element. This s None if the element has no Attachments
+
+        :return: Attachments container
+        """
+        if self._attachments is None:
+            attachments_data = self.json_data.get('attachments')
+            if attachments_data is not None:
+                self._attachments = Attachments(self._session, attachments_data)
+        return self._attachments
+
+    @property
+    def id(self) -> int:
+        """
+        Database ID of the element
+
+        :return: Database ID of the element
+        """
         return self._id
 
     @id.setter
-    def id(self, id_val):
+    def id(self, id_val: int):
+        """
+        Database ID of the element
+        """
         self._id = id_val
         if self.json_data is not None:
-            self.json_ld['@id'] = f"{self._session._host_url}{self.get_url(self.element_type)}/{self.id}.json" if self.id is not None else uuid.uuid4().__str__()
-
+            self.json_ld[
+                '@id'] = f"{self._session._host_url}{self.get_url(self.element_type)}/{self.id}.json" if self.id is not None else uuid.uuid4().__str__()
 
     @property
-    def element_type(self):
+    def element_type(self) -> str:
+        """
+        Element type: is either 'sample', 'sample', 'reaction', 'wellplate', 'research_plan' or if the element is a generic one it is only 'element'
+
+        :return: The element type
+        """
         return self._element_type
 
     @element_type.setter
-    def element_type(self, element_type_val):
+    def element_type(self, element_type_val: str):
+        """
+        Element type: is either 'sample', 'sample', 'reaction', 'wellplate', 'research_plan' or if the element is a generic one it is only 'element'
+        Has to be set if json data is not available at the moment of creation
+        """
         self._element_type = element_type_val
         if self.json_data is not None:
             schema_version = self.json_data.get('properties', {}).get('version')
             self.json_ld['@type'] = self._session.schema_manager.generate_model_type(self.element_type, schema_version)
 
-
     def load(self):
+        """
+        Loads and parses the data of an element from the server.
+        The standard Values can be found in the properties property or the segment
+
+        :raises RequestException: If the element could not be loaded!
+
+        :raises ValueError: If no ID available!
+        """
+
+        if self._id is None:
+            raise ValueError("No ID available")
         payload = {}
         res = self._session.get(f"{self.__class__.get_url(self.element_type)}/{self.id}.json",
                                 data=payload)
@@ -182,7 +268,7 @@ class AbstractElement:
         json_data = res_json[self.get_response_key(self.element_type)]
         attachments_data = res_json.get('attachments')
         if attachments_data is not None:
-            self.attachments = Attachments(self._session, attachments_data)
+            self._attachments = Attachments(self._session, attachments_data)
         self._set_json_data(json_data)
 
     def _set_json_data(self, json_data):
@@ -202,18 +288,18 @@ class AbstractElement:
                 pass
         self.name = json_data.get('name', '')
 
-        self.short_label = self.json_data.get('short_label')
+        self._short_label = self.json_data.get('short_label')
         self.element_type = json_data.get('type')
         self.id = json_data.get('id')
 
-        self.properties: dict = self._parse_properties()
-        self.analyses: list[dict] = self._parse_analyses()
+        self._properties: dict = self._parse_properties()
+        self._analyses: list[dict] = self._parse_analyses()
         segment_temp = self._parse_segments()
         self._segments_mapping = segment_temp.get('obj_mapping')
-        self.segments = Segment(self._generic_segments,
-                                json_data.get('type'),
-                                self._on_add_segment,
-                                segment_temp.get('values'))
+        self._segments = Segment(self._generic_segments,
+                                 json_data.get('type'),
+                                 self._on_add_segment,
+                                 segment_temp.get('values'))
         add_to_dict(self.segments, 'Properties', self.properties)
         add_to_dict(self.segments, 'Analyses', self.analyses)
 
@@ -225,6 +311,12 @@ class AbstractElement:
         return temp_segment.get('values')
 
     def save(self):
+        """
+        Saves or creates an object according to the set properties. It overwrites the
+        json_data entries by the values set in the segments object.
+
+        :raises RequestException: If request was not successful
+        """
         data = self.clean_data()
         is_created = False
         if self.id is None:
@@ -241,7 +333,13 @@ class AbstractElement:
         if self.attachments is not None:
             self.attachments.save(self.id, snake_to_camel_case(self.get_response_key(self.element_type)))
 
-    def clean_data(self):
+    def clean_data(self) -> dict:
+        """
+        Takes the values from the segments object and attachment object
+        and overwrites the json_data values accordingly.
+
+        :return: cleaned data
+        """
         cleaned_data = {
             'id': self.id or uuid.uuid4().__str__(),
             'is_new': self.id is None,
@@ -256,10 +354,16 @@ class AbstractElement:
         if self.attachments is not None:
             cleaned_data['attachments'] = self.attachments.attachment_data
 
-        merge_dicts(cleaned_data, self._clean_segments_data(), self._clean_properties_data(), self._clean_analyses_data())
+        merge_dicts(cleaned_data, self._clean_segments_data(), self._clean_properties_data(),
+                    self._clean_analyses_data())
         return cleaned_data
 
-    def save_url(self):
+    def save_url(self) -> str:
+        """
+        Retrieves the save URL, which varies based on whether the element already has an ID.
+
+        :return: The save URL
+        """
         if self.id is not None:
             return "/api/v1/{}s/{}".format(self.json_data.get('type'), self.id)
         return "/api/v1/{}s/".format(self.json_data.get('type'))
@@ -273,7 +377,7 @@ class AbstractElement:
     def _parse_properties(self) -> dict:
         raise NotImplemented
 
-    def _clean_properties_data(self, serialize_data : dict | None =None) -> dict:
+    def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         raise NotImplemented
 
     def _parse_analyses(self) -> list:
@@ -327,7 +431,14 @@ class AbstractElement:
         return {'segments': res_list}
 
     @classmethod
-    def get_response_key(cls, name):
+    def get_response_key(cls, name: str) -> str:
+        """
+        Returns the element name used to construct the save and load URL
+
+        :param name: The name of the element type
+
+        :return: 
+        """
         if name == 'sample':
             return 'sample'
         elif name == 'reaction':
@@ -339,7 +450,14 @@ class AbstractElement:
         return 'element'
 
     @classmethod
-    def get_url(cls, name):
+    def get_url(cls, name: str) -> str:
+        """
+        Returns the load URL based on the element type
+
+        :param name: The name of the element type
+
+        :return: The load url
+        """
         if name == 'sample':
             return '/api/v1/samples'
         elif name == 'reaction':

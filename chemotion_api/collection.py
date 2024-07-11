@@ -755,7 +755,7 @@ class RootCollection(AbstractCollection):
     def _prepare_path(self, col_path: str | list[str], case_insensitive: bool = False) -> list[str]:
         if type(col_path) == str:
             if not col_path.startswith('/'): col_path = '/' + col_path
-            col_path = [x for x in os.path.abspath(col_path).strip('/').split('/') if x != '']
+            col_path = [x for x in col_path.strip('/').split('/') if x != '']
             if case_insensitive:
                 col_path = [x.lower() for x in col_path]
 
