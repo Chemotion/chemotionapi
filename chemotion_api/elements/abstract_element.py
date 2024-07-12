@@ -141,7 +141,7 @@ class AbstractElement:
         self._properties = None
         self._analyses = None
         self._segments = None
-        # Name of element
+        # Name of element instance
         self.name: str = ''
         # Last update of the element
         self.last_update: datetime | None = None

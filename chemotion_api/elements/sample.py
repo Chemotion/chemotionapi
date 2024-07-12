@@ -12,6 +12,9 @@ from chemotion_api.utils.solvent_manager import get_solvent_list
 
 
 class SolventList(list):
+    """
+    In generale it contains a list of molecules. It allows to add molecules from the solvents list.
+    """
 
     def __init__(self, session: Connection, *args):
         if args is None or args[0] is None:
@@ -19,7 +22,13 @@ class SolventList(list):
         super().__init__(*args)
         self._session = session
 
-    def add_new_smiles(self, smiles):
+    def add_new_smiles(self, smiles: str):
+        """
+        Add a solvent by smiles code
+
+        :param smiles: Smiles code
+        """
+
         m = MoleculeManager(self._session).create_molecule_by_smiles(smiles)
         self.append({
             "label": m.get('iupac_name', m.get('sum_formular')),
@@ -28,7 +37,13 @@ class SolventList(list):
             "ratio": 1
         })
 
-    def add_new_name(self, name):
+    def add_new_name(self, name: str):
+        """
+        Add a solvent from the solvent list by name
+
+        :param name: Solvent Name
+        """
+
         solvent_info = get_solvent_list().get(name)
         if solvent_info is None:
             raise KeyError(
@@ -44,31 +59,18 @@ class SolventList(list):
         })
 
 
-class MoleculeManager:
-    def __init__(self, session: Connection):
-        self._session = session
-
-    def load_molecule(self, host_url, session, inchikey):
-        raise NotImplementedError
-
-    def create_molecule_by_smiles(self, smiles_code: str):
-        smiles_url = "/api/v1/molecules/smiles"
-        payload = {
-            "editor": "ketcher",
-            "smiles": smiles_code
-        }
-        res = self._session.post(smiles_url,
-                                 data=json.dumps(payload))
-        if res.status_code != 201:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
-
-        return Molecule(res.json())
-
-    def create_molecule_by_cls(self, host_url, session, inchikey):
-        raise NotImplementedError
-
-
 class Molecule(MutableMapping):
+    """
+    Contains the Molecule information. This class extents MutableMapping and can be used as normal dict object.
+    However, it ensures that the following keys are set and used if the sample which contains the molecule is saved.
+
+    :key: "boiling_point" {float}
+    :key: "cano_smiles" {str}
+    :key: "density" {float}
+    :key: "inchikey" {str}
+    :key: "inchistring" {str}
+    :key: "melting_point" {float}
+    """
     def __init__(self, data):
         self.all_store = dict(data)
         self.store = dict()
@@ -102,16 +104,133 @@ class Molecule(MutableMapping):
         return key
 
 
+class MoleculeManager:
+    """
+    The MoleculeManager can be used to load and crate molecules in teh Chemotion Instance
+    """
+
+    def __init__(self, session: Connection):
+        self._session = session
+
+    def create_molecule_by_smiles(self, smiles_code: str) -> Molecule:
+        """
+        Creates a new molecule for a given smiles code
+
+        :param smiles_code: Simles code of te sample
+        :return: Molecule obj
+        """
+        smiles_url = "/api/v1/molecules/smiles"
+        payload = {
+            "editor": "ketcher",
+            "smiles": smiles_code
+        }
+        res = self._session.post(smiles_url,
+                                 data=json.dumps(payload))
+        if res.status_code != 201:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+
+        return Molecule(res.json())
+
+    def create_molecule_by_cls(self, host_url, session, inchikey) -> Molecule:
+        """Not implemented yet!!"""
+        raise NotImplementedError
+
+
 class Sample(AbstractElement):
+    """
+    A chemotion Sample object.
+    It extends the :class:`chemotion_api.elements.abstract_element.AbstractElement`
+
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> import logging
+    >>> try:
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except ConnectionError as e:
+    >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+    >>> # Get the sample with ID 1
+    >>> s = instance.get_sample(1)
+    >>> # Set the real amount to 3.7 g
+    >>> s.properties["real_amount"]["value"] = 3.7
+    >>> s.properties["real_amount"]["unit"] = "g"
+    >>> # Set the boiling point range from 40 to 50
+    >>> s.properties["boiling_point_lowerbound"] = 40
+    >>> s.properties["boiling_point_upperbound"] = 50
+    >>> # Set the external label to "Sample_X334D"
+    >>> s.properties["external_label"] = "Sample_X334D"
+    >>> # Save the structure Image
+    >>> with open("./sample_structure.svg", "wb+") as f:
+    >>>     f.write(s.load_image().content)
+    >>> # Save the sample
+    >>> s.save()
+    """
 
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
-        self.molecule = Molecule(json_data.get('molecule'))
+        self._molecule = Molecule(json_data.get('molecule'))
         self._svg_file = json_data.get('sample_svg_file')
         self.is_split = json_data.get('is_split', False)
         self._children_count = json_data.get('children_count', )
 
+
+
+    @property
+    def properties(self) -> dict:
+        """
+        The properties property contains all data which can be altered
+        through the chemotion api from the main tab of the sample.
+
+
+        :key: solvent {:class:`chemotion_api.elements.abstract_element.SolventList`}
+        :key: description {string}
+        :key: external_label {str}
+        :key: boiling_point_lowerbound {float}
+        :key: boiling_point_upperbound {float}
+        :key: melting_point_lowerbound {float}
+        :key: melting_point_upperbound {float}
+        :key: target_amount {dict} with value: float and unit: str
+        :key: molarity {dict} with value: float and unit: str
+        :key: real_amount {dict} with value: float and unit: str
+        :key: stereo {str}
+        :key: location {str}
+        :key: is_top_secret {bool}
+        :key: is_restricted {bool}
+        :key: purity {float}
+        :key: density {float}
+        :key: user_labels {list}
+        :key: decoupled {bool}
+        :key: waste {bool}
+        :key: metrics {str}
+        :key: sum_formula {str}
+        :key: equivalent {str}
+        :key: coefficient {str}
+        :key: reaction_description {str}
+
+        Readonly properties:
+
+        :key: name {str, readonly}
+        :key: short_label {str, readonly}
+
+        :return: Element properties
+        """
+        return super().properties
+
+    @property
+    def molecule(self) -> Molecule:
+        """
+        The molecule of the sample
+
+        :return: Molecule instance
+        """
+        return self._molecule
+
     def load_image(self) -> Response:
+        """
+        Loads the sample structure as svg image
+
+        :return: Response with the svg as content
+        """
         image_url = "/images/samples/{}".format(self._svg_file)
         res = self._session.get(image_url)
         if res.status_code != 200:
@@ -119,6 +238,12 @@ class Sample(AbstractElement):
         return res
 
     def split(self):
+        """
+        Splits the sample.
+
+        :return: A new sample object
+        :rtype: :class:`chemotion_api.elements.sample.Sample`
+        """
         self.save()
         split_sample = copy.deepcopy(self.json_data)
         split_sample['parent_id'] = self.id
@@ -141,6 +266,7 @@ class Sample(AbstractElement):
         raise NotImplementedError
 
     def toggle_decoupled(self):
+        """Decoupls the sample from the molecule"""
         self.properties['decoupled'] = not self.properties['decoupled']
 
     def _parse_properties(self) -> dict:

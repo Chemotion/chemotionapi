@@ -91,7 +91,9 @@ class AbstractCollection:
     def prepare_label(self, case_insensitive: bool) -> str:
         """
         Prepares the label of a collection
+
         :param case_insensitive: If true it returns teh lower case label
+
         :return: The collection's label
         """
         if case_insensitive:
@@ -104,6 +106,7 @@ class AbstractCollection:
     def __iter__(self) -> Iterator[tuple[str: dict]]:
         """
         Iterate over all children
+
         :return: Iterator
         """
         yield ('collections', self._children)
@@ -132,6 +135,7 @@ class AbstractCollection:
     def to_json(self) -> dict:
         """
         Generates a dict containing all list of all children collection
+
         :return: list of children as savable JSON
         """
         return {'children': [x.to_json() for x in self._children]}
@@ -139,8 +143,10 @@ class AbstractCollection:
     def find(self, label: str | None = None, **kwargs) -> list[TAbstractCollection]:
         """
         Finds a collection by its label or other properties. Path is not needed.
+
         :param label: String or None.
         :param kwargs: Other properties used to search Collections
+
         :return: All found Collections
         """
 
@@ -160,6 +166,7 @@ class AbstractCollection:
     def get_path(self) -> str:
         """
         Generates the absolut path of collection
+
         :return: Absolut path of a collection
         """
 
@@ -175,6 +182,7 @@ class AbstractCollection:
     def get_root(self) -> TRootCollection:
         """
         Get root Collection
+
         :return: Instance of the RootCollection
         """
 
@@ -186,8 +194,10 @@ class AbstractCollection:
     def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> TAbstractCollection:
         """
         Gets a collection a path points to.
+
         :param col_path: is either a string based on a unix path or a list
         :param case_insensitive: If true the cases of path are taken into account
+
         :return: Collection the path points to
         """
 
@@ -201,8 +211,10 @@ class AbstractCollection:
         """
         Gets or creates a collection the col_path path points to. If the collection needs to be created
         the collection is saved right away.
+
         :param col_path: is either a string based on a unix path or a list
         :param case_insensitive: If true the cases of path are taken into account
+
         :return: Collection the path points to
         """
 
@@ -219,8 +231,11 @@ class AbstractCollection:
         """
         Creates a new collection at the path_to_new path. The collection is not saved.
         Please reload the collection after saving it.
+
         :param col_path: is either a string based on a unix path or a list
+
         :return: new Collection (not saved)
+
         :raises: Exception if collection is synced. This is not yet implemented
         """
 
@@ -231,8 +246,10 @@ class AbstractCollection:
     def get_elements_of_iri(self, element_type: str, per_page=10) -> ElementSet:
         """
         Gets all elements of given IRI type.
+
         :param element_type: IRI string chemotion:xxx/xxx/xxx
         :param per_page: How many Elements per page
+
         :return: ElementSet based on the IRI
         """
 
@@ -249,7 +266,9 @@ class AbstractCollection:
     def get_samples(self, per_page: int = 10) -> ElementSet:
         """
         List of all samples.
+
         :param per_page: How many Elements per page
+
         :return: ElementSet of samples
         """
 
@@ -262,7 +281,9 @@ class AbstractCollection:
     def get_reactions(self, per_page: int = 10) -> ElementSet:
         """
         List of all reactions.
+
         :param per_page: How many Elements per page
+
         :return: ElementSet of reactions
         """
 
@@ -275,7 +296,9 @@ class AbstractCollection:
     def get_research_plans(self, per_page: int = 10) -> ElementSet:
         """
         List of all research plans.
+
         :param per_page: How many Elements per page
+
         :return: ElementSet of research plans
         """
 
@@ -288,7 +311,9 @@ class AbstractCollection:
     def get_wellplates(self, per_page: int = 10) -> ElementSet:
         """
         List of all well plates.
+
         :param per_page: How many Elements per page
+
         :return: ElementSet of well plates
         """
 
@@ -301,8 +326,10 @@ class AbstractCollection:
     def get_generics_by_name(self, name: str, per_page: int = 10) -> ElementSet:
         """
         List of all generic elements of a given name.
+
         :param name: generic element's name
         :param per_page: How many Elements per page
+
         :return: ElementSet of generic elements of a given name
         """
 
@@ -318,8 +345,10 @@ class AbstractCollection:
     def get_generics_by_label(self, label: str, per_page: int = 10) -> ElementSet:
         """
         List of all generic elements of a given label.
+
         :param label: generic element's label
         :param per_page: How many Elements per page
+
         :return: ElementSet of generic elements of a given name
         """
 
@@ -335,6 +364,7 @@ class AbstractEditableCollection(AbstractCollection):
     def new_sample(self) -> AbstractElement:
         """
         Creates a new sample in this collection.
+
         :return: AbstractElement
         """
         return self._create_new_element('sample')
@@ -342,6 +372,7 @@ class AbstractEditableCollection(AbstractCollection):
     def new_sample_smiles(self, smiles_code: str) -> AbstractElement:
         """
         Creates a new sample with a molecule generated with a smiles code in this collection.
+
         :return: AbstractElement
         """
         sample = self._create_new_element('sample')
@@ -352,6 +383,7 @@ class AbstractEditableCollection(AbstractCollection):
     def new_solvent(self, name) -> AbstractElement:
         """
         Creates a new solvent in this collection.
+
         :return: AbstractElement
         """
         root = self.get_root()
@@ -363,6 +395,7 @@ class AbstractEditableCollection(AbstractCollection):
     def new_reaction(self) -> AbstractElement:
         """
         Creates a new reaction in this collection.
+
         :return: AbstractElement
         """
         return self._create_new_element('reaction')
@@ -370,6 +403,7 @@ class AbstractEditableCollection(AbstractCollection):
     def new_research_plan(self) -> AbstractElement:
         """
         Creates a new research plan in this collection.
+
         :return: AbstractElement
         """
         return self._create_new_element('research_plan')
@@ -377,6 +411,7 @@ class AbstractEditableCollection(AbstractCollection):
     def new_wellplate(self) -> AbstractElement:
         """
         Creates a new well plate in this collection.
+
         :return: AbstractElement
         """
 
@@ -385,7 +420,9 @@ class AbstractEditableCollection(AbstractCollection):
     def new_generic(self, type_name: str) -> AbstractElement:
         """
         Creates a new element of given type name in this collection.
+
         :param type_name: Generic element's type name
+
         :return: AbstractElement
         """
 
@@ -394,7 +431,9 @@ class AbstractEditableCollection(AbstractCollection):
     def new_generic_by_label(self, label: str) -> AbstractElement:
         """
         Creates a new element of given label in this collection.
+
         :param label: Generic element's label
+
         :return: AbstractElement
         """
 
@@ -406,7 +445,9 @@ class AbstractEditableCollection(AbstractCollection):
     def new_element_by_iri(self, element_type: str) -> AbstractElement:
         """
         Creates a new element of given IRI type. However, if the type is generic the generated element is of the newest type.
+
         :param element_type: IRI string chemotion:xxx/xxx/xxx
+
         :return: AbstractElement
         """
 
@@ -448,6 +489,7 @@ class Collection(AbstractEditableCollection):
     def set_json(self, collection_json):
         """
         Set the json data received from the server
+
         :param collection_json: JSON object representing the collection
         """
         if collection_json is None:
@@ -477,6 +519,7 @@ class Collection(AbstractEditableCollection):
     def to_json(self):
         """
         Generates a dict containing all list of all children collection
+
         :return: list of children as savable JSON
         """
         as_dict = dict(self)
@@ -485,8 +528,10 @@ class Collection(AbstractEditableCollection):
     def move(self, dest: str | list[str], case_insensitive: bool = False):
         """
         Moves this collection to a dest path.
+
         :param dest: is either a string based on a unix path or a list
         :param case_insensitive: If true the cases of path are taken into account
+
         :return: Collection the path points to
         """
 
@@ -505,7 +550,9 @@ class Collection(AbstractEditableCollection):
         """
         Creates a new child collection. The collection is not saved.
         Please reload the collection after saving it.
+
         :param name: new collection`s name
+
         :return: new Collection (not saved)
         """
         abs_path = _col_path_join(self.get_path(), name)
@@ -514,6 +561,7 @@ class Collection(AbstractEditableCollection):
     def share(self, permission_level: SyncPermission, *users: Person | Group):
         """
         To synchronize a collection with a set of users or groups
+
         :param permission_level: Element from SyncPermission
         :param users: a list of users or groups
         """
@@ -567,6 +615,26 @@ class RootCollection(AbstractCollection):
     """
     The root collection is the foundation of working with collections. It serves with methods to navigate through the
     collections and creating new collections
+
+
+
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> import logging
+    >>> try:
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except ConnectionError as e:
+    >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+    >>> rc = instance.get_root_collection(True)
+    >>> # Navigate to collection 'Team One' in 'Projects'
+    >>> col = rc.get_collection('/Projects/Team One')
+    >>> # Create collection 'P 123' in '/Project/Team One'
+    >>> col.get_or_create_collection('./P 123')
+    >>> # Move collection P 122 into collection '/Done Projects'
+    >>> col.get_collection('./P 122').move('/Done Projects')
+    >>> for sample in col.get_samples():
+    >>>     pass # Do something
     """
 
     def __init__(self, session: Connection):
@@ -679,8 +747,10 @@ class RootCollection(AbstractCollection):
     def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> TAbstractCollection:
         """
         Gets a collection a path points to.
+
         :param col_path: is either a string based on a unix path or a list
         :param case_insensitive: If true the cases of path are taken into account
+
         :return: Collection the path points to
         """
 
@@ -696,9 +766,11 @@ class RootCollection(AbstractCollection):
     def move(self, src: str | list[str], dest: str | list[str], case_insensitive: bool = False):
         """
         Moves a collection from a src path to a dest path.
+
         :param src: is either a string based on a unix path or a list
         :param dest: is either a string based on a unix path or a list
         :param case_insensitive: If true the cases of path are taken into account
+
         :return: Collection the path points to
         """
 
@@ -716,6 +788,7 @@ class RootCollection(AbstractCollection):
     def delete(self, src: str | list[str], case_insensitive: bool = False):
         """
         Deletes a collection at the src path.
+
         :param src: is either a string based on a unix path or a list
         :param case_insensitive: If true the cases of path are taken into account
         """
@@ -732,7 +805,9 @@ class RootCollection(AbstractCollection):
         """
         Creates a new collection at the path_to_new path. The collection is not saved.
         Please reload the collection after saving it.
+
         :param path_to_new: is either a string based on a unix path or a list
+
         :return: new Collection (not saved)
         """
 
@@ -747,6 +822,7 @@ class RootCollection(AbstractCollection):
     def to_json(self) -> dict[str: list]:
         """
         Generates a dict containing all list of all children collection
+
         :return: list of children as savable JSON
         """
 

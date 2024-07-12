@@ -23,6 +23,11 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    Instance
    Collection
    Elements
+   ResearchPlanDetails
+   SampleDetails
+   ReactionDetails
+   WellplateDetails
+   GenericElementsDetails
    Attachments
 
 
