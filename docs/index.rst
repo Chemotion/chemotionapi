@@ -29,6 +29,7 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    WellplateDetails
    GenericElementsDetails
    Attachments
+   Analyses
 
 
 Indices and tables

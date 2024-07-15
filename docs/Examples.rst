@@ -17,6 +17,8 @@ For instructions about how to install, as well as the full documentation of, ``P
 Installing imagemagick
 _________________________
 
+To prevent problems!
+
 **Debian/Ubuntu**
 
 
@@ -188,6 +190,22 @@ Example 3) Upload/Load Attachment
 
 Example 4) Instance CLI
 **************************************************
+
+.. raw:: html
+
+    <style>
+    .warning {
+        color:red;
+        font-weight: bold;
+        font-size: 18px;
+    }
+    </style>
+
+.. role:: warning
+
+:warning:`THIS CLI TOOLS MUST NOT BE USED FOR PRODUCTIVE INSTANCES`
+
+THE CLI tool is only for development & test usages. For Productive Instances please use `ChemCLI <https://github.com/Chemotion/ChemOrc/>`_
 
 .. code-block:: sh
 

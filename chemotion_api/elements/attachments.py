@@ -3,11 +3,12 @@ import json
 import os
 import uuid
 from collections import OrderedDict
-
+from collections.abc import Sequence
 import magic
 import requests
 
 from chemotion_api.connection import Connection
+from chemotion_api.elements.analyses_manager import AnalysesManager
 
 
 class Attachment(dict):
@@ -67,11 +68,12 @@ class Attachment(dict):
         return os.path.abspath(file_path)
 
 
-class Attachments:
+class Attachments(Sequence):
     """
-    Attachment are a container object to manage (read/write) all attachments of an element.
+    Attachments is a container object to manage (read/write) all attachments of an element.
+    Each attachemnt is a :class:`chemotion_api.elements.attachments.Attachment`.
     It allows to load Attachments or add new ones.
-
+    Attachment can be iterated!
 
 
     Usage::
@@ -93,12 +95,19 @@ class Attachments:
     """
 
     def __init__(self, con: Connection, attachment_data: list[dict] = None):
+        super().__init__()
         if attachment_data is None:
             attachment_data = []
         self._attachment_data = [Attachment(con, x) for x in attachment_data]
         self._new_attachment_data = []
         self._con = con
-        self._to_uploads = []
+        self._to_uploads = []             # Direct inheritance
+
+            # Extra method not required by the ABC
+    def __getitem__(self, index: int) -> Attachment:
+        return self.attachment_data[index]
+    def __len__(self):
+        return len(self.attachment_data)
 
     @property
     def attachment_data(self) -> list:
@@ -209,3 +218,21 @@ class Attachments:
                 'seInfo': {}}
         res = self._con.post('/api/v1/generic_elements/upload_generics_files', data=data, files=files)
         return res
+
+class MutableAttachments(Attachments):
+    """
+    Same as :class:`chemotion_api.elements.attachments.Attachments` only add File is not allowed.
+    """
+
+    def __init__(self, con: Connection, attachment_data: list[dict] = None, *file_paths: str):
+        super().__init__(con, attachment_data)
+        for fp in file_paths:
+            super().add_file(fp)
+
+    def add_file(self, file_path: str) -> dict:
+        raise NotImplemented("In a MutableAttachments add_file is not allowed")
+
+    def save(self, id: int = -1, element_type: str = '') -> requests.Response | None:
+        for x in self._to_uploads:
+            AnalysesManager.upload_file(self._con, x['file_path'], x['file_uuid'])
+        return None

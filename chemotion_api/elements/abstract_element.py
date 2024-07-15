@@ -5,9 +5,10 @@ import uuid
 from datetime import datetime
 
 import dateutil.parser
+from chemotion_api.elements.analyses_manager import AnalysesManager
 
 from chemotion_api.connection import Connection
-from chemotion_api.elements.attachments import Attachments
+from chemotion_api.elements.attachments import Attachments, MutableAttachments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
@@ -17,7 +18,29 @@ from requests.exceptions import RequestException
 
 
 class Dataset(dict):
-    def __init__(self, session: Connection, json_data: dict):
+    """
+    A Dataset is an object that consists of a metadata set and a measurement file.
+    If all components have been configured correctly in Chemotion, a BagIT
+    container is created when a new file is uploaded. This container is then used
+    to automatically fill in the metadata set and forward the measurement data to ChemSpectra.
+
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> import logging
+    >>> try:
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except ConnectionError as e:
+    >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+    >>> s = instance.get_sample(1)
+    >>> # Loads dataset V2024_08_23 from 'Analyses MT 1'
+    >>> d1 = s.analyses.by_name('Analyses MT 1').dataset_by_name('V2024_08_23')
+    >>> # Write BagIT zip and metadata set as xlsx file
+    >>> d1.write_data_set_xlsx('./CWD')
+    >>> d1.write_zip('./CWD')
+    """
+
+    def __init__(self, session: Connection, json_data: dict, attachments: MutableAttachments = None):
         self.id = json_data.get('id')
         self.name = json_data.get('name')
         self.description = json_data.get('description')
@@ -28,8 +51,33 @@ class Dataset(dict):
             self._mapping = res.get('obj_mapping')
         self._session = session
         self._json_data = json_data
+        self._attachments = attachments
+
+    @property
+    def json_data(self) -> dict:
+        return self._json_data
+
+    @property
+    def attachments(self) -> MutableAttachments:
+        """
+        A list of all attached files. It contains the BagIt, the ChemSpectra results
+         as well as the measurement file
+
+        :return: A mutable attachment File
+        """
+        if self._attachments is None:
+            attachments_data = self._json_data.get('attachments')
+            if attachments_data is not None:
+                self._attachments = MutableAttachments(self._session, attachments_data)
+        return self._attachments
 
     def write_zip(self, destination=''):
+        """
+        Writes the BagIT zip file.
+
+        :param destination: Director where the BagIT should be saved to
+        :return: Abs filepath of the BagIT zip
+        """
         image_url = "/api/v1/attachments/zip/{}".format(self.id)
         res = self._session.get(image_url)
         if res.status_code != 200:
@@ -45,7 +93,13 @@ class Dataset(dict):
         return destination
 
     def write_data_set_xlsx(self, destination=''):
-        image_url = "/api/v1/attx/dataset/{}".format(self.id)
+        """
+        Writes the metadata set as xlsx.
+
+        :param destination: Director where the BagIT should be saved to.
+        :return: Abs filepath of the BagIT zip.
+        """
+        image_url = "/api/v1/export_ds/dataset/{}".format(self.id)
         res = self._session.get(image_url)
         if res.status_code != 200:
             raise ConnectionRefusedError('{} -> {}'.format(res.status_code, res.text))
@@ -59,15 +113,27 @@ class Dataset(dict):
 
         return destination
 
-    def to_json(self):
+    def to_clean_json(self):
+        """
+        Cleans the data as perpetration to be saved
+        """
         ds = self._json_data.get('dataset')
         if ds is not None:
             clean_generic_object_json(ds, self, self._mapping)
             ds['changed'] = True
 
+    def save_attachments(self):
+        self.attachments.save()
+        self.json_data['attachments'] = [x for x in self.attachments]
+
 
 class Analyses(dict):
-    def __init__(self, data, session: Connection):
+    """
+    An analysis consists of a list of metadata schemas and associated data files.
+    The schemas can be edited. And the files can be read and saved to your local device
+    """
+
+    def __init__(self, data: dict, session: Connection):
         super().__init__()
         self._session = session
         self.id = data.get('id')
@@ -76,29 +142,162 @@ class Analyses(dict):
         self._data = data
         self['name'] = data['name']
         self['description'] = data['description']
+
+        for k in ['report', 'status', 'kind', 'content']:
+            if k in data:
+                self[k] = data['extended_metadata'][k]
         self.datasets = []
         for jd in self._data.get('children'):
             self.datasets.append(Dataset(session, jd))
 
-    def preview_image(self):
+    @property
+    def is_new(self) -> bool:
+        """
+        :return: Returns true if the analyses has not been saved yet.
+        """
+        return self._data.get('is_new', False)
+
+    def add_dataset(self, file_path: str) -> Dataset:
+        """
+        Loads a datafile up  and creates a new dataset.
+        The Chemotion Instance will convert the date file and create a metadate set accordingly.
+        However, this process only works if a Converter profile has been created
+
+        :param file_path: the path on your local device to the datafile
+        :return: A new Dataset object
+        """
+        ds = AnalysesManager.build_new_dataset()
+        ds['name'] = os.path.basename(file_path)
+        d = Dataset(self._session, ds, MutableAttachments(self._session, ds['attachments'], file_path))
+        self.datasets.append(d)
+        self._data['children'].append(d.json_data)
+        return d
+
+    def dataset_by_name(self, name: str) -> Dataset:
+        """
+        Find a dataset by its name.
+
+        :param name: Name of the dataset
+        :return: A Dataset object
+        """
+        return next(x for x in self.datasets if x.name == name)
+
+    def preview_image(self) -> bytes | None:
+        """
+        Loads the image used as preview for the analyses.
+
+        Usage::
+
+        >>> from chemotion_api import Instance
+        >>> import logging
+        >>> try:
+        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+        >>> except ConnectionError as e:
+        >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+        >>> s = instance.get_sample(1)
+        >>> # Loads analysis 'Analyses MT 1'
+        >>> analyses = s.analyses.by_name('Analyses MT 1')
+        >>> with open('./img.svg', 'wb+') as f:
+        >>>     f.write(analyses.preview_image())
+        >>> s.save()
+
+        :raises ConnectionError: If the request fails
+        :return: byte representation of an image
+        """
+
         if self._data.get('preview_img') is None or self._data.get('preview_img').get('id') is None:
             return None
         return self._load_image(self._data.get('preview_img').get('id'))
 
-    def _load_image(self, file_id: int):
+    def _load_image(self, file_id: int) -> bytes:
         image_url = "/api/v1/attachments/{}".format(file_id)
         res = self._session.get(image_url)
         if res.status_code != 200:
-            raise ConnectionRefusedError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
 
         return res.content
 
-    def to_josn(self):
+    def to_json(self):
+        """
+        A savable representation of the Analyses
+        :return: Json representation
+        """
         self._data['name'] = self['name']
         self._data['description'] = self['description']
+        for k in ['report', 'status', 'kind', 'content']:
+            if k in self:
+                self._data['extended_metadata'][k] = self[k]
         for ds in self.datasets:
-            ds.to_json()
+            ds.to_clean_json()
         return self._data
+
+    def save_attachments(self):
+        """
+        Do not use this methode! It is automatically used before the element is saved!
+        """
+
+        for i, d in enumerate(self.datasets):
+            d.save_attachments()
+
+    def clean_up_after_save(self):
+        """
+        Do not use this methode! It is automatically used after the element is saved!
+        """
+
+        self._data['is_new'] = False
+        for d in self.datasets:
+            d.json_data['is_new'] = False
+
+
+
+class AnalysesList(list):
+    """
+    List of :class:`chemotion_api.elements.abstract_element.Analyses`.
+
+
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> import logging
+    >>> try:
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except ConnectionError as e:
+    >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+    >>> s = instance.get_sample(1)
+    >>> # Download of all analysis files of data set 'V2024_08_23' from 'Analyses MT 1'
+    >>> analyses = s.analyses.by_name('Analyses MT 1')
+    >>> dataset = analyses.dataset_by_name('V2024_08_23')
+    >>> os.makedirs('./TO_DEL', exist_ok=True)
+    >>> for atta in dataset.attachments:
+    >>>     atta.save_file('./dataset_files')
+    >>> # Change value in the metadate set
+    >>> dataset['General Information']['Label'] = 'V2024_08_23'
+    >>> # Create a new
+    >>> ana = s.analyses.add_analyses("Analyses MT 2")
+    >>> ana.add_dataset('./V2024_08_24.json')
+    >>> s.save()
+    """
+
+    def __init__(self, conn: Connection):
+        super().__init__()
+        self.conn = conn
+
+    def by_name(self, name: str) -> Analyses:
+        return next(x for x in self if x['name'] == name)
+
+    def add_analyses(self, name: str = 'New') -> Analyses:
+        new_a = Analyses(AnalysesManager.build_new_analyses(), self.conn)
+        self.append(new_a)
+        new_a['name'] = name
+        return new_a
+
+    def save_attachments(self):
+        for ana in self:
+            ana.save_attachments()
+
+    def clean_up_after_save(self):
+        for ana in self:
+            ana.clean_up_after_save()
 
 
 class Segment(dict):
@@ -177,7 +376,7 @@ class AbstractElement:
         return self._properties
 
     @property
-    def analyses(self) -> Analyses:
+    def analyses(self) -> AnalysesList:
         """
         With the analyses object one can read and write all information from the analysis Tab in Chemotion.
 
@@ -293,7 +492,7 @@ class AbstractElement:
         self.id = json_data.get('id')
 
         self._properties: dict = self._parse_properties()
-        self._analyses: list[dict] = self._parse_analyses()
+        self._analyses: AnalysesList = self._parse_analyses()
         segment_temp = self._parse_segments()
         self._segments_mapping = segment_temp.get('obj_mapping')
         self._segments = Segment(self._generic_segments,
@@ -317,6 +516,8 @@ class AbstractElement:
 
         :raises RequestException: If request was not successful
         """
+
+        self.analyses.save_attachments()
         data = self.clean_data()
         is_created = False
         if self.id is None:
@@ -332,6 +533,7 @@ class AbstractElement:
             self._set_json_data(res_json)
         if self.attachments is not None:
             self.attachments.save(self.id, snake_to_camel_case(self.get_response_key(self.element_type)))
+        self.analyses.clean_up_after_save()
 
     def clean_data(self) -> dict:
         """
@@ -380,8 +582,8 @@ class AbstractElement:
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         raise NotImplemented
 
-    def _parse_analyses(self) -> list:
-        analyses_list = []
+    def _parse_analyses(self) -> AnalysesList:
+        analyses_list = AnalysesList(self._session)
         container = self.json_data.get('container')
         if container is not None and len(container.get('children', [])) > 0:
             for analyses in container.get('children', [{}])[0].get('children', []):
@@ -400,11 +602,11 @@ class AbstractElement:
             analyses_obj: list[Analyses] = [item for (index, item) in enumerate(self.analyses) if
                                             item.id == analyses.get('id')]
             if len(analyses_obj) == 1:
-                new_data = analyses_obj[0].to_josn()
+                new_data = analyses_obj[0].to_json()
                 for (key, item) in analyses.items():
                     if key in new_data:
                         res_list[idx][key] = new_data.get(key, res_list[idx][key])
-
+        res_list += [item.to_json() for item in self.analyses if item.is_new]
         obj["container"]["children"][0]["children"] = res_list
         return obj
 

@@ -5,8 +5,6 @@ import re
 import uuid
 from chemotion_api.connection import Connection
 
-MAX_UPLOAD_SIZE = 5000
-
 
 class User(abc.ABC):
     @classmethod
@@ -192,34 +190,6 @@ class Device(User):
             raise PermissionError('Not allowed to delete device (Only for super devices or admins)')
         elif res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
-
-    def upload_file(self, file_path: str):
-        with open(file_path, 'rb') as f:
-            body = f.read()
-
-            key = uuid.uuid1().__str__()
-            snippet = 0
-            counter = 0
-            hash_md5 = hashlib.md5()
-            while snippet < len(body):
-                start_snippet = snippet
-                snippet += MAX_UPLOAD_SIZE
-                file_chunk = body[start_snippet:snippet]
-                hash_md5.update(file_chunk)
-                payload = {'file': (file_path, file_chunk)}
-                res = self._session.post('/api/v1/attachments/upload_chunk', data={'key': key, 'counter': counter},
-                                         files=payload)
-                counter += 1
-                if res.status_code == 401:
-                    raise PermissionError('Not allowed to delete device (Only for super devices or admins)')
-                elif (res.status_code != 200 and res.status_code != 201):
-                    raise ConnectionError()
-            res = self._session.post('/api/v1/attachments/upload_raw_chunk_complete',
-                                     data={'key': key, 'filename': file_path, 'checksum': hash_md5.hexdigest()})
-            if res.status_code == 401:
-                raise PermissionError('Not allowed to delete device (Only for super devices or admins)')
-            elif (res.status_code != 200 and res.status_code != 201):
-                raise ConnectionError(f'{res.status_code} -> {res.text}')
 
 
 class Admin(Person):

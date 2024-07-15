@@ -1,0 +1,21 @@
+{
+  "name": "new",
+  "children": [],
+  "attachments": [],
+  "is_deleted": false,
+  "description": "",
+  "extended_metadata": {
+    "report": true,
+    "content": {
+      "ops": [
+        {
+          "insert": "\n"
+        }
+      ]
+    },
+    "index": 1
+  },
+  "container_type": "analysis",
+  "id": "",
+  "is_new": true
+}
