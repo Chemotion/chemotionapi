@@ -5,6 +5,8 @@ import uuid
 from datetime import datetime
 
 import dateutil.parser
+from jsonschema.validators import validate
+
 from chemotion_api.elements.analyses_manager import AnalysesManager
 
 from chemotion_api.connection import Connection
@@ -350,6 +352,7 @@ class AbstractElement:
         self.json_ld: dict = {}
         # Json data contains the raw data fetched from the server
         self.json_data: dict | None = None
+        self._data_loaded = False
         if json_data is not None:
             self._set_json_data(json_data)
         elif id is not None and element_type is not None:
@@ -446,6 +449,17 @@ class AbstractElement:
             schema_version = self.json_data.get('properties', {}).get('version')
             self.json_ld['@type'] = self._session.schema_manager.generate_model_type(self.element_type, schema_version)
 
+
+
+
+    def properties_schema(self) -> dict:
+        """
+        Returns the JSON.org schema of the cleaned properties.
+
+        :return: JSON.org schema
+        """
+        return {}
+
     def load(self):
         """
         Loads and parses the data of an element from the server.
@@ -456,6 +470,15 @@ class AbstractElement:
         :raises ValueError: If no ID available!
         """
 
+        self._data_loaded = True
+
+        attachments_data, json_data = self._load_data_from_server()
+        if attachments_data is not None:
+            self._attachments = Attachments(self._session, attachments_data)
+        self._set_json_data(json_data)
+
+    def _load_data_from_server(self):
+
         if self._id is None:
             raise ValueError("No ID available")
         payload = {}
@@ -464,11 +487,9 @@ class AbstractElement:
         if res.status_code != 200:
             raise RequestException("{} -> {}".format(res.status_code, res.text))
         res_json = res.json()
-        json_data = res_json[self.get_response_key(self.element_type)]
         attachments_data = res_json.get('attachments')
-        if attachments_data is not None:
-            self._attachments = Attachments(self._session, attachments_data)
-        self._set_json_data(json_data)
+        return attachments_data, res_json[self.get_response_key(self.element_type)]
+
 
     def _set_json_data(self, json_data):
         self.json_data = json_data
@@ -515,8 +536,13 @@ class AbstractElement:
         json_data entries by the values set in the segments object.
 
         :raises RequestException: If request was not successful
+        :raises jsonschema.exceptions.ValidationError: If the properties ar not valid
         """
+        if not self._data_loaded and self.id is not None:
+            _attachment_data, json_data = self._load_data_from_server()
+            self.json_data = json_data
 
+        self._data_loaded = True
         self.analyses.save_attachments()
         data = self.clean_data()
         is_created = False
@@ -526,7 +552,7 @@ class AbstractElement:
         else:
             res = self._session.put(self.save_url(), data=json.dumps(data))
         if res.status_code != 200 and res.status_code != 201:
-            raise RequestException('{} -> '.format(res.status_code, res.text))
+            raise RequestException(f'{res.status_code} -> {res.text}')
         if is_created:
             res_json = res.json()
             res_json = merge_dicts(self.json_data, res_json.get(self.element_type, res_json.get('element')))
@@ -539,6 +565,8 @@ class AbstractElement:
         """
         Takes the values from the segments object and attachment object
         and overwrites the json_data values accordingly.
+
+        :raises jsonschema.exceptions.ValidationError: If the properties ar not valid
 
         :return: cleaned data
         """
@@ -556,7 +584,10 @@ class AbstractElement:
         if self.attachments is not None:
             cleaned_data['attachments'] = self.attachments.attachment_data
 
-        merge_dicts(cleaned_data, self._clean_segments_data(), self._clean_properties_data(),
+        cleaned_prop_data = self._clean_properties_data()
+        validate(cleaned_prop_data, self.properties_schema())
+
+        merge_dicts(cleaned_data, self._clean_segments_data(), cleaned_prop_data,
                     self._clean_analyses_data())
         return cleaned_data
 

@@ -31,7 +31,7 @@ class AnalysesManager():
     def upload_file(session, file_path: str, file_uuid: str):
         with open(file_path, 'rb') as f:
             body = f.read()
-
+            file_name = os.path.basename(file_path)
             key = file_uuid
             snippet = 0
             counter = 0
@@ -41,7 +41,7 @@ class AnalysesManager():
                 snippet += MAX_UPLOAD_SIZE
                 file_chunk = body[start_snippet:snippet]
                 hash_md5.update(file_chunk)
-                payload = {'file': (file_path, file_chunk)}
+                payload = {'file': (file_name, file_chunk)}
                 res = session.post('/api/v1/attachments/upload_chunk', data={'key': key, 'counter': counter},
                                    files=payload)
                 counter += 1
@@ -49,7 +49,7 @@ class AnalysesManager():
                     raise PermissionError('Not allowed to delete device (Only for super devices or admins)')
                 elif (res.status_code != 200 and res.status_code != 201):
                     raise ConnectionError()
-            data = {'key': key, 'filename': file_path, 'checksum': hash_md5.hexdigest()}
+            data = {'key': key, 'filename': file_name, 'checksum': hash_md5.hexdigest()}
             res = session.post('/api/v1/attachments/upload_chunk_complete',
                                data=data)
             if res.status_code == 401:

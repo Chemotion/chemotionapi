@@ -182,35 +182,35 @@ class Sample(AbstractElement):
         through the chemotion api from the main tab of the sample.
 
 
-        :key: solvent {:class:`chemotion_api.elements.abstract_element.SolventList`}
-        :key: description {string}
-        :key: external_label {str}
-        :key: boiling_point_lowerbound {float}
-        :key: boiling_point_upperbound {float}
-        :key: melting_point_lowerbound {float}
-        :key: melting_point_upperbound {float}
-        :key: target_amount {dict} with value: float and unit: str
-        :key: molarity {dict} with value: float and unit: str
-        :key: real_amount {dict} with value: float and unit: str
-        :key: stereo {str}
-        :key: location {str}
-        :key: is_top_secret {bool}
-        :key: is_restricted {bool}
-        :key: purity {float}
-        :key: density {float}
-        :key: user_labels {list}
-        :key: decoupled {bool}
-        :key: waste {bool}
-        :key: metrics {str}
-        :key: sum_formula {str}
-        :key: equivalent {str}
-        :key: coefficient {str}
-        :key: reaction_description {str}
+        :key solvent: {:class:`chemotion_api.elements.abstract_element.SolventList`}
+        :key description: {string}
+        :key external_label: {str}
+        :key boiling_point_lowerbound: {float}
+        :key boiling_point_upperbound: {float}
+        :key melting_point_lowerbound: {float}
+        :key melting_point_upperbound: {float}
+        :key target_amount: {dict} with value: float and unit: str
+        :key molarity: {dict} with value: float and unit: str
+        :key real_amount: {dict} with value: float and unit: str
+        :key stereo: {str}
+        :key location: {str}
+        :key is_top_secret: {bool}
+        :key is_restricted: {bool}
+        :key purity: {float}
+        :key density: {float}
+        :key user_labels: {list}
+        :key decoupled: {bool}
+        :key waste: {bool}
+        :key metrics: {str}
+        :key sum_formula: {str}
+        :key equivalent: {str}
+        :key coefficient: {str}
+        :key reaction_description: {str}
 
         Readonly properties:
 
-        :key: name {str, readonly}
-        :key: short_label {str, readonly}
+        :key name: {str, readonly}
+        :key short_label: {str, readonly}
 
         :return: Element properties
         """
@@ -220,10 +220,17 @@ class Sample(AbstractElement):
     def molecule(self) -> Molecule:
         """
         The molecule of the sample
-
-        :return: Molecule instance
         """
+
         return self._molecule
+
+    @molecule.setter
+    def molecule(self, molecule: Molecule):
+        """
+        The molecule of the sample
+        """
+
+        self._molecule = molecule
 
     def load_image(self) -> Response:
         """
@@ -231,6 +238,7 @@ class Sample(AbstractElement):
 
         :return: Response with the svg as content
         """
+
         image_url = "/images/samples/{}".format(self._svg_file)
         res = self._session.get(image_url)
         if res.status_code != 200:

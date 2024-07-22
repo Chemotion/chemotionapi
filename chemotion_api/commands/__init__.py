@@ -201,3 +201,13 @@ class InstanceManager:
         return dict(
             [(x['name'][:-(len(version) + 1)], f"ptrxyz/chemotion:{x['name']}") for x in res.json()['results'] if
              x['name'].endswith(version)])
+
+    @staticmethod
+    def insert_dataset(ols_term_id: str, label: str, pguser='postgres', port=5432, host='localhost', pgpassword='postgres', database='chemotion'):
+        created_at = datetime.now().strftime("%Y-%m-%d, %H:%M:%S.%f")
+        sql_command = f"INSERT INTO public.dataset_klasses (ols_term_id, label, \"desc\", created_by, created_at) VALUES ('{ols_term_id}', '{label}', '{label}', 1, '{created_at}')";
+        my_env = os.environ.copy()
+        my_env["PGPASSWORD"] = pgpassword
+        command = ['psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database, '-c', sql_command]
+        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=my_env)
+        proc.communicate()

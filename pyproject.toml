@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chemotion-api"
-version = "0.3.34"
+version = "0.3.35"
 description = "A Chemotion python API"
 authors = ["Maritn Starman <martin.starman@kit.edu>"]
 license = "MIT"
@@ -20,6 +20,7 @@ python-magic = "^0.4.27"
 click = "^8.1.7"
 jinja2 = "^3.1.4"
 pyyaml = "^6.0.1"
+jsonschema = "^4.23.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

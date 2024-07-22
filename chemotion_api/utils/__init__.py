@@ -1,3 +1,4 @@
+import copy
 import uuid
 from collections import OrderedDict
 
@@ -59,7 +60,8 @@ def parse_generic_layer(key: str, layer: dict) -> dict[str, dict]:
 def parse_generic_object_json(segment_json_data: dict) -> dict:
     temp_segment = {}
     temp_id_segment = {'__id': segment_json_data.get('id')}
-    layers = OrderedDict(sorted(segment_json_data.get('properties', {}).get('layers', {}).items(), key=lambda x: x[1].get('position')))
+    layers = OrderedDict(
+        sorted(segment_json_data.get('properties', {}).get('layers', {}).items(), key=lambda x: x[1].get('position')))
     for key, layer in layers.items():
         parse_generic_object_layer_json(key, layer, temp_segment, temp_id_segment)
     return {'values': temp_segment, 'obj_mapping': temp_id_segment}
@@ -123,7 +125,7 @@ def merge_dicts(*args) -> dict:
     return res
 
 
-def _merge_dicts(a: dict|list, b: dict|list, path: list = None):
+def _merge_dicts(a: dict | list, b: dict | list, path: list = None):
     if path is None:
         path = []
 
@@ -164,5 +166,65 @@ def _merge_dicts(a: dict|list, b: dict|list, path: list = None):
             set_values(a, key, b_val)
     return a
 
+
 def snake_to_camel_case(snake_str):
     return "".join(x.capitalize() for x in snake_str.lower().split("_"))
+
+
+class TypedList(list):
+    def __init__(self, element_type, *args):
+        self.element_type = element_type
+        super().__init__(*args)
+        self._check_elements()
+
+    def _prepare_element(self, element):
+        return element
+
+    def _check_elements(self):
+        for element in self:
+            self._check_element(element)
+
+    def _check_element(self, element):
+        if not isinstance(element, self.element_type):
+            raise TypeError(f"All elements must be of type {self.element_type.__name__}")
+
+    def append(self, element):
+        self._check_element(element)
+        super().append(self._prepare_element(element))
+
+    def extend(self, iterable):
+        for element in iterable:
+            self.append(element)
+
+    def insert(self, index, element):
+        self._check_element(element)
+        super().insert(index, self._prepare_element(element))
+
+    def __setitem__(self, index, element):
+        if isinstance(index, slice):
+            for i in element:
+                self._check_element(element)
+        else:
+            self._check_element(element)
+        super().__setitem__(index, self._prepare_element(element))
+
+    def __add__(self, other):
+        x = copy.copy(self)
+        x.extend(other)
+        return x
+
+    def __iadd__(self, other):
+        self.extend(other)
+        return self
+
+
+def quill_hedging(input: str | dict, name: str) -> dict[str:list]:
+    if isinstance(input, str):
+        return {
+            'ops': [
+                {'insert': input}
+            ]
+        }
+    if not isinstance(input, dict) or 'ops' not in input or not isinstance(input['ops'], list):
+        raise ValueError(f'{name} must be in the Quill.js format. (https://quilljs.com/docs/delta)')
+    return input

@@ -219,7 +219,7 @@ def backup(docker_compose_path, tar_file, **kwargs):
     im.backup(file_path=tar_file, **kwargs)
 
 
-@cli.command(help="Restore a ProstgreSQL dump. MAke sure it is a valid dump in a tar format.")
+@cli.command(help="Restore a ProstgreSQL dump. Make sure it is a valid dump in a tar format.")
 @click.option('--docker_compose_path', '-df',
               help="The path to the Docker Compose directory is not required. "
                    "However, either the specified docker_compose_path or the current "
@@ -238,6 +238,31 @@ def restore(docker_compose_path, tar_file, **kwargs):
         kwargs['port'] = im.db_port
     try:
         im.restore(tar_file, **kwargs)
+    except ChildProcessError as e:
+        raise click.ClickException(e.__str__())
+
+
+@cli.command(help="Insert a dataset.")
+@click.option('--docker_compose_path', '-df',
+              help="The path to the Docker Compose directory is not required. "
+                   "However, either the specified docker_compose_path or the current "
+                   "working directory have to lead to a docker-compose.yml file, the "
+                   "script automatically retrieves the PostgreSQL port specified "
+                   "in the Docker Compose file, utilizing it as the default value "
+                   "for the port argument.", default='./docker-compose.yml')
+@click.option('--ols_term_id', '-ols',  prompt='OLS term id',
+              help='OLS (OntoLogy Search) term ID CHMO:XXXX')
+@click.option('--ols_label',  prompt='OLS label',
+              help='OLS (OntoLogy Search) label')
+@add_options()
+@add_db_options()
+def insert_dataset(docker_compose_path, ols_term_id, ols_label, **kwargs):
+    im = InstanceManager(docker_compose_path)
+    if im.check_file():
+        im.up(db=True)
+        kwargs['port'] = im.db_port
+    try:
+        im.insert_dataset(ols_term_id, ols_label, **kwargs)
     except ChildProcessError as e:
         raise click.ClickException(e.__str__())
 
