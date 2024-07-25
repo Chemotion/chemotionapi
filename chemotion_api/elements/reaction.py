@@ -13,8 +13,9 @@ from chemotion_api.utils import TypedList, quill_hedging
 class MaterialList(TypedList):
     """
     A list which accepts only :class:`chemotion_api.elements.sample.Sample`'s.
-    If you add a sample using th standard list-methods a splited sample will be saved
-    to the list. If the element has no ID, it will be saved in the case.
+    If you add a sample using th standard list-methods a splited sample will be created.
+    Then the created sample will be added to the list.
+    If the element has no ID, it will be saved.
 
     In order to avoid the splitting and the pre saving use the 'append_no_split'
     methode.
@@ -40,8 +41,12 @@ class MaterialList(TypedList):
 
 class Temperature(dict):
     """
-    This object contains the temperature timeline.
-    Each entry contains a time as 'hh:mm:ss' and a temperature as integer
+    This object contains the  temperature-time profile, the temperature unit and a user text.
+    Each entry contains a time as 'hh:mm:ss' and a temperature as integer.
+
+    :key data: {list} the temperature-time profile
+    :key userText: {str}
+    :key valueUnit: {str}
     """
 
     def __init__(self, **kwargs):

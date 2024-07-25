@@ -1,5 +1,7 @@
 import uuid
 from enum import Enum
+from string import ascii_lowercase
+from typing_extensions import Self
 
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.sample import Sample
@@ -15,41 +17,168 @@ class BodyElements(Enum):
     reaction = 6
 
 
-COLUMNS_DEFAULT = [
-    {
-        'headerName': 'a',
-        'field': 'a',
-        'colId': 'a'
-    },
-    {
-        'headerName': 'b',
-        'field': 'b',
-        'colId': 'b'
-    },
-    {
-        'headerName': 'c',
-        'field': 'c',
-        'colId': 'c'
-    },
-    {
-        'headerName': 'd',
-        'field': 'd',
-        'colId': 'd'
-    },
-    {
-        'headerName': 'e',
-        'field': 'e',
-        'colId': 'e'
-    },
-    {
-        'headerName': 'f',
-        'field': 'f',
-        'colId': 'f'
-    }
-]
+class Table(dict):
+    """
+    Table is a dict subclass. It contains additional table management methods
+
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> from chemotion_api.collection import Collection
+    >>> import logging
+    >>> try:
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except ConnectionError as e:
+    >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+    >>> # Get the reaction with ID 1
+    >>> plan = instance.get_research_plan(1)
+    >>> # Add a new Table
+    >>> table = plan.add_table()
+    >>> # Add a new column Name, age
+    >>> name_col_id, age_col_id = table.add_columns("Name", "Age")
+    >>> table.add_columns("Is Developer")
+    >>> table.add_row('Mr. X', False, **{age_col_id: 40}).add_row('Mr. Y')
+    >>> table.set_entry(1, age_col_id, 30)
+    >>> age_average = sum(table.get_column(age_col_id)) / len(table)
+    >>> print(f'Average age {age_average}')
+    >>> plan.save()
+    >>> plan_test = instance.get_research_plan(plan.id)
+    >>> table = plan_test.body[0]['value']
+    >>> age_average = sum(table.get_column(age_col_id)) / len(table)
+    >>> assert age_average == 35
+    >>> assert table.get_column(name_col_id) == ['Mr. X', 'Mr. Y']
+    """
+
+    def __init__(self, columns, rows):
+        super().__init__(columns=columns, rows=rows)
+
+    def _get_col_id(self):
+        for l in ascii_lowercase:
+            if len([x for x in self['columns'] if x['colId'] == l]) == 0:
+                return l
+
+    def add_columns(self, *labels: str) -> list[str]:
+        """
+        Adds one or more  columns to the table. It adds a column for
+        each label give as an argument
+
+        :param labels: labels of columns to be added
+        :return: list of the label field name
+        """
+
+        ids = []
+        for label in labels:
+            id_letter = self._get_col_id()
+            self['columns'].append({
+                'headerName': label,
+                'field': id_letter,
+                'colId': id_letter
+            })
+            ids.append(id_letter)
+            for row in self['rows']:
+                if id_letter not in row:
+                    row[id_letter] = []
+
+        return ids
+
+    def add_row(self, *entries, **placed_entries) -> Self:
+        """
+        Adds row to the table. You can create the table empty
+        or filled. To fill the fields, the values can be entered
+        as named arguments or as arguments without a keyword.
+        For named arguments, you must use the column id
+
+        :param entries: non-keyworded arguments entries
+        :param placed_entries:  keyworded arguments entries
+        :return: Self
+        """
+
+        new_row = {}
+        entries = list(entries)
+        for idx, field in enumerate(x['field'] for x in self['columns']):
+            if field in placed_entries:
+                new_row[field] = placed_entries[field]
+            elif len(entries) != 0:
+                new_row[field] = entries.pop(0)
+            else:
+                new_row[field] = ''
+
+        self['rows'].append(new_row)
+        return self
+
+    def set_entry(self, row: int, column_id: str, value: any) -> Self:
+        """
+        Sets an entry to the table
+
+        :param row: rwo idx starts with 0
+        :param column_id: the column field id
+        :param value: of the Entry
+
+        :return self
+        """
+
+        self['rows'][row][column_id] = value
+        return self
+
+    def get_column(self, column_id: str) -> list:
+        """
+        Adds an entry to the table
+
+        :param column_id: the column field id
+        :return: a list of all values of one column
+        """
+
+        result = []
+        for row in self['rows']:
+            result.append(row[column_id])
+        return result
+
+    def __len__(self):
+        return len(self['rows'])
+
+COLUMNS_DEFAULT = []
 
 
 class ResearchPlan(AbstractElement):
+    """
+    A chemotion Research Plan object.
+    It extends the :class:`chemotion_api.elements.abstract_element.AbstractElement`
+
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> from chemotion_api.collection import Collection
+    >>> from chemotion_api.elements.research_plan import Table
+    >>> import logging
+    >>> try:
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except ConnectionError as e:
+    >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+    >>> # Get the reaction with ID 1
+    >>> plan = instance.get_research_plan(1)
+    >>> # Add a table
+    >>> table: Table = plan.add_table()
+    >>> table.add_columns('Name')
+    >>> table.add_row('Martin')
+    >>> # Add a simple Text
+    >>> plan.add_richtext("Hallo")
+    >>> plan.save()
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._body = None
+
+    @property
+    def body(self):
+        """
+        Body is list which contains the same values as the Properties.
+        Each entry has a type and a value filed.
+        The type can be one of:  richtext, ketcher, table, image, sample or reaction
+
+        :return: List of body entries
+        """
+        return self._body
 
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
@@ -103,14 +232,14 @@ class ResearchPlan(AbstractElement):
         return res
 
     def _parse_table(self, value):
-        return value
+        return Table(**value)
 
     def _parse_ketcher(self, value):
         return value
 
     def _parse_properties(self) -> dict:
         body = self.json_data.get('body')
-        self.body = [self._parse_body_element(x) for x in body]
+        self._body = [self._parse_body_element(x) for x in body]
         return {
             'body': self.body
         }
@@ -122,15 +251,27 @@ class ResearchPlan(AbstractElement):
 
         return self.json_data
 
-    def save(self):
-        return super().save()
-
     def add_richtext(self, text: str) -> dict:
+        """
+        Adds a text block to the Research plan
+
+        :param text: to be added
+
+        :return: body container
+        """
         body_obj = self._add_new_element(BodyElements.richtext)
         body_obj['value'] = [{'insert': text}]
         return body_obj
 
     def add_image(self, image_path: str) -> dict:
+        """
+        Adds an image to the Research plan
+
+        :param image_path: file path to image
+
+        :return: body container
+        """
+
         if not image_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
             raise ValueError('File is not a image!')
         file_obj = self.attachments.add_file(image_path)
@@ -141,9 +282,15 @@ class ResearchPlan(AbstractElement):
         body_obj['value'] = file_obj
         return body_obj
 
-    def add_table(self) -> dict:
+    def add_table(self) -> Table:
+        """
+        Adds a new table to the Research plan
+
+        :return: Table object
+        """
+
         body_obj = self._add_new_element(BodyElements.table)
-        return body_obj
+        return body_obj['value']
 
     def _add_new_element(self, element_type: BodyElements):
         body_elem = {
@@ -218,11 +365,7 @@ class ResearchPlan(AbstractElement):
         if element_type == BodyElements.table:
             return {
                 'columns': COLUMNS_DEFAULT,
-                'rows': [
-                    {'a': '', 'b': '', 'c': '', 'd': '', 'e': '', 'f': ''},
-                    {'a': '', 'b': '', 'c': '', 'd': '', 'e': '', 'f': ''},
-                    {'a': '', 'b': '', 'c': '', 'd': '', 'e': '', 'f': ''}
-                ]
+                'rows': []
 
             }
         if element_type == BodyElements.image:
