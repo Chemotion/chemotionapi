@@ -33,6 +33,36 @@ class WellplateCol(MutableMapping):
         return key
 
 class Wellplate(AbstractElement):
+    """
+    Wellplates represent the localization of materials (chemicals)
+    for biological experiments and are therefore some kind of link between chemical and biological operations.
+    It extends the :class:`chemotion_api.elements.abstract_element.AbstractElement`
+
+    - Plate size: 12 x 8
+    - Verical indexing: 0-11
+    - Horiconcal indexing: 'A' - 'H'
+
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> from chemotion_api.collection import Collection
+    >>> import logging
+    >>> try:
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except ConnectionError as e:
+    >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+    >>> # Get the reaction with ID 1
+    >>> wp = instance.get_wellplate(1)
+    >>> # Add samples to wellplate
+    >>> wp.wells[0]['A'] = instance.get_sample(1)
+    >>> wp.wells[0]['B'] = instance.get_sample(1)
+    >>> wp.wells[0]['C'] = instance.get_sample(1)
+    >>> wp.wells[1]['A'] = instance.get_sample(2)
+    >>> wp.wells[1]['B'] = instance.get_sample(2)
+    >>> wp.wells[1]['C'] = instance.get_sample(2)
+    >>> wp.save()
+
+    """
 
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
@@ -67,4 +97,5 @@ class Wellplate(AbstractElement):
         return self.json_data
 
     def save(self):
-        raise NotImplementedError('Not jet implemented')
+        super().save()
+        self.load()

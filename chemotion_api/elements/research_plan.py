@@ -57,13 +57,37 @@ class Table(dict):
             if len([x for x in self['columns'] if x['colId'] == l]) == 0:
                 return l
 
+    def column_id_by_label(self, label: str) -> str:
+        """
+        Finds a column ID of a column with a give label
+
+        :param label: Label of the column
+
+        :return: Column id
+        """
+        return self.column_ids_by_labels(label)[0]
+
+    def column_ids_by_labels(self, *labels: str) -> list[str]:
+        """
+        Finds all column IDs of columns with a given labels
+
+        :param labels: Labels of the column
+
+        :return: Column id
+        """
+
+        for l in labels:
+            yield next(x['field'] for x in self['columns'] if x['headerName'] == l)
+
+
+
     def add_columns(self, *labels: str) -> list[str]:
         """
         Adds one or more  columns to the table. It adds a column for
         each label give as an argument
 
         :param labels: labels of columns to be added
-        :return: list of the label field name
+        :return: list of the column IDs
         """
 
         ids = []
@@ -95,13 +119,13 @@ class Table(dict):
 
         new_row = {}
         entries = list(entries)
-        for idx, field in enumerate(x['field'] for x in self['columns']):
-            if field in placed_entries:
-                new_row[field] = placed_entries[field]
+        for idx, colId in enumerate(x['field'] for x in self['columns']):
+            if colId in placed_entries:
+                new_row[colId] = placed_entries[colId]
             elif len(entries) != 0:
-                new_row[field] = entries.pop(0)
+                new_row[colId] = entries.pop(0)
             else:
-                new_row[field] = ''
+                new_row[colId] = ''
 
         self['rows'].append(new_row)
         return self
@@ -111,7 +135,7 @@ class Table(dict):
         Sets an entry to the table
 
         :param row: rwo idx starts with 0
-        :param column_id: the column field id
+        :param column_id: the column ID
         :param value: of the Entry
 
         :return self
@@ -124,7 +148,7 @@ class Table(dict):
         """
         Adds an entry to the table
 
-        :param column_id: the column field id
+        :param column_id: the column ID
         :return: a list of all values of one column
         """
 
@@ -167,7 +191,6 @@ class ResearchPlan(AbstractElement):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._body = None
 
     @property
     def body(self):
@@ -178,7 +201,7 @@ class ResearchPlan(AbstractElement):
 
         :return: List of body entries
         """
-        return self._body
+        return self.properties['body']
 
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
@@ -187,7 +210,7 @@ class ResearchPlan(AbstractElement):
         value = ''
         if elem.get('type') == 'richtext':
             value = self._parse_text(elem.get('value'))
-        if elem.get('type') == 'ketcher':
+        elif elem.get('type') == 'ketcher':
             value = self._parse_ketcher(elem.get('value'))
         elif elem.get('type') == 'table':
             value = self._parse_table(elem.get('value'))
@@ -239,9 +262,8 @@ class ResearchPlan(AbstractElement):
 
     def _parse_properties(self) -> dict:
         body = self.json_data.get('body')
-        self._body = [self._parse_body_element(x) for x in body]
         return {
-            'body': self.body
+            'body':  [self._parse_body_element(x) for x in body]
         }
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:

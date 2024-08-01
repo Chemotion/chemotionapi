@@ -8,8 +8,6 @@ from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging
 
 
-
-
 class MaterialList(TypedList):
     """
     A list which accepts only :class:`chemotion_api.elements.sample.Sample`'s.
@@ -119,7 +117,6 @@ class Reaction(AbstractElement):
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         return res
-
 
     def properties_schema(self) -> dict:
         """

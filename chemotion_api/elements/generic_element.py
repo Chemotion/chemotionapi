@@ -5,6 +5,13 @@ from chemotion_api.utils import parse_generic_object_json, clean_generic_object_
 
 
 class GenericElement(AbstractElement, WorkflowInterface):
+    """
+    By default Chemotion ELN contains five elements: samples,
+    reactions, wellplates, screens, and research plans. Optionally,
+    generic elements can be added by the administration.
+
+
+    """
 
     def _set_json_data(self, json_data: dict):
         super()._set_json_data(json_data)

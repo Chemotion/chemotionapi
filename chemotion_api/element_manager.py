@@ -108,11 +108,13 @@ class ElementManager:
                         data['wells'].append({
                             "id": uuid.uuid4().__str__(),
                             "is_new": True,
+                            "type": "well",
                             "position": {
                                 "x": x,
                                 "y": y
-                            }
-
+                            },
+                            "readouts": [],
+                            "sample": None
                         })
         else:
             res = self._session.get('api/v1/generic_elements/klass.json', params={'name': type_name})
