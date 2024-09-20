@@ -115,6 +115,10 @@ class Group(User):
     def add_users(self, *users: User):
         return self.add_users_by_id(*[u.id for u in users if u.is_person()])
 
+    def populate(self, json_contnet):
+        json_contnet['type'] = json_contnet.get('type', 'group')
+        return super().populate(json_contnet)
+
     def add_users_by_id(self, *users: int):
         payload = {
             'destroy_group': False,
@@ -145,6 +149,10 @@ class Person(User):
         self.matrix: int | None = None
         self.counters: dict[str:str] | None = None
         self.generic_admin: dict[str:bool] = None
+
+    def populate(self, json_contnet):
+        json_contnet['type'] = json_contnet.get('type', 'person')
+        return super().populate(json_contnet)
 
     def create_group(self, first_name: str, last_name: str, name_abbreviation: str) -> Group:
         data = {
@@ -200,6 +208,10 @@ class Admin(Person):
         self.devices: list[Device] = []
         self.groups: list[Group] = []
         self.admins: list[Admin] = []
+
+    def populate(self, json_contnet):
+        json_contnet['type'] = json_contnet.get('type', 'admin')
+        return super().populate(json_contnet)
 
     def fetchUsers(self):
         user_url = f'/api/v1/admin_user/listUsers/all.json'

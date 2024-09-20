@@ -10,6 +10,20 @@ class GenericElement(AbstractElement, WorkflowInterface):
     reactions, wellplates, screens, and research plans. Optionally,
     generic elements can be added by the administration.
 
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> from chemotion_api.collection import Collection
+    >>> import logging
+    >>> try:
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except ConnectionError as e:
+    >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+    >>> # Get the Element 'plan' with ID 1
+    >>> elem = instance.get_generic_by_name('plan', 1)
+    >>> elem.save()
+
+
 
     """
 

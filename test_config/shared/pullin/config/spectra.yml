@@ -1,0 +1,5 @@
+production:
+  :chemspectra:
+    :url: 'http://spectra:4000'
+  :nmriumwrapper:
+    :url: 'https://v4.nmrium.chemotion.scc.kit.edu/'

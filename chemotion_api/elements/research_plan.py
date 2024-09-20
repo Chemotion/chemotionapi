@@ -160,8 +160,6 @@ class Table(dict):
     def __len__(self):
         return len(self['rows'])
 
-COLUMNS_DEFAULT = []
-
 
 class ResearchPlan(AbstractElement):
     """
@@ -386,7 +384,7 @@ class ResearchPlan(AbstractElement):
             }
         if element_type == BodyElements.table:
             return {
-                'columns': COLUMNS_DEFAULT,
+                'columns': [],
                 'rows': []
 
             }

@@ -51,7 +51,7 @@ def pytest_sessionstart(session):
                 raise Exception(f'{path} did not start Server')
 
             print(line.strip())
-            if "* Listening on " in line and "3579" in line:
+            if "**SUCCESS**" in line:
                 Thread(target=write_proces_logs, args=()).start()
                 break
 
