@@ -2,6 +2,9 @@ import os.path
 
 import click
 import configparser
+
+import requests
+
 from chemotion_api.commands import InstanceManager
 
 
@@ -79,7 +82,7 @@ def check(docker_compose_path):
     InstanceManager(df).check()
 
 
-@cli.command(help="Same as docker-compose up <services>")
+@cli.command(help="Same as docker compose up <services>")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @add_options()
@@ -96,7 +99,7 @@ def up(docker_compose_path, services):
     click.echo('Docker-compose is up!')
 
 
-@cli.command(help="Same as docker-compose stop <services>")
+@cli.command(help="Same as docker compose stop <services>")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @add_options()
@@ -113,7 +116,7 @@ def stop(docker_compose_path, services):
     click.echo('Docker-compose is stoped!')
 
 
-@cli.command(help="Same as docker-compose down <services>")
+@cli.command(help="Same as docker compose down <services>")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @add_options()
@@ -130,13 +133,13 @@ def down(docker_compose_path, services):
     click.echo('Docker-compose is down!')
 
 
-@cli.command(help="Create a new docker-compose file and all needed basic setting for a new chemotion instance.")
+@cli.command(help="Create a new docker-compose file with all necessary files and directories for a new chemotion instance.")
 @click.option('--ignore_exist', is_flag=True,
               help='If set it will not raise an error in case the target folder is not empty.', default=False)
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @click.option('--version', '-v', prompt='Specify a version',
-              help='Chemotion version to be used', default='latest')
+              help='Chemcommandotion version to be used', default='latest')
 @click.option('--url', prompt='Public ELN url',
               help='Public URL on which the ELN can be reached ', default='http://localhost:<ELN_PORT>')
 @click.option('--eln_port', '-p', prompt='Port on which the ELN can be reached',
@@ -159,7 +162,7 @@ def new(ignore_exist, docker_compose_path, version, url, eln_port, postgres_port
     click.echo('Docker-compose file has been created')
 
 
-@cli.command(help="Change the from the host system available port of the ELN.")
+@cli.command(help="Change the port on which the ELN can be reached from the host.")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @click.option('--eln_port', '-p', prompt='Port on which the ELN can be reached',
@@ -171,7 +174,7 @@ def change_port(docker_compose_path, eln_port):
     click.echo('Docker-compose file has been updated (To activate the change, the instance must be restarted)')
 
 
-@cli.command(help="Update the Chemotion version in a docker compose file")
+@cli.command(help="Change the port on which the ELN DB can be reached from the host.")
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @click.option('--postgres_port', prompt='Port on which the ELN can be reached',
@@ -183,7 +186,7 @@ def change_postgres_port(docker_compose_path, postgres_port):
     click.echo('Docker-compose file has been updated (To activate the change, the instance must be restarted)')
 
 
-@cli.command(help='Updated the version of a docker-compose file')
+@cli.command(help='Updated the version of Chemotion instance')
 @click.option('--docker_compose_path', '-df', prompt='Your name',
               help='Path to docker compose directory', default='./docker-compose.yml')
 @click.option('--version', '-v', prompt='Specify a version',
@@ -219,7 +222,7 @@ def backup(docker_compose_path, tar_file, **kwargs):
     im.backup(file_path=tar_file, **kwargs)
 
 
-@cli.command(help="Restore a ProstgreSQL dump. Make sure it is a valid dump in a tar format.")
+@cli.command(help="Restore a ProstgreSQL dump. Make sure it is a valid dump in the tar format.")
 @click.option('--docker_compose_path', '-df',
               help="The path to the Docker Compose directory is not required. "
                    "However, either the specified docker_compose_path or the current "
@@ -252,17 +255,16 @@ def restore(docker_compose_path, tar_file, **kwargs):
                    "for the port argument.", default='./docker-compose.yml')
 @click.option('--ols_term_id', '-ols',  prompt='OLS term id',
               help='OLS (OntoLogy Search) term ID CHMO:XXXX')
-@click.option('--ols_label',  prompt='OLS label',
-              help='OLS (OntoLogy Search) label')
 @add_options()
 @add_db_options()
-def insert_dataset(docker_compose_path, ols_term_id, ols_label, **kwargs):
+def insert_dataset(docker_compose_path, ols_term_id, **kwargs):
     im = InstanceManager(docker_compose_path)
+
     if im.check_file():
         im.up(db=True)
         kwargs['port'] = im.db_port
     try:
-        im.insert_dataset(ols_term_id, ols_label, **kwargs)
+        im.insert_dataset(ols_term_id, **kwargs)
     except ChildProcessError as e:
         raise click.ClickException(e.__str__())
 

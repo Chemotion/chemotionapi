@@ -203,9 +203,20 @@ class InstanceManager:
              x['name'].endswith(version)])
 
     @staticmethod
-    def insert_dataset(ols_term_id: str, label: str, pguser='postgres', port=5432, host='localhost', pgpassword='postgres', database='chemotion'):
+    def insert_dataset(ols_term_id: str, pguser='postgres', port=5432, host='localhost', pgpassword='postgres',
+                       database='chemotion'):
+
+        ols_term_id_num = ols_term_id.split(':')[-1]
+        ols_link = f'https://www.ebi.ac.uk/ols4/api/v2/ontologies/chmo/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FCHMO_{ols_term_id_num}?lang=en&includeObsoleteEntities=t'
+        res = requests.get(ols_link)
+        if res.status_code != 200:
+            raise ConnectionError(f'Unable to find: {ols_term_id} ({ols_link})')
+        res_json = res.json()
+        ols_term_id = res_json['curie']
+        label = res_json['label']
+        definition = res_json['definition']['value']
         created_at = datetime.now().strftime("%Y-%m-%d, %H:%M:%S.%f")
-        sql_command = f"INSERT INTO public.dataset_klasses (ols_term_id, label, \"desc\", created_by, created_at) VALUES ('{ols_term_id}', '{label}', '{label}', 1, '{created_at}')";
+        sql_command = f"INSERT INTO public.dataset_klasses (ols_term_id, label, \"desc\", created_by, created_at) VALUES ('{ols_term_id}', '{label}', '{definition}', 1, '{created_at}')";
         my_env = os.environ.copy()
         my_env["PGPASSWORD"] = pgpassword
         command = ['psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database, '-c', sql_command]

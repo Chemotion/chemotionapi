@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.10 (Debian 14.10-1.pgdg120+1)
--- Dumped by pg_dump version 14.11 (Ubuntu 14.11-0ubuntu0.22.04.1)
+-- Dumped from database version 14.13 (Debian 14.13-1.pgdg120+1)
+-- Dumped by pg_dump version 16.4 (Ubuntu 16.4-0ubuntu0.24.04.2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -15,6 +15,15 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
+--
+
+-- *not* creating schema, since initdb creates it
+
+
+ALTER SCHEMA public OWNER TO postgres;
 
 --
 -- Name: hstore; Type: EXTENSION; Schema: -; Owner: -
@@ -231,9 +240,9 @@ CREATE FUNCTION public.labels_by_user_sample(user_id integer, sample_id integer)
 select string_agg(title::text, ', ') as labels from (select title from user_labels ul where ul.id in (
     select d.list
     from element_tags et, lateral (
-        select value::integer as list
-        from jsonb_array_elements_text(et.taggable_data  -> 'user_labels')
-            ) d
+                                   select value::integer as list
+                                   from jsonb_array_elements_text(et.taggable_data  -> 'user_labels')
+        ) d
     where et.taggable_id = $2 and et.taggable_type = 'Sample'
 ) and (ul.access_level = 1 or (ul.access_level = 0 and ul.user_id = $1)) order by title  ) uls
     $_$;
@@ -396,7 +405,7 @@ CREATE SEQUENCE public.affiliations_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.affiliations_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.affiliations_id_seq OWNER TO postgres;
 
 --
 -- Name: affiliations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -444,7 +453,7 @@ CREATE SEQUENCE public.analyses_experiments_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.analyses_experiments_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.analyses_experiments_id_seq OWNER TO postgres;
 
 --
 -- Name: analyses_experiments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -511,7 +520,7 @@ CREATE SEQUENCE public.attachments_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.attachments_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.attachments_id_seq OWNER TO postgres;
 
 --
 -- Name: attachments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -551,7 +560,7 @@ CREATE SEQUENCE public.authentication_keys_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.authentication_keys_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.authentication_keys_id_seq OWNER TO postgres;
 
 --
 -- Name: authentication_keys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -593,7 +602,7 @@ CREATE SEQUENCE public.calendar_entries_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.calendar_entries_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.calendar_entries_id_seq OWNER TO postgres;
 
 --
 -- Name: calendar_entries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -630,7 +639,7 @@ CREATE SEQUENCE public.calendar_entry_notifications_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.calendar_entry_notifications_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.calendar_entry_notifications_id_seq OWNER TO postgres;
 
 --
 -- Name: calendar_entry_notifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -679,7 +688,7 @@ CREATE SEQUENCE public.cellline_materials_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.cellline_materials_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.cellline_materials_id_seq OWNER TO postgres;
 
 --
 -- Name: cellline_materials_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -724,7 +733,7 @@ CREATE SEQUENCE public.cellline_samples_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.cellline_samples_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.cellline_samples_id_seq OWNER TO postgres;
 
 --
 -- Name: cellline_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -762,7 +771,7 @@ CREATE SEQUENCE public.channels_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.channels_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.channels_id_seq OWNER TO postgres;
 
 --
 -- Name: channels_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -797,7 +806,7 @@ CREATE SEQUENCE public.chemicals_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.chemicals_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.chemicals_id_seq OWNER TO postgres;
 
 --
 -- Name: chemicals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -881,7 +890,7 @@ CREATE SEQUENCE public.collections_celllines_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collections_celllines_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collections_celllines_id_seq OWNER TO postgres;
 
 --
 -- Name: collections_celllines_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -918,7 +927,7 @@ CREATE SEQUENCE public.collections_elements_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collections_elements_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collections_elements_id_seq OWNER TO postgres;
 
 --
 -- Name: collections_elements_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -940,7 +949,7 @@ CREATE SEQUENCE public.collections_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collections_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collections_id_seq OWNER TO postgres;
 
 --
 -- Name: collections_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -976,7 +985,7 @@ CREATE SEQUENCE public.collections_reactions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collections_reactions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collections_reactions_id_seq OWNER TO postgres;
 
 --
 -- Name: collections_reactions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1012,7 +1021,7 @@ CREATE SEQUENCE public.collections_research_plans_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collections_research_plans_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collections_research_plans_id_seq OWNER TO postgres;
 
 --
 -- Name: collections_research_plans_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1048,7 +1057,7 @@ CREATE SEQUENCE public.collections_samples_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collections_samples_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collections_samples_id_seq OWNER TO postgres;
 
 --
 -- Name: collections_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1084,7 +1093,7 @@ CREATE SEQUENCE public.collections_screens_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collections_screens_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collections_screens_id_seq OWNER TO postgres;
 
 --
 -- Name: collections_screens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1136,7 +1145,7 @@ CREATE SEQUENCE public.collections_wellplates_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collections_wellplates_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collections_wellplates_id_seq OWNER TO postgres;
 
 --
 -- Name: collections_wellplates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1172,7 +1181,7 @@ CREATE SEQUENCE public.collector_errors_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.collector_errors_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.collector_errors_id_seq OWNER TO postgres;
 
 --
 -- Name: collector_errors_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1214,7 +1223,7 @@ CREATE SEQUENCE public.comments_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.comments_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.comments_id_seq OWNER TO postgres;
 
 --
 -- Name: comments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1266,7 +1275,7 @@ CREATE SEQUENCE public.computed_props_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.computed_props_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.computed_props_id_seq OWNER TO postgres;
 
 --
 -- Name: computed_props_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1323,7 +1332,7 @@ CREATE SEQUENCE public.containers_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.containers_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.containers_id_seq OWNER TO postgres;
 
 --
 -- Name: containers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1377,7 +1386,7 @@ CREATE SEQUENCE public.dataset_klasses_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.dataset_klasses_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.dataset_klasses_id_seq OWNER TO postgres;
 
 --
 -- Name: dataset_klasses_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1420,7 +1429,7 @@ CREATE SEQUENCE public.dataset_klasses_revisions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.dataset_klasses_revisions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.dataset_klasses_revisions_id_seq OWNER TO postgres;
 
 --
 -- Name: dataset_klasses_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1463,7 +1472,7 @@ CREATE SEQUENCE public.datasets_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.datasets_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.datasets_id_seq OWNER TO postgres;
 
 --
 -- Name: datasets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1505,7 +1514,7 @@ CREATE SEQUENCE public.datasets_revisions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.datasets_revisions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.datasets_revisions_id_seq OWNER TO postgres;
 
 --
 -- Name: datasets_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1550,7 +1559,7 @@ CREATE SEQUENCE public.delayed_jobs_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.delayed_jobs_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.delayed_jobs_id_seq OWNER TO postgres;
 
 --
 -- Name: delayed_jobs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1606,7 +1615,7 @@ CREATE SEQUENCE public.device_metadata_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.device_metadata_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.device_metadata_id_seq OWNER TO postgres;
 
 --
 -- Name: device_metadata_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1663,7 +1672,7 @@ CREATE SEQUENCE public.element_klasses_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.element_klasses_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.element_klasses_id_seq OWNER TO postgres;
 
 --
 -- Name: element_klasses_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1706,7 +1715,7 @@ CREATE SEQUENCE public.element_klasses_revisions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.element_klasses_revisions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.element_klasses_revisions_id_seq OWNER TO postgres;
 
 --
 -- Name: element_klasses_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1744,7 +1753,7 @@ CREATE SEQUENCE public.element_tags_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.element_tags_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.element_tags_id_seq OWNER TO postgres;
 
 --
 -- Name: element_tags_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1783,7 +1792,7 @@ CREATE SEQUENCE public.elemental_compositions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.elemental_compositions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.elemental_compositions_id_seq OWNER TO postgres;
 
 --
 -- Name: elemental_compositions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1808,7 +1817,8 @@ CREATE TABLE public.elements (
                                  deleted_at timestamp without time zone,
                                  uuid character varying,
                                  klass_uuid character varying,
-                                 properties_release jsonb
+                                 properties_release jsonb,
+                                 ancestry character varying
 );
 
 
@@ -1843,7 +1853,7 @@ CREATE SEQUENCE public.elements_elements_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.elements_elements_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.elements_elements_id_seq OWNER TO postgres;
 
 --
 -- Name: elements_elements_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1865,7 +1875,7 @@ CREATE SEQUENCE public.elements_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.elements_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.elements_id_seq OWNER TO postgres;
 
 --
 -- Name: elements_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1908,7 +1918,7 @@ CREATE SEQUENCE public.elements_revisions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.elements_revisions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.elements_revisions_id_seq OWNER TO postgres;
 
 --
 -- Name: elements_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1947,7 +1957,7 @@ CREATE SEQUENCE public.elements_samples_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.elements_samples_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.elements_samples_id_seq OWNER TO postgres;
 
 --
 -- Name: elements_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1994,7 +2004,7 @@ CREATE SEQUENCE public.experiments_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.experiments_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.experiments_id_seq OWNER TO postgres;
 
 --
 -- Name: experiments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2047,7 +2057,7 @@ CREATE SEQUENCE public.fingerprints_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.fingerprints_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.fingerprints_id_seq OWNER TO postgres;
 
 --
 -- Name: fingerprints_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2084,7 +2094,7 @@ CREATE SEQUENCE public.inventories_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.inventories_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.inventories_id_seq OWNER TO postgres;
 
 --
 -- Name: inventories_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2136,7 +2146,7 @@ CREATE SEQUENCE public.ketcherails_amino_acids_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.ketcherails_amino_acids_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.ketcherails_amino_acids_id_seq OWNER TO postgres;
 
 --
 -- Name: ketcherails_amino_acids_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2188,7 +2198,7 @@ CREATE SEQUENCE public.ketcherails_atom_abbreviations_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.ketcherails_atom_abbreviations_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.ketcherails_atom_abbreviations_id_seq OWNER TO postgres;
 
 --
 -- Name: ketcherails_atom_abbreviations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2238,7 +2248,7 @@ CREATE SEQUENCE public.ketcherails_common_templates_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.ketcherails_common_templates_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.ketcherails_common_templates_id_seq OWNER TO postgres;
 
 --
 -- Name: ketcherails_common_templates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2278,7 +2288,7 @@ CREATE SEQUENCE public.ketcherails_custom_templates_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.ketcherails_custom_templates_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.ketcherails_custom_templates_id_seq OWNER TO postgres;
 
 --
 -- Name: ketcherails_custom_templates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2319,7 +2329,7 @@ CREATE SEQUENCE public.ketcherails_template_categories_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.ketcherails_template_categories_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.ketcherails_template_categories_id_seq OWNER TO postgres;
 
 --
 -- Name: ketcherails_template_categories_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2490,7 +2500,7 @@ FROM (((( SELECT literals.element_type,
      LEFT JOIN public.reactions ON ((((lits.element_type)::text = 'Reaction'::text) AND (lits.element_id = reactions.id))));
 
 
-ALTER TABLE public.literal_groups OWNER TO postgres;
+ALTER VIEW public.literal_groups OWNER TO postgres;
 
 --
 -- Name: literals_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -2505,7 +2515,7 @@ CREATE SEQUENCE public.literals_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.literals_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.literals_id_seq OWNER TO postgres;
 
 --
 -- Name: literals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2527,7 +2537,7 @@ CREATE SEQUENCE public.literatures_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.literatures_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.literatures_id_seq OWNER TO postgres;
 
 --
 -- Name: literatures_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2569,7 +2579,7 @@ CREATE SEQUENCE public.matrices_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.matrices_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.matrices_id_seq OWNER TO postgres;
 
 --
 -- Name: matrices_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2611,7 +2621,7 @@ CREATE SEQUENCE public.measurements_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.measurements_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.measurements_id_seq OWNER TO postgres;
 
 --
 -- Name: measurements_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2649,7 +2659,7 @@ CREATE SEQUENCE public.messages_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.messages_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.messages_id_seq OWNER TO postgres;
 
 --
 -- Name: messages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2686,7 +2696,7 @@ CREATE SEQUENCE public.metadata_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.metadata_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.metadata_id_seq OWNER TO postgres;
 
 --
 -- Name: metadata_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2726,7 +2736,7 @@ CREATE SEQUENCE public.molecule_names_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.molecule_names_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.molecule_names_id_seq OWNER TO postgres;
 
 --
 -- Name: molecule_names_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2778,7 +2788,7 @@ CREATE SEQUENCE public.molecules_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.molecules_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.molecules_id_seq OWNER TO postgres;
 
 --
 -- Name: molecules_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2818,7 +2828,7 @@ CREATE SEQUENCE public.nmr_sim_nmr_simulations_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.nmr_sim_nmr_simulations_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.nmr_sim_nmr_simulations_id_seq OWNER TO postgres;
 
 --
 -- Name: nmr_sim_nmr_simulations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2856,7 +2866,7 @@ CREATE SEQUENCE public.notifications_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.notifications_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.notifications_id_seq OWNER TO postgres;
 
 --
 -- Name: notifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2932,7 +2942,7 @@ SELECT notifications.id,
   WHERE ((channels.id = messages.channel_id) AND (messages.id = notifications.message_id) AND (users.id = messages.created_by));
 
 
-ALTER TABLE public.notify_messages OWNER TO postgres;
+ALTER VIEW public.notify_messages OWNER TO postgres;
 
 --
 -- Name: ols_terms; Type: TABLE; Schema: public; Owner: postgres
@@ -2970,7 +2980,7 @@ CREATE SEQUENCE public.ols_terms_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.ols_terms_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.ols_terms_id_seq OWNER TO postgres;
 
 --
 -- Name: ols_terms_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3008,7 +3018,7 @@ CREATE SEQUENCE public.pg_search_documents_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.pg_search_documents_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.pg_search_documents_id_seq OWNER TO postgres;
 
 --
 -- Name: pg_search_documents_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3046,7 +3056,7 @@ CREATE SEQUENCE public.predictions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.predictions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.predictions_id_seq OWNER TO postgres;
 
 --
 -- Name: predictions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3084,7 +3094,7 @@ CREATE SEQUENCE public.private_notes_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.private_notes_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.private_notes_id_seq OWNER TO postgres;
 
 --
 -- Name: private_notes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3126,7 +3136,7 @@ CREATE SEQUENCE public.profiles_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.profiles_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.profiles_id_seq OWNER TO postgres;
 
 --
 -- Name: profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3148,7 +3158,7 @@ CREATE SEQUENCE public.reactions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.reactions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.reactions_id_seq OWNER TO postgres;
 
 --
 -- Name: reactions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3191,7 +3201,7 @@ CREATE SEQUENCE public.reactions_samples_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.reactions_samples_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.reactions_samples_id_seq OWNER TO postgres;
 
 --
 -- Name: reactions_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3229,7 +3239,7 @@ CREATE SEQUENCE public.report_templates_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.report_templates_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.report_templates_id_seq OWNER TO postgres;
 
 --
 -- Name: report_templates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3291,7 +3301,7 @@ CREATE SEQUENCE public.reports_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.reports_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.reports_id_seq OWNER TO postgres;
 
 --
 -- Name: reports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3330,7 +3340,7 @@ CREATE SEQUENCE public.reports_users_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.reports_users_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.reports_users_id_seq OWNER TO postgres;
 
 --
 -- Name: reports_users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3395,7 +3405,7 @@ CREATE SEQUENCE public.research_plan_metadata_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.research_plan_metadata_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.research_plan_metadata_id_seq OWNER TO postgres;
 
 --
 -- Name: research_plan_metadata_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3434,7 +3444,7 @@ CREATE SEQUENCE public.research_plan_table_schemas_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.research_plan_table_schemas_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.research_plan_table_schemas_id_seq OWNER TO postgres;
 
 --
 -- Name: research_plan_table_schemas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3473,7 +3483,7 @@ CREATE SEQUENCE public.research_plans_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.research_plans_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.research_plans_id_seq OWNER TO postgres;
 
 --
 -- Name: research_plans_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3510,7 +3520,7 @@ CREATE SEQUENCE public.research_plans_screens_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.research_plans_screens_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.research_plans_screens_id_seq OWNER TO postgres;
 
 --
 -- Name: research_plans_screens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3547,7 +3557,7 @@ CREATE SEQUENCE public.research_plans_wellplates_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.research_plans_wellplates_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.research_plans_wellplates_id_seq OWNER TO postgres;
 
 --
 -- Name: research_plans_wellplates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3585,7 +3595,7 @@ CREATE SEQUENCE public.residues_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.residues_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.residues_id_seq OWNER TO postgres;
 
 --
 -- Name: residues_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3625,7 +3635,7 @@ CREATE SEQUENCE public.sample_tasks_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.sample_tasks_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.sample_tasks_id_seq OWNER TO postgres;
 
 --
 -- Name: sample_tasks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3647,7 +3657,7 @@ CREATE SEQUENCE public.samples_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.samples_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.samples_id_seq OWNER TO postgres;
 
 --
 -- Name: samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3686,7 +3696,7 @@ CREATE SEQUENCE public.scan_results_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.scan_results_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.scan_results_id_seq OWNER TO postgres;
 
 --
 -- Name: scan_results_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3734,7 +3744,7 @@ CREATE SEQUENCE public.scifinder_n_credentials_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.scifinder_n_credentials_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.scifinder_n_credentials_id_seq OWNER TO postgres;
 
 --
 -- Name: scifinder_n_credentials_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3778,7 +3788,7 @@ CREATE SEQUENCE public.screens_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.screens_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.screens_id_seq OWNER TO postgres;
 
 --
 -- Name: screens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3814,7 +3824,7 @@ CREATE SEQUENCE public.screens_wellplates_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.screens_wellplates_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.screens_wellplates_id_seq OWNER TO postgres;
 
 --
 -- Name: screens_wellplates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3868,7 +3878,7 @@ CREATE SEQUENCE public.segment_klasses_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.segment_klasses_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.segment_klasses_id_seq OWNER TO postgres;
 
 --
 -- Name: segment_klasses_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3911,7 +3921,7 @@ CREATE SEQUENCE public.segment_klasses_revisions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.segment_klasses_revisions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.segment_klasses_revisions_id_seq OWNER TO postgres;
 
 --
 -- Name: segment_klasses_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3955,7 +3965,7 @@ CREATE SEQUENCE public.segments_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.segments_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.segments_id_seq OWNER TO postgres;
 
 --
 -- Name: segments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -3997,7 +4007,7 @@ CREATE SEQUENCE public.segments_revisions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.segments_revisions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.segments_revisions_id_seq OWNER TO postgres;
 
 --
 -- Name: segments_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4034,7 +4044,7 @@ CREATE SEQUENCE public.subscriptions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.subscriptions_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.subscriptions_id_seq OWNER TO postgres;
 
 --
 -- Name: subscriptions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4082,7 +4092,7 @@ CREATE SEQUENCE public.sync_collections_users_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.sync_collections_users_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.sync_collections_users_id_seq OWNER TO postgres;
 
 --
 -- Name: sync_collections_users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4122,7 +4132,7 @@ CREATE SEQUENCE public.text_templates_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.text_templates_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.text_templates_id_seq OWNER TO postgres;
 
 --
 -- Name: text_templates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4163,7 +4173,7 @@ CREATE SEQUENCE public.user_affiliations_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.user_affiliations_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.user_affiliations_id_seq OWNER TO postgres;
 
 --
 -- Name: user_affiliations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4205,7 +4215,7 @@ CREATE SEQUENCE public.user_labels_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.user_labels_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.user_labels_id_seq OWNER TO postgres;
 
 --
 -- Name: user_labels_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4240,7 +4250,7 @@ CREATE SEQUENCE public.users_admins_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.users_admins_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.users_admins_id_seq OWNER TO postgres;
 
 --
 -- Name: users_admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4275,7 +4285,7 @@ CREATE SEQUENCE public.users_devices_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.users_devices_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.users_devices_id_seq OWNER TO postgres;
 
 --
 -- Name: users_devices_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4310,7 +4320,7 @@ CREATE SEQUENCE public.users_groups_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.users_groups_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.users_groups_id_seq OWNER TO postgres;
 
 --
 -- Name: users_groups_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4332,7 +4342,7 @@ CREATE SEQUENCE public.users_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.users_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.users_id_seq OWNER TO postgres;
 
 --
 -- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4360,7 +4370,7 @@ FROM ((public.collections cols
 WHERE (cols.deleted_at IS NULL);
 
 
-ALTER TABLE public.v_samples_collections OWNER TO postgres;
+ALTER VIEW public.v_samples_collections OWNER TO postgres;
 
 --
 -- Name: vessel_templates; Type: TABLE; Schema: public; Owner: postgres
@@ -4439,7 +4449,7 @@ CREATE SEQUENCE public.wellplates_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.wellplates_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.wellplates_id_seq OWNER TO postgres;
 
 --
 -- Name: wellplates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -4483,7 +4493,7 @@ CREATE SEQUENCE public.wells_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.wells_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.wells_id_seq OWNER TO postgres;
 
 --
 -- Name: wells_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -5150,7 +5160,7 @@ COPY public.analyses_experiments (id, sample_id, holder_id, status, devices_anal
 --
 
 COPY public.ar_internal_metadata (key, value, created_at, updated_at) FROM stdin;
-environment	development	2024-01-23 13:44:02.869137	2024-01-23 13:44:02.869137
+environment	production	2024-01-23 13:44:02.869137	2024-09-27 09:08:54.851478
 \.
 
 
@@ -5217,7 +5227,6 @@ COPY public.channels (id, subject, msg_template, channel_type, created_at, updat
 2	System Notification	\N	9	2024-01-23 13:44:00.302391	2024-01-23 13:44:00.302391
 3	System Maintenance	\N	9	2024-01-23 13:44:00.304971	2024-01-23 13:44:00.304971
 8	Send Individual Users	\N	8	2024-01-23 13:44:00.343494	2024-01-23 13:44:00.343494
-13	Gate Transfer Completed	{"data": "Data tranfer from your collection [chemotion.net] to Chemotion-Repository: %{comment}", "level": "success", "action": "RefreshChemotionCollection"}	8	2024-01-23 13:44:00.467171	2024-01-23 13:44:02.361389
 14	Collection Import and Export	{"data": "Collection %{operation}: %{col_labels} processed successfully. %{expires_at}", "level": "success", "action": "CollectionActions.fetchUnsharedCollectionRoots"}	8	2024-01-23 13:44:00.565768	2024-01-23 13:44:02.363346
 23	Import Samples Completed	{"data": "%{message}", "action": "CollectionActions.fetchUnsharedCollectionRoots"}	8	2024-01-23 13:44:02.712829	2024-01-23 13:44:02.71434
 18	New comment on synchronized collection	{"data": "%<commented_by>s has made a new comment on %<element_type>s, %<element_name>s", "action": "CollectionActions.fetchSyncInCollectionRoots"}	8	2024-01-23 13:44:02.449573	2024-01-23 13:44:02.720794
@@ -5236,6 +5245,7 @@ COPY public.channels (id, subject, msg_template, channel_type, created_at, updat
 20	Download Analyses	{"data": "Download analyses of sample: %{sample_name} processed successfully. %{expires_at}", "level": "success"}	8	2024-01-23 13:44:02.47264	2024-01-23 13:44:02.475025
 21	Download Analyses Failure	{"data": " There was an issue while downloading the analyses of sample: %{sample_name}", "level": "error"}	8	2024-01-23 13:44:02.478337	2024-01-23 13:44:02.479897
 22	Calender Entry Notification	{"data": "%{creator_name} %{type} calendar entry %{kind}: %{range} %{title}.", "action": "CalendarActions.navigateToElement", "eventable_id": "%{eventable_id}", "eventable_type": "%{eventable_type}"}	8	2024-01-23 13:44:02.601837	2024-01-23 13:44:02.601837
+13	Gate Transfer Completed	{"data": "Data tranfer from your collection  to Chemotion-Repository: %{comment}", "level": "success", "action": "RefreshChemotionCollection"}	8	2024-01-23 13:44:00.467171	2024-01-23 13:44:02.361389
 \.
 
 
@@ -5272,6 +5282,8 @@ COPY public.collections (id, user_id, ancestry, label, shared_by_id, is_shared, 
 9	7	\N	All	\N	f	0	10	10	10	2024-02-16 08:52:48.561313	2024-02-16 08:52:48.561313	0	10	t	\N	f	10	10	{}	10	\N
 10	8	\N	All	\N	f	0	10	10	10	2024-02-16 08:53:15.379007	2024-02-16 08:53:15.379007	0	10	t	\N	f	10	10	{}	10	\N
 11	7	\N	FIXED	\N	f	0	10	10	10	2024-03-21 10:31:23.524241	2024-03-21 10:40:57.388683	1	10	f	\N	f	10	10	{}	10	\N
+12	9	\N	chemotion-repository.net	\N	f	0	10	10	10	2024-09-27 09:11:56.595124	2024-09-27 09:11:56.595124	1	10	t	\N	f	10	10	{}	10	\N
+13	9	\N	All	\N	f	0	10	10	10	2024-09-27 09:11:56.596278	2024-09-27 09:11:56.596278	0	10	t	\N	f	10	10	{}	10	\N
 \.
 
 
@@ -5478,13 +5490,9 @@ COPY public.datasets_revisions (id, dataset_id, uuid, klass_uuid, properties, cr
 --
 
 COPY public.delayed_jobs (id, priority, attempts, handler, last_error, run_at, locked_at, failed_at, locked_by, queue, created_at, updated_at, cron) FROM stdin;
-4	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: SendWelcomeEmailJob\n  job_id: a1a2ca67-346e-4ce0-9ae5-786f127c54d7\n  provider_job_id: \n  queue_name: send_welcome_email\n  priority: \n  arguments:\n  - 2\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-01-23T15:12:02Z'\n	\N	2024-01-23 15:12:02.389971	\N	\N	\N	send_welcome_email	2024-01-23 15:12:02.390022	2024-01-23 15:12:02.390022	\N
-8	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemSingleLcssJob\n  job_id: 3dd6a363-e183-4f24-8451-b789ed6149c1\n  provider_job_id: \n  queue_name: single_pubchem_lcss\n  priority: \n  arguments:\n  - _aj_globalid: gid://chemotion/Molecule/1\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-01-23T15:17:17Z'\n	\N	2024-01-23 15:17:17.554768	\N	\N	\N	single_pubchem_lcss	2024-01-23 15:17:17.554811	2024-01-23 15:17:17.554811	\N
-57	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: SendWelcomeEmailJob\n  job_id: bb57340f-7049-4579-975a-e409e29a9a2e\n  provider_job_id: \n  queue_name: send_welcome_email\n  priority: \n  arguments:\n  - 7\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-02-16T08:52:48Z'\n	\N	2024-02-16 08:52:48.633409	\N	\N	\N	send_welcome_email	2024-02-16 08:52:48.633441	2024-02-16 08:52:48.633441	\N
-88	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: CollectDataFromMailJob\n  job_id: 1eb05d15-bc7f-4fb8-b504-455414c74953\n  provider_job_id: \n  queue_name: collect_data\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-03-21T12:12:49Z'\n	\N	2024-03-21 12:12:49.611207	\N	\N	\N	collect_data	2024-03-21 12:12:49.611243	2024-03-21 12:12:49.611243	0/1 * * * *
-89	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemCidJob\n  job_id: c57d0d82-bc39-4dcf-bdef-b57bb2799459\n  provider_job_id: \n  queue_name: pubchem\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-03-21T12:12:49Z'\n	\N	2024-03-21 12:12:49.619314	\N	\N	\N	pubchem	2024-03-21 12:12:49.619337	2024-03-21 12:12:49.619337	6 13 * * 7
-90	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemLcssJob\n  job_id: 4457c777-57ca-4cd7-90f3-3ec438dc20a4\n  provider_job_id: \n  queue_name: pubchemLcss\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-03-21T12:12:49Z'\n	\N	2024-03-21 12:12:49.627006	\N	\N	\N	pubchemLcss	2024-03-21 12:12:49.627033	2024-03-21 12:12:49.627033	52 14 * * 7
-91	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: RefreshElementTagJob\n  job_id: 7c814f37-6046-489f-88a9-495053834368\n  provider_job_id: \n  queue_name: refresh_element_tag\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-03-21T12:12:49Z'\n	\N	2024-03-21 12:12:49.634822	\N	\N	\N	refresh_element_tag	2024-03-21 12:12:49.634844	2024-03-21 12:12:49.634844	53 21 * * 6
+95	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemCidJob\n  job_id: da11738c-65d0-48f4-b8a0-5a55bfd9ad3c\n  provider_job_id: \n  queue_name: pubchem\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-09-27T09:09:42Z'\n	\N	2024-09-29 15:09:00	\N	\N	\N	pubchem	2024-09-27 09:09:42.420279	2024-09-27 09:09:42.420279	9 15 * * 7
+96	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemLcssJob\n  job_id: 759b5d29-bb4c-47c5-bd7f-30092e3f92c1\n  provider_job_id: \n  queue_name: pubchemLcss\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-09-27T09:09:42Z'\n	\N	2024-09-28 01:55:00	\N	\N	\N	pubchemLcss	2024-09-27 09:09:42.424781	2024-09-27 09:09:42.424781	55 1 * * 6
+97	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: RefreshElementTagJob\n  job_id: 81ebd4a9-433c-4da6-8299-2f78913b2559\n  provider_job_id: \n  queue_name: refresh_element_tag\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2024-09-27T09:09:42Z'\n	\N	2024-09-28 01:05:00	\N	\N	\N	refresh_element_tag	2024-09-27 09:09:42.427406	2024-09-27 09:09:42.427406	5 1 * * 6
 \.
 
 
@@ -5538,13 +5546,13 @@ COPY public.element_klasses_revisions (id, element_klass_id, uuid, properties_re
 --
 
 COPY public.element_tags (id, taggable_type, taggable_id, taggable_data, created_at, updated_at) FROM stdin;
-1	Molecule	1	{"pubchem_cid": 222}	2024-01-23 15:17:17.524154	2024-01-23 15:17:17.524154
 2	Sample	1	{"collection_labels": [{"id": 4, "name": "TEST 1", "user_id": 2, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-01-23 15:17:46.432546	2024-01-23 15:17:46.432546
 3	Labimotion::Element	1	{"collection_labels": [{"id": 4, "name": "TEST 1", "user_id": 2, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-01-24 08:17:12.533055	2024-01-24 08:17:12.533055
 4	Labimotion::Element	2	{"collection_labels": [{"id": 4, "name": "TEST 1", "user_id": 2, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-02-16 08:49:01.289356	2024-02-16 08:49:01.289356
 5	Labimotion::Element	3	{"collection_labels": [{"id": 11, "name": "API_TEST_a3a7c777-6924-4ab2-a1b3-18c959051931", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 10:32:02.045545	2024-03-21 10:32:02.045545
 6	Labimotion::Element	4	{"collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 10:41:42.526193	2024-03-21 10:41:42.526193
 7	Labimotion::Element	5	{"collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 12:13:25.247046	2024-03-21 12:13:25.247046
+1	Molecule	1	{"pubchem_cid": 222, "pubchem_lcss": {"Record": {"Section": [{"Section": [{"URL": "https://www.osha.gov/sites/default/files/publications/OSHA3514.pdf", "Section": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/", "TOCHeading": "GHS Classification", "Description": "GHS (Globally Harmonized System of Classification and Labelling of Chemicals) is a United Nations system to identify hazardous chemicals and to inform users about these hazards. GHS has been adopted by many countries around the world and is now also used as the basis for international and national transport regulations for dangerous goods. The GHS hazard statements, class categories, pictograms, signal words, and the precautionary statements can be found on the PubChem GHS page.", "Information": [{"Name": "Note", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 185}], "String": "Pictograms displayed are for > 99.9% (3511 of 3512) of reports that indicate hazard statements. This chemical does not meet GHS hazard criteria for < 0.1% (1  of 3512) of reports."}]}, "ReferenceNumber": 47}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 4, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 47}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 47}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 29, "Length": 6}], "String": "H221 (87.7%): Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 66, "Length": 7}], "String": "H280 (29.6%): Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 57, "Length": 6}], "String": "H314 (> 99.9%): Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 32, "Length": 6}], "String": "H331 (87.6%): Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H332 (11.6%): Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 48, "Length": 7}], "String": "H335 (11.8%): May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 44, "Length": 7}], "String": "H400 (> 99.9%): Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411 (29.2%): Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 47}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P317, P319, P321, P363, P377, P381, P391, P403, P403+P233, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 47}, {"Name": "ECHA C&L Notifications Summary", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 179}], "String": "Aggregated GHS information provided per 3512 reports by companies from 57 notifications to the ECHA C&L Inventory. Each notification may be associated with multiple companies."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 146}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/11196", "Start": 125, "Length": 20}], "String": "Reported as not meeting GHS hazard criteria per 1 of 3512 reports by companies. For more detailed information, please visit  ECHA C&L website."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 103}], "String": "There are 56 notifications provided by 3511 of 3512 reports by companies with hazard statement code(s)."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 281}], "String": "Information may vary between notifications depending on impurities, additives, and other factors. The percentage value in parenthesis indicates the notified classification ratio from companies that provide hazard codes. Only hazard codes with percentage values above 10% are shown."}]}, "ReferenceNumber": 47}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 59}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 59}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 59}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P270, P271, P273, P280, P301+P317, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P321, P330, P363, P377, P381, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 59}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 60}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 60}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 60}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P264+P265, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P317, P321, P363, P377, P381, P391, P403, P403+P233, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 60}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 5, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 82}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 82}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 82}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P273, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P319, P321, P342+P316, P363, P377, P381, P391, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 82}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 5, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 83}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 83}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 44, "Length": 7}], "String": "H341: Suspected of causing genetic defects [Warning Germ cell mutagenicity]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 83}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P273, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P318, P319, P321, P342+P316, P363, P377, P381, P391, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 83}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"String": "H402: Harmful to aquatic life [Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 84}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P273, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 84}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"String": "Not Classified"}]}, "ReferenceNumber": 85}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 86}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 86}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 70, "Length": 6}], "String": "H372: Causes damage to organs through prolonged or repeated exposure [Danger Specific target organ toxicity, repeated exposure]"}]}, "ReferenceNumber": 86}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P319, P321, P342+P316, P363, P377, P381, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 86}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 99}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 99}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 99}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P321, P363, P377, P381, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 99}], "DisplayControls": {"ShowAtMost": 1, "CreateTable": {"ColumnContents": ["Name", "Value"], "NumberOfColumns": 2, "FromInformationIn": "ThisSection"}}}], "TOCHeading": "Hazards Identification", "Description": "This section identifies the hazards of the chemical presented on the safety data sheet (SDS) and the appropriate warning information associated with those hazards.  The information in this section includes, but are not limited to, the hazard classification of the chemical, signal word, pictograms, hazard statements and precautionary statements.", "Information": [{"Name": "ERG Hazard Classes", "Value": {"StringWithMarkup": [{"String": "Toxic/poison by inhalation (TIH/PIH)"}]}, "ReferenceNumber": 33}]}], "TOCHeading": "Safety and Hazards", "Description": "Information on safety and hazards for this compound, including safety/hazards properties, reactivity, incompatibilities, management techniques, first aid treatments, and more.  For toxicity and related information, please see the Toxicity section."}], "Reference": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/erg/", "ANID": 39280829, "Name": "Ammonia", "SourceID": "45d2a3a006c4667a6d3f9f0b8d5e06c9", "LicenseURL": "https://www.transportation.gov/web-policies", "SourceName": "Emergency Response Guidebook (ERG)", "Description": "The Emergency Response Guidebook 2024 provides first responders with a manual intended for use during the initial phase of a transportation incident involving hazardous materials/dangerous goods. PubChem integration of ERG information provides more opportunities for users/first responders to find ERG data and additional safety, toxicity, and more chemical information. For more information, please visit ERG website (https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg) and/or the ERG summary table (https://pubchem.ncbi.nlm.nih.gov/erg/).", "ReferenceNumber": 33}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/11196", "ANID": 1854204, "Name": "Ammonia, anhydrous (EC: 231-635-3)", "SourceID": "11196", "LicenseURL": "https://echa.europa.eu/web/guest/legal-notice", "SourceName": "European Chemicals Agency (ECHA)", "Description": "The information provided here is aggregated from the \\"Notified classification and labelling\\" from ECHA's C&L Inventory. Read more: https://echa.europa.eu/information-on-chemicals/cl-inventory-database", "LicenseNote": "Use of the information, documents and data from the ECHA website is subject to the terms and conditions of this Legal Notice, and subject to other binding limitations provided for under applicable law, the information, documents and data made available on the ECHA website may be reproduced, distributed and/or used, totally or in part, for non-commercial purposes provided that ECHA is acknowledged as the source: \\"Source: European Chemicals Agency, http://echa.europa.eu/\\". Such acknowledgement must be included in each copy of the material. ECHA permits and encourages organisations and individuals to create links to the ECHA website under the following cumulative conditions: Links can only be made to webpages that provide a link to the Legal Notice page.", "ReferenceNumber": 47}, {"URL": "http://hcis.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=225", "ANID": 2279015, "Name": "Ammonia gas", "SourceID": "225", "SourceName": "Hazardous Chemical Information System (HCIS), Safe Work Australia", "Description": "The Hazardous Chemical Information System (HCIS) at the Safe Work Australia is a database of chemical classifications and workplace exposure standards. It allows users to find information on chemicals that have been classified in accordance with the GHS or which have an Australian Workplace Exposure Standard.", "ReferenceNumber": 59}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/162", "ANID": 122, "Name": "Ammonia", "IsToxnet": true, "SourceID": "162", "LicenseURL": "https://www.nlm.nih.gov/web_policies.html", "SourceName": "Hazardous Substances Data Bank (HSDB)", "Description": "The Hazardous Substances Data Bank (HSDB) is a toxicology database that focuses on the toxicology of potentially hazardous chemicals. It provides information on human exposure, industrial hygiene, emergency handling procedures, environmental fate, regulatory requirements, nanomaterials, and related areas. The information in HSDB has been assessed by a Scientific Review Panel.", "ReferenceNumber": 60}, {"URL": "https://www.nite.go.jp/chem/english/ghs/09-mhlw-2003e.html", "ANID": 8787865, "Name": "Ammonia - FY2009 (Revised classification)", "SourceID": "21B3003", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 82}, {"URL": "https://www.nite.go.jp/chem/english/ghs/06-imcg-0557e.html", "ANID": 8787866, "Name": "Ammonia - FY2006 (New/original classication)", "SourceID": "564", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 83}, {"URL": "https://www.nite.go.jp/chem/english/ghs/21-moe-2031e.html", "ANID": 39312838, "Name": "Ammonia - FY2021 (Revised classification)", "SourceID": "R03_C_031B_MOE", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 84}, {"URL": "https://www.nite.go.jp/chem/english/ghs/16-moe-0007e.html", "ANID": 39312839, "Name": "Ammonia - FY2016 (Revised classification)", "SourceID": "H28_K_007B", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 85}, {"URL": "https://www.nite.go.jp/chem/english/ghs/14-mhlw-2011e.html", "ANID": 39312840, "Name": "Ammonia - FY2014 (Revised classification)", "SourceID": "H26_B_011__", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 86}, {"URL": "https://eur-lex.europa.eu/eli/reg/2008/1272/2023-07-31", "ANID": 391813, "Name": "ammonia, anhydrous", "SourceID": "007-001-00-5", "LicenseURL": "https://eur-lex.europa.eu/content/legal-notice/legal-notice.html", "SourceName": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council", "Description": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council of 16 December 2008 on classification, labelling and packaging of substances and mixtures.", "LicenseNote": "The copyright for the editorial content of this source, the summaries of EU legislation and the consolidated texts, which is owned by the EU, is licensed under the Creative Commons Attribution 4.0 International licence.", "ReferenceNumber": 99}], "RecordType": "CID", "RecordTitle": "Ammonia", "RecordNumber": 222}}}	2024-01-23 15:17:17.524154	2024-09-27 09:09:45.213979
 \.
 
 
@@ -5562,12 +5570,12 @@ COPY public.elemental_compositions (id, sample_id, composition_type, data, loadi
 -- Data for Name: elements; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.elements (id, name, element_klass_id, short_label, properties, created_by, created_at, updated_at, deleted_at, uuid, klass_uuid, properties_release) FROM stdin;
-1	New Tryout	7	MSU-T1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "face37f2-4760-4197-9d10-114d78264448", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "klass_uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad"}	2	2024-01-24 08:17:12.523778	2024-01-24 08:17:12.523778	\N	face37f2-4760-4197-9d10-114d78264448	30e78480-dfa1-4e62-8260-8e7896ec7cad	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}
-2	New Tryout	7	MSU-T2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "08eaf995-65ad-4f33-90e1-2f552a740ffa", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "value": "HALLO", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "klass_uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6"}	2	2024-02-16 08:49:01.282633	2024-02-16 08:49:01.282633	\N	08eaf995-65ad-4f33-90e1-2f552a740ffa	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}
-3	New Workflow	8	API-WRK1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "bbedce98-ca37-48da-999c-1b020b3772f5", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "72d43a4c-dfca-4675-be87-ac294835412d", "position": 10, "timeRecord": "", "wf_position": 1}}, "version": "1.0", "identifier": null, "klass_uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6"}	7	2024-03-21 10:32:02.030721	2024-03-21 10:32:02.030721	\N	bbedce98-ca37-48da-999c-1b020b3772f5	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}
-4	New Workflow	8	API-WRK2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "85006e6b-5990-4324-bbac-5d069cd31150", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "d7c31a6d-f2d5-453b-9b90-2b0ea03b24e0", "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"ai": [], "wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_info": {"node_id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "source_layer": "three"}, "position": 40, "timeRecord": "", "wf_position": 2}, "four": {"ai": [], "wf": false, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_uuid": null, "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "f1fb38f9-5e28-48a1-b5de-3fce70ef7a18", "position": 40, "timeRecord": "", "wf_position": 1}, "three.1": {"ai": [], "wf": true, "key": "three.1", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "source_layer": "one"}, "position": 20, "timeRecord": "", "wf_position": 2}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 10:41:42.513557	2024-03-21 10:41:42.513557	\N	85006e6b-5990-4324-bbac-5d069cd31150	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}
-5	New Workflow	8	API-WRK3	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "4b23e4ca-9994-4b85-aadb-062bf15e9af2", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "389460bf-1f80-40c6-ab6b-32e1ed58435d", "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "3767b63b-5a94-4564-9eb3-275c1a94231c", "position": 40, "timeRecord": "", "wf_position": 1}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 12:13:25.234452	2024-03-21 12:13:25.234452	\N	4b23e4ca-9994-4b85-aadb-062bf15e9af2	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}
+COPY public.elements (id, name, element_klass_id, short_label, properties, created_by, created_at, updated_at, deleted_at, uuid, klass_uuid, properties_release, ancestry) FROM stdin;
+1	New Tryout	7	MSU-T1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "face37f2-4760-4197-9d10-114d78264448", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "klass_uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad"}	2	2024-01-24 08:17:12.523778	2024-01-24 08:17:12.523778	\N	face37f2-4760-4197-9d10-114d78264448	30e78480-dfa1-4e62-8260-8e7896ec7cad	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	\N
+2	New Tryout	7	MSU-T2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "08eaf995-65ad-4f33-90e1-2f552a740ffa", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "value": "HALLO", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "klass_uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6"}	2	2024-02-16 08:49:01.282633	2024-02-16 08:49:01.282633	\N	08eaf995-65ad-4f33-90e1-2f552a740ffa	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	\N
+3	New Workflow	8	API-WRK1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "bbedce98-ca37-48da-999c-1b020b3772f5", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "72d43a4c-dfca-4675-be87-ac294835412d", "position": 10, "timeRecord": "", "wf_position": 1}}, "version": "1.0", "identifier": null, "klass_uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6"}	7	2024-03-21 10:32:02.030721	2024-03-21 10:32:02.030721	\N	bbedce98-ca37-48da-999c-1b020b3772f5	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}	\N
+4	New Workflow	8	API-WRK2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "85006e6b-5990-4324-bbac-5d069cd31150", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "d7c31a6d-f2d5-453b-9b90-2b0ea03b24e0", "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"ai": [], "wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_info": {"node_id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "source_layer": "three"}, "position": 40, "timeRecord": "", "wf_position": 2}, "four": {"ai": [], "wf": false, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_uuid": null, "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "f1fb38f9-5e28-48a1-b5de-3fce70ef7a18", "position": 40, "timeRecord": "", "wf_position": 1}, "three.1": {"ai": [], "wf": true, "key": "three.1", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "source_layer": "one"}, "position": 20, "timeRecord": "", "wf_position": 2}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 10:41:42.513557	2024-03-21 10:41:42.513557	\N	85006e6b-5990-4324-bbac-5d069cd31150	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	\N
+5	New Workflow	8	API-WRK3	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "4b23e4ca-9994-4b85-aadb-062bf15e9af2", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "389460bf-1f80-40c6-ab6b-32e1ed58435d", "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "3767b63b-5a94-4564-9eb3-275c1a94231c", "position": 40, "timeRecord": "", "wf_position": 1}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 12:13:25.234452	2024-03-21 12:13:25.234452	\N	4b23e4ca-9994-4b85-aadb-062bf15e9af2	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	\N
 \.
 
 
@@ -5691,7 +5699,6 @@ COPY public.matrices (id, name, enabled, label, include_ids, exclude_ids, config
 4	reactionPrediction	f	reactionPrediction	{}	{}	{"url": "", "port": ""}	2024-01-23 13:44:00.91361	2024-01-23 13:44:00.915788	\N
 9	marvinjsEditor	f	marvinjsEditor	{}	{}	{"editor": "marvinjs"}	2024-01-23 13:44:01.51163	2024-01-23 13:44:01.51163	\N
 10	nmrSim	f	nmrSim	{}	{}	{}	2024-01-23 13:44:02.095454	2024-01-23 13:44:02.095454	\N
-11	ketcher2Editor	f	ketcher2Editor	{}	{}	{}	2024-01-23 13:44:02.10268	2024-01-23 13:44:02.10268	\N
 12	scifinderN	f	scifinderN	{}	{}	{}	2024-01-23 13:44:02.416207	2024-01-23 13:44:02.416207	\N
 1	userLabel	f	userLabel	{}	{}	{}	2024-01-23 13:44:00.872595	2024-01-23 13:44:00.872595	\N
 13	userProvider	f	userProvider	{}	{}	{}	2024-01-23 13:44:02.664734	2024-01-23 13:44:02.664734	\N
@@ -5700,6 +5707,7 @@ COPY public.matrices (id, name, enabled, label, include_ids, exclude_ids, config
 8	genericDataset	t	genericDataset	{}	{}	{}	2024-01-23 13:44:01.408293	2024-01-24 07:05:09.339511	\N
 7	segment	t	segment	{}	{}	{}	2024-01-23 13:44:01.38501	2024-01-24 07:05:14.327721	\N
 5	sampleDecoupled	t	sampleDecoupled	{}	{}	{}	2024-01-23 13:44:01.055112	2024-01-24 07:05:24.958261	\N
+11	ketcher2Editor	f	ketcher2Editor	{}	{}	{"editor": "ketcher2"}	2024-01-23 13:44:02.10268	2024-01-23 13:44:02.10268	\N
 \.
 
 
@@ -5813,6 +5821,7 @@ COPY public.profiles (id, show_external_name, user_id, deleted_at, created_at, u
 5	f	6	\N	2024-02-16 08:51:22.3029	2024-02-16 08:51:22.3029	{}	2	f	f
 7	f	8	\N	2024-02-16 08:53:15.389988	2024-02-16 08:53:15.389988	{}	2	f	f
 6	f	7	\N	2024-02-16 08:52:48.565375	2024-03-21 12:13:12.53115	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": -2, "wrk": 1, "sample": 2, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6}, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": true, "layout_detail_sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": true, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f
+8	f	9	\N	2024-09-27 09:11:56.606768	2024-09-27 09:11:56.606768	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"sample": 1, "screen": 4, "reaction": 2, "cell_line": -1000, "wellplate": 3, "research_plan": 5}, "converter_admin": false, "molecule_editor": false, "is_templates_moderator": false}	2	f	f
 \.
 
 
@@ -6282,6 +6291,9 @@ COPY public.schema_migrations (version) FROM stdin;
 20231219162631
 20240129134421
 20240320122428
+20240229000000
+20240328150631
+20240424120634
 \.
 
 
@@ -6448,6 +6460,13 @@ COPY public.text_templates (id, type, user_id, name, data, deleted_at, created_a
 78	ResearchPlanTextTemplate	8	\N	{"MS": ["ei", "fab", "esi", "apci", "asap", "maldi", "m+", "hr", "hr-ei", "hr-fab"], "_toolbar": ["ndash", "h-nmr", "c-nmr", "ir", "uv", "ea"]}	\N	2024-02-16 08:53:15.426594	2024-02-16 08:53:15.426594
 79	ReactionDescriptionTextTemplate	8	\N	{"_toolbar": ["ndash", "water-free", "resin-solvent", "resin-solvent-reagent", "hand-stop", "reaction-procedure", "gpx-a", "gpx-b", "washed-nahco3", "acidified-hcl", "tlc-control", "dried", "isolated", "residue-purified", "residue-adsorbed", "residue-dissolved"]}	\N	2024-02-16 08:53:15.432318	2024-02-16 08:53:15.432318
 80	ElementTextTemplate	8	\N	{"MS": ["ei", "fab", "esi", "apci", "asap", "maldi", "m+", "hr", "hr-ei", "hr-fab"], "_toolbar": ["ndash", "h-nmr", "c-nmr", "ir", "uv", "ea"]}	\N	2024-02-16 08:53:15.43978	2024-02-16 08:53:15.43978
+81	SampleTextTemplate	9	\N	{"MS": ["ei", "fab", "esi", "apci", "asap", "maldi", "m+", "hr", "hr-ei", "hr-fab"], "_toolbar": ["ndash", "h-nmr", "c-nmr", "ir", "uv", "ea"]}	\N	2024-09-27 09:11:56.64858	2024-09-27 09:11:56.64858
+82	ReactionTextTemplate	9	\N	{"MS": ["ei", "fab", "esi", "apci", "asap", "maldi", "m+", "hr", "hr-ei", "hr-fab"], "_toolbar": ["ndash", "h-nmr", "c-nmr", "ir", "uv", "ea"]}	\N	2024-09-27 09:11:56.653746	2024-09-27 09:11:56.653746
+83	WellplateTextTemplate	9	\N	{"MS": ["ei", "fab", "esi", "apci", "asap", "maldi", "m+", "hr", "hr-ei", "hr-fab"], "_toolbar": ["ndash", "h-nmr", "c-nmr", "ir", "uv", "ea"]}	\N	2024-09-27 09:11:56.663147	2024-09-27 09:11:56.663147
+84	ScreenTextTemplate	9	\N	{"MS": ["ei", "fab", "esi", "apci", "asap", "maldi", "m+", "hr", "hr-ei", "hr-fab"], "_toolbar": ["ndash", "h-nmr", "c-nmr", "ir", "uv", "ea"]}	\N	2024-09-27 09:11:56.683374	2024-09-27 09:11:56.683374
+85	ResearchPlanTextTemplate	9	\N	{"MS": ["ei", "fab", "esi", "apci", "asap", "maldi", "m+", "hr", "hr-ei", "hr-fab"], "_toolbar": ["ndash", "h-nmr", "c-nmr", "ir", "uv", "ea"]}	\N	2024-09-27 09:11:56.703427	2024-09-27 09:11:56.703427
+86	ReactionDescriptionTextTemplate	9	\N	{"_toolbar": ["ndash", "water-free", "resin-solvent", "resin-solvent-reagent", "hand-stop", "reaction-procedure", "gpx-a", "gpx-b", "washed-nahco3", "acidified-hcl", "tlc-control", "dried", "isolated", "residue-purified", "residue-adsorbed", "residue-dissolved"]}	\N	2024-09-27 09:11:56.715268	2024-09-27 09:11:56.715268
+87	ElementTextTemplate	9	\N	{"MS": ["ei", "fab", "esi", "apci", "asap", "maldi", "m+", "hr", "hr-ei", "hr-fab"], "_toolbar": ["ndash", "h-nmr", "c-nmr", "ir", "uv", "ea"]}	\N	2024-09-27 09:11:56.729949	2024-09-27 09:11:56.729949
 \.
 
 
@@ -6473,13 +6492,14 @@ COPY public.user_labels (id, user_id, title, description, color, access_level, "
 
 COPY public.users (id, email, encrypted_password, reset_password_token, reset_password_sent_at, remember_created_at, sign_in_count, current_sign_in_at, last_sign_in_at, current_sign_in_ip, last_sign_in_ip, created_at, updated_at, name, first_name, last_name, deleted_at, counters, name_abbreviation, type, reaction_name_prefix, confirmation_token, confirmed_at, confirmation_sent_at, unconfirmed_email, layout, selected_device_id, failed_attempts, unlock_token, locked_at, account_active, matrix, providers, is_super_device) FROM stdin;
 3	m.starman@live.com	$2a$10$BzLw8xKsNz4oIS9mnNw7p.VzBcoRtdNX24IC/H6YN2Nctfy.QtuAC	\N	\N	\N	1	2024-01-23 15:13:20.641783	2024-01-23 15:13:20.641783	127.0.0.1	127.0.0.1	2024-01-23 15:12:19.918834	2024-01-23 15:13:20.642011	\N	Martin	Starman	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	MAS	Admin	R	xdBHzBM8ShSXkid_Wysz	2024-01-23 15:12:19.919039	2024-01-23 15:12:19.919011	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
-1	eln-admin@kit.edu	$2a$10$qE0IcYGPHz2WUsN2IvOEkuek6fUc7K5h.EGpECBmp8oMbq.qL1Q8y	\N	\N	\N	2	2024-01-24 07:01:08.96201	2024-01-23 13:45:57.853152	127.0.0.1	127.0.0.1	2024-01-23 13:44:00.404024	2024-01-24 07:01:08.962315	\N	ELN	Admin	\N	"samples"=>"0", "celllines"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADM	Admin	R	\N	\N	\N	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	2	\N	\N	t	480	\N	f
 2	martin.starman@kit.edu	$2a$10$Vzj0LeZcs6Ojh9g6wMIAh.oS8DPFtnrVkARiPbm8R8ujspcPMCyqW	\N	\N	\N	9	2024-02-16 08:49:52.776908	2024-01-25 08:40:05.47299	127.0.0.1	127.0.0.1	2024-01-23 15:12:02.229711	2024-02-16 08:49:52.777158	\N	Martin	Starman	\N	"try"=>"2", "samples"=>"1", "reactions"=>"0", "wellplates"=>"0"	MSU	Person	R	Ecq4xYuU-MsBRThdweV3	2024-01-23 15:12:02.230011	2024-01-23 15:12:02.229988	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
-4	m.staran@live.com	$2a$10$83ZsXImGxdzkGSvoRF1C7uCc5R8pmpWMW9Wa0Q7sZpK/wI6TJuCBG	\N	\N	\N	4	2024-02-16 08:50:01.890402	2024-01-24 07:05:40.449547	127.0.0.1	127.0.0.1	2024-01-24 07:01:45.775235	2024-02-16 08:50:01.890641	\N	Martin	Starman	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	MSA	Admin	R	ix5afEaByUe6Ccs4QWMS	2024-01-24 07:01:45.775487	2024-01-24 07:01:45.775465	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
 5	td@kit.edu	$2a$10$H6mlnZXkBajzFg2cUabuRe.Rfinxjh8niL1XVPD5sSrXWhvAUb2cG	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:50:38.507891	2024-02-16 08:50:38.507891	\N	Test Device 1	T.D	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	TD	Device	R	WZLhgByxwfLrutY8W6Zc	\N	2024-02-16 08:50:38.508079	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	480	\N	f
 6	ad@git.edu	$2a$10$kyAy3TkHHh4qi.Iyf8eOzuRDGwy4unwo4rHk2O/BQXD5gKjCz85KW	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:51:22.295244	2024-02-16 08:51:24.672829	\N	Admin Device 2	A.Device	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	AD	Device	R	Z4mD5X27fx6n7i6qfbSH	\N	2024-02-16 08:51:22.295298	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	480	\N	t
-8	admin@kit.edu	$2a$10$RaQTg0SutLSH5UR0ImRpZuXmFwLgqsU/WMXMqTO7aJfpz9h4UCAgu	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:53:15.375483	2024-02-16 08:53:44.605317	\N	Admin	User	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADI	Admin	R	iAfqy7KWJsZTX51WtYbF	2024-02-16 08:53:15.37572	2024-02-16 08:53:15.375696	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
 7	api@kit.edu	$2a$10$XJAIhBoWNwxvqOIAoXWZiO6/kcy3e2ZTrhWEbwhYn6Rs4wR7D95Ma	\N	\N	\N	1	2024-03-21 10:40:11.053361	2024-03-21 10:40:11.053361	127.0.0.1	127.0.0.1	2024-02-16 08:52:48.555419	2024-03-21 12:13:25.259028	\N	API	User	\N	"wrk"=>"3", "samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	API	Person	R	4yRJG5yc33Gq6qpjr-p3	2024-02-16 08:52:48.555698	2024-02-16 08:52:48.555671	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
+8	admin@kit.edu	$2a$10$RaQTg0SutLSH5UR0ImRpZuXmFwLgqsU/WMXMqTO7aJfpz9h4UCAgu	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:53:15.375483	2024-02-16 08:53:44.605317	\N	Admin	User	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADI	Admin	R	iAfqy7KWJsZTX51WtYbF	2024-02-16 08:53:15.37572	2024-02-16 08:53:15.375696	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	1	\N	\N	t	480	\N	f
+1	eln-admin@kit.edu	$2a$10$qE0IcYGPHz2WUsN2IvOEkuek6fUc7K5h.EGpECBmp8oMbq.qL1Q8y	\N	\N	\N	2	2024-01-24 07:01:08.96201	2024-01-23 13:45:57.853152	127.0.0.1	127.0.0.1	2024-01-23 13:44:00.404024	2024-01-24 07:01:08.962315	\N	ELN	Admin	\N	"samples"=>"0", "celllines"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADM	Admin	R	\N	\N	\N	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	3	\N	\N	t	480	\N	f
+4	m.staran@live.com	$2a$10$83ZsXImGxdzkGSvoRF1C7uCc5R8pmpWMW9Wa0Q7sZpK/wI6TJuCBG	\N	\N	\N	5	2024-09-27 09:11:14.505259	2024-02-16 08:50:01.890402	172.19.0.1	127.0.0.1	2024-01-24 07:01:45.775235	2024-09-27 09:11:14.509955	\N	Martin	Starman	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	MSA	Admin	R	ix5afEaByUe6Ccs4QWMS	2024-01-24 07:01:45.775487	2024-01-24 07:01:45.775465	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
+9	nicole.jung@kit.edu	$2a$10$M2D8zrllF9lIosSBjiDHxees6p8jbZPxFVl//34a8mKFjpt7fOtuS	\N	\N	\N	0	\N	\N	\N	\N	2024-09-27 09:11:56.592927	2024-09-27 09:11:56.592927	\N	Nicole	Jung	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	JNG	Person	R	K1TcbNdcGjZaEePsmXpc	2024-09-27 09:11:56.593003	2024-09-27 09:11:56.592979	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	480	\N	f
 \.
 
 
@@ -6627,7 +6647,7 @@ SELECT pg_catalog.setval('public.collections_elements_id_seq', 10, true);
 -- Name: collections_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.collections_id_seq', 11, true);
+SELECT pg_catalog.setval('public.collections_id_seq', 13, true);
 
 
 --
@@ -6725,7 +6745,7 @@ SELECT pg_catalog.setval('public.datasets_revisions_id_seq', 1, false);
 -- Name: delayed_jobs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.delayed_jobs_id_seq', 91, true);
+SELECT pg_catalog.setval('public.delayed_jobs_id_seq', 98, true);
 
 
 --
@@ -6949,7 +6969,7 @@ SELECT pg_catalog.setval('public.private_notes_id_seq', 1, false);
 -- Name: profiles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.profiles_id_seq', 7, true);
+SELECT pg_catalog.setval('public.profiles_id_seq', 8, true);
 
 
 --
@@ -7117,7 +7137,7 @@ SELECT pg_catalog.setval('public.sync_collections_users_id_seq', 1, false);
 -- Name: text_templates_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.text_templates_id_seq', 80, true);
+SELECT pg_catalog.setval('public.text_templates_id_seq', 87, true);
 
 
 --
@@ -7159,7 +7179,7 @@ SELECT pg_catalog.setval('public.users_groups_id_seq', 1, false);
 -- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_id_seq', 8, true);
+SELECT pg_catalog.setval('public.users_id_seq', 9, true);
 
 
 --
@@ -9068,6 +9088,14 @@ ALTER TABLE ONLY public.collections
 
 ALTER TABLE ONLY public.sample_tasks
     ADD CONSTRAINT fk_rails_fcf255019c FOREIGN KEY (sample_id) REFERENCES public.samples(id);
+
+
+--
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO PUBLIC;
 
 
 --

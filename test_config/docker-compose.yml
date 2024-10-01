@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   db:
     image: postgres:14
@@ -80,6 +79,13 @@ services:
     depends_on:
       eln:
         condition: service_healthy
+    networks:
+      - chemotion
+
+  knmfproposalminer:
+    image: mstarman/knmfproposalminer:0.1.3
+    env_file:
+      - .env
     networks:
       - chemotion
 

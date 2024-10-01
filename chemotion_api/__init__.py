@@ -2,6 +2,7 @@ import typing
 
 from typing import TypeVar
 from chemotion_api.collection import RootCollection
+from chemotion_api.converter import ProfileManager
 from chemotion_api.element_manager import ElementManager
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
 from urllib.parse import urlparse
@@ -129,6 +130,9 @@ class Instance:
 
         self._con.set_bearer_token(jwt_token)
         return self
+
+    def get_profile_manager(self):
+        return ProfileManager(self._con)
 
     def get_user(self) -> Admin | Person | Group | Device:
         """

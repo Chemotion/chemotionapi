@@ -278,9 +278,9 @@ class Sample(AbstractElement):
         self.properties['decoupled'] = not self.properties['decoupled']
 
     def _parse_properties(self) -> dict:
-        melting_range = re.split('\.{2,3}', self.json_data.get('melting_point')) if self.json_data.get(
+        melting_range = re.split(r'\.{2,3}', self.json_data.get('melting_point')) if self.json_data.get(
             'melting_point') is not None else ['', '']
-        boiling_range = re.split('\.{2,3}', self.json_data.get('boiling_point')) if self.json_data.get(
+        boiling_range = re.split(r'\.{2,3}', self.json_data.get('boiling_point')) if self.json_data.get(
             'boiling_point') is not None else ['', '']
         return {
             'name': self.json_data.get('name'),

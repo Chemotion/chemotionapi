@@ -37,6 +37,9 @@ class Connection(requests.Session):
     def host_url(self):
         return self._host_url
 
+    def delete(self, url_path: str = '', **kwargs) -> requests.Response:
+        return self._send_request('delete', url_path, self.get_default_session_header(), kwargs)
+
     def get(self, url_path: str = '', **kwargs) -> requests.Response:
         return self._send_request('get', url_path, self.get_default_session_header(), kwargs)
 
@@ -53,7 +56,7 @@ class Connection(requests.Session):
         kwargs['verify'] = kwargs.get('verify', self._verify)
         kwargs['url'] = kwargs.get('url', f"{self._host_url}/{url_path.lstrip('/')}")
         kwargs['headers'] = kwargs.get('headers', default_header)
-        kwargs['timeout'] = kwargs.get('timeout', (2, 15))
+        kwargs['timeout'] = kwargs.get('timeout', (2, 500))
         if 'files' in kwargs:
             if 'Content-Type' in kwargs['headers']:
                 del kwargs['headers']['Content-Type']
