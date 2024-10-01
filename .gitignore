@@ -16,3 +16,4 @@ ElnDataFatcher.iml
 /cmd_config.ini
 /docs/_build
 /tests/dumps/
+/test_config/.env
