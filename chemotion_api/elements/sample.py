@@ -8,6 +8,7 @@ from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.empty_elements import init_container
 from collections.abc import MutableMapping
 from chemotion_api.connection import Connection
+from chemotion_api.utils import UnitDict, FixedDict
 from chemotion_api.utils.solvent_manager import get_solvent_list
 
 
@@ -71,11 +72,13 @@ class Molecule(MutableMapping):
     :key: "inchistring" {str}
     :key: "melting_point" {float}
     """
+
     def __init__(self, data):
         self.all_store = dict(data)
         self.store = dict()
         self.id = data.get('id')
-        for key in ["boiling_point", "cano_smiles", "density", "inchikey", "inchistring", "melting_point"]:
+        for key in ["boiling_point", "molecular_weight", "exact_molecular_weight", "cano_smiles", "density", "inchikey",
+                    "inchistring", "melting_point", "sum_formular"]:
             self.store[key] = self.all_store.get(key)
 
     def __getitem__(self, key: str):
@@ -173,8 +176,6 @@ class Sample(AbstractElement):
         self.is_split = json_data.get('is_split', False)
         self._children_count = json_data.get('children_count', )
 
-
-
     @property
     def properties(self) -> dict:
         """
@@ -189,9 +190,9 @@ class Sample(AbstractElement):
         :key boiling_point_upperbound: {float}
         :key melting_point_lowerbound: {float}
         :key melting_point_upperbound: {float}
-        :key target_amount: {dict} with value: float and unit: str
+        :key target_amount: {dict} has a unit {str} ('l', 'g' or 'mol') and an amount {float}. The amount of the sample used as starting material or reactant.
         :key molarity: {dict} with value: float and unit: str
-        :key real_amount: {dict} with value: float and unit: str
+        :key real_amount: {dict} has a unit {str} ('l', 'g' or 'mol') and an amount {float}. The amount of sample obtained from a reaction.
         :key stereo: {str}
         :key location: {str}
         :key is_top_secret: {bool}
@@ -221,7 +222,8 @@ class Sample(AbstractElement):
         """
         The molecule of the sample
         """
-
+        if self._molecule is None:
+            return Molecule({})
         return self._molecule
 
     @molecule.setter
@@ -292,14 +294,10 @@ class Sample(AbstractElement):
             'boiling_point_upperbound': int(boiling_range[1]) if boiling_range[1].isdigit() else None,
             'melting_point_lowerbound': int(melting_range[0]) if melting_range[0].isdigit() else None,
             'melting_point_upperbound': int(melting_range[1]) if melting_range[1].isdigit() else None,
-            'target_amount': {
-                'value': self.json_data.get('target_amount_value'),
-                'unit': self.json_data.get('target_amount_unit'),
-            },
-            'real_amount': {
-                'value': self.json_data.get('real_amount_value'),
-                'unit': self.json_data.get('real_amount_unit'),
-            },
+            'target_amount': UnitDict(unit=self.json_data.get('target_amount_unit'),
+                                    value=self.json_data.get('target_amount_value')),
+            'real_amount': UnitDict(unit=self.json_data.get('real_amount_unit'),
+                                    value=self.json_data.get('real_amount_value')),
             'stereo': self.json_data.get('stereo'),
             'location': self.json_data.get('location'),
             'is_top_secret': self.json_data.get('is_top_secret'),
@@ -315,8 +313,12 @@ class Sample(AbstractElement):
             'equivalent': self.json_data.get('equivalent'),
             'coefficient': self.json_data.get('coefficient', 1),
             'reaction_description': self.json_data.get('reaction_description'),
-            'molarity': {'unit': format(self.json_data.get('molarity_unit')),
-                         'value': self.json_data.get('molarity_value')}
+            'molarity': UnitDict(unit=format(self.json_data.get('molarity_unit')),
+                                 value=self.json_data.get('molarity_value')),
+
+
+            'molecular_mass': self.json_data.get('molecular_mass'),
+            'gas_phase_data': FixedDict(self.json_data.get('gas_phase_data'))
         }
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
@@ -347,6 +349,7 @@ class Sample(AbstractElement):
         serialize_data['is_top_secret'] = self.properties.get('is_top_secret')
         serialize_data['molarity_unit'] = self.properties.get('molarity').get('unit')
         serialize_data['molarity_value'] = self.properties.get('molarity').get('value')
+        serialize_data['molecular_mass'] = self.properties.get('molecular_mass')
 
         serialize_data['waste'] = self.properties.get('waste')
         serialize_data['reference'] = self.properties.get('reference', False)
@@ -364,13 +367,19 @@ class Sample(AbstractElement):
 
         serialize_data['molfile'] = self.json_data.get('molfile')
 
+        if self.properties.get('gas_phase_data') is not None:
+            serialize_data['gas_phase_data'] = self.properties.get('gas_phase_data')
+
+        if self.properties.get('gas_type') is not None:
+            serialize_data['gas_type'] = self.properties.get('gas_type') != 'off'
+
+
         serialize_data['sample_svg_file'] = self.json_data.get('sample_svg_file')
         serialize_data['dry_solvent'] = self.json_data.get('dry_solvent')
         serialize_data['parent_id'] = self.json_data.get('parent_id')
         serialize_data['residues'] = self.json_data.get('residues')
         serialize_data['imported_readout'] = self.json_data.get('imported_readout')
         serialize_data['xref'] = self.json_data.get('xref')
-        serialize_data['molecular_mass'] = self.json_data.get('molecular_mass')
         serialize_data['elemental_compositions'] = self.json_data.get('elemental_compositions')
         serialize_data['inventory_sample'] = self.json_data.get('inventory_sample')
 

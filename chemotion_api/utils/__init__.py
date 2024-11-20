@@ -1,6 +1,51 @@
 import copy
 import uuid
+from collections.abc import MutableMapping
 from collections import OrderedDict
+
+
+def fixeddict_serializer(obj):
+    if isinstance(obj, FixedDict):
+        return obj.to_dict()  # Return the underlying dictionary
+
+class FixedDict(MutableMapping):
+    def __init__(self, data):
+        self.__data = data
+
+    def __len__(self):
+        return len(self.__data)
+
+    def __iter__(self):
+        return iter(self.__data)
+
+    def __setitem__(self, k, v):
+        if k not in self.__data:
+            raise KeyError(k)
+
+        self.__data[k] = v
+
+    def __delitem__(self, k):
+        raise NotImplementedError
+
+    def __getitem__(self, k):
+        return self.__data[k]
+
+    def __contains__(self, k):
+        return k in self.__data
+
+    def to_dict(self):#
+        return self.__data
+
+
+class UnitDict(FixedDict):
+    def __init__(self, unit: str, value: float):
+        super().__init__({'unit': unit, 'value': value})
+
+    def set_value(self, value: float):
+        self['value'] = value
+
+    def set_unit(self, unit: str):
+        self['unit'] = unit
 
 
 def add_to_dict(obj: dict, key: str, val: any) -> str:

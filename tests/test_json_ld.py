@@ -30,7 +30,7 @@ def test_new_generics(instance_with_test_samples):
     per_page = 3
     idx = 4
     s4 = rc.get_samples(per_page)[idx]
-    assert 'chmotion:type/sample/1.9.3' == s4.json_ld['@type']
+    assert 'chmotion:type/sample/1.10.2' == s4.json_ld['@type']
     assert f'http://0.0.0.0:3579/api/v1/samples/{s4.id}.json' == s4.json_ld['@id']
     for i, s in enumerate(rc.get_elements_of_iri(s4.json_ld['@type'])):
         if i == idx:

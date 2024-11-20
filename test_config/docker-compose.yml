@@ -4,108 +4,101 @@ services:
     restart: unless-stopped
     hostname: db
     ports:
-      - 54320:5432
+    - 54320:5432
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=postgres
     volumes:
-      - chemotion_db:/var/lib/postgresql/data/
+    - chemotion_db:/var/lib/postgresql/data/
     networks:
-      - chemotion
+    - chemotion
   msconvert:
-    image: ptrxyz/chemotion:msconvert-1.9.3
+    image: ptrxyz/chemotion:msconvert-1.10.2
     restart: unless-stopped
     hostname: msconvert
     volumes:
-      - spectra:/shared:rw
+    - spectra:/shared:rw
     networks:
-      - chemotion
-
+    - chemotion
   spectra:
-    image: ptrxyz/chemotion:spectra-1.9.3
+    image: ptrxyz/chemotion:spectra-1.10.2
     restart: unless-stopped
     hostname: spectra
     volumes:
-      - spectra:/shared:rw
+    - spectra:/shared:rw
     depends_on:
-      - msconvert
+    - msconvert
     networks:
-      - chemotion
-
+    - chemotion
   worker:
-    image: ptrxyz/chemotion:eln-1.9.3
+    image: ptrxyz/chemotion:eln-1.10.2
     restart: unless-stopped
     environment:
-      - CONFIG_ROLE=worker
-      - SECRET_KEY_BASE=3b4576cc0m927897n56v
-      - PUBLIC_URL=https://chemotion.knmf.kit.edu
+    - CONFIG_ROLE=worker
+    - SECRET_KEY_BASE=3b4576cc0m927897n56v
+    - PUBLIC_URL=https://chemotion.knmf.kit.edu
     depends_on:
-      - db
-      - eln
-      - spectra
+    - db
+    - eln
+    - spectra
     volumes:
-      - chemotion_data:/chemotion/data/
-      - chemotion_app:/chemotion/app
+    - chemotion_data:/chemotion/data/
+    - chemotion_app:/chemotion/app
     networks:
-      - chemotion
-
+    - chemotion
   eln:
-    image: ptrxyz/chemotion:eln-1.9.3
+    image: ptrxyz/chemotion:eln-1.10.2
     restart: unless-stopped
     env_file: .env
     environment:
-      - CONFIG_ROLE=eln
-      - SECRET_KEY_BASE=3b4576cc0m927897n56v
-      - PUBLIC_URL=https://chemotion.knmf.kit.edu
+    - CONFIG_ROLE=eln
+    - SECRET_KEY_BASE=3b4576cc0m927897n56v
+    - PUBLIC_URL=https://chemotion.knmf.kit.edu
     depends_on:
-      - db
-      - spectra
+    - db
+    - spectra
     volumes:
-      - ./shared/pullin:/shared
-      - ./shared/backup:/backup
-      - chemotion_data:/chemotion/data/
-      - chemotion_app:/chemotion/app
+    - ./shared/pullin:/shared
+    - ./shared/backup:/backup
+    - chemotion_data:/chemotion/data/
+    - chemotion_app:/chemotion/app
     ports:
-      - 3579:4000
+    - 3579:4000
     networks:
-      - chemotion
+    - chemotion
   ketchersvc:
-    image: ptrxyz/chemotion:ketchersvc-1.9.3
+    image: ptrxyz/chemotion:ketchersvc-1.10.2
     restart: unless-stopped
     init: true
     environment:
-      - STARTUPDELAY=30
-      - CONFIG_KETCHER_URL=http://eln:4000/ketcher/
+    - STARTUPDELAY=30
+    - CONFIG_KETCHER_URL=http://eln:4000/ketcher/
     depends_on:
       eln:
         condition: service_healthy
     networks:
-      - chemotion
-
+    - chemotion
   knmfproposalminer:
     image: mstarman/knmfproposalminer:0.1.6
     env_file:
-      - .env
+    - .env
+    volumes:
+      - knmfproposalminer:/srv/app
     networks:
-      - chemotion
-
+    - chemotion
   converter:
-    image: ptrxyz/chemotion:converter-1.9.3
+    image: ptrxyz/chemotion:converter-1.10.2
     restart: unless-stopped
     environment:
-      - SECRET_KEY=3b4576cc0m927897n56v
+    - SECRET_KEY=3b4576cc0m927897n56v
     volumes:
-      - ./services/converter/profiles:/srv/chemotion/profiles
-      - ./services/converter/datasets:/srv/chemotion/datasets
-      - ./services/converter/htpasswd:/srv/chemotion/htpasswd
-      # Please make sure to create htpasswd manually before running this compose file
-      # as otherwise docker would create it as a folder. This is not meant to be the case,
-      # in fact the file should contain a htpasswd-generated list of users.
-      # See the documentation for more information
+    - ./services/converter/profiles:/srv/chemotion/profiles
+    - ./services/converter/datasets:/srv/chemotion/datasets
+    - ./services/converter/htpasswd:/srv/chemotion/htpasswd
     networks:
-      - chemotion
-
+    - chemotion
 volumes:
+  knmfproposalminer:
   chemotion_app:
     name: chemotion_app
   chemotion_data:
@@ -114,7 +107,5 @@ volumes:
     name: chemotion_db
   spectra:
     name: chemotion_spectra
-
 networks:
-  chemotion:
-
+  chemotion: null

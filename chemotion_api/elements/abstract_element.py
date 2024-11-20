@@ -14,7 +14,7 @@ from chemotion_api.elements.attachments import Attachments, MutableAttachments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
-    clean_generic_object_json, merge_dicts, snake_to_camel_case
+    clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer
 
 from requests.exceptions import RequestException
 
@@ -530,7 +530,7 @@ class AbstractElement:
         self.json_data['segments'].append(segment_data)
         return temp_segment.get('values')
 
-    def save(self):
+    def save(self, load_after_save: bool = False):
         """
         Saves or creates an object according to the set properties. It overwrites the
         json_data entries by the values set in the segments object.
@@ -546,11 +546,12 @@ class AbstractElement:
         self.analyses.save_attachments()
         data = self.clean_data()
         is_created = False
+        json_dumps_data = json.dumps(data, default=fixeddict_serializer)
         if self.id is None:
-            res = self._session.post(self.save_url(), data=json.dumps(data))
+            res = self._session.post(self.save_url(), data=json_dumps_data)
             is_created = True
         else:
-            res = self._session.put(self.save_url(), data=json.dumps(data))
+            res = self._session.put(self.save_url(), data=json_dumps_data)
         if res.status_code != 200 and res.status_code != 201:
             raise RequestException(f'{res.status_code} -> {res.text}')
         if is_created:
@@ -560,6 +561,8 @@ class AbstractElement:
         if self.attachments is not None:
             self.attachments.save(self.id, snake_to_camel_case(self.get_response_key(self.element_type)))
         self.analyses.clean_up_after_save()
+        if load_after_save:
+            self.load()
 
     def clean_data(self) -> dict:
         """
@@ -576,7 +579,7 @@ class AbstractElement:
             'type': self.element_type
         }
         if isinstance(self.name, str):
-            self.json_data['name'] = self.name
+            cleaned_data['name'] = self.name
         if 'collection_id' in self.json_data:
             cleaned_data['collection_id'] = self.json_data['collection_id']
         if 'container' in self.json_data:

@@ -1,3 +1,5 @@
+from enum import Enum
+
 from requests import Response
 
 from chemotion_api.elements.abstract_element import AbstractElement
@@ -6,6 +8,7 @@ from datetime import datetime
 from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging
+from collections.abc import MutableSequence
 
 
 class MaterialList(TypedList):
@@ -35,6 +38,243 @@ class MaterialList(TypedList):
 
         self._check_element(element)
         return super(TypedList, self).append(element)
+
+
+class SampleVariationType(Enum):
+    STARTING_MATERIAL = 'startingMaterials'
+    REACTANT = 'reactants'
+    PRODUCT = 'products'
+    SOLVENTS = 'solvents'
+
+
+class QuantityUnit(Enum):
+    Liter = 'l'
+    Mole = 'mol'
+    Gram = 'g'
+
+
+class SampleVariation():
+
+    def __init__(self, sample: Sample, sample_type: SampleVariationType, json_data: dict | None = None):
+        self._sample = sample
+        self._sample_type = sample_type
+        if json_data is None:
+            json_data = {
+                "mass": {
+                    "value": 0.0,
+                    "unit": "g"
+                },
+                "amount": {
+                    "value": 0.0,
+                    "unit": "mol"
+                },
+                "volume": {
+                    "value": 0.0,
+                    "unit": "l"
+                },
+                "aux": {
+                    "coefficient": 1,
+                    "isReference": False,
+                    "loading": None,
+                    "purity": 1,
+                    "molarity": 0,
+                    "molecularWeight": 0,
+                    "sumFormula": "C7H12O6",
+                    "yield": None,
+                    "equivalent": None
+                }
+            }
+        self._values = json_data
+        self._set_quantity_from_sample()
+
+    def clean(self):
+        return self._values
+
+    def set_yield(self, value):
+        if self._sample_type != SampleVariationType.PRODUCT:
+            raise ValueError("Sample type must be PRODUCT.")
+        self._values['aux']['yield'] = value
+
+    def set_equivalent(self, value):
+        if self._sample_type in [SampleVariationType.PRODUCT, SampleVariationType.SOLVENTS]:
+            raise ValueError("Sample type must not be PRODUCT or SOLVENTS.")
+        if self._sample.properties['reference']:
+            raise ValueError("Sample type must not be the reference material.")
+        self._values['aux']['equivalent'] = value
+
+    def _set_quantity_from_sample(self):
+        key = 'real_amount' if self._sample_type == SampleVariationType.PRODUCT else 'target_amount'
+        value = self._sample.properties[key]
+        self.set_quantity(**value)
+
+    def set_quantity(self, value: float, unit: str | QuantityUnit):
+        if isinstance(unit, QuantityUnit):
+            unit = unit.value
+        if unit == QuantityUnit.Gram.value and self._sample_type != SampleVariationType.SOLVENTS:
+            self._values['mass']['value'] = value
+        elif unit == QuantityUnit.Mole.value and self._sample_type != SampleVariationType.SOLVENTS:
+            self._values['amount']['value'] = value
+        elif unit == QuantityUnit.Liter.value:
+            self._values['volume']['value'] = value
+
+    def _set_aux(self):
+        self._values['aux']['coefficient'] = self._sample.properties['coefficient']
+        self._values['aux']['purity'] = self._sample.properties['purity']
+        self._values['aux']['isReference'] = self._sample.properties['reference']
+        self._values['aux']['molecularWeight'] = self._sample.molecule['molecular_weight']
+        self._values['aux']['sumFormula'] = self._sample.molecule['sum_formular']
+        self._values['aux']['molarity'] = self._sample.properties['molarity']['value']
+        if self._sample_type == SampleVariationType.PRODUCT:
+            self._values['aux']['yield'] = self._sample.properties['equivalent']
+        elif self._sample.properties['reference']:
+            self._values['aux']['isReference'] = True
+        else:
+            self._values['aux']['equivalent'] = self._sample.properties['equivalent']
+
+    @property
+    def sample(self) -> Sample:
+        return self._sample
+
+
+class Variation():
+    def __init__(self):
+        self._json_data = None
+        self._properties = {}
+        self.notes = ""
+
+    def populate(self, json_data: dict, starting_materials: MaterialList, reactants: MaterialList,
+                 products: MaterialList, solvents: MaterialList):
+        self._json_data = json_data
+        self.id = self._json_data['id']
+        self._properties = json_data['properties']
+        self.notes = json_data['notes']
+        self._materials = {
+            SampleVariationType.STARTING_MATERIAL: [
+                self.sample_variation_factory(x, SampleVariationType.STARTING_MATERIAL) for x in
+                starting_materials],
+            SampleVariationType.REACTANT: [self.sample_variation_factory(x, SampleVariationType.REACTANT) for x in
+                                           reactants],
+            SampleVariationType.PRODUCT: [self.sample_variation_factory(x, SampleVariationType.PRODUCT) for x in
+                                          products],
+            SampleVariationType.SOLVENTS: [self.sample_variation_factory(x, SampleVariationType.SOLVENTS) for x in
+                                           solvents],
+        }
+
+
+    def sample_variation_factory(self, sample: Sample, sample_type: SampleVariationType) -> SampleVariation:
+        json_data = None
+        for key, data in self._json_data.get(sample_type.value, {}).items():
+            if key == str(sample.id):
+                json_data = data
+        return SampleVariation(sample, sample_type, json_data)
+
+    def clean(self):
+        self._json_data['properties'] = self._properties
+        self._json_data['notes'] = self.notes
+        for sample_type, sample_variations in self._materials.items():
+            self._json_data[sample_type.value] = {}
+            for sample_variation in sample_variations:
+                self._json_data[sample_type.value][sample_variation.sample.id] = sample_variation.clean()
+        return self._json_data
+
+    @property
+    def properties(self):
+        return self._properties
+
+    @property
+    def starting_materials(self) -> list[SampleVariation]:
+        return self._materials[SampleVariationType.STARTING_MATERIAL]
+
+    @property
+    def reactants(self) -> list[SampleVariation]:
+        return self._materials[SampleVariationType.REACTANT]
+
+    @property
+    def products(self) -> list[SampleVariation]:
+        return self._materials[SampleVariationType.PRODUCT]
+
+    @property
+    def solvents(self) -> list[SampleVariation]:
+        return self._materials[SampleVariationType.SOLVENTS]
+
+
+class Variations(MutableSequence):
+    def __init__(self, starting_materials: MaterialList, reactants: MaterialList, products: MaterialList,
+                 solvents: MaterialList):
+        # Initialize the list with given items
+        self._data = list()
+        self._materials = {'starting_materials': starting_materials, 'reactants': reactants, 'products': products,
+                           'solvents': solvents}
+        self._highest_id = 0
+
+    def populate(self, json_data: dict):
+        for variation in json_data:
+            v = Variation()
+            v.populate(variation, **self._materials)
+            self.append(v)
+            self._highest_id = max(self._highest_id, variation['id'])
+
+
+    def remove(self, value: Variation) -> bool:
+        try:
+            idx = next(idx for idx, v in enumerate(self) if v.id == value.id)
+            self.pop(idx)
+        except StopIteration:
+            return False
+        return True
+
+    def add_new(self) -> Variation:
+        self._highest_id += 1
+        variation = {
+            "id": self._highest_id,
+            "notes": "",
+            "properties": {
+                "temperature": {
+                    "value": 0,
+                    "unit": "°C"
+                },
+                "duration": {
+                    "value": 0,
+                    "unit": "Second(s)"
+                }
+            },
+            "analyses": [],
+            "reactants": {},
+            "products": {},
+            "solvents": {},
+            "startingMaterials": {}
+        }
+        v = Variation()
+        v.populate(variation, **self._materials)
+        self.append(v)
+        return v
+
+    def clean(self):
+        return [variation.clean() for variation in self._data]
+
+    def __getitem__(self, index):
+        # Retrieve the item at the given index
+        return self._data[index]
+
+    def __setitem__(self, index, value):
+        # Set the item at the given index
+        self._data[index] = value
+
+    def __delitem__(self, index):
+        # Delete the item at the given index
+        del self._data[index]
+
+    def insert(self, index, value):
+        # Insert an item at the given index
+        self._data.insert(index, value)
+
+    def __len__(self):
+        # Return the length of the list
+        return len(self._data)
+
+    def __repr__(self):
+        # Return a string representation of the list
+        return f"{repr(self._data)}"
 
 
 class Temperature(dict):
@@ -99,6 +339,10 @@ class Reaction(AbstractElement):
     >>> rea.save()
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._variations = None
+
     datetime_format = '%m/%d/%Y %H:%M:%S'
 
     def _set_json_data(self, json_data: dict):
@@ -147,8 +391,8 @@ class Reaction(AbstractElement):
         :key observation: {str|dict} A Guill.js text (https://quilljs.com/docs/delta)
         :key purification: {list[str]} values must be in ['Flash-Chromatography', 'TLC', 'HPLC', 'Extraction', 'Distillation', 'Dialysis', 'Filtration', 'Sublimation', 'Crystallisation', 'Recrystallisation', 'Precipitation']
         :key status: {str} value must be in ['', 'Planned', 'Running', 'Done', 'Analyses Pending', 'Successful',
-                                             'Not Successful']
-
+                                          'Not Successful']
+        :key vessel_size: {dict} has a unit {str} ('l' or 'ml') and an amount {float}
 
         Readonly properties:
 
@@ -160,11 +404,22 @@ class Reaction(AbstractElement):
         :key rf_value: {str, readonly}
         :key rxno: {str, readonly}
         :key literatures: {str, readonly}
-        :key variations: {str, readonly}
+        :key variations: {str, readonly} Can be used with the reaction class property variations
 
         :return: Element properties
         """
         return super().properties
+
+    @property
+    def variations(self) -> Variations:
+        if self._variations is None:
+            mat_samples = {}
+            for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents']:
+                mat_samples[reaction_elm_names] = self.properties[reaction_elm_names]
+            self._variations = Variations(**mat_samples)
+            self._variations.populate(self.json_data['variations'])
+
+        return self._variations
 
     def _parse_properties(self) -> dict:
         reaction_elements = {}
@@ -198,7 +453,8 @@ class Reaction(AbstractElement):
             'duration': self.json_data.get('duration'),
             'rxno': self.json_data.get('rxno'),
             'temperature': Temperature(**self.json_data.get('temperature', {})),
-            'status': self.json_data.get('status')
+            'status': self.json_data.get('status'),
+            'vessel_size': self.json_data.get('vessel_size')
             # 'tlc_solvents': self.json_data.get('tlc_solvents'),
             # 'tlc_description': self.json_data.get('tlc_description'),
             # 'rf_value': self.json_data.get('rf_value'),
@@ -246,6 +502,10 @@ class Reaction(AbstractElement):
         else:
             serialize_data['purification'] = self.json_data.get('purification')
 
+        if self.properties.get('vessel_size') is not None:
+            serialize_data['vessel_size'] = self.properties.get('vessel_size')
+
+
         serialize_data['tlc_solvents'] = self.json_data.get('tlc_solvents')
         serialize_data['tlc_description'] = self.json_data.get('tlc_description')
         serialize_data['reaction_svg_file'] = self.json_data.get('reaction_svg_file')
@@ -255,7 +515,7 @@ class Reaction(AbstractElement):
         serialize_data['short_label'] = self.json_data.get('short_label')
         serialize_data['literatures'] = self.json_data.get('literatures')
 
-        serialize_data['variations'] = self.json_data.get('variations', [])
+        serialize_data['variations'] = self._clean_variations()
 
         return serialize_data
 
@@ -291,3 +551,8 @@ class Reaction(AbstractElement):
                     "memValue": "{:0.15f}".format(total_time)
                 }
                 }
+
+    def _clean_variations(self) -> dict:
+        cleand_data = self.variations.clean()
+        self._variations = None
+        return cleand_data
