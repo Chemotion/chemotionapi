@@ -4,6 +4,7 @@ from typing import TypeVar
 from chemotion_api.collection import RootCollection
 from chemotion_api.converter import ProfileManager
 from chemotion_api.element_manager import ElementManager
+from chemotion_api.labImotion import GenericManager
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
 from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
@@ -310,3 +311,10 @@ class Instance:
         :return: a list of all pre implemented solvents
         """
         return list(ElementManager.get_solvent_list().keys())
+
+    def generic_manager(self) -> GenericManager:
+        """
+        Returns a GenericManager used to load, edit write generic elements.
+        :return: a GenericManager
+        """
+        return GenericManager(self._con)

@@ -44,7 +44,7 @@ def test_table_generics(instance_with_collection):
 #     assert 'imtl' in all_element_classes
 #
 #     a = instance.get_root_collection().get_generics_by_name('imtl', 2)
-#
+#generic_manager
 #     a1 = instance.get_generic_by_name('imtl', a[0].id)
 #     a1_copy = instance.get_generic_by_label('IMTLaufkarte', a[0].id)
 #     assert a1.id == a1_copy.id
