@@ -39,7 +39,7 @@ class GenericElement(GenericObj):
         self._icon_name = json_data["icon_name"]
 
     def to_dict(self) -> dict:
-        dict_val = super().to_dict()
+        super().to_dict()
         self._json_data |= {
             'icon_name': self._icon_name,
             'name': self.name
@@ -125,22 +125,22 @@ class GenericManager():
     def __init__(self, connection: Connection):
         self._connection = connection
 
-    def load_all_elements(self):
+    def load_all_elements(self) -> list[GenericElement]:
         return GenericElement.load_all(self._connection)
 
-    def load_all_segments(self):
+    def load_all_segments(self) -> list[GenericSegment]:
         return GenericSegment.load_all(self._connection)
 
-    def load_all_datasets(self):
+    def load_all_datasets(self) -> list[GenericDataset]:
         return GenericDataset.load_all(self._connection)
 
-    def get_element(self, **fiter_args):
+    def get_element(self, **fiter_args) -> GenericElement:
         return self._get_single_generic_entry(GenericElement.load_all(self._connection), **fiter_args)
 
-    def get_segment(self, **fiter_args):
+    def get_segment(self, **fiter_args) -> GenericSegment:
         return self._get_single_generic_entry(GenericSegment.load_all(self._connection), **fiter_args)
 
-    def get_dataset(self, **fiter_args):
+    def get_dataset(self, **fiter_args) -> GenericDataset:
         return self._get_single_generic_entry(GenericDataset.load_all(self._connection), **fiter_args)
 
     def _get_single_generic_entry(self, generic_element: list[GenericDataset | GenericSegment | GenericElement],
