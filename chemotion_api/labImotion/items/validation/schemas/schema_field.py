@@ -31,6 +31,12 @@ generic_schema = {
         "required": {
             "type": "boolean"
         },
+        "readonly": {
+            "type": "boolean"
+        },
+        "canAdjust": {
+            "type": "boolean"
+        },
         "sub_fields": {
             "type": "array",
             "items": {

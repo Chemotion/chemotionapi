@@ -40,8 +40,6 @@ properties_schema = {
             },
             "required": [
                 "eln",
-                "name",
-                "version",
                 "labimotion"
             ]
         },
@@ -54,7 +52,7 @@ properties_schema = {
         "layers": {
             "type": "object",
             "patternProperties": {
-                "^[a-z][a-zA-Z]{1,10}[a-z]$": {
+                "^[a-z][a-zA-Z_]{1,20}[a-z]$": {
                     "$ref": "chmotion://generic/layer/draft-01"
                 }
             },
@@ -292,8 +290,6 @@ properties_schema = {
         "uuid",
         "klass",
         "layers",
-        "version",
-        "identifier",
         "select_options"
     ]
 }

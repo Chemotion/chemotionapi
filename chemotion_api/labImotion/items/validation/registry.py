@@ -25,6 +25,9 @@ class SchemaRegistry:
 
         return cls._instance
 
+    @property
+    def registry(self):
+        return self._schema_store
 
     def validator_for(self, id: str):
         if self._registry is None:

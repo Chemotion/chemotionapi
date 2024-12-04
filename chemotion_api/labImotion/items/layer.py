@@ -1,13 +1,33 @@
 import re
+import string
+from enum import Enum
 
-from chemotion_api.labImotion.items.conditions import Condition
+from chemotion_api.labImotion.items.condition_handler import ConditionHandler
 from chemotion_api.labImotion.items.fields import BaseField, field_factory, FieldType, create_field
-from chemotion_api.labImotion.items.options import ConditionOperator, LayerColor
+from chemotion_api.labImotion.items.options import LayerColor
 from chemotion_api.labImotion.items.validation import validate_generic_layer
+from chemotion_api.labImotion.structure import StructureRegistry
+from chemotion_api.labImotion.utils import ChemotionSerializable, all_instances_of
 
 
-class Layer():
-    def __init__(self, json_data: dict):
+class Layer(ChemotionSerializable, ConditionHandler):
+    @classmethod
+    def generate_new_layer(cls, sr: StructureRegistry, key: str, label: str):
+        return cls(sr, {
+            "key": key,
+            "label": label,
+            "color": "none",
+            "style": "panel_generic_heading",
+            "cols": 1,
+            "position": 10,
+            "wf": False,
+            "timeRecord": "",
+            "wf_position": 0,
+            "fields": []
+        })
+
+    def __init__(self, sr: StructureRegistry, json_data: dict):
+        ConditionHandler.__init__(self, sr)
         self._json_data = json_data
         self.validate()
         self._wf = False
@@ -19,47 +39,67 @@ class Layer():
         self._position = 1
         self._wf_position = 1
         self._timeRecord = ''
-        self._cond_operator = ConditionOperator.MATCH_ONE
-        self._cond_fields = []
-        self._field = []
+        self._fields = []
+        self._sr = sr
 
         for key, value in json_data.items():
             if hasattr(self, key):
                 setattr(self, key, value)
 
-    def add_field(self, field_type: FieldType):
-        self.field.append(create_field(field_type))
+    def add_field(self, field_type: FieldType, label: str, field: str = "", idx: int = -1):
+        all_keys = [l.field for l in self.fields]
+        if field == '':
+            field = re.sub(r'[^a-z]', '_', label.lower())
+            t_field = field
+            i = 0
+            while field in all_keys or field.endswith('_'):
+                field = t_field + string.ascii_lowercase[i]
+                i += 1
+
+        new_field = create_field(self._sr, self.key, field_type, field, idx, field)
+        if idx < 0 :
+            self.fields.append(new_field)
+        else:
+            self.fields.insert(idx, new_field)
+        self.update_fields_position()
+        return new_field
+
+    def update_fields_position(self):
+        i = 1
+        for f in self.fields:
+            f.position = i
+            i += 1
+
 
     def validate(self, json_data: dict = None):
         if json_data is None:
             json_data = self._json_data
         validate_generic_layer(json_data)
 
+    def to_dict(self) -> dict:
+        for key, _ in self._json_data.items():
+            if hasattr(self, key):
+                value = getattr(self, key)
+                if isinstance(value, Enum):
+                    value = value.value
+                if all_instances_of(value, ChemotionSerializable):
+                    self._json_data[key] = [x.to_dict() for x in value]
+                else:
+                    self._json_data[key] = value
+        return self._json_data
+
     @property
-    def cond_fields(self) -> list[Condition]:
-        return self._cond_fields
+    def fields(self) -> list[BaseField]:
+        return self._fields
 
-    @cond_fields.setter
-    def cond_fields(self, value: list[dict | Condition]):
-        self._cond_fields = []
-        for field in value:
-            if isinstance(field, Condition):
-                self._cond_fields.append(value)
-            elif isinstance(field, dict):
-                self._cond_fields.append(Condition(**field))
-
-    @property
-    def field(self) -> list[BaseField]:
-        return self._field
-
-    @field.setter
-    def field(self, value: list[dict | BaseField]):
-        self._field = []
+    @fields.setter
+    def fields(self, value: list[dict | BaseField]):
+        self._fields = []
         for field in value:
             if isinstance(field, BaseField):
-                self._field.append(value)
+                self._fields.append(value)
             elif isinstance(field, dict):
-                self._field.append(field_factory(field))
+                self._fields.append(field_factory(self._sr, self.key, field))
 
     @property
     def timeRecord(self) -> str:
@@ -68,19 +108,6 @@ class Layer():
     @timeRecord.setter
     def timeRecord(self, time_rec):
         pass
-
-    @property
-    def cond_operator(self) -> ConditionOperator:
-        return self._cond_operator
-
-    @cond_operator.setter
-    def cond_operator(self, cond_operator: int | ConditionOperator):
-        if isinstance(cond_operator, int):
-            cond_operator = ConditionOperator(cond_operator)
-        if isinstance(cond_operator, ConditionOperator):
-            self._cond_operator = cond_operator
-        else:
-            raise TypeError('cond_operator must be a ConditionOperator')
 
     @property
     def wf(self) -> bool:
@@ -110,7 +137,7 @@ class Layer():
 
     @style.setter
     def style(self, style: str):
-        if re.match(r'^panel_generic_heading$|^panel_generic_head0,ing_([bui])(?!.*\1)([bui])?(?!.*\1|.*\2)([bui])?$',
+        if re.match(r'^panel_generic_heading$|^panel_generic_heading_([bui])(?!.*\1)([bui])?(?!.*\1|.*\2)([bui])?$',
                     style) is not None:
             self._style = style
         else:

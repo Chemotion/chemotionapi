@@ -1,20 +1,20 @@
 {
-    "id": 2,
-    "uuid": "4026724d-e042-4da4-ad7d-f149343857a8",
-    "label": "ApiTester",
-    "desc": "For api testing",
+    "id": 3,
+    "uuid": "54572179-1020-43a4-b738-e743e17de6c0",
+    "label": "eee",
+    "desc": "Des",
     "properties_template": {
         "pkg": {
             "eln": {
-                "version": "1.8.0",
-                "base_revision": "7bd6a5d81",
-                "current_revision": 0
+                "version": "v1.10.2",
+                "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392",
+                "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"
             },
             "name": "chem-generic-ui",
-            "version": "1.0.11",
-            "labimotion": "1.1.3"
+            "version": "1.4.4",
+            "labimotion": "1.4.0.2"
         },
-        "uuid": "4026724d-e042-4da4-ad7d-f149343857a8",
+        "uuid": "54572179-1020-43a4-b738-e743e17de6c0",
         "klass": "SegmentKlass",
         "layers": {
             "one": {
@@ -22,13 +22,13 @@
                 "key": "one",
                 "cols": 1,
                 "color": "none",
-                "label": "One",
+                "label": "Nr 1",
                 "style": "panel_generic_heading",
                 "fields": [
                     {
                         "type": "text",
-                        "field": "Text",
-                        "label": "Text",
+                        "field": "a",
+                        "label": "a",
                         "default": "",
                         "position": 1,
                         "sub_fields": [],
@@ -40,22 +40,22 @@
                 "wf_position": 0
             }
         },
-        "version": "1.0",
-        "identifier": null,
+        "version": "0.1",
+        "identifier": "c36a48b8-8912-4407-a908-b7ff6467bdc5",
         "select_options": {}
     },
     "properties_release": {
         "pkg": {
             "eln": {
-                "version": "1.8.0",
-                "base_revision": "7bd6a5d81",
-                "current_revision": 0
+                "version": "v1.10.2",
+                "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392",
+                "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"
             },
             "name": "chem-generic-ui",
-            "version": "1.0.11",
-            "labimotion": "1.1.3"
+            "version": "1.4.4",
+            "labimotion": "1.4.0.2"
         },
-        "uuid": "4026724d-e042-4da4-ad7d-f149343857a8",
+        "uuid": "54572179-1020-43a4-b738-e743e17de6c0",
         "klass": "SegmentKlass",
         "layers": {
             "one": {
@@ -63,13 +63,13 @@
                 "key": "one",
                 "cols": 1,
                 "color": "none",
-                "label": "One",
+                "label": "Nr 1",
                 "style": "panel_generic_heading",
                 "fields": [
                     {
                         "type": "text",
-                        "field": "Text",
-                        "label": "Text",
+                        "field": "a",
+                        "label": "a",
                         "default": "",
                         "position": 1,
                         "sub_fields": [],
@@ -81,58 +81,142 @@
                 "wf_position": 0
             }
         },
-        "version": "1.0",
-        "identifier": null,
+        "version": "0.1",
+        "identifier": "c36a48b8-8912-4407-a908-b7ff6467bdc5",
         "select_options": {}
     },
-    "is_active": true,
-    "version": "1.0",
+    "is_active": false,
+    "version": "0.1",
     "place": 100,
-    "released_at": "2024-02-16 09:50:15 UTC",
-    "identifier": null,
+    "released_at": "2024-12-04 13:09:17 UTC",
+    "identifier": "c36a48b8-8912-4407-a908-b7ff6467bdc5",
     "sync_time": null,
     "created_by": 7,
     "updated_by": 7,
-    "created_at": "2024-02-16 09:49:33 UTC",
-    "updated_at": "2024-02-16 09:50:15 UTC",
+    "created_at": "2024-12-04 13:08:41 UTC",
+    "updated_at": "2024-12-04 13:09:17 UTC",
     "element_klass": {
-        "id": 2,
-        "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d",
-        "label": "Sample",
-        "desc": "ELN Sample",
+        "id": 9,
+        "uuid": "5ebf115b-f57b-4f33-b1b1-c68f9a896089",
+        "label": "Tryout",
+        "desc": "",
         "properties_template": {
-            "eln": {
-                "version": "1.8.0",
-                "base_revision": "7bd6a5d81",
-                "current_revision": 0
+            "pkg": {
+                "eln": {
+                    "version": "v1.10.2",
+                    "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392",
+                    "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"
+                },
+                "name": "chem-generic-ui",
+                "version": "1.4.4",
+                "labimotion": "1.4.0.2"
             },
-            "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d",
+            "uuid": "2b02e177-9655-41cc-9067-9f2ca555ef51",
             "klass": "ElementKlass",
+            "layers": {
+                "one": {
+                    "wf": false,
+                    "key": "one",
+                    "cols": 1,
+                    "color": "none",
+                    "label": "Nr. 1",
+                    "style": "panel_generic_heading",
+                    "fields": [
+                        {
+                            "type": "text",
+                            "field": "Name",
+                            "label": "Name",
+                            "default": "",
+                            "position": 1,
+                            "sub_fields": [],
+                            "text_sub_fields": []
+                        },
+                        {
+                            "type": "table",
+                            "field": "Table",
+                            "label": "Table",
+                            "default": "",
+                            "position": 2,
+                            "required": false,
+                            "sub_fields": [
+                                {
+                                    "id": "748041a1-1639-424d-9147-1f5ea2436c43",
+                                    "type": "text",
+                                    "value": "",
+                                    "col_name": "Col 1"
+                                },
+                                {
+                                    "id": "017cd221-2419-44f1-a1b6-16411b7aa44f",
+                                    "type": "text",
+                                    "value": "",
+                                    "col_name": "Col 2"
+                                }
+                            ],
+                            "text_sub_fields": []
+                        },
+                        {
+                            "type": "input-group",
+                            "field": "Group",
+                            "label": "Group",
+                            "default": "",
+                            "position": 3,
+                            "required": false,
+                            "sub_fields": [
+                                {
+                                    "id": "a2c7b308-b1d5-447b-b3dd-8b090c11f4c1",
+                                    "type": "label",
+                                    "value": "TEST"
+                                },
+                                {
+                                    "id": "b21ffab0-8e17-4934-bb45-218ef371348d",
+                                    "type": "number",
+                                    "value": ""
+                                },
+                                {
+                                    "id": "087203bc-2493-4b2d-bae1-92437167ed28",
+                                    "type": "text",
+                                    "value": ""
+                                }
+                            ],
+                            "text_sub_fields": []
+                        }
+                    ],
+                    "position": 10,
+                    "timeRecord": "",
+                    "wf_position": 0
+                }
+            },
+            "version": null,
+            "identifier": "0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241",
             "select_options": {}
         },
         "properties_release": {
-            "eln": {
-                "version": "1.8.0",
-                "base_revision": "7bd6a5d81",
-                "current_revision": 0
+            "pkg": {
+                "eln": {
+                    "version": "v1.10.2",
+                    "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392",
+                    "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"
+                },
+                "labimotion": "1.4.0.2"
             },
-            "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d",
+            "uuid": "5ebf115b-f57b-4f33-b1b1-c68f9a896089",
             "klass": "ElementKlass",
+            "layers": {},
             "select_options": {}
         },
-        "is_active": true,
+        "is_active": false,
         "version": null,
-        "place": 1,
-        "released_at": "2024-01-23 13:44:01 UTC",
-        "identifier": null,
+        "place": 100,
+        "released_at": "2024-12-04 12:57:51 UTC",
+        "identifier": "0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241",
         "sync_time": null,
-        "created_by": null,
-        "updated_by": null,
-        "created_at": "2024-01-23 13:44:01 UTC",
-        "updated_at": "2024-01-23 13:44:01 UTC",
-        "name": "sample",
-        "icon_name": "icon-sample",
-        "klass_prefix": "",
-        "is_generic": false
+        "created_by": 7,
+        "updated_by": 7,
+        "created_at": "2024-12-04 12:57:51 UTC",
+        "updated_at": "2024-12-04 13:00:03 UTC",
+        "name": "try",
+        "icon_name": "fa fa-check-square",
+        "klass_prefix": "T",
+        "is_generic": true
     }
 }

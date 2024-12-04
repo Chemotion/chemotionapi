@@ -22,7 +22,7 @@ def test_new_generics(instance_with_test_samples):
     mc = instance_with_test_samples['main_collection']
     dev = mc.new_element_by_iri('chmotion:generic_type/try/1.0')
     nc = mc.new_element_by_iri(dev.json_ld['@type'])
-    assert dev.json_ld['@type'] == 'chmotion:generic_type/try/2.0'
+    assert dev.json_ld['@type'] == 'chmotion:generic_type/try/1.0'
     assert dev.json_ld['@type'] == nc.json_ld['@type']
     nc.save()
     assert f'http://0.0.0.0:3579/api/v1/generic_elements/{nc.id}.json' == nc.json_ld['@id']

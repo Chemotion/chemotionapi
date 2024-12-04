@@ -5,6 +5,11 @@ class ListableEnum(Enum):
     def list(cls):
         return list(map(lambda c: c.value, cls))
 
+class SaveActionType(Enum):
+    DRAFT = "draft"
+    MINOR = "minor"
+    MAJOR = "major"
+
 class ElementType(ListableEnum):
     SEGMENT = 'SegmentKlass'
     ELEMENT = 'ElementKlass'
@@ -145,5 +150,5 @@ UNITS = {
     FieldUnit.VOLUMES: ["l", "ml", "ul", "nl"],
 }
 
-def get_unit(field_unit: FieldUnit) -> str:
-    return UNITS[field_unit][0]
+def get_unit(field_unit: FieldUnit) -> list[str]:
+    return UNITS[field_unit]

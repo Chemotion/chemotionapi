@@ -12,7 +12,7 @@ generic_schema = {
         },
         "key": {
             "type": "string",
-            "pattern": "^[a-z][a-zA-Z]{1,10}[a-z]$"
+            "pattern": "^[a-z][a-zA-Z_]{1,20}[a-z]$"
         },
         "cols": {
             "type": "number"

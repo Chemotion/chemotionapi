@@ -12,8 +12,6 @@ def test_all_types(instance_with_collection):
                                               'chmotion:type/cell_line/1.10.2',
                                               'chmotion:generic_type/wrk/2.0',
                                               'chmotion:generic_type/wrk/1.0',
-                                              'chmotion:generic_type/try/2.0',
-                                              'chmotion:generic_type/try/1.1',
                                               'chmotion:generic_type/try/1.0']
 
 

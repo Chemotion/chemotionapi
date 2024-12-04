@@ -24,7 +24,7 @@ generic_element_schema = {
             "type": "boolean"
         },
         "version": {
-            "type": "string"
+            "type": ["null", "string"]
         },
         "place": {
             "type": "number"

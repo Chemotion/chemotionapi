@@ -1,6 +1,7 @@
 import pytest
 
 from chemotion_api import Instance
+
 def test_new_generics(instance_with_collection):
     instance: Instance = instance_with_collection['instance']
     col = instance_with_collection['main_collection']
@@ -9,7 +10,7 @@ def test_new_generics(instance_with_collection):
 
     a = col.new_generic('try')
     a.properties['Nr. 1']['Group'][0] = 'Name'
-    a.properties['Nr. 1']['Group'][1] = 'Internel Name'
+    a.properties['Nr. 1']['Group'][1] = 1
     a.properties['Nr. 1']['Group'][2] = 'DOI---1'
     a.save()
     a1 = instance.get_generic_by_name('try', a.id)
@@ -32,7 +33,7 @@ def test_table_generics(instance_with_collection):
     assert 'try' in all_element_classes
 
     a = col.new_generic('try')
-    a.properties['Nr. 1']['Group'][1] = 'Internel Name'
+    a.properties['Nr. 1']['Group'][1] = 2
     a.properties['Nr. 1']['Group'][2] = 'DOI---2'
     a.properties['Nr. 1']['Table'].append({'Col 1': 'Hallo A', 'Col 2': 'Hallo B'})
     a.save()
