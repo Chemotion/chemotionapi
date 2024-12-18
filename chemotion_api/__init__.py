@@ -4,6 +4,7 @@ from typing import TypeVar
 from chemotion_api.collection import RootCollection
 from chemotion_api.converter import ProfileManager
 from chemotion_api.element_manager import ElementManager
+from chemotion_api.inbox import Inbox
 from chemotion_api.labImotion import GenericManager
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
 from urllib.parse import urlparse
@@ -39,6 +40,7 @@ class Instance:
     def __init__(self, host_url: str):
         self._con = Connection(host_url)
         self._root_col = None
+        self._inbox = None
         self.element_manager = ElementManager(self._con)
 
     @property
@@ -68,6 +70,17 @@ class Instance:
         :return: DeviceManager
         """
         return DeviceManager(self._con)
+
+    @property
+    def inbox(self) -> Inbox:
+        """
+        Get the data file inbox
+
+        :return: Inbox Object
+        """
+        if self._inbox is None:
+            self._inbox = Inbox(self._con)
+        return self._inbox
 
     def test_connection(self) -> TInstance:
         """

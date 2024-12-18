@@ -20,7 +20,6 @@ class SchemaRegistry:
         :return: Readers Singleton
         """
         if cls._instance is None:
-            print('Creating new instance')
             cls._instance = cls.__new__(cls)
 
         return cls._instance
