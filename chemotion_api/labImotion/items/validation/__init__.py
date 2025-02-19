@@ -1,10 +1,20 @@
-import importlib
+import os
 
+import chemotion_api.labImotion.items.validation.schemas.imports
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 from chemotion_api.labImotion.items.validation.schemas import ALL_SCHEMAS
+from chemotion_api.utils import resource_path
 
-for module in ALL_SCHEMAS:
-    importlib.import_module(f'chemotion_api.labImotion.items.validation.schemas.{module}')
+
+if __name__ == '__main__':
+    A = []
+    for module in os.listdir(os.path.join(resource_path(__file__), 'schemas')):
+        if module.startswith('schema_') and module[-3:] == '.py':
+            A.append(f'import chemotion_api.labImotion.items.validation.schemas.{module[:-3]}')
+
+    with open(os.path.join(resource_path(__file__), 'schemas/imports.py'), 'w') as f:
+        f.write('\n'.join(A))
+    exit()
 
 
 def validate_selection_options(json_to_test: dict):
