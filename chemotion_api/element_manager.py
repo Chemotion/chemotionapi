@@ -11,6 +11,7 @@ from chemotion_api.elements.empty_elements import init_container
 
 from requests.exceptions import RequestException
 
+from chemotion_api.utils import resource_path
 from chemotion_api.utils.solvent_manager import get_solvent_list
 
 
@@ -97,7 +98,7 @@ class ElementManager:
         class_obj = self.all_classes[type_name]
         data = {}
         if not class_obj['is_generic']:
-            json_path = os.path.join(os.path.dirname(__file__), 'elements/empty_elements', type_name + '.json')
+            json_path = os.path.join(resource_path(__file__), 'elements/empty_elements', type_name + '.json')
             if os.path.exists(json_path):
                 with open(json_path, 'r') as f:
                     data = json.loads(f.read())

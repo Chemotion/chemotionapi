@@ -2,9 +2,11 @@ import os
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from chemotion_api.utils import resource_path
+
 
 def walk_productive_template(url, eln_port, postgres_port, adminer_port, msconvert, spectra, eln, ketchersvc, converter, **kwargs):
-    main_root_dir = os.path.join(os.path.dirname(__file__), 'templates/productive')
+    main_root_dir = os.path.join(resource_path(__file__), 'templates/productive')
     for root, dir, files in os.walk(main_root_dir):
 
         env = Environment(

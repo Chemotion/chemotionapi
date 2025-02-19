@@ -2,9 +2,11 @@ import json
 import os
 import uuid
 
+from chemotion_api.utils import resource_path
+
 
 def init_container():
-    json_path = os.path.join(os.path.dirname(__file__), 'container.json')
+    json_path = os.path.join(resource_path(__file__), 'container.json')
     f = open(json_path, 'r')
     data = json.loads(f.read())
     root = data.copy()

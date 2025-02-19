@@ -4,8 +4,9 @@ import os
 from jsonschema import ValidationError
 
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
+from chemotion_api.utils import resource_path
 
-for module in os.listdir(os.path.join(os.path.dirname(__file__), 'schemas')):
+for module in os.listdir(os.path.join(resource_path(__file__), 'schemas')):
     if module.startswith('schema_') and module[-3:] == '.py':
         importlib.import_module(f'chemotion_api.labImotion.items.validation.schemas.{module[:-3]}')
 

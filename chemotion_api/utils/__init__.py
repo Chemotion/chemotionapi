@@ -1,7 +1,16 @@
 import copy
+import os
+import sys
 import uuid
 from collections.abc import MutableMapping
 from collections import OrderedDict
+
+def resource_path(file_path):
+    """Get the absolute path to the resource, works for development and PyInstaller build."""
+    if hasattr(sys, "_MEIPASS"):
+        # Running as an executable
+        return sys._MEIPASS
+    return os.path.dirname(file_path)
 
 
 def fixeddict_serializer(obj):

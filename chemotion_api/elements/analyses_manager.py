@@ -3,13 +3,15 @@ import json
 import os
 import uuid
 
+from chemotion_api.utils import resource_path
+
 MAX_UPLOAD_SIZE = 5000
 
 
 class AnalysesManager():
     @staticmethod
     def build_new_analyses():
-        json_path = os.path.join(os.path.dirname(__file__), 'empty_elements/analyses.json')
+        json_path = os.path.join(resource_path(__file__), 'empty_elements/analyses.json')
         data = {}
         if os.path.exists(json_path):
             with open(json_path, 'r') as f:
@@ -19,7 +21,7 @@ class AnalysesManager():
 
     @staticmethod
     def build_new_dataset():
-        json_path = os.path.join(os.path.dirname(__file__), 'empty_elements/dataset.json')
+        json_path = os.path.join(resource_path(__file__), 'empty_elements/dataset.json')
         data = {}
         if os.path.exists(json_path):
             with open(json_path, 'r') as f:
