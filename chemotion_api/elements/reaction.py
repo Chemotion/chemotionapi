@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Callable, Optional
 
 from requests import Response
 
@@ -51,15 +52,21 @@ class QuantityUnit(Enum):
     Liter = 'l'
     Mole = 'mol'
     Gram = 'g'
+    Equivalent = 'Equivalent'
 
 
 class SampleVariation():
 
-    def __init__(self, sample: Sample, sample_type: SampleVariationType, json_data: dict | None = None):
+    def __init__(self, sample: Sample, sample_type: SampleVariationType, json_data: dict | None = None,
+                 get_ref_amount: Optional[Callable] = None):
         self._sample = sample
         self._sample_type = sample_type
+        if get_ref_amount is not None:
+            self._get_ref_amount = get_ref_amount
+        else:
+            self._get_ref_amount = lambda: 1
         if json_data is None:
-            json_data = {
+            self._values = {
                 "mass": {
                     "value": 0.0,
                     "unit": "g"
@@ -84,23 +91,46 @@ class SampleVariation():
                     "equivalent": None
                 }
             }
-        self._values = json_data
-        self._set_quantity_from_sample()
+            self._set_aux()
+            self._set_quantity_from_sample()
+        else:
+            self._values = json_data
+            self._set_aux()
 
     def clean(self):
+        self._update_equivalent()
         return self._values
 
-    def set_yield(self, value):
-        if self._sample_type != SampleVariationType.PRODUCT:
-            raise ValueError("Sample type must be PRODUCT.")
-        self._values['aux']['yield'] = value
+    def potential_units(self):
+        if self._sample_type is SampleVariationType.SOLVENTS:
+            return [QuantityUnit.Liter]
+
+        units = [QuantityUnit.Mole, QuantityUnit.Gram]
+        if self._values['aux']['molarity'] != 0:
+            units.append(QuantityUnit.Liter)
+        elif self._sample_type is not SampleVariationType.PRODUCT and not self.is_ref:
+            units.append(QuantityUnit.Equivalent)
+
+        return units
+
+    @property
+    def is_ref(self) -> bool:
+        return bool(self._values['aux']['isReference'])
 
     def set_equivalent(self, value):
         if self._sample_type in [SampleVariationType.PRODUCT, SampleVariationType.SOLVENTS]:
             raise ValueError("Sample type must not be PRODUCT or SOLVENTS.")
-        if self._sample.properties['reference']:
+        if self.is_ref:
             raise ValueError("Sample type must not be the reference material.")
-        self._values['aux']['equivalent'] = value
+        self._values['amount']['value'] = self._get_ref_amount() * value
+
+    def _update_equivalent(self):
+        self._values['mass']['value'] = self.get_mass()
+        self._values['volume']['value'] = self.get_volume()
+        if self._sample_type in [SampleVariationType.PRODUCT, SampleVariationType.SOLVENTS] or self.is_ref or self._get_ref_amount() == 0:
+            self._values['aux']['equivalent'] = 0.0
+            return
+        self._values['aux']['equivalent'] = self.get_equivalent()
 
     def _set_quantity_from_sample(self):
         key = 'real_amount' if self._sample_type == SampleVariationType.PRODUCT else 'target_amount'
@@ -108,14 +138,50 @@ class SampleVariation():
         self.set_quantity(**value)
 
     def set_quantity(self, value: float, unit: str | QuantityUnit):
+        if value is None:
+            value = 0.0
         if isinstance(unit, QuantityUnit):
             unit = unit.value
-        if unit == QuantityUnit.Gram.value and self._sample_type != SampleVariationType.SOLVENTS:
-            self._values['mass']['value'] = value
-        elif unit == QuantityUnit.Mole.value and self._sample_type != SampleVariationType.SOLVENTS:
-            self._values['amount']['value'] = value
-        elif unit == QuantityUnit.Liter.value:
+
+        if self._sample_type == SampleVariationType.SOLVENTS:
+            if unit == QuantityUnit.Liter.value:
+                raise ValueError("SOLVENTS quantities cannot be used with Liter.")
             self._values['volume']['value'] = value
+            return
+
+        if unit == QuantityUnit.Equivalent.value:
+            self.set_equivalent(value)
+        elif unit == QuantityUnit.Gram.value:
+            self._values['amount']['value'] = (value / self._molecular_weight()) * self._values['aux']['purity']
+        elif unit == QuantityUnit.Mole.value:
+            self._values['amount']['value'] = value
+        elif unit == QuantityUnit.Liter.value and self._values['aux']['molarity'] != 0:
+            self._values['amount']['value'] = (value / self._values['aux']['molarity'])
+        else:
+            raise ValueError(f"{self._sample_type.value} can't be quantified as {unit}.")
+        self._values['volume']['value'] = 0.0
+        self._values['mass']['value'] = 0.0
+
+    def get_equivalent(self):
+        return self._values['amount']['value'] / self._get_ref_amount()
+
+    def get_amount(self):
+        return self._values['amount']['value']
+
+    def get_volume(self):
+        if self._values['volume']['value'] != 0:
+            return self._values['volume']['value']
+        elif self._values['aux']['molarity'] != 0:
+            return (self.get_amount() * self._values['aux']['molarity'])
+        return 0
+
+    def get_mass(self):
+        return self.get_amount() * self._values['aux']['purity'] / self._molecular_weight()
+
+    def _molecular_weight(self):
+        if self._values['aux']['molecularWeight'] == 0:
+            return 1
+        return self._values['aux']['molecularWeight']
 
     def _set_aux(self):
         self._values['aux']['coefficient'] = self._sample.properties['coefficient']
@@ -141,6 +207,15 @@ class Variation():
         self._json_data = None
         self._properties = {}
         self.notes = ""
+        self._ref_mat = None
+        self._materials = {}
+
+    def get_ref_amount(self):
+        if self._ref_mat is None:
+            self._ref_mat = next((mat for key, x in self._materials.items() for mat in x if mat.is_ref), None)
+        if self._ref_mat is None:
+            return 1
+        return self._ref_mat.get_amount()
 
     def populate(self, json_data: dict, starting_materials: MaterialList, reactants: MaterialList,
                  products: MaterialList, solvents: MaterialList):
@@ -160,13 +235,12 @@ class Variation():
                                            solvents],
         }
 
-
     def sample_variation_factory(self, sample: Sample, sample_type: SampleVariationType) -> SampleVariation:
         json_data = None
         for key, data in self._json_data.get(sample_type.value, {}).items():
             if key == str(sample.id):
                 json_data = data
-        return SampleVariation(sample, sample_type, json_data)
+        return SampleVariation(sample, sample_type, json_data, self.get_ref_amount)
 
     def clean(self):
         self._json_data['properties'] = self._properties
@@ -213,7 +287,6 @@ class Variations(MutableSequence):
             v.populate(variation, **self._materials)
             self.append(v)
             self._highest_id = max(self._highest_id, variation['id'])
-
 
     def remove(self, value: Variation) -> bool:
         try:
@@ -504,7 +577,6 @@ class Reaction(AbstractElement):
 
         if self.properties.get('vessel_size') is not None:
             serialize_data['vessel_size'] = self.properties.get('vessel_size')
-
 
         serialize_data['tlc_solvents'] = self.json_data.get('tlc_solvents')
         serialize_data['tlc_description'] = self.json_data.get('tlc_description')
