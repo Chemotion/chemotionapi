@@ -6,7 +6,7 @@ generic_schema = {
     "title": "Schema for generic selection options",
     "type": "object",
     "patternProperties": {
-        "^[a-z][a-zA-Z]{1,10}[a-z]$": {
+        "^[a-z][a-zA-Z_]{1,10}[a-z]$": {
             "type": "object",
             "properties": {
                 "options": {

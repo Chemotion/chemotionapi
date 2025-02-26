@@ -10,6 +10,15 @@ from chemotion_api.labImotion.items.options import FieldType, FieldUnit, get_uni
 from chemotion_api.labImotion.structure import StructureRegistry
 
 
+class DummyField(BaseField):
+    field_type = FieldType.DUMMY
+
+    def __init__(self, sr: StructureRegistry, layer_key: str, json_data: dict):
+        super().__init__(sr, layer_key, json_data)
+        self._parse_json()
+
+
+
 class CheckboxField(BaseField):
     field_type = FieldType.CHECKBOX
 

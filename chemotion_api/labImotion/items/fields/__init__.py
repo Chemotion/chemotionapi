@@ -1,12 +1,13 @@
 from chemotion_api.labImotion.items.fields.base import BaseField
 from chemotion_api.labImotion.items.fields.fields import TextField, CheckboxField, DatetimeField, DatetimeRangeField, \
     DragSampleField, DragMoleculeField, DragElementField, FormulaFieldField, InputGroupField, IntegerField, SelectField, \
-    SystemDefinedField, TableField, TextFormulaField, TextareaField, UploadField
+    SystemDefinedField, TableField, TextFormulaField, TextareaField, UploadField, DummyField
 from chemotion_api.labImotion.items.options import FieldType
 from chemotion_api.labImotion.structure import StructureRegistry
 
 
 def field_factory(sr: StructureRegistry, layer_key: str, json_data) -> BaseField:
+
     ft = FieldType(json_data.get('type'))
     return _field_factory(sr, layer_key, ft, json_data)
 
@@ -17,6 +18,8 @@ def create_field(sr: StructureRegistry, layer_key: str, field_type: FieldType, l
 
 def _field_factory(sr: StructureRegistry, layer_key: str, field_type: FieldType, json_data) -> BaseField:
     match field_type:
+        case FieldType.DUMMY:
+            return DummyField(sr, layer_key, json_data)
         case FieldType.CHECKBOX:
             return CheckboxField(sr, layer_key, json_data)
         case FieldType.DATETIME:

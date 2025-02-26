@@ -45,6 +45,9 @@ generic_schema = {
         "canAdjust": {
             "type": "boolean"
         },
+        "description": {
+            "type": "string"
+        },
         "sub_fields": {
             "type": "array",
             "items": {

@@ -31,6 +31,7 @@ class SubTableFieldType(ListableEnum):
 
 
 class FieldType(ListableEnum):
+    DUMMY = 'dummy'
     CHECKBOX = "checkbox"
     DATETIME = "datetime"
     DATETIME_RANGE = "datetime-range"

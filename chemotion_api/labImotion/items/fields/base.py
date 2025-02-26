@@ -67,7 +67,10 @@ class BaseField(ChemotionSerializable, ConditionHandler):
     @cols.setter
     def cols(self, value: int):
         if not isinstance(value, int):
-            raise TypeError(f"Required {type(value)} not supported")
+            try:
+                value = int(value)
+            except ValueError:
+                raise TypeError(f"Required {type(value)} not supported")
         self._cols = value
 
     @property
