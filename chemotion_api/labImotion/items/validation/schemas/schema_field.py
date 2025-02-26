@@ -8,8 +8,16 @@ generic_schema = {
     "type": "object",
     "properties": {
         "cols": {
-            "type": "number",
-            "minimum": 1
+            "oneOf": [
+                {
+                    "type": "number",
+                    "exclusiveMinimum": 1
+                },
+                {
+                    "type": "string",
+                    "pattern": "^[2-9]\\d*(\\.\\d+)?$|^1\\.\\d+$"
+                }
+            ]
         },
         "type": {
             "type": "string",
