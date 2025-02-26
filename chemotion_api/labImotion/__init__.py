@@ -86,6 +86,10 @@ class GenericSegment(GenericObj):
         self._element_klass = GenericElement(json_data["element_klass"], connection)
         pass
 
+    @property
+    def element_klass(self):
+        return self._element_klass
+
     def to_dict(self) -> dict:
         dict_val = super().to_dict()
         dict_val |= {

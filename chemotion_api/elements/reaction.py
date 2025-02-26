@@ -144,11 +144,12 @@ class SampleVariation():
             unit = unit.value
 
         if self._sample_type == SampleVariationType.SOLVENTS:
-            if unit == QuantityUnit.Liter.value:
+            if unit is not None and unit == QuantityUnit.Liter.value:
                 raise ValueError("SOLVENTS quantities cannot be used with Liter.")
             self._values['volume']['value'] = value
             return
-
+        if unit is None:
+            unit = QuantityUnit.Mole.value
         if unit == QuantityUnit.Equivalent.value:
             self.set_equivalent(value)
         elif unit == QuantityUnit.Gram.value:
