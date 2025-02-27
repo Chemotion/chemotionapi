@@ -22,7 +22,8 @@ class GenericObj(ChemotionSerializable):
         self._connection = connection
         self._id = json_data['id']
         self._version = json_data['version']
-        self._identifier = json_data['uuid']
+        self._identifier = json_data['identifier']
+        self._uuid = json_data['uuid']
         self._is_active = json_data['is_active']
         self._label = json_data['label']
         self._desc = json_data['desc']
@@ -125,6 +126,10 @@ class GenericObj(ChemotionSerializable):
         if not isinstance(value, str):
             raise TypeError(f"identifier {type(value)} not supported")
         self._identifier = value
+
+    @property
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def properties(self) -> GenericProperties | None:
