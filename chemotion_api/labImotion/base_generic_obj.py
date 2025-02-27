@@ -22,7 +22,7 @@ class GenericObj(ChemotionSerializable):
         self._connection = connection
         self._id = json_data['id']
         self._version = json_data['version']
-        self._identifier = json_data['identifier']
+        self._identifier = json_data['uuid']
         self._is_active = json_data['is_active']
         self._label = json_data['label']
         self._desc = json_data['desc']
@@ -31,11 +31,12 @@ class GenericObj(ChemotionSerializable):
         self._properties = None
         if self.is_generic:
             self._properties = GenericProperties(json_data['properties_template'], self.element_type, sr)
+            self._release = GenericProperties(json_data['properties_release'], self.element_type, sr)
 
     def to_dict(self):
         if self.is_generic:
             self._json_data |= {
-                'identifier': self._identifier,
+                'uuid': self._identifier,
                 'label': self.label,
                 'desc': self.desc,
                 'properties_template': self._properties.to_dict()
@@ -128,6 +129,10 @@ class GenericObj(ChemotionSerializable):
     @property
     def properties(self) -> GenericProperties | None:
         return self._properties
+
+    @property
+    def release(self) -> GenericProperties | None:
+        return self._release
 
     @property
     def id(self) -> int:
