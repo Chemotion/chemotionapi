@@ -133,6 +133,7 @@ def test_read_generic_elements(instance_with_collection):
     dict_element = all_gs[0].to_dict()
     old_dict['label'] += '_TEST'
     old_dict['properties_template']['identifier'] = dict_element['properties_template']['identifier']
+    old_dict['uuid'] = dict_element['uuid']
     for key, layer  in old_dict['properties_template']['layers'].items():
         for field in layer['fields']:
             if field['type'] == 'text' and 'required' not in field:

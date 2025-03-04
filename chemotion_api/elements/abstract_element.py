@@ -287,6 +287,9 @@ class AnalysesList(list):
     def by_name(self, name: str) -> Analyses:
         return next(x for x in self if x['name'] == name)
 
+    def by_id(self, id: str | int) -> Analyses:
+        return next(x for x in self if str(x.id) == str(id))
+
     def add_analyses(self, name: str = 'New') -> Analyses:
         new_a = Analyses(AnalysesManager.build_new_analyses(), self.conn)
         self.append(new_a)

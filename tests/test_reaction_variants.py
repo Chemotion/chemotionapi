@@ -19,6 +19,15 @@ def instance_with_test_reaction(instance_with_test_samples):
         'reaction': ra
     }
 
+def test_ana_variation(instance_with_test_reaction):
+    ra = instance_with_test_reaction['reaction']
+    ra.variations.add_new()
+    ana = ra.analyses.by_name("T1")
+    ra.variations[0].link_analyses(ana)
+
+    ra.save(True)
+
+    assert [a['name'] for a in ra.variations[0].get_analyses()] == ['T1']
 
 def test_reaction_variants(instance_with_test_reaction):
     ra = instance_with_test_reaction['instance'].get_reaction(1)

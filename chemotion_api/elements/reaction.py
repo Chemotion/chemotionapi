@@ -1,9 +1,9 @@
 from enum import Enum
-from typing import Callable, Optional
+from typing import Callable, Optional, Iterator
 
 from requests import Response
 
-from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample
@@ -210,6 +210,7 @@ class Variation():
         self.notes = ""
         self._ref_mat = None
         self._materials = {}
+        self._analyses = None
 
     def get_ref_amount(self):
         if self._ref_mat is None:
@@ -218,12 +219,13 @@ class Variation():
             return 1
         return self._ref_mat.get_amount()
 
-    def populate(self, json_data: dict, starting_materials: MaterialList, reactants: MaterialList,
+    def populate(self, json_data: dict, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList,
                  products: MaterialList, solvents: MaterialList):
         self._json_data = json_data
         self.id = self._json_data['id']
         self._properties = json_data['properties']
         self.notes = json_data['notes']
+        self._analyses = analyses
         self._materials = {
             SampleVariationType.STARTING_MATERIAL: [
                 self.sample_variation_factory(x, SampleVariationType.STARTING_MATERIAL) for x in
@@ -252,6 +254,17 @@ class Variation():
                 self._json_data[sample_type.value][sample_variation.sample.id] = sample_variation.clean()
         return self._json_data
 
+    def link_analyses(self, analyses: Analyses):
+        try:
+            int(analyses.id)
+            self._json_data['analyses'].append(analyses.id)
+        except ValueError:
+            raise ValueError("Analyses has no id. please save the Reaction first")
+
+    def get_analyses(self) -> Iterator[Analyses]:
+        for ana_id in self._json_data['analyses']:
+            yield self._analyses.by_id(ana_id)
+
     @property
     def properties(self):
         return self._properties
@@ -274,18 +287,19 @@ class Variation():
 
 
 class Variations(MutableSequence):
-    def __init__(self, starting_materials: MaterialList, reactants: MaterialList, products: MaterialList,
+    def __init__(self, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList, products: MaterialList,
                  solvents: MaterialList):
         # Initialize the list with given items
         self._data = list()
         self._materials = {'starting_materials': starting_materials, 'reactants': reactants, 'products': products,
                            'solvents': solvents}
         self._highest_id = 0
+        self._analyses = analyses
 
     def populate(self, json_data: dict):
         for variation in json_data:
             v = Variation()
-            v.populate(variation, **self._materials)
+            v.populate(variation, self._analyses, **self._materials)
             self.append(v)
             self._highest_id = max(self._highest_id, variation['id'])
 
@@ -319,7 +333,7 @@ class Variations(MutableSequence):
             "startingMaterials": {}
         }
         v = Variation()
-        v.populate(variation, **self._materials)
+        v.populate(variation, self._analyses, **self._materials)
         self.append(v)
         return v
 
@@ -490,7 +504,7 @@ class Reaction(AbstractElement):
             mat_samples = {}
             for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents']:
                 mat_samples[reaction_elm_names] = self.properties[reaction_elm_names]
-            self._variations = Variations(**mat_samples)
+            self._variations = Variations(self.analyses, **mat_samples)
             self._variations.populate(self.json_data['variations'])
 
         return self._variations
