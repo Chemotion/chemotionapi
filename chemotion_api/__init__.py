@@ -6,6 +6,8 @@ from chemotion_api.converter import ProfileManager
 from chemotion_api.element_manager import ElementManager
 from chemotion_api.inbox import Inbox
 from chemotion_api.labImotion import GenericManager
+from chemotion_api.search.reaction import ReactionSearcher
+from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
 from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
@@ -131,8 +133,8 @@ class Instance:
 
     def login_token(self, jwt_token: str) -> TInstance:
         """
-        You can use this login_token method to log in to a chemotion instance.
-        To do this, you need a valid chemotion jwt token. This token can be generated using the
+        You can use this login_token method to log in to a Chemotion instance.
+        To do this, you need a valid Chemotion jwt token. This token can be generated using the
         get_token method.
 
         :param jwt_token: a Java Web Token.
@@ -186,6 +188,63 @@ class Instance:
             self._root_col.load_collection()
             self._root_col.load_sync_collection()
         return self._root_col
+
+    def search_sample(self) -> SampleSearcher:
+        """
+        This function returns a SampleSearcher object, which facilitates the search for samples.
+        The user has the option to set the maximum number of results and the collection to search in.
+        In addition, search conditions can be added and connected with 'or' or 'and'. It is necessary
+        to specify the matching type for each condition. Upon making the final call to the method,
+        the search will be executed.
+
+        Usage::
+
+        >>> from chemotion_api import Instance
+        >>> import logging
+        >>> from chemotion_api.search.utils import EnumMatch, EnumConnector
+        >>>
+        >>> try:
+        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+        >>> except ConnectionError as e:
+        >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+        >>> (instance.search_sample().
+        >>>  add_search_condition(EnumMatch.LIKE, EnumConnector.OR, name='My Sample', private_note="My note").
+        >>>  add_search_condition(EnumMatch.EXACT, EnumConnector.AND, short_label="USER").
+        >>>  find_max(5).
+        >>>  request())
+
+        :return: SampleSearcher
+        """
+        return SampleSearcher(self._con, self.element_manager, self.get_root_collection().id)
+
+    def search_reaction(self) -> ReactionSearcher:
+        """
+        This function returns a ReactionSearcher object, which facilitates the search for reaction.
+        The user has the option to set the maximum number of results and the collection to search in.
+        In addition, search conditions can be added and connected with 'or' or 'and'. It is necessary
+        to specify the matching type for each condition. Upon making the final call to the method,
+        the search will be executed.
+
+        Usage::
+
+        >>> from chemotion_api import Instance
+        >>> import logging
+        >>> from chemotion_api.search.utils import EnumMatch, EnumConnector
+        >>>
+        >>> try:
+        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+        >>> except ConnectionError as e:
+        >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
+        >>> (instance.ReactionSearcher().
+        >>>  add_search_condition(EnumMatch.LIKE, EnumConnector.OR, name='My Sample', private_note="My note").
+        >>>  add_search_condition(EnumMatch.EXACT, EnumConnector.AND, short_label="USER").
+        >>>  add_search_condition(EnumMatch.BIGGER_THAN, EnumConnector.AND, temperature_in_c=30).
+        >>>  find_max(5).
+        >>>  request())
+
+        :return: ReactionSearcher
+        """
+        return ReactionSearcher(self._con, self.element_manager, self.get_root_collection().id)
 
     @property
     def all_element_classes(self) -> dict[str, dict[str, str]]:

@@ -146,7 +146,7 @@ class Analyses(dict):
         self['description'] = data['description']
 
         for k in ['report', 'status', 'kind', 'content']:
-            if k in data:
+            if k in data['extended_metadata']:
                 self[k] = data['extended_metadata'][k]
         self.datasets = []
         for jd in self._data.get('children'):

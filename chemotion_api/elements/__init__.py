@@ -31,7 +31,7 @@ class ElementSet(list):
 
     def __len__(self):
         if self._iri_filter is None:
-            return self._length
+            return super().__len__()
         else:
             raise TypeError("Length cannot be predicted if you use IRI typs")
 

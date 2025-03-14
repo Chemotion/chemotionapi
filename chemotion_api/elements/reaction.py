@@ -143,9 +143,7 @@ class SampleVariation():
         if isinstance(unit, QuantityUnit):
             unit = unit.value
 
-        if self._sample_type == SampleVariationType.SOLVENTS:
-            if unit is not None and unit == QuantityUnit.Liter.value:
-                raise ValueError("SOLVENTS quantities cannot be used with Liter.")
+        if self._sample_type == SampleVariationType.SOLVENTS and unit == QuantityUnit.Liter.value:
             self._values['volume']['value'] = value
             return
         if unit is None:
@@ -172,7 +170,7 @@ class SampleVariation():
     def get_volume(self):
         if self._values['volume']['value'] != 0:
             return self._values['volume']['value']
-        elif self._values['aux']['molarity'] != 0:
+        elif self._values['aux']['molarity']:
             return (self.get_amount() * self._values['aux']['molarity'])
         return 0
 
