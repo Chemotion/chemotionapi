@@ -1,7 +1,8 @@
 import typing
+from time import sleep
 
 from typing import TypeVar
-from chemotion_api.collection import RootCollection
+from chemotion_api.collection import RootCollection, Collection
 from chemotion_api.converter import ProfileManager
 from chemotion_api.element_manager import ElementManager
 from chemotion_api.inbox import Inbox
@@ -188,6 +189,36 @@ class Instance:
             self._root_col.load_collection()
             self._root_col.load_sync_collection()
         return self._root_col
+
+    def get_collection_by_id(self, collection_id: int) -> Collection:
+        """
+        Find a collection by its id.
+        Within this python client it is needed to navigate through all sub collections. A collection is foundtion of fetching
+        and creating new elements.
+
+        :param collection_id: DB id of the collection
+        :return:
+        """
+        return self.get_root_collection().find(id=collection_id)[0]
+
+    def get_collection_of_element(self, element: AbstractElement):
+        """
+        Find a collection from its element.
+        Within this python client it is needed to navigate through all sub collections. A collection is foundtion of fetching
+        and creating new elements.
+
+        :param element: A element (Sample, Reaction, ...) aliasable by your account (needs to be saved!)
+        :return:
+        """
+        try:
+            try:
+                collection_id = element.json_data['tag']['taggable_data']['collection_labels'][0]["id"]
+            except (KeyError, IndexError):
+                element.load()
+                collection_id = element.json_data['tag']['taggable_data']['collection_labels'][0]["id"]
+            return self.get_collection_by_id(collection_id)
+        except KeyError:
+            raise KeyError('Could not find collection of {}'.format(element))
 
     def search_sample(self) -> SampleSearcher:
         """

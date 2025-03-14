@@ -83,3 +83,8 @@ def test_iter_sample(instance_with_test_samples: dict):
         assert sample.id in ids
         assert len(s) <= 5
 
+def test_get_collection_from_sample(instance_with_test_samples: dict):
+    logged_in_instance = instance_with_test_samples['instance']
+    col: Collection = instance_with_test_samples['main_collection']
+    sample  =  instance_with_test_samples.get('instance').get_sample(instance_with_test_samples.get('sample_ids')[0])
+    assert logged_in_instance.get_collection_of_element(sample).id == col.id

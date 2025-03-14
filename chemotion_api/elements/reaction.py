@@ -178,7 +178,7 @@ class SampleVariation():
         return self.get_amount() * self._values['aux']['purity'] / self._molecular_weight()
 
     def _molecular_weight(self):
-        if self._values['aux']['molecularWeight'] == 0:
+        if not self._values['aux']['molecularWeight']:
             return 1
         return self._values['aux']['molecularWeight']
 

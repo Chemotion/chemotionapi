@@ -15,6 +15,14 @@ def instance_with_test_reaction(instance_with_test_samples):
         'reaction': ra
     }
 
+
+def test_get_collection_from_reaction(instance_with_test_reaction: dict):
+    logged_in_instance :Instance = instance_with_test_reaction['instance']
+    col: Collection = instance_with_test_reaction['main_collection']
+    reaction = logged_in_instance.get_root_collection().get_reactions()[0]
+    assert logged_in_instance.get_collection_of_element(reaction).id == col.id
+
+
 def test_get_reaction_success(instance_with_test_reaction: dict):
     wp = instance_with_test_reaction['instance'].get_reaction(instance_with_test_reaction['reaction'].id)
     assert wp.properties['starting_materials'][0].id != instance_with_test_reaction.get('sample_ids')[0]
@@ -45,3 +53,4 @@ def test_set_reactoin_success(instance_with_test_reaction: dict):
 
 
     pass
+

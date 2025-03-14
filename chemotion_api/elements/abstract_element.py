@@ -664,7 +664,6 @@ class AbstractElement:
                 list_idx = next((i for (i, x) in enumerate(res_list) if x.get('id') == segment_mapping['__id']), -1)
                 if list_idx == -1:
                     list_idx = len(res_list)
-                    res_list.append()
                 clean_generic_object_json(res_list[list_idx], self.segments[seg_key], segment_mapping)
 
         return {'segments': res_list}
