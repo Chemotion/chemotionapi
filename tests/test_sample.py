@@ -1,3 +1,4 @@
+from datetime import datetime
 from random import randint
 
 import pytest
@@ -88,3 +89,23 @@ def test_get_collection_from_sample(instance_with_test_samples: dict):
     col: Collection = instance_with_test_samples['main_collection']
     sample  =  instance_with_test_samples.get('instance').get_sample(instance_with_test_samples.get('sample_ids')[0])
     assert logged_in_instance.get_collection_of_element(sample).id == col.id
+
+def test_filter_collection(instance_with_test_samples: dict):
+    logged_in_instance = instance_with_test_samples['instance']
+    col: Collection = instance_with_test_samples['main_collection']
+    assert len(col.get_samples(updated_to_date=datetime(2020, 1, 1))) == 0
+    assert len(col.get_samples(updated_to_date=datetime(2060, 1, 1))) > 1
+    assert len(col.get_samples(updated_from_date=datetime(2060, 1, 1))) == 0
+    assert len(col.get_samples(updated_from_date=datetime(2025, 1, 1))) > 1
+
+    assert len(col.get_samples(product_only=True)) == 0
+
+    rea = col.new_reaction()
+
+    samples = col.get_samples()
+
+    rea.properties['starting_materials'].append(samples[0])
+    rea.properties['products'].append(samples[1])
+    rea.save()
+
+    assert len(col.get_samples(product_only=True)) == 1

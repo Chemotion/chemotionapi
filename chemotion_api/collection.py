@@ -1,10 +1,13 @@
 import json
 import os
+import typing
+from datetime import datetime
 from urllib.parse import urlparse
 from enum import Enum
 from random import random
-from typing import TypeVar, Iterator
+from typing import TypeVar, Iterator, Optional
 
+from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
@@ -243,12 +246,15 @@ class AbstractCollection:
             raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
-    def get_elements_of_iri(self, element_type: str, per_page=10) -> ElementSet:
+    def get_elements_of_iri(self, element_type: str, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
+                      updated_from_date: Optional[datetime] = None) -> ElementSet:
         """
         Gets all elements of given IRI type.
 
         :param element_type: IRI string chemotion:xxx/xxx/xxx
         :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
 
         :return: ElementSet based on the IRI
         """
@@ -258,16 +264,20 @@ class AbstractCollection:
             o = urlparse(element_type)
             e = ElementSet(root._session, root._element_manager.all_classes.get(o.path.split('/')[1]), self.id,
                            self.is_sync)
-            e.load_elements(per_page)
+            e.load_elements(per_page, updated_to_date, updated_from_date)
             e.set_iri_filter(element_type)
             return e
         raise ValueError(f'Could not find a element with the IRI: "{element_type}"')
 
-    def get_samples(self, per_page: int = 10) -> ElementSet:
+    def get_samples(self, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
+                      updated_from_date: Optional[datetime] = None, product_only: bool = False) -> ElementSet:
         """
         List of all samples.
 
         :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+        :param product_only: If True only samples which are products in a reaction are returned
 
         :return: ElementSet of samples
         """
@@ -275,14 +285,17 @@ class AbstractCollection:
         root = self.get_root()
         e = ElementSet(root._session, root._element_manager.all_classes.get('sample'), self.id,
                        self.is_sync)
-        e.load_elements(per_page)
+        e.load_elements(per_page, updated_to_date, updated_from_date, product_only)
         return e
 
-    def get_reactions(self, per_page: int = 10) -> ElementSet:
+    def get_reactions(self, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
+                      updated_from_date: Optional[datetime] = None) -> ElementSet:
         """
         List of all reactions.
 
         :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
 
         :return: ElementSet of reactions
         """
@@ -290,14 +303,17 @@ class AbstractCollection:
         root = self.get_root()
         e = ElementSet(root._session, root._element_manager.all_classes.get('reaction'), self.id,
                        self.is_sync)
-        e.load_elements(per_page)
+        e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
-    def get_research_plans(self, per_page: int = 10) -> ElementSet:
+    def get_research_plans(self, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
+                      updated_from_date: Optional[datetime] = None) -> ElementSet:
         """
         List of all research plans.
 
         :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
 
         :return: ElementSet of research plans
         """
@@ -305,14 +321,17 @@ class AbstractCollection:
         root = self.get_root()
         e = ElementSet(root._session, root._element_manager.all_classes.get('research_plan'), self.id,
                        self.is_sync)
-        e.load_elements(per_page)
+        e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
-    def get_wellplates(self, per_page: int = 10) -> ElementSet:
+    def get_wellplates(self, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
+                      updated_from_date: Optional[datetime] = None) -> ElementSet:
         """
         List of all well plates.
 
         :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
 
         :return: ElementSet of well plates
         """
@@ -320,15 +339,18 @@ class AbstractCollection:
         root = self.get_root()
         e = ElementSet(root._session, root._element_manager.all_classes.get('wellplate'), self.id,
                        self.is_sync)
-        e.load_elements(per_page)
+        e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
-    def get_generics_by_name(self, name: str, per_page: int = 10) -> ElementSet:
+    def get_generics_by_name(self, name: str, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
+                      updated_from_date: Optional[datetime] = None) -> ElementSet:
         """
         List of all generic elements of a given name.
 
         :param name: generic element's name
         :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
 
         :return: ElementSet of generic elements of a given name
         """
@@ -339,15 +361,18 @@ class AbstractCollection:
             raise ValueError(f'Could not find a generic element under the name: "{name}"')
 
         e = ElementSet(root._session, elem, self.id, self.is_sync)
-        e.load_elements(per_page)
+        e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
-    def get_generics_by_label(self, label: str, per_page: int = 10) -> ElementSet:
+    def get_generics_by_label(self, label: str, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
+                      updated_from_date: Optional[datetime] = None) -> ElementSet:
         """
         List of all generic elements of a given label.
 
         :param label: generic element's label
         :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
 
         :return: ElementSet of generic elements of a given name
         """
@@ -355,86 +380,86 @@ class AbstractCollection:
         root = self.get_root()
         for (elem_name, elem) in root._element_manager.all_classes.items():
             if elem['label'] == label:
-                return self.get_generics_by_label(elem_name, per_page)
+                return self.get_generics_by_name(elem_name, per_page, updated_to_date, updated_from_date)
         raise ValueError(f'Could not find a generic element with the label: "{label}"')
 
 
 class AbstractEditableCollection(AbstractCollection):
 
-    def new_sample(self) -> AbstractElement:
+    def new_sample(self) -> Sample:
         """
         Creates a new sample in this collection.
 
-        :return: AbstractElement
+        :return: New (unsaved) Sample
         """
-        return self._create_new_element('sample')
+        return typing.cast(Sample, self._create_new_element('sample'))
 
-    def new_sample_smiles(self, smiles_code: str) -> AbstractElement:
+    def new_sample_smiles(self, smiles_code: str) -> Sample:
         """
         Creates a new sample with a molecule generated with a smiles code in this collection.
 
-        :return: AbstractElement
+        :return: New (unsaved) Sample
         """
         sample = self._create_new_element('sample')
         mol = MoleculeManager(self.get_root()._session).create_molecule_by_smiles(smiles_code)
         sample.molecule = mol
-        return sample
+        return typing.cast(Sample, sample)
 
-    def new_solvent(self, name) -> AbstractElement:
+    def new_solvent(self, name) -> Sample:
         """
         Creates a new solvent in this collection.
 
-        :return: AbstractElement
+        :return: New (unsaved) solvent as Sample
         """
         root = self.get_root()
         new_json = root._element_manager.build_solvent_sample(name, self.id)
         e = ElementSet(root._session, root._element_manager.all_classes.get('sample'), self.id,
                        self.is_sync)
-        return e.new_element(new_json)
+        return typing.cast(Sample, e.new_element(new_json))
 
-    def new_reaction(self) -> AbstractElement:
+    def new_reaction(self) -> Reaction:
         """
         Creates a new reaction in this collection.
 
-        :return: AbstractElement
+        :return: New (unsaved) Reaction
         """
-        return self._create_new_element('reaction')
+        return typing.cast(Reaction, self._create_new_element('reaction'))
 
-    def new_research_plan(self) -> AbstractElement:
+    def new_research_plan(self) -> ResearchPlan:
         """
         Creates a new research plan in this collection.
 
-        :return: AbstractElement
+        :return: New (unsaved) ResearchPlan
         """
-        return self._create_new_element('research_plan')
+        return typing.cast(ResearchPlan, self._create_new_element('research_plan'))
 
-    def new_wellplate(self) -> AbstractElement:
+    def new_wellplate(self) -> Wellplate:
         """
         Creates a new well plate in this collection.
 
-        :return: AbstractElement
+        :return: New (unsaved) Wellplate
         """
 
-        return self._create_new_element('wellplate')
+        return typing.cast(Wellplate, self._create_new_element('wellplate'))
 
-    def new_generic(self, type_name: str) -> AbstractElement:
+    def new_generic(self, type_name: str) -> GenericElement:
         """
         Creates a new element of given type name in this collection.
 
         :param type_name: Generic element's type name
 
-        :return: AbstractElement
+        :return: New (unsaved) GenericElement
         """
 
-        return self._create_new_element(type_name)
+        return typing.cast(GenericElement, self._create_new_element(type_name))
 
-    def new_generic_by_label(self, label: str) -> AbstractElement:
+    def new_generic_by_label(self, label: str) -> GenericElement:
         """
         Creates a new element of given label in this collection.
 
         :param label: Generic element's label
 
-        :return: AbstractElement
+        :return: GenericElement
         """
 
         for (elem_name, elem) in self.get_root()._element_manager.all_classes.items():

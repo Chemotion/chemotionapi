@@ -19,8 +19,8 @@ def instance_with_test_reaction(instance_with_test_samples):
 def test_get_collection_from_reaction(instance_with_test_reaction: dict):
     logged_in_instance :Instance = instance_with_test_reaction['instance']
     col: Collection = instance_with_test_reaction['main_collection']
-    reaction = logged_in_instance.get_root_collection().get_reactions()[0]
-    assert logged_in_instance.get_collection_of_element(reaction).id == col.id
+    reaction = logged_in_instance.get_reaction(1)
+    assert logged_in_instance.get_collection_of_element(reaction).id == 11
 
 
 def test_get_reaction_success(instance_with_test_reaction: dict):

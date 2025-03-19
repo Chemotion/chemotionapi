@@ -11,7 +11,7 @@ def field_details(field_name: Literal[
     if field_name == 'name':
         filed_type = {
             "column": "name",
-            "label": "Sample name",
+            "label": "Name",
             "type": "text",
             "advanced": True
         }
@@ -105,6 +105,5 @@ class ReactionSearcher(SearchHelperBase):
                   value: str) -> dict:
         return new_base_field(match, connector, value) | {
             "table": "reactions",
-            "element_id": 0,
-            "field": field_details(field_name)
-        }
+            "element_id": 0
+        } | field_details(field_name)

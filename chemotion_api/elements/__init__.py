@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Optional
+
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.generic_element import GenericElement
 from chemotion_api.elements.sample import Sample
@@ -14,9 +17,11 @@ class ElementSet(list):
     The ElementSet class allows you to access all elements of a type in a collection.
     You can iterate over them or filter them using an IRI filter.
     """
+
     def __init__(self, session: Connection, element_type: dict,
                  collection_id: int = None, collection_is_sync: bool = False):
         super().__init__()
+        self._load_options = {}
         self._session = session
         self._element_type = element_type
         self._collection_id = collection_id
@@ -84,7 +89,7 @@ class ElementSet(list):
     def _set_page(self, page: int) -> bool:
         if page > 0 and page <= self.max_page:
             self._page = page
-            self.load_elements()
+            self.load_elements(**self._load_options)
             return True
         return False
 
@@ -108,18 +113,33 @@ class ElementSet(list):
         self._set_page(self.page - 1)
         return self
 
-    def load_elements(self, per_page=None):
+    def load_elements(self, per_page: Optional[int] = None, updated_to_date: Optional[datetime] = None,
+                      updated_from_date: Optional[datetime] = None, product_only: bool = False):
         if per_page is not None:
             self._per_page = per_page
         if self._collection_id is None:
             raise ValueError('load_elements only works if collection_id is set!')
 
+        self._load_options = {
+            'updated_to_date': updated_to_date,
+            'updated_from_date': updated_from_date,
+            'product_only': product_only,
+            'per_page': per_page,
+        }
+
         segments = GenericSegments(self._session)
         payload = {'page': self.page,
                    'per_page': self._per_page,
                    'filter_created_at': False,
-                   'product_only': False,
+                   'product_only': product_only,
                    'el_type': self._element_type['name']}
+
+        if updated_from_date:
+            payload['from_date'] = int(updated_from_date.timestamp())
+
+        if updated_to_date:
+            payload['to_date'] = int(updated_to_date.timestamp())
+
         if self._collection_is_sync:
             payload['sync_collection_id'] = self._collection_id
         else:
