@@ -1,7 +1,7 @@
 import uuid
 from enum import Enum
 from string import ascii_lowercase
-from typing import Optional, Literal
+from typing import Optional, Literal, Generator
 
 from rdflib.plugins.sparql.results.tsvresults import NONE_VALUE
 from typing_extensions import Self
@@ -52,12 +52,20 @@ class Table(dict):
     >>> assert table.get_column(name_col_id) == ['Mr. X', 'Mr. Y']
     """
 
-    def __init__(self, columns, rows):
-        super().__init__(columns=columns, rows=rows)
+    def __init__(self, id: str, value: dict, start_collapsed: bool = False):
+        value = {
+            'columns': value.get('columns', []),
+            'rows': value.get('rows', [])
+        }
+        super().__init__(value=value, type=BodyElements.table.value, id=id, startCollapsed=start_collapsed)
+
+    @property
+    def id(self) -> str:
+        return self['id']
 
     def _get_col_id(self):
         for l in ascii_lowercase:
-            if len([x for x in self['columns'] if x['colId'] == l]) == 0:
+            if len([x for x in self['value']['columns'] if x['colId'] == l]) == 0:
                 return l
 
     def column_id_by_label(self, label: str) -> str:
@@ -68,9 +76,9 @@ class Table(dict):
 
         :return: Column id
         """
-        return self.column_ids_by_labels(label)[0]
+        return next(self.column_ids_by_labels(label))
 
-    def column_ids_by_labels(self, *labels: str) -> list[str]:
+    def column_ids_by_labels(self, *labels: str) -> Generator[str]:
         """
         Finds all column IDs of columns with a given labels
 
@@ -80,9 +88,7 @@ class Table(dict):
         """
 
         for l in labels:
-            yield next(x['field'] for x in self['columns'] if x['headerName'] == l)
-
-
+            yield next(x['field'] for x in self['value']['columns'] if x['headerName'] == l)
 
     def add_columns(self, *labels: str) -> list[str]:
         """
@@ -96,13 +102,13 @@ class Table(dict):
         ids = []
         for label in labels:
             id_letter = self._get_col_id()
-            self['columns'].append({
+            self['value']['columns'].append({
                 'headerName': label,
                 'field': id_letter,
                 'colId': id_letter
             })
             ids.append(id_letter)
-            for row in self['rows']:
+            for row in self['value']['rows']:
                 if id_letter not in row:
                     row[id_letter] = []
 
@@ -122,7 +128,7 @@ class Table(dict):
 
         new_row = {}
         entries = list(entries)
-        for idx, colId in enumerate(x['field'] for x in self['columns']):
+        for idx, colId in enumerate(x['field'] for x in self['value']['columns']):
             if colId in placed_entries:
                 new_row[colId] = placed_entries[colId]
             elif len(entries) != 0:
@@ -130,7 +136,7 @@ class Table(dict):
             else:
                 new_row[colId] = ''
 
-        self['rows'].append(new_row)
+        self['value']['rows'].append(new_row)
         return self
 
     def set_entry(self, row: int, column_id: str, value: any) -> Self:
@@ -144,7 +150,7 @@ class Table(dict):
         :return self
         """
 
-        self['rows'][row][column_id] = value
+        self['value']['rows'][row][column_id] = value
         return self
 
     def get_column(self, column_id: str) -> list:
@@ -156,30 +162,29 @@ class Table(dict):
         """
 
         result = []
-        for row in self['rows']:
+        for row in self['value']['rows']:
             result.append(row[column_id])
         return result
 
     def __len__(self):
-        return len(self['rows'])
+        return len(self['value']['rows'])
 
 
 class RichText(dict):
     class HeaderType(Enum):
-        H1=1
-        H2=2
-        H3=3
+        H1 = 1
+        H2 = 2
+        H3 = 3
 
-    def __init__(self, id: str, values: Optional[dict] = None):
-        if values is None:
-            values = {"ops": {
-
-            }}
+    def __init__(self, id: str, value: Optional[dict] = None):
+        if value is None:
+            value = {"ops": []}
+        value = {"ops": value.get('ops', [])}
 
         super().__init__(**{
             'id': id,
             'type': BodyElements.richtext.value,
-            'value': values
+            'value': value
         })
 
     @property
@@ -254,7 +259,7 @@ class ResearchPlan(AbstractElement):
         super().__init__(*args, **kwargs)
 
     @property
-    def body(self):
+    def body(self) -> list[dict]:
         """
         Body is list which contains the same values as the Properties.
         Each entry has a type and a value filed.
@@ -274,7 +279,7 @@ class ResearchPlan(AbstractElement):
         elif elem.get('type') == BodyElements.ketcher.value:
             value = self._parse_ketcher(elem.get('value'))
         elif elem.get('type') == BodyElements.table.value:
-            value = self._parse_table(elem.get('value'))
+            return self._parse_table(elem)
         elif elem.get('type') == BodyElements.image.value:
             value = self._parse_image(elem.get('value'))
         elif elem.get('type') == BodyElements.sample.value:
@@ -314,7 +319,7 @@ class ResearchPlan(AbstractElement):
         return res
 
     def _parse_table(self, value):
-        return Table(**value)
+        return Table(value['id'], value['value'], value.get('startCollapsed', False))
 
     def _parse_ketcher(self, value):
         return value
@@ -322,7 +327,7 @@ class ResearchPlan(AbstractElement):
     def _parse_properties(self) -> dict:
         body = self.json_data.get('body')
         return {
-            'body':  [self._parse_body_element(x) for x in body]
+            'body': [self._parse_body_element(x) for x in body]
         }
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
@@ -332,7 +337,7 @@ class ResearchPlan(AbstractElement):
 
         return self.json_data
 
-    def add_richtext(self, text: Optional[str] = None) -> RichText:
+    def add_richtext(self, text: Optional[str] = None, at_idx: Optional[int] = None) -> RichText:
         """
         Adds a text block to the Research plan
 
@@ -340,12 +345,12 @@ class ResearchPlan(AbstractElement):
 
         :return: body container
         """
-        body_obj: RichText = self._add_new_element(BodyElements.richtext)
+        body_obj: RichText = self._add_new_element(BodyElements.richtext, at_idx)
         if text is not None:
             body_obj.add_text(text)
         return body_obj
 
-    def add_image(self, image_path: str) -> dict:
+    def add_image(self, image_path: str, at_idx: Optional[int] = None) -> dict:
         """
         Adds an image to the Research plan
 
@@ -359,22 +364,22 @@ class ResearchPlan(AbstractElement):
         file_obj = self.attachments.add_file(image_path)
         file_obj['is_image_field'] = True
         file_obj['ancestor'] = None
-        body_obj = self._add_new_element(BodyElements.image)
+        body_obj = self._add_new_element(BodyElements.image, at_idx)
 
         body_obj['value'] = file_obj
         return body_obj
 
-    def add_table(self) -> Table:
+    def add_table(self, at_idx: Optional[int] = None) -> Table:
         """
         Adds a new table to the Research plan
 
         :return: Table object
         """
 
-        body_obj = self._add_new_element(BodyElements.table)
-        return body_obj['value']
+        body_obj = self._add_new_element(BodyElements.table, at_idx)
+        return body_obj
 
-    def _add_new_element(self, element_type: BodyElements):
+    def _add_new_element(self, element_type: BodyElements, at_idx: Optional[int]):
         body_elem = {
             'id': uuid.uuid4().__str__(),
             'type': element_type.name,
@@ -382,29 +387,32 @@ class ResearchPlan(AbstractElement):
         }
 
         new_element = self._parse_body_element(body_elem)
-        self.body.append(new_element)
+        if at_idx is None:
+            self.body.append(new_element)
+        else:
+            self.body.insert(at_idx, new_element)
         return new_element
 
     def _reparse_body_element(self, elem: dict):
-        value = ''
         if elem.get('type') == BodyElements.richtext.value:
-            value = self._reparse_text(elem.get('value'))
-        if elem.get('type') == BodyElements.ketcher.value:
-            value = self._reparse_ketcher(elem.get('value'))
+            value = {'value': self._reparse_text(elem.get('value'))}
+        elif elem.get('type') == BodyElements.ketcher.value:
+            value = {'value': self._reparse_ketcher(elem.get('value'))}
         elif elem.get('type') == BodyElements.table.value:
-            value = self._reparse_table(elem.get('value'))
+            value = self._reparse_table(elem)
         elif elem.get('type') == BodyElements.image.value:
-            value = self._reparse_image(elem.get('value'))
+            value = {'value': self._reparse_image(elem.get('value'))}
         elif elem.get('type') == BodyElements.sample.value:
-            value = self._reparse_sample(elem.get('value'))
+            value = {'value': self._reparse_sample(elem.get('value'))}
         elif elem.get('type') == BodyElements.reaction.value:
-            value = self._reparse_reaction(elem.get('value'))
+            value = {'value': self._reparse_reaction(elem.get('value'))}
+        else:
+            value = {'value': ''}
 
         elem_data = {
             'id': elem.get('id'),
             'type': elem.get('type'),
-            'value': value
-        }
+        } | value
 
         if elem.get('type') == 'richtext':
             elem_data['title'] = 'Text'
@@ -430,7 +438,7 @@ class ResearchPlan(AbstractElement):
         }
 
     def _reparse_table(self, value):
-        return value
+        return dict(value)
 
     def _reparse_ketcher(self, value):
         return value
@@ -438,7 +446,7 @@ class ResearchPlan(AbstractElement):
     @staticmethod
     def _default_body_element(element_type: BodyElements) -> dict:
         if element_type == BodyElements.richtext:
-            return {'ops': [{'insert': ''}]}
+            return {'ops': []}
         if element_type == BodyElements.ketcher:
             return {
                 'svg_file': None,

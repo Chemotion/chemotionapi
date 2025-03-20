@@ -1,5 +1,5 @@
 from chemotion_api import Instance
-from chemotion_api.elements.research_plan import ResearchPlan
+from chemotion_api.elements.research_plan import ResearchPlan, RichText
 from chemotion_api.collection import Collection
 
 
@@ -10,6 +10,8 @@ def test_create(instance_with_collection: dict):
     rs_1.add_image('../test_config/sample_files/kadi.png')
     rs_1.add_richtext('Super Text')
     table = rs_1.add_table()
+    t_id = table.id
+    rs_1.add_richtext(at_idx=0).add_text("Main Header", header=RichText.HeaderType.H2)
 
     name_col_id, age_col_id = table.add_columns("Name", "Age")
     table.add_columns("Is Developer")
@@ -19,9 +21,12 @@ def test_create(instance_with_collection: dict):
     assert age_average == 35
     rs_1.save()
     rs = logged_in_instance.get_research_plan(rs_1.id)
-    age_average = sum(rs.body[2]['value'].get_column(age_col_id)) / len(table)
+    table_reloaded = next(x for x in rs.body if x['id'] == t_id)
+    assert rs.body[3] == table_reloaded
+
+    age_average = sum(table_reloaded.get_column(age_col_id)) / len(table)
     assert age_average == 35
-    assert rs.body[2]['value'].get_column(name_col_id) == ['Mr. X', 'Mr. Y']
+    assert table_reloaded.get_column(name_col_id) == ['Mr. X', 'Mr. Y']
     try:
         rs.attachments.load_attachment(7)
     except:
