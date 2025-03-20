@@ -346,7 +346,7 @@ class AbstractElement:
         self._analyses = None
         self._segments = None
         # Name of element instance
-        self.name: str = ''
+        self._name: str = ''
         # Last update of the element
         self.last_update: datetime | None = None
         self._element_type = element_type
@@ -362,6 +362,16 @@ class AbstractElement:
             self.load()
         else:
             raise ValueError("Either 'json_data' or 'id' and 'element_type' must be provided during initialization")
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, name: str) -> None:
+        self._name = name
+        if self.json_data and 'name' in self.json_data:
+            self.json_data['name'] = name
 
     @property
     def short_label(self) -> str | None:

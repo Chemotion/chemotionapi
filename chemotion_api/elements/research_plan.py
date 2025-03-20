@@ -1,6 +1,9 @@
 import uuid
 from enum import Enum
 from string import ascii_lowercase
+from typing import Optional, Literal
+
+from rdflib.plugins.sparql.results.tsvresults import NONE_VALUE
 from typing_extensions import Self
 
 from chemotion_api.elements.reaction import Reaction
@@ -9,12 +12,12 @@ from chemotion_api.elements.abstract_element import AbstractElement
 
 
 class BodyElements(Enum):
-    richtext = 1
-    ketcher = 2
-    table = 3
-    image = 4
-    sample = 5
-    reaction = 6
+    richtext = 'richtext'
+    ketcher = 'ketcher'
+    table = 'table'
+    image = 'image'
+    sample = 'sample'
+    reaction = 'reaction'
 
 
 class Table(dict):
@@ -161,6 +164,58 @@ class Table(dict):
         return len(self['rows'])
 
 
+class RichText(dict):
+    class HeaderType(Enum):
+        H1=1
+        H2=2
+        H3=3
+
+    def __init__(self, id: str, values: Optional[dict] = None):
+        if values is None:
+            values = {"ops": {
+
+            }}
+
+        super().__init__(**{
+            'id': id,
+            'type': BodyElements.richtext.value,
+            'value': values
+        })
+
+    @property
+    def id(self) -> str:
+        return self['id']
+
+    @property
+    def value(self) -> list[dict]:
+        return self['value']['ops']
+
+    def add_text(self, text: str,
+                 bold: Optional[bool] = None,
+                 underline: Optional[bool] = None,
+                 italic: Optional[bool] = None,
+                 list: Optional[Literal['bullet', 'ordered']] = None,
+                 header: Optional[HeaderType] = None) -> Self:
+        attributes = {}
+        if bold is not None:
+            attributes['bold'] = bold
+        if underline is not None:
+            attributes['underline'] = underline
+        if italic is not None:
+            attributes['italic'] = italic
+        if list is not None and list in ['bullet', 'ordered']:
+            attributes['list'] = list
+        if header is not None:
+            attributes['header'] = header.value
+
+        if len(attributes) == 0:
+            self.value.append({"insert": text})
+        else:
+            self.value.append({"insert": text, 'attributes': attributes})
+
+        return self
+
+
 class ResearchPlan(AbstractElement):
     """
     A chemotion Research Plan object.
@@ -170,7 +225,7 @@ class ResearchPlan(AbstractElement):
 
     >>> from chemotion_api import Instance
     >>> from chemotion_api.collection import Collection
-    >>> from chemotion_api.elements.research_plan import Table
+    >>> from chemotion_api.elements.research_plan import Table, RichText
     >>> import logging
     >>> try:
     >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
@@ -184,6 +239,14 @@ class ResearchPlan(AbstractElement):
     >>> table.add_row('Martin')
     >>> # Add a simple Text
     >>> plan.add_richtext("Hallo")
+    >>> # Add more advanced text
+    >>> rt = plan.add_richtext()
+    >>> # Add header to the text
+    >>> rt.add_text('Header 1\\n', header=RichText.HeaderType.H1).add_text('Header 2\\n', header=RichText.HeaderType.H2)
+    >>> # Add Bold,  Italic & underline text
+    >>> rt.add_text('Bold,  Italic & underline\\n', bold=True, italic=True, underline=True)
+    >>> # Add ordered and  list
+    >>> rt.add_text('a\\nb\\nc\\n', list='ordered').add_text('a\\nb\\nc\\n', list='bullet')
     >>> plan.save()
     """
 
@@ -206,17 +269,17 @@ class ResearchPlan(AbstractElement):
 
     def _parse_body_element(self, elem: dict):
         value = ''
-        if elem.get('type') == 'richtext':
-            value = self._parse_text(elem.get('value'))
-        elif elem.get('type') == 'ketcher':
+        if elem.get('type') == BodyElements.richtext.value:
+            return self._parse_text(elem)
+        elif elem.get('type') == BodyElements.ketcher.value:
             value = self._parse_ketcher(elem.get('value'))
-        elif elem.get('type') == 'table':
+        elif elem.get('type') == BodyElements.table.value:
             value = self._parse_table(elem.get('value'))
-        elif elem.get('type') == 'image':
+        elif elem.get('type') == BodyElements.image.value:
             value = self._parse_image(elem.get('value'))
-        elif elem.get('type') == 'sample':
+        elif elem.get('type') == BodyElements.sample.value:
             value = self._parse_sample(elem.get('value'))
-        elif elem.get('type') == 'reaction':
+        elif elem.get('type') == BodyElements.reaction.value:
             value = self._parse_reaction(elem.get('value'))
 
         return {
@@ -240,9 +303,7 @@ class ResearchPlan(AbstractElement):
                         id=value.get('reaction_id'), element_type='reaction')
 
     def _parse_text(self, value):
-        if isinstance(value, str):
-            return value
-        return value.get('ops')
+        return RichText(value['id'], value['value'])
 
     def _parse_image(self, value):
         if value is None: return None
@@ -271,7 +332,7 @@ class ResearchPlan(AbstractElement):
 
         return self.json_data
 
-    def add_richtext(self, text: str) -> dict:
+    def add_richtext(self, text: Optional[str] = None) -> RichText:
         """
         Adds a text block to the Research plan
 
@@ -279,8 +340,9 @@ class ResearchPlan(AbstractElement):
 
         :return: body container
         """
-        body_obj = self._add_new_element(BodyElements.richtext)
-        body_obj['value'] = [{'insert': text}]
+        body_obj: RichText = self._add_new_element(BodyElements.richtext)
+        if text is not None:
+            body_obj.add_text(text)
         return body_obj
 
     def add_image(self, image_path: str) -> dict:
@@ -325,17 +387,17 @@ class ResearchPlan(AbstractElement):
 
     def _reparse_body_element(self, elem: dict):
         value = ''
-        if elem.get('type') == 'richtext':
+        if elem.get('type') == BodyElements.richtext.value:
             value = self._reparse_text(elem.get('value'))
-        if elem.get('type') == 'ketcher':
+        if elem.get('type') == BodyElements.ketcher.value:
             value = self._reparse_ketcher(elem.get('value'))
-        elif elem.get('type') == 'table':
+        elif elem.get('type') == BodyElements.table.value:
             value = self._reparse_table(elem.get('value'))
-        elif elem.get('type') == 'image':
+        elif elem.get('type') == BodyElements.image.value:
             value = self._reparse_image(elem.get('value'))
-        elif elem.get('type') == 'sample':
+        elif elem.get('type') == BodyElements.sample.value:
             value = self._reparse_sample(elem.get('value'))
-        elif elem.get('type') == 'reaction':
+        elif elem.get('type') == BodyElements.reaction.value:
             value = self._reparse_reaction(elem.get('value'))
 
         elem_data = {
@@ -359,7 +421,7 @@ class ResearchPlan(AbstractElement):
         return {'reaction_id': value.id}
 
     def _reparse_text(self, value):
-        return {'ops': value}
+        return value
 
     def _reparse_image(self, value):
         return {
