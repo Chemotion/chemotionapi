@@ -64,7 +64,7 @@ class SearchHelperBase(ABC):
 
     def request(self) -> ElementSet:
         e = ElementSet(self._connection, self._element_manager.all_classes.get(self.element_type), self._collection_id,
-                       False)
+                       False, True)
 
         for val in self._send_request():
             e.new_element(val)

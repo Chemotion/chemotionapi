@@ -19,7 +19,7 @@ class ElementSet(list):
     """
 
     def __init__(self, session: Connection, element_type: dict,
-                 collection_id: int = None, collection_is_sync: bool = False):
+                 collection_id: int = None, collection_is_sync: bool = False, fixed_length:bool = False):
         super().__init__()
         self._load_options = {}
         self._session = session
@@ -30,12 +30,13 @@ class ElementSet(list):
         self.max_page = 1
         self._per_page = 10
         self._iri_filter = None
+        self._fixed_length = fixed_length
 
     def set_iri_filter(self, iri):
         self._iri_filter = iri
 
     def __len__(self):
-        if self._iri_filter is None:
+        if self._iri_filter is None or self._fixed_length:
             return super().__len__()
         else:
             raise TypeError("Length cannot be predicted if you use IRI typs")
@@ -87,6 +88,9 @@ class ElementSet(list):
         self._set_page(page)
 
     def _set_page(self, page: int) -> bool:
+        if self._fixed_length:
+            self._page = page
+            return page == 1
         if page > 0 and page <= self.max_page:
             self._page = page
             self.load_elements(**self._load_options)
