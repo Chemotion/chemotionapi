@@ -4,7 +4,7 @@ import os
 from threading import Thread
 
 from psutil import process_iter, AccessDenied
-from signal import SIGTERM # or SIGKILL
+from signal import SIGTERM  # or SIGKILL
 import subprocess
 import uuid
 from random import random
@@ -18,10 +18,32 @@ DEFAULT_CONFIG = {
     "ELN_PASS": "",
     "ELN_ADMIN_USER": "",
     "ELN_ADMIN_PASS": "",
+    "PG_PASSWORD": "postgres",
+    "PG_HOST": "localhost",
+    "PG_PORT": "54320",
+    "PG_USER": "postgres",
+    "PG_DB": "chemotion",
+    "ELN_PORT": "3579",
+    "DOCKER_FILE": "docker-compose.yml",
+    "DOCKER_CWD": "../../test_config",
+    "DOCKER_COMPOSE_SERVICE": "eln"
 }
 
 CONFIG = {}
-CHEMOTION_PROCESS : subprocess.Popen | None = None
+CHEMOTION_PROCESS: subprocess.Popen | None = None
+
+
+def set_config():
+    global CONFIG, DEFAULT_CONFIG
+
+    file = "config.json"
+
+    with open(file, "r") as jsonfile:
+        data = json.load(jsonfile)
+
+    for key, val in DEFAULT_CONFIG.items():
+        CONFIG[key] = data.get(key, val)
+
 
 # task for worker threads
 def write_proces_logs():
@@ -35,15 +57,18 @@ def write_proces_logs():
 
             f.write(line.strip() + '\n')
 
+
 def pytest_sessionstart(session):
     global DEFAULT_CONFIG, CONFIG, CHEMOTION_PROCESS
+    set_config()
     if os.getenv('NO_SETUP') is not '1':
         path = os.path.join(os.getcwd(), 'data/setup_chemotion_db.sh')
         path_dir = os.path.join(os.getcwd(), 'data')
 
         CHEMOTION_PROCESS = subprocess.Popen(path, shell=True, executable='/bin/bash', cwd=path_dir,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+                                             env=dict(os.environ, **CONFIG),
+                                             stdout=subprocess.PIPE,
+                                             stderr=subprocess.PIPE)
 
         while True:
             line = CHEMOTION_PROCESS.stdout.readline().decode("utf-8")
@@ -54,14 +79,6 @@ def pytest_sessionstart(session):
             if "**SUCCESS**" in line:
                 Thread(target=write_proces_logs, args=()).start()
                 break
-
-    file="config.json"
-
-    with open(file, "r") as jsonfile:
-        data = json.load(jsonfile)
-
-    for key, val in DEFAULT_CONFIG.items():
-        CONFIG[key] = data.get(key, val)
 
     logging.info('Config:\n' + '\n'.join(["#\t%s=%s" % (key, val) for key, val in CONFIG.items()]))
 
@@ -75,9 +92,9 @@ def pytest_sessionfinish(session, exitstatus):
     if CHEMOTION_PROCESS is not None:
         for proc in process_iter():
             try:
-                for conns in proc.connections(kind='inet'):
+                for conns in proc.net_connections(kind='inet'):
                     if conns.laddr.port == 3579:
-                        proc.send_signal(SIGTERM) # or SIGKILL
+                        proc.send_signal(SIGTERM)  # or SIGKILL
             except AccessDenied:
                 pass
 
@@ -88,9 +105,11 @@ def pytest_sessionfinish(session, exitstatus):
 def delete_col_prefix():
     return "API_TEST_"
 
+
 @pytest.fixture(scope='session')
 def config_login():
     return CONFIG
+
 
 @pytest.fixture(scope='session')
 def logged_in_instance(delete_col_prefix):
@@ -98,10 +117,9 @@ def logged_in_instance(delete_col_prefix):
     yield instance
 
 
-
 @pytest.fixture()
 def instance_with_collection(logged_in_instance, delete_col_prefix):
-    name =  delete_col_prefix + uuid.uuid4().__str__()
+    name = delete_col_prefix + uuid.uuid4().__str__()
     root_col = logged_in_instance.get_root_collection()
     root_col.add_collection(name)
     root_col.save()
@@ -111,6 +129,7 @@ def instance_with_collection(logged_in_instance, delete_col_prefix):
         'main_collection': main_collection,
         'name': name
     }
+
 
 @pytest.fixture()
 def instance_with_test_samples(instance_with_collection):
