@@ -78,7 +78,7 @@ class Table(dict):
         """
         return next(self.column_ids_by_labels(label))
 
-    def column_ids_by_labels(self, *labels: str) -> Generator[str]:
+    def column_ids_by_labels(self, *labels: str) -> Generator[str, None, None]:
         """
         Finds all column IDs of columns with a given labels
 
