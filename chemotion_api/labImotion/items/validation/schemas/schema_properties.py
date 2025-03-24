@@ -19,7 +19,7 @@ properties_schema = {
                             "type": "string"
                         },
                         "current_revision": {
-                            "type": ["string", "number"]
+                            "type": ["string", "number", "null"]
                         }
                     },
                     "required": [

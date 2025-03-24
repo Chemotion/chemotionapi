@@ -2,7 +2,7 @@ import json
 import os
 import re
 import string
-from typing import Self, Callable
+from typing import Callable
 
 from chemotion_api.labImotion.icons import all_icons
 from chemotion_api.labImotion.items.options import ElementType

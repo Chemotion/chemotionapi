@@ -1,8 +1,6 @@
 import abc
-import hashlib
 import json
 import re
-import uuid
 from chemotion_api.connection import Connection
 
 

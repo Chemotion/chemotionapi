@@ -1,6 +1,4 @@
 import typing
-from time import sleep
-
 from typing import TypeVar
 from chemotion_api.collection import RootCollection, Collection
 from chemotion_api.converter import ProfileManager

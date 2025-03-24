@@ -22,7 +22,8 @@
                         "current_revision": {
                             "type": [
                                 "string",
-                                "number"
+                                "number",
+                                "null"
                             ]
                         }
                     },

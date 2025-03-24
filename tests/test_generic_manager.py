@@ -125,7 +125,7 @@ def test_read_generic_elements(instance_with_collection):
     except ValidationError as e:
         assert False
 
-    assert len(all_gs) == 8
+    assert len(all_gs) == 9
     all_gs = [x for x in all_gs if x.is_generic]
     assert len(all_gs) == 2
     all_gs[0].label += '_TEST'
