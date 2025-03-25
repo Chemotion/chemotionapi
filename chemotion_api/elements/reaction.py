@@ -53,11 +53,13 @@ class QuantityUnit(Enum):
     Mole = 'mol'
     Gram = 'g'
     Equivalent = 'Equivalent'
+    Yield = 'Yield'
 
 
 class SampleVariation():
 
-    def __init__(self, sample: Sample, sample_type: SampleVariationType, json_data: dict | None = None,
+    def __init__(self, sample: Sample, sample_type: SampleVariationType, vessel_volume: float,
+                 json_data: dict | None = None,
                  get_ref_amount: Optional[Callable] = None):
         self._sample = sample
         self._sample_type = sample_type
@@ -67,18 +69,6 @@ class SampleVariation():
             self._get_ref_amount = lambda: 1
         if json_data is None:
             self._values = {
-                "mass": {
-                    "value": 0.0,
-                    "unit": "g"
-                },
-                "amount": {
-                    "value": 0.0,
-                    "unit": "mol"
-                },
-                "volume": {
-                    "value": 0.0,
-                    "unit": "l"
-                },
                 "aux": {
                     "coefficient": 1,
                     "isReference": False,
@@ -86,16 +76,17 @@ class SampleVariation():
                     "purity": 1,
                     "molarity": 0,
                     "molecularWeight": 0,
-                    "sumFormula": "C7H12O6",
-                    "yield": None,
-                    "equivalent": None
+                    "sumFormula": "",
+                    "gasType": "off",
+                    "vesselVolume": vessel_volume,
+                    "materialType": sample_type.value
                 }
-            }
-            self._set_aux()
+            } | self._new_default_quantities()
+            self._set_aux(vessel_volume)
             self._set_quantity_from_sample()
         else:
             self._values = json_data
-            self._set_aux()
+            self._set_aux(vessel_volume)
 
     def clean(self):
         self._update_equivalent()
@@ -106,9 +97,9 @@ class SampleVariation():
             return [QuantityUnit.Liter]
 
         units = [QuantityUnit.Mole, QuantityUnit.Gram]
-        if self._values['aux']['molarity'] != 0:
-            units.append(QuantityUnit.Liter)
-        elif self._sample_type is not SampleVariationType.PRODUCT and not self.is_ref:
+        if self._sample_type is SampleVariationType.PRODUCT:
+            units.append(QuantityUnit.Yield)
+        elif not self.is_ref:
             units.append(QuantityUnit.Equivalent)
 
         return units
@@ -123,33 +114,47 @@ class SampleVariation():
         if self.is_ref:
             raise ValueError("Sample type must not be the reference material.")
         self._values['amount']['value'] = self._get_ref_amount() * value
+        self._values['equivalent']['value'] = self._get_ref_amount() * value
+
+    def set_yield(self, value):
+        if self._sample_type != SampleVariationType.PRODUCT:
+            raise ValueError("Sample type must be PRODUCT.")
+        if self.is_ref:
+            raise ValueError("Sample type must not be the reference material.")
+        self._values['amount']['value'] = self._get_ref_amount() * value
+        self._values['amount']['yield'] = value
 
     def _update_equivalent(self):
-        self._values['mass']['value'] = self.get_mass()
-        self._values['volume']['value'] = self.get_volume()
-        if self._sample_type in [SampleVariationType.PRODUCT, SampleVariationType.SOLVENTS] or self.is_ref or self._get_ref_amount() == 0:
-            self._values['aux']['equivalent'] = 0.0
-            return
-        self._values['aux']['equivalent'] = self.get_equivalent()
+        if 'mass' in self._values:
+            self._values['mass']['value'] = self.get_mass()
+        if 'volume' in self._values:
+            self._values['volume']['value'] = self.get_volume()
+        if 'yield' in self._values:
+            self._values['yield']['value'] = value = self.get_equivalent_or_yield()
+        if 'equivalent' in self._values:
+            self._values['equivalent']['value'] = value = self.get_equivalent_or_yield()
+
 
     def _set_quantity_from_sample(self):
         key = 'real_amount' if self._sample_type == SampleVariationType.PRODUCT else 'target_amount'
         value = self._sample.properties[key]
         self.set_quantity(**value)
 
-    def set_quantity(self, value: float, unit: str | QuantityUnit):
+    def set_quantity(self, value: float, unit: str | QuantityUnit | None):
         if value is None:
             value = 0.0
         if isinstance(unit, QuantityUnit):
             unit = unit.value
 
-        if self._sample_type == SampleVariationType.SOLVENTS and unit == QuantityUnit.Liter.value:
+        if self._sample_type == SampleVariationType.SOLVENTS:
             self._values['volume']['value'] = value
             return
         if unit is None:
             unit = QuantityUnit.Mole.value
         if unit == QuantityUnit.Equivalent.value:
             self.set_equivalent(value)
+        elif unit == QuantityUnit.Yield.value:
+            self.set_yield(value)
         elif unit == QuantityUnit.Gram.value:
             self._values['amount']['value'] = (value / self._molecular_weight()) * self._values['aux']['purity']
         elif unit == QuantityUnit.Mole.value:
@@ -158,17 +163,19 @@ class SampleVariation():
             self._values['amount']['value'] = (value / self._values['aux']['molarity'])
         else:
             raise ValueError(f"{self._sample_type.value} can't be quantified as {unit}.")
-        self._values['volume']['value'] = 0.0
-        self._values['mass']['value'] = 0.0
+        self._update_equivalent()
 
-    def get_equivalent(self):
-        return self._values['amount']['value'] / self._get_ref_amount()
+    def get_equivalent_or_yield(self):
+        try:
+            return self._values['amount']['value'] / self._get_ref_amount()
+        except ZeroDivisionError:
+            return 0
 
     def get_amount(self):
         return self._values['amount']['value']
 
     def get_volume(self):
-        if self._values['volume']['value'] != 0:
+        if self._values['volume']['value']:
             return self._values['volume']['value']
         elif self._values['aux']['molarity']:
             return (self.get_amount() * self._values['aux']['molarity'])
@@ -182,23 +189,61 @@ class SampleVariation():
             return 1
         return self._values['aux']['molecularWeight']
 
-    def _set_aux(self):
+    def _set_aux(self, vessel_volume: float):
         self._values['aux']['coefficient'] = self._sample.properties['coefficient']
         self._values['aux']['purity'] = self._sample.properties['purity']
         self._values['aux']['isReference'] = self._sample.properties['reference']
         self._values['aux']['molecularWeight'] = self._sample.molecule['molecular_weight']
         self._values['aux']['sumFormula'] = self._sample.molecule['sum_formular']
         self._values['aux']['molarity'] = self._sample.properties['molarity']['value']
-        if self._sample_type == SampleVariationType.PRODUCT:
-            self._values['aux']['yield'] = self._sample.properties['equivalent']
-        elif self._sample.properties['reference']:
-            self._values['aux']['isReference'] = True
-        else:
-            self._values['aux']['equivalent'] = self._sample.properties['equivalent']
+        self._values['aux']['gasType'] = self._sample.properties['gas_type'].value
+        self._values['aux']['vesselVolume'] = vessel_volume
+        self._values['aux']['materialType'] = self._sample_type.value
 
     @property
     def sample(self) -> Sample:
         return self._sample
+
+
+
+    def _new_default_quantities(self):
+        if self._sample_type in [SampleVariationType.STARTING_MATERIAL, SampleVariationType.REACTANT]:
+            return {
+                "mass": {
+                    "value": 0.0,
+                    "unit": "g"
+                },
+                "amount": {
+                    "value": 0.0,
+                    "unit": "mol"
+                },
+                "equivalent": {
+                    "value": 0.0,
+                    "unit": None
+                }
+            }
+        if self._sample_type == SampleVariationType.PRODUCT:
+            return {
+                "mass": {
+                    "value": 0.0,
+                    "unit": "g"
+                },
+                "amount": {
+                    "value": 0.0,
+                    "unit": "mol"
+                },
+                "yield": {
+                    "value": 0.0,
+                    "unit": None
+                }
+            }
+        if self._sample_type == SampleVariationType.SOLVENTS:
+            return {
+                "volume": {
+                    "value": 0.0,
+                    "unit": "l"
+                }
+            }
 
 
 class Variation():
@@ -217,35 +262,45 @@ class Variation():
             return 1
         return self._ref_mat.get_amount()
 
-    def populate(self, json_data: dict, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList,
-                 products: MaterialList, solvents: MaterialList):
+    def populate(self, json_data: dict, analyses: AnalysesList, starting_materials: MaterialList,
+                 reactants: MaterialList,
+                 products: MaterialList, solvents: MaterialList, vessel_size: dict):
         self._json_data = json_data
         self.id = self._json_data['id']
         self._properties = json_data['properties']
-        self.notes = json_data['notes']
+        self.notes = json_data['metadata']['notes']
         self._analyses = analyses
         self._materials = {
             SampleVariationType.STARTING_MATERIAL: [
-                self.sample_variation_factory(x, SampleVariationType.STARTING_MATERIAL) for x in
+                self.sample_variation_factory(x, SampleVariationType.STARTING_MATERIAL, vessel_size) for x in
                 starting_materials],
-            SampleVariationType.REACTANT: [self.sample_variation_factory(x, SampleVariationType.REACTANT) for x in
+            SampleVariationType.REACTANT: [self.sample_variation_factory(x, SampleVariationType.REACTANT, vessel_size)
+                                           for x in
                                            reactants],
-            SampleVariationType.PRODUCT: [self.sample_variation_factory(x, SampleVariationType.PRODUCT) for x in
+            SampleVariationType.PRODUCT: [self.sample_variation_factory(x, SampleVariationType.PRODUCT, vessel_size) for
+                                          x in
                                           products],
-            SampleVariationType.SOLVENTS: [self.sample_variation_factory(x, SampleVariationType.SOLVENTS) for x in
+            SampleVariationType.SOLVENTS: [self.sample_variation_factory(x, SampleVariationType.SOLVENTS, vessel_size)
+                                           for x in
                                            solvents],
         }
 
-    def sample_variation_factory(self, sample: Sample, sample_type: SampleVariationType) -> SampleVariation:
+    def sample_variation_factory(self, sample: Sample, sample_type: SampleVariationType,
+                                 vessel_size: dict) -> SampleVariation:
         json_data = None
         for key, data in self._json_data.get(sample_type.value, {}).items():
             if key == str(sample.id):
                 json_data = data
-        return SampleVariation(sample, sample_type, json_data, self.get_ref_amount)
+
+        vessel_volume = vessel_size.get('amount')
+        if vessel_volume is not None and vessel_size.get('unit') == 'l':
+            vessel_volume *= 1000
+
+        return SampleVariation(sample, sample_type, vessel_volume, json_data, self.get_ref_amount)
 
     def clean(self):
         self._json_data['properties'] = self._properties
-        self._json_data['notes'] = self.notes
+        self._json_data['metadata']['notes'] = self.notes
         for sample_type, sample_variations in self._materials.items():
             self._json_data[sample_type.value] = {}
             for sample_variation in sample_variations:
@@ -255,12 +310,12 @@ class Variation():
     def link_analyses(self, analyses: Analyses):
         try:
             int(analyses.id)
-            self._json_data['analyses'].append(analyses.id)
+            self._json_data['metadata']['analyses'].append(analyses.id)
         except ValueError:
             raise ValueError("Analyses has no id. please save the Reaction first")
 
     def get_analyses(self) -> Iterator[Analyses]:
-        for ana_id in self._json_data['analyses']:
+        for ana_id in self._json_data['metadata']['analyses']:
             yield self._analyses.by_id(ana_id)
 
     @property
@@ -285,19 +340,21 @@ class Variation():
 
 
 class Variations(MutableSequence):
-    def __init__(self, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList, products: MaterialList,
-                 solvents: MaterialList):
+    def __init__(self, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList,
+                 products: MaterialList,
+                 solvents: MaterialList, vessel_size: dict):
         # Initialize the list with given items
         self._data = list()
         self._materials = {'starting_materials': starting_materials, 'reactants': reactants, 'products': products,
                            'solvents': solvents}
         self._highest_id = 0
         self._analyses = analyses
+        self._vessel_size = vessel_size
 
     def populate(self, json_data: dict):
         for variation in json_data:
             v = Variation()
-            v.populate(variation, self._analyses, **self._materials)
+            v.populate(variation, self._analyses, **self._materials, vessel_size=self._vessel_size)
             self.append(v)
             self._highest_id = max(self._highest_id, variation['id'])
 
@@ -313,7 +370,6 @@ class Variations(MutableSequence):
         self._highest_id += 1
         variation = {
             "id": self._highest_id,
-            "notes": "",
             "properties": {
                 "temperature": {
                     "value": 0,
@@ -324,14 +380,17 @@ class Variations(MutableSequence):
                     "unit": "Second(s)"
                 }
             },
-            "analyses": [],
+            "metadata": {
+                "notes": "",
+                "analyses": []
+            },
             "reactants": {},
             "products": {},
             "solvents": {},
             "startingMaterials": {}
         }
         v = Variation()
-        v.populate(variation, self._analyses, **self._materials)
+        v.populate(variation, self._analyses, **self._materials, vessel_size=self._vessel_size)
         self.append(v)
         return v
 
@@ -502,7 +561,7 @@ class Reaction(AbstractElement):
             mat_samples = {}
             for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents']:
                 mat_samples[reaction_elm_names] = self.properties[reaction_elm_names]
-            self._variations = Variations(self.analyses, **mat_samples)
+            self._variations = Variations(self.analyses, **mat_samples, vessel_size=self.properties.get('vessel_size'))
             self._variations.populate(self.json_data['variations'])
 
         return self._variations

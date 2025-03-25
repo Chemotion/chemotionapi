@@ -1,6 +1,7 @@
 import json
 import re
 import copy
+from enum import Enum
 
 from requests import Response
 
@@ -10,6 +11,11 @@ from collections.abc import MutableMapping
 from chemotion_api.connection import Connection
 from chemotion_api.utils import UnitDict, FixedDict
 from chemotion_api.utils.solvent_manager import get_solvent_list
+
+
+class GasType(Enum):
+    OFF = 'off'
+    FEEDSTOCK = 'feedstock'
 
 
 class SolventList(list):
@@ -184,7 +190,7 @@ class Sample(AbstractElement):
 
 
         :key solvent: {:class:`chemotion_api.elements.abstract_element.SolventList`}
-        :key description: {string}
+        :key description: {str}
         :key external_label: {str}
         :key boiling_point_lowerbound: {float}
         :key boiling_point_upperbound: {float}
@@ -207,6 +213,9 @@ class Sample(AbstractElement):
         :key equivalent: {str}
         :key coefficient: {str}
         :key reaction_description: {str}
+        :key gas_type {:class:`chemotion_api.elements.sample.GasType`}
+        :key inventory_sample: {bool}
+        :key gas_phase_data: {dict}
 
         Readonly properties:
 
@@ -284,6 +293,33 @@ class Sample(AbstractElement):
             'melting_point') is not None else ['', '']
         boiling_range = re.split(r'\.{2,3}', self.json_data.get('boiling_point')) if self.json_data.get(
             'boiling_point') is not None else ['', '']
+
+        gas_props = {}
+        if self.json_data.get('gas_type') is not None:
+            gas_props['gas_type'] = GasType(self.json_data.get('gas_type'))
+        else:
+            gas_props['gas_type'] = GasType.OFF
+
+        if self.json_data.get('gas_phase_data') is None:
+            gas_props['gas_phase_data'] = FixedDict({
+                "time": {
+                    "unit": "h",
+                    "value": None
+                },
+                "temperature": {
+                    "unit": "K",
+                    "value": None
+                },
+                "turnover_number": None,
+                "part_per_million": None,
+                "turnover_frequency": {
+                    "unit": "TON/h",
+                    "value": None
+                }
+            })
+        else:
+            gas_props['gas_phase_data'] = FixedDict(self.json_data.get('gas_phase_data'))
+
         return {
             'name': self.json_data.get('name'),
             'short_label': self.json_data.get('short_label'),
@@ -295,7 +331,7 @@ class Sample(AbstractElement):
             'melting_point_lowerbound': int(melting_range[0]) if melting_range[0].isdigit() else None,
             'melting_point_upperbound': int(melting_range[1]) if melting_range[1].isdigit() else None,
             'target_amount': UnitDict(unit=self.json_data.get('target_amount_unit'),
-                                    value=self.json_data.get('target_amount_value')),
+                                      value=self.json_data.get('target_amount_value')),
             'real_amount': UnitDict(unit=self.json_data.get('real_amount_unit'),
                                     value=self.json_data.get('real_amount_value')),
             'stereo': self.json_data.get('stereo'),
@@ -316,10 +352,9 @@ class Sample(AbstractElement):
             'molarity': UnitDict(unit=format(self.json_data.get('molarity_unit')),
                                  value=self.json_data.get('molarity_value')),
 
-
             'molecular_mass': self.json_data.get('molecular_mass'),
-            'gas_phase_data': FixedDict(self.json_data.get('gas_phase_data'))
-        }
+            'inventory_sample': self.json_data.get('inventory_sample')
+        } | gas_props
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         if serialize_data is None:
@@ -330,14 +365,10 @@ class Sample(AbstractElement):
         serialize_data['external_label'] = self.properties.get('external_label')
         serialize_data['short_label'] = self.properties.get('short_label')
         serialize_data['solvent'] = self.properties.get('solvent')
-        if self.properties.get('boiling_point_lowerbound') is not None:
-            serialize_data['boiling_point_lowerbound'] = self.properties.get('boiling_point_lowerbound')
-        if self.properties.get('boiling_point_upperbound') is not None:
-            serialize_data['boiling_point_upperbound'] = self.properties.get('boiling_point_upperbound')
-        if self.properties.get('melting_point_lowerbound') is not None:
-            serialize_data['melting_point_lowerbound'] = self.properties.get('melting_point_lowerbound')
-        if self.properties.get('melting_point_upperbound') is not None:
-            serialize_data['melting_point_upperbound'] = self.properties.get('melting_point_upperbound')
+        serialize_data['boiling_point_lowerbound'] = self.properties.get('boiling_point_lowerbound')
+        serialize_data['boiling_point_upperbound'] = self.properties.get('boiling_point_upperbound')
+        serialize_data['melting_point_lowerbound'] = self.properties.get('melting_point_lowerbound')
+        serialize_data['melting_point_upperbound'] = self.properties.get('melting_point_upperbound')
         serialize_data['stereo'] = self.properties.get('stereo')
         serialize_data['location'] = self.properties.get('location')
         serialize_data['purity'] = self.properties.get('purity')
@@ -345,6 +376,7 @@ class Sample(AbstractElement):
         serialize_data['decoupled'] = self.properties.get('decoupled')
         serialize_data['density'] = self.properties.get('density')
         serialize_data['metrics'] = self.properties.get('metrics')
+        serialize_data['dry_solvent'] = self.properties.get('dry_solvent')
 
         serialize_data['is_top_secret'] = self.properties.get('is_top_secret')
         serialize_data['molarity_unit'] = self.properties.get('molarity').get('unit')
@@ -366,13 +398,12 @@ class Sample(AbstractElement):
         serialize_data['is_split'] = self.is_split
 
         serialize_data['molfile'] = self.json_data.get('molfile')
-
-        if self.properties.get('gas_phase_data') is not None:
+        serialize_data['inventory_sample'] = self.properties.get('inventory_sample')
+        serialize_data['gas_type'] = self.properties.get('gas_type').value
+        if self.properties.get('gas_type') != GasType.OFF.value and self.properties.get('gas_phase_data') is not None:
             serialize_data['gas_phase_data'] = self.properties.get('gas_phase_data')
-
-        if self.properties.get('gas_type') is not None:
-            serialize_data['gas_type'] = self.properties.get('gas_type') != 'off'
-
+        else:
+            serialize_data['gas_phase_data'] = None
 
         serialize_data['sample_svg_file'] = self.json_data.get('sample_svg_file')
         serialize_data['dry_solvent'] = self.json_data.get('dry_solvent')
@@ -381,7 +412,7 @@ class Sample(AbstractElement):
         serialize_data['imported_readout'] = self.json_data.get('imported_readout')
         serialize_data['xref'] = self.json_data.get('xref')
         serialize_data['elemental_compositions'] = self.json_data.get('elemental_compositions')
-        serialize_data['inventory_sample'] = self.json_data.get('inventory_sample')
+        serialize_data['molecule_name_id'] = self.json_data.get('molecule_name_id')
 
         if self.molecule is not None and self.molecule.id is not None:
             serialize_data['molecule'] = self.molecule.store

@@ -560,6 +560,11 @@ class AbstractElement:
         data = self.clean_data()
         is_created = False
         json_dumps_data = json.dumps(data, default=fixeddict_serializer)
+        # Uncomment  after Chem update to write upload json to compare with Chemotion Browser upload
+        # dump_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'test_config/dumps/upload_jsons')
+        # os.makedirs(dump_dir, exist_ok=True)
+        # with open(os.path.join(dump_dir, f'{self.element_type}_{self.id}_{uuid.uuid4().__str__()}.json'), 'w+') as outfile:
+        #     outfile.write(json_dumps_data)
         if self.id is None:
             res = self._session.post(self.save_url(), data=json_dumps_data)
             is_created = True

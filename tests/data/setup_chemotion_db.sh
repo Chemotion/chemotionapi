@@ -61,10 +61,10 @@ echo "DB loaded: $BASEDIR/test.sql"
 # HTTP-Statuscode abrufen
 STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://0.0.0.0:${ELN_PORT}/mydb")
 echo "Status code: $STATUS_CODE"
-if [[ "$STATUS_CODE" -ne 404 ]]; then
+if [ "$STATUS_CODE" -ne 404 ]; then
     echo "Chemotion is running on port ${PORT_NUMBER}"
     cd ${DOCKER_CWD}
-    echo "docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c 'exec rake db:migrate'"
+    echo "RUN: docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c 'exec rake db:migrate'"
     docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c "exec rake db:migrate"
     echo "**SUCCESS**"
     exit 0
