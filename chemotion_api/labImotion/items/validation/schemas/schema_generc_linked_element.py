@@ -5,10 +5,10 @@ from chemotion_api.labImotion.items.validation.schemas.abstract_element_schema i
 from chemotion_api.labImotion.items.validation.schemas.schema_properties import properties_schema as properties
 
 generic_schema = copy.deepcopy(generic_element_schema)
-generic_schema['$id'] = "chmotion://generic/linked_element/draft-01"
+generic_schema['$id'] = "chemotion://generic/linked_element/draft-01"
 generic_schema['title'] = "Schema for generic linked element"
-generic_schema['properties']['properties_template']['$ref'] = 'chmotion://generic/linked_properties/draft-01'
-generic_schema['properties']['properties_release']['$ref'] = 'chmotion://generic/linked_properties/draft-01'
+generic_schema['properties']['properties_template']['$ref'] = 'chemotion://generic/linked_properties/draft-01'
+generic_schema['properties']['properties_release']['$ref'] = 'chemotion://generic/linked_properties/draft-01'
 generic_schema['required'] += ['name', 'icon_name', 'is_generic', 'klass_prefix']
 
 generic_schema['properties'] |= {
@@ -36,7 +36,7 @@ generic_schema['properties'] |= {
 }
 
 generic_props_schema = copy.deepcopy(properties)
-generic_props_schema['$id'] = 'chmotion://generic/linked_properties/draft-01'
+generic_props_schema['$id'] = 'chemotion://generic/linked_properties/draft-01'
 generic_props_schema['title'] = "Schema for generic linked properties"
 
 generic_props_schema['properties'] |= {

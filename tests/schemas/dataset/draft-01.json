@@ -18,10 +18,10 @@
             "type": "string"
         },
         "properties_template": {
-            "$ref": "chmotion://generic/dataset_properties/draft-01"
+            "$ref": "chemotion://generic/dataset_properties/draft-01"
         },
         "properties_release": {
-            "$ref": "chmotion://generic/dataset_properties/draft-01"
+            "$ref": "chemotion://generic/dataset_properties/draft-01"
         },
         "is_active": {
             "type": "boolean"
@@ -87,6 +87,6 @@
         "updated_at",
         "ols_term_id"
     ],
-    "$id": "chmotion://generic/dataset/draft-01",
+    "$id": "chemotion://generic/dataset/draft-01",
     "title": "Schema for generic dataset"
 }

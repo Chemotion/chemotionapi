@@ -4,7 +4,7 @@ from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 from chemotion_api.labImotion.items.validation.schemas.abstract_element_schema import generic_element_schema
 
 generic_schema = copy.deepcopy(generic_element_schema)
-generic_schema['$id'] = "chmotion://generic/element/draft-01"
+generic_schema['$id'] = "chemotion://generic/element/draft-01"
 generic_schema['title'] = "Schema for generic element"
 generic_schema['required'] += ['name', 'icon_name', 'is_generic', 'klass_prefix']
 

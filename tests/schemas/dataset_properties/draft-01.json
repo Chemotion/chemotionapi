@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "chmotion://generic/dataset_properties/draft-01",
+    "$id": "chemotion://generic/dataset_properties/draft-01",
     "title": "Schema for generic dataset properties",
     "type": "object",
     "properties": {
@@ -58,7 +58,7 @@
             "type": "object",
             "patternProperties": {
                 "^[a-z][a-zA-Z_]{1,20}[a-z]$": {
-                    "$ref": "chmotion://generic/layer/draft-01"
+                    "$ref": "chemotion://generic/layer/draft-01"
                 }
             },
             "additionalProperties": false
@@ -270,7 +270,7 @@
             ]
         },
         "select_options": {
-            "$ref": "chmotion://generic/select_option/draft-01"
+            "$ref": "chemotion://generic/select_option/draft-01"
         },
         "eln": {
             "type": "object",

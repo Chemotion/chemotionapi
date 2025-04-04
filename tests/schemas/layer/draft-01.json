@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "chmotion://generic/layer/draft-01",
+    "$id": "chemotion://generic/layer/draft-01",
     "title": "Schema for generic layer",
     "type": "object",
     "properties": {
@@ -36,7 +36,7 @@
         "fields": {
             "type": "array",
             "items": {
-                "$ref": "chmotion://generic/field/draft-01"
+                "$ref": "chemotion://generic/field/draft-01"
             }
         },
         "position": {
@@ -49,7 +49,7 @@
         "cond_fields": {
             "type": "array",
             "items": {
-                "$ref": "chmotion://generic/cond_field/draft-01"
+                "$ref": "chemotion://generic/cond_field/draft-01"
             }
         },
         "wf_position": {

@@ -1,6 +1,6 @@
 
 schema = {
-    "$schema": "chmotion:type/research_plan/1.9.3/draft-01/schema#",
+    "$schema": "chemotion:type/research_plan/1.9.3/draft-01/schema#",
     "title": "Research plan Properties",
     "type": "object",
     "properties": {

@@ -4,16 +4,16 @@ from chemotion_api import Instance
 
 def test_all_types(instance_with_collection):
     instance: Instance = instance_with_collection['instance']
-    assert list(instance.get_all_types()) == ['chmotion:type/wellplate/1.10.3',
-                                               'chmotion:type/screen/1.10.3',
-                                               'chmotion:type/sample/1.10.3',
-                                               'chmotion:type/research_plan/1.10.3',
-                                               'chmotion:type/reaction/1.10.3',
-                                               'chmotion:type/device_description/1.10.3',
-                                               'chmotion:type/cell_line/1.10.3',
-                                               'chmotion:generic_type/wrk/2.0',
-                                               'chmotion:generic_type/wrk/1.0',
-                                               'chmotion:generic_type/try/1.0']
+    assert list(instance.get_all_types()) == ['chemotion:type/wellplate/1.10.3',
+                                               'chemotion:type/screen/1.10.3',
+                                               'chemotion:type/sample/1.10.3',
+                                               'chemotion:type/research_plan/1.10.3',
+                                               'chemotion:type/reaction/1.10.3',
+                                               'chemotion:type/device_description/1.10.3',
+                                               'chemotion:type/cell_line/1.10.3',
+                                               'chemotion:generic_type/wrk/2.0',
+                                               'chemotion:generic_type/wrk/1.0',
+                                               'chemotion:generic_type/try/1.0']
 
 
 def test_instance(config_login):

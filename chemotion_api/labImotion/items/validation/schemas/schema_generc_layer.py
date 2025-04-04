@@ -3,7 +3,7 @@ from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 
 generic_schema = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "chmotion://generic/layer/draft-01",
+    "$id": "chemotion://generic/layer/draft-01",
     "title": "Schema for generic layer",
     "type": "object",
     "properties": {
@@ -31,7 +31,7 @@ generic_schema = {
         "fields": {
             "type": "array",
             "items": {
-                "$ref": "chmotion://generic/field/draft-01"
+                "$ref": "chemotion://generic/field/draft-01"
             }
         },
         "position": {
@@ -44,7 +44,7 @@ generic_schema = {
         "cond_fields": {
             "type": "array",
             "items": {
-                "$ref": "chmotion://generic/cond_field/draft-01"
+                "$ref": "chemotion://generic/cond_field/draft-01"
             }
         },
         "wf_position": {

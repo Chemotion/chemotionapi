@@ -20,7 +20,7 @@ TInstance = TypeVar("TInstance", bound="Instance")
 class Instance:
     """
     The instance object is the core object of the Chemotion API. In order for the API to work,
-    a connection to a Chmotion must first be established.
+    a connection to a chemotion must first be established.
     an Instance object manges such a connection. To initializes an instance it needs
     the host URL of the chemotion server as a string.
 

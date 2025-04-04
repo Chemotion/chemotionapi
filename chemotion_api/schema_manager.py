@@ -5,7 +5,7 @@ import requests
 
 class SchemaManager:
 
-    iri_prefix = 'chmotion'
+    iri_prefix = 'chemotion'
     def __init__(self, res: requests.Response):
         a = re.findall(r'Version: .*(\d+\.\d+.\d+)', res.text)
         if len(a) > 0:

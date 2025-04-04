@@ -3,7 +3,7 @@ from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 
 generic_schema = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "chmotion://generic/field/draft-01",
+    "$id": "chemotion://generic/field/draft-01",
     "title": "Schema for generic field",
     "type": "object",
     "properties": {
@@ -110,7 +110,7 @@ generic_schema = {
         "cond_fields": {
             "type": "array",
             "item": {
-                "$ref": "chmotion://generic/cond_field/draft-01"
+                "$ref": "chemotion://generic/cond_field/draft-01"
             }
         },
         "cond_operator": {

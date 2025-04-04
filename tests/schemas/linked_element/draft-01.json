@@ -18,10 +18,10 @@
             "type": "string"
         },
         "properties_template": {
-            "$ref": "chmotion://generic/linked_properties/draft-01"
+            "$ref": "chemotion://generic/linked_properties/draft-01"
         },
         "properties_release": {
-            "$ref": "chmotion://generic/linked_properties/draft-01"
+            "$ref": "chemotion://generic/linked_properties/draft-01"
         },
         "is_active": {
             "type": "boolean"
@@ -99,6 +99,6 @@
         "is_generic",
         "klass_prefix"
     ],
-    "$id": "chmotion://generic/linked_element/draft-01",
+    "$id": "chemotion://generic/linked_element/draft-01",
     "title": "Schema for generic linked element"
 }
