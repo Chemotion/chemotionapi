@@ -16,7 +16,10 @@ def fixeddict_serializer(obj):
 
 class FixedDict(MutableMapping):
     def __init__(self, data):
-        self.__data = data
+        if data is None:
+            self.__data = {}
+        else:
+            self.__data = data
 
     def __len__(self):
         return len(self.__data)
