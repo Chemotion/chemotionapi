@@ -17,3 +17,5 @@ ElnDataFatcher.iml
 /docs/_build
 /tests/dumps/
 /test_config/.env
+/example.json
+/example_2.json

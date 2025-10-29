@@ -64,8 +64,8 @@ echo "Status code: $STATUS_CODE"
 if [ "$STATUS_CODE" -ne 404 ]; then
     echo "Chemotion is running on port ${PORT_NUMBER}"
     cd ${DOCKER_CWD}
-    echo "RUN: docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c 'exec rake db:migrate'"
-    docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c "exec rake db:migrate"
+    echo "RUN: docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c 'bundle exec rake db:migrate'"
+    docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c "bundle exec rake db:migrate"
     echo "**SUCCESS**"
     exit 0
 fi

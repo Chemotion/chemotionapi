@@ -2,6 +2,7 @@ import json
 import re
 import copy
 from enum import Enum
+from typing import Literal
 
 from requests import Response
 
@@ -15,6 +16,8 @@ from chemotion_api.utils.solvent_manager import get_solvent_list
 
 class GasType(Enum):
     OFF = 'off'
+    GAS = 'gas'
+    CATALYST = 'catalyst'
     FEEDSTOCK = 'feedstock'
 
 
@@ -175,12 +178,42 @@ class Sample(AbstractElement):
     >>> s.save()
     """
 
+    def __init__(self, *args, **kwargs):
+        self._molecule = None
+        self.is_split = False
+        self._reaction = None
+        super().__init__(*args, **kwargs)
+
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
         self._molecule = Molecule(json_data.get('molecule'))
         self._svg_file = json_data.get('sample_svg_file')
         self.is_split = json_data.get('is_split', False)
         self._children_count = json_data.get('children_count', )
+
+    @property
+    def reaction(self):
+        if self._reaction is None:
+            from chemotion_api import Instance
+            try:
+                self._reaction = Instance(self._session).get_reaction(self.json_data['tag']['taggable_data']['reaction_id'])
+            except (KeyError, IndexError):
+                raise KeyError(f'Could not find Reaction of Sample: {self}')
+        return self._reaction
+
+    @reaction.setter
+    def reaction(self, reaction):
+        self._reaction = reaction
+
+    @property
+    def role_in_reaction(self) -> Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
+        elements = ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']
+        for element in elements:
+            mat_list = self.reaction.properties[element]
+            for mat in mat_list:
+                if mat.id == self.id:
+                    return element
+        raise KeyError(f'Could not find Role In {self}')
 
     @property
     def properties(self) -> dict:
@@ -419,3 +452,8 @@ class Sample(AbstractElement):
             serialize_data['molecule_id'] = self.molecule.id
 
         return serialize_data
+
+
+    def on_properties_change(self, dict_obj, name, value):
+        print(name)
+        return True

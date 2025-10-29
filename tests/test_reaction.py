@@ -28,7 +28,7 @@ def test_get_reaction_success(instance_with_test_reaction: dict):
     assert wp.properties['starting_materials'][0].id != instance_with_test_reaction.get('sample_ids')[0]
 
 
-def test_set_reactoin_success(instance_with_test_reaction: dict):
+def test_set_reaction_success(instance_with_test_reaction: dict):
     logged_in_instance :Instance = instance_with_test_reaction['instance']
     col: Collection = instance_with_test_reaction['main_collection']
     reaction  = instance_with_test_reaction['reaction']
@@ -51,6 +51,17 @@ def test_set_reactoin_success(instance_with_test_reaction: dict):
 
     reaction.save()
 
+def test_get_reaction_from_sample(instance_with_test_reaction: dict):
+    logged_in_instance :Instance = instance_with_test_reaction['instance']
+    reaction  = instance_with_test_reaction['reaction']
+    sample = logged_in_instance.get_sample(reaction.properties['starting_materials'][0].id)
+    assert sample.reaction.id == 2
+    assert sample.reaction.properties['starting_materials'][0].id == sample.id
+    assert reaction.properties['starting_materials'][0].reaction.id == reaction.id
 
-    pass
-
+def test_get_reaction_role_of_sample(instance_with_test_reaction: dict):
+    logged_in_instance :Instance = instance_with_test_reaction['instance']
+    reaction  = instance_with_test_reaction['reaction']
+    s1 = logged_in_instance.get_sample(reaction.properties['starting_materials'][0].id)
+    assert s1.role_in_reaction == 'starting_materials'
+    assert s1.role_in_reaction == reaction.properties['starting_materials'][0].role_in_reaction

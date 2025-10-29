@@ -3,12 +3,12 @@ from random import randint
 
 import pytest
 
+from chemotion_api import Instance
 from chemotion_api.collection import Collection
 
 
 def test_get_sample_success(instance_with_test_samples: dict):
     instance_with_test_samples.get('instance').get_sample(instance_with_test_samples.get('sample_ids')[0])
-
 
 def test_new_sample_success(instance_with_collection):
     logged_in_instance = instance_with_collection['instance']

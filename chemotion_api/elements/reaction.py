@@ -57,7 +57,6 @@ class QuantityUnit(Enum):
 
 
 class SampleVariation():
-
     def __init__(self, sample: Sample, sample_type: SampleVariationType, vessel_volume: float,
                  json_data: dict | None = None,
                  get_ref_amount: Optional[Callable] = None):
@@ -73,6 +72,7 @@ class SampleVariation():
                     "coefficient": 1,
                     "isReference": False,
                     "loading": None,
+                    "density": None,
                     "purity": 1,
                     "molarity": 0,
                     "molecularWeight": 0,
@@ -141,6 +141,8 @@ class SampleVariation():
         self.set_quantity(**value)
 
     def set_quantity(self, value: float, unit: str | QuantityUnit | None):
+        # TODO: Gas Type not None elements!!!
+        # ToDo: How are Gas Types calculated (Volume ????)
         if value is None:
             value = 0.0
         if isinstance(unit, QuantityUnit):
@@ -175,10 +177,14 @@ class SampleVariation():
         return self._values['amount']['value']
 
     def get_volume(self):
+        if self._values.get('volume') is None:
+            self._values['volume'] = {'value': 0, 'unit': 'l'}
         if self._values['volume']['value']:
             return self._values['volume']['value']
         elif self._values['aux']['molarity']:
-            return (self.get_amount() * self._values['aux']['molarity'])
+            return self.get_amount() * self._values['aux']['molarity']
+        elif self._values['aux']['density']:
+            return self.get_mass() / (self._values['aux']['density'] * 1000)
         return 0
 
     def get_mass(self):
@@ -190,12 +196,14 @@ class SampleVariation():
         return self._values['aux']['molecularWeight']
 
     def _set_aux(self, vessel_volume: float):
+        # TODO: [DONE] get density, molarity from sample (NOT only for new Variations)!!!!
         self._values['aux']['coefficient'] = self._sample.properties['coefficient']
         self._values['aux']['purity'] = self._sample.properties['purity']
         self._values['aux']['isReference'] = self._sample.properties['reference']
         self._values['aux']['molecularWeight'] = self._sample.molecule['molecular_weight']
         self._values['aux']['sumFormula'] = self._sample.molecule['sum_formular']
         self._values['aux']['molarity'] = self._sample.properties['molarity']['value']
+        self._values['aux']['density'] = self._sample.properties['density']
         self._values['aux']['gasType'] = self._sample.properties['gas_type'].value
         self._values['aux']['vesselVolume'] = vessel_volume
         self._values['aux']['materialType'] = self._sample_type.value
@@ -217,6 +225,10 @@ class SampleVariation():
                     "value": 0.0,
                     "unit": "mol"
                 },
+                "volume": {
+                    "value": 0.0,
+                    "unit": 'l'
+                },
                 "equivalent": {
                     "value": 0.0,
                     "unit": None
@@ -232,6 +244,10 @@ class SampleVariation():
                     "value": 0.0,
                     "unit": "mol"
                 },
+                "volume": {
+                    "value": 0.0,
+                    "unit": 'l'
+                },
                 "yield": {
                     "value": 0.0,
                     "unit": None
@@ -244,10 +260,12 @@ class SampleVariation():
                     "unit": "l"
                 }
             }
+        raise ValueError(f'Sample type: {self._sample_type.value} is not supported.')
 
 
 class Variation():
     def __init__(self):
+        self.id = -1
         self._json_data = None
         self._properties = {}
         self.notes = ""
@@ -394,6 +412,9 @@ class Variations(MutableSequence):
         self.append(v)
         return v
 
+    def sort(self):
+        self._data = sorted(self._data, key=lambda v: v.id)
+
     def clean(self):
         return [variation.clean() for variation in self._data]
 
@@ -404,6 +425,7 @@ class Variations(MutableSequence):
     def __setitem__(self, index, value):
         # Set the item at the given index
         self._data[index] = value
+        self.sort()
 
     def __delitem__(self, index):
         # Delete the item at the given index
@@ -412,6 +434,7 @@ class Variations(MutableSequence):
     def insert(self, index, value):
         # Insert an item at the given index
         self._data.insert(index, value)
+        self.sort()
 
     def __len__(self):
         # Return the length of the list
@@ -572,7 +595,9 @@ class Reaction(AbstractElement):
             obj_list = self.json_data[reaction_elm_names]
             temp = []
             for sample in obj_list:
-                temp.append(Sample(self._generic_segments, self._session, sample))
+                sample_obj = Sample(self._generic_segments, self._session, sample)
+                sample_obj.reaction = self
+                temp.append(sample_obj)
             reaction_elements[reaction_elm_names] = MaterialList(temp)
 
         try:

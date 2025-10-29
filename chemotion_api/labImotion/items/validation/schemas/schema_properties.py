@@ -16,7 +16,7 @@ properties_schema = {
                             "type": ["string", "number"]
                         },
                         "base_revision": {
-                            "type": "string"
+                            "type": ["string", "number", "null"]
                         },
                         "current_revision": {
                             "type": ["string", "number", "null"]

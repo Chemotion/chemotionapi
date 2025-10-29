@@ -59,31 +59,37 @@ def test_add_variations(instance_with_test_reaction):
     assert [x.sample.id for x in variant.starting_materials] == [2]
     assert [x.clean() for x in variant.starting_materials] == [{'amount': {'unit': 'mol', 'value': 0.11743622625733097},
                                                                 'aux': {'coefficient': 1.0, 'gasType': 'off',
+                                                                        'density': 0.0,
                                                                         'isReference': True, 'loading': None,
                                                                         'materialType': 'startingMaterials',
                                                                         'molarity': 0.0, 'molecularWeight': 17.03052,
                                                                         'purity': 1.0, 'sumFormula': 'H3N',
                                                                         'vesselVolume': None},
                                                                 'equivalent': {'unit': None, 'value': 1.0},
-                                                                'mass': {'unit': 'g', 'value': 0.006895633618781516}}]
+                                                                'mass': {'unit': 'g', 'value': 0.006895633618781516},
+                                                                'volume': {'unit': 'l', 'value': 0}}]
     assert [x.sample.id for x in variant.reactants] == [3]
     assert [x.clean() for x in variant.reactants] == [{'amount': {'unit': 'mol', 'value': 0.0015901905481965069},
                                                        'aux': {'coefficient': 1.0, 'gasType': 'off',
+                                                               'density': 1.0,
                                                                'isReference': False, 'loading': None,
                                                                'materialType': 'reactants', 'molarity': 0.0,
                                                                'molecularWeight': 13.83482, 'purity': 1.0,
                                                                'sumFormula': 'BH3', 'vesselVolume': None},
                                                        'equivalent': {'unit': None, 'value': 0.013540885967435785},
-                                                       'mass': {'unit': 'g', 'value': 0.00011494118088970488}}]
+                                                       'mass': {'unit': 'g', 'value': 0.00011494118088970488},
+                                                       'volume': {'unit': 'l', 'value': 1.1494118088970488e-07}}]
     assert [x.sample.id for x in variant.products] == [4]
     assert [x.clean() for x in variant.products] == [{'amount': {'unit': 'mol', 'value': 0.0},
                                                       'aux': {'coefficient': 1.0, 'gasType': 'off',
+                                                              'density': 0.0,
                                                               'isReference': False, 'loading': None,
                                                               'materialType': 'products', 'molarity': 0.0,
                                                               'molecularWeight': 142.19710000000003, 'purity': 1.0,
                                                               'sumFormula': 'C11H10', 'vesselVolume': None},
                                                       'mass': {'unit': 'g', 'value': 0.0},
-                                                      'yield': {'unit': None, 'value': 0.0}}]
+                                                      'yield': {'unit': None, 'value': 0.0},
+                                                      'volume': {'unit': 'l', 'value': 0}}]
 
 
 def test_remove_variations(instance_with_test_reaction):

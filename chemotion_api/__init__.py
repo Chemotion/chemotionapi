@@ -38,8 +38,11 @@ class Instance:
 
     """
 
-    def __init__(self, host_url: str):
-        self._con = Connection(host_url)
+    def __init__(self, host_url: str | Connection, verify_ssl: bool = True):
+        if isinstance(host_url, Connection):
+            self._con = host_url
+        else:
+            self._con = Connection(host_url, verify_ssl)
         self._root_col = None
         self._inbox = None
         self.element_manager = ElementManager(self._con)

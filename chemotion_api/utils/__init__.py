@@ -2,8 +2,56 @@ import copy
 import os
 import sys
 import uuid
-from collections.abc import MutableMapping
+from abc import ABC
+from collections.abc import MutableMapping, MutableSequence
 from collections import OrderedDict
+
+class PropertyDict(MutableMapping):
+
+    def __init__(self, on_change, kwargs):
+        self.data = kwargs
+        self._on_change = on_change
+
+    @property
+    def on_change(self):
+        return self._on_change
+
+    @on_change.setter
+    def on_change(self, value):
+        self._on_change = value
+
+    def __getitem__(self, name):
+        ret_val = self.data.__getitem__(name)
+        if isinstance(ret_val, dict):
+            ret_val = PropertyDict(None, ret_val)
+        if isinstance(ret_val, PropertyDict):
+            def inner_on_change(inner_dict_obj, inner_name, inner_value):
+                return self._on_change([self.__dict__(), *inner_dict_obj], [name, *inner_name], [ret_val.__dict__(), *inner_value])
+            ret_val.on_change = inner_on_change
+        return ret_val
+
+    def __setitem__(self, name, value):
+        if self._on_change is not None and self._on_change([self.data], [name], [value]):
+            self.data.__setitem__(name, value)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def __delitem__(self, k):
+        raise NotImplementedError
+
+    def __contains__(self, k):
+        return k in self.data
+
+    def __dict__(self):
+        return self.to_dict()
+
+    def to_dict(self):
+        return self.data
+
 
 def resource_path(file_path):
     """Get the absolute path to the resource, works for development and PyInstaller build."""
@@ -11,36 +59,26 @@ def resource_path(file_path):
 
 
 def fixeddict_serializer(obj):
-    if isinstance(obj, FixedDict):
+    if isinstance(obj, PropertyDict):
         return obj.to_dict()  # Return the underlying dictionary
+    return obj
 
-class FixedDict(MutableMapping):
+class FixedDict(PropertyDict):
+
     def __init__(self, data):
-        self.__data = data
-
-    def __len__(self):
-        return len(self.__data)
-
-    def __iter__(self):
-        return iter(self.__data)
+        super().__init__(None, data)
 
     def __setitem__(self, k, v):
-        if k not in self.__data:
+        if k not in self.data:
             raise KeyError(k)
 
-        self.__data[k] = v
+        super().__setitem__(k,v)
 
     def __delitem__(self, k):
         raise NotImplementedError
 
     def __getitem__(self, k):
-        return self.__data[k]
-
-    def __contains__(self, k):
-        return k in self.__data
-
-    def to_dict(self):#
-        return self.__data
+        return super().__getitem__(k)
 
 
 class UnitDict(FixedDict):
@@ -48,10 +86,10 @@ class UnitDict(FixedDict):
         super().__init__({'unit': unit, 'value': value})
 
     def set_value(self, value: float):
-        self['value'] = value
+        self.__setitem__('value', value)
 
     def set_unit(self, unit: str):
-        self['unit'] = unit
+        self.__setitem__('unit', unit)
 
 
 def add_to_dict(obj: dict, key: str, val: any) -> str:
@@ -276,6 +314,6 @@ def quill_hedging(input: str | dict, name: str) -> dict[str:list]:
                 {'insert': input}
             ]
         }
-    if not isinstance(input, dict) or 'ops' not in input or not isinstance(input['ops'], list):
+    if not isinstance(input, (dict, PropertyDict)) or 'ops' not in input or not isinstance(input['ops'], list):
         raise ValueError(f'{name} must be in the Quill.js format. (https://quilljs.com/docs/delta)')
     return input

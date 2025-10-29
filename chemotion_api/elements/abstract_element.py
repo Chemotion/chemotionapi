@@ -14,7 +14,7 @@ from chemotion_api.elements.attachments import Attachments, MutableAttachments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
-    clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer
+    clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer, PropertyDict
 
 from requests.exceptions import RequestException
 
@@ -383,13 +383,13 @@ class AbstractElement:
         return self._short_label
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> PropertyDict:
         """
         The properties property contains all data from the main tab of the elements in Chemotion.
 
         :return: Element properties
         """
-        return self._properties
+        return PropertyDict(self.on_properties_change, self._properties)
 
     @property
     def analyses(self) -> AnalysesList:
@@ -606,6 +606,9 @@ class AbstractElement:
             cleaned_data['attachments'] = self.attachments.attachment_data
 
         cleaned_prop_data = self._clean_properties_data()
+        for key, value in cleaned_prop_data.items():
+            if isinstance(value, PropertyDict):
+                cleaned_prop_data[key] = value.to_dict()
         validate(cleaned_prop_data, self.properties_schema())
 
         merge_dicts(cleaned_data, self._clean_segments_data(), cleaned_prop_data,
@@ -621,6 +624,9 @@ class AbstractElement:
         if self.id is not None:
             return "/api/v1/{}s/{}".format(self.json_data.get('type'), self.id)
         return "/api/v1/{}s/".format(self.json_data.get('type'))
+
+    def on_properties_change(self, dict_obj, name, value):
+        return True
 
     def __eq__(self, other):
         return isinstance(other, AbstractElement) and self.json_ld['@id'] == other.json_ld['@id']
