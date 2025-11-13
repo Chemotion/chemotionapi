@@ -6,7 +6,8 @@ from requests import Response
 from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
 from datetime import datetime
 
-from chemotion_api.elements.sample import Sample
+from chemotion_api.elements.sample import Sample, SampleVariationType
+from chemotion_api.elements.utils import QuantityUnit
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging
 from collections.abc import MutableSequence
@@ -41,21 +42,6 @@ class MaterialList(TypedList):
         return super(TypedList, self).append(element)
 
 
-class SampleVariationType(Enum):
-    STARTING_MATERIAL = 'startingMaterials'
-    REACTANT = 'reactants'
-    PRODUCT = 'products'
-    SOLVENTS = 'solvents'
-
-
-class QuantityUnit(Enum):
-    Liter = 'l'
-    Mole = 'mol'
-    Gram = 'g'
-    Equivalent = 'Equivalent'
-    Yield = 'Yield'
-
-
 class SampleVariation():
     def __init__(self, sample: Sample, sample_type: SampleVariationType, vessel_volume: float,
                  json_data: dict | None = None,
@@ -68,25 +54,28 @@ class SampleVariation():
             self._get_ref_amount = lambda: 1
         if json_data is None:
             self._values = {
-                "aux": {
-                    "coefficient": 1,
-                    "isReference": False,
-                    "loading": None,
-                    "density": None,
-                    "purity": 1,
-                    "molarity": 0,
-                    "molecularWeight": 0,
-                    "sumFormula": "",
-                    "gasType": "off",
-                    "vesselVolume": vessel_volume,
-                    "materialType": sample_type.value
-                }
-            } | self._new_default_quantities()
+                               "aux": {
+                                   "coefficient": 1,
+                                   "isReference": False,
+                                   "loading": None,
+                                   "density": None,
+                                   "purity": 1,
+                                   "molarity": 0,
+                                   "molecularWeight": 0,
+                                   "sumFormula": "",
+                                   "gasType": "off",
+                                   "vesselVolume": vessel_volume,
+                                   "materialType": sample_type.value
+                               }
+                           } | self._new_default_quantities()
             self._set_aux(vessel_volume)
             self._set_quantity_from_sample()
         else:
             self._values = json_data
             self._set_aux(vessel_volume)
+
+    def set_aux(self, vessel_volume: float):
+        self._set_aux(vessel_volume)
 
     def clean(self):
         self._update_equivalent()
@@ -133,7 +122,6 @@ class SampleVariation():
             self._values['yield']['value'] = value = self.get_equivalent_or_yield()
         if 'equivalent' in self._values:
             self._values['equivalent']['value'] = value = self.get_equivalent_or_yield()
-
 
     def _set_quantity_from_sample(self):
         key = 'real_amount' if self._sample_type == SampleVariationType.PRODUCT else 'target_amount'
@@ -211,8 +199,6 @@ class SampleVariation():
     @property
     def sample(self) -> Sample:
         return self._sample
-
-
 
     def _new_default_quantities(self):
         if self._sample_type in [SampleVariationType.STARTING_MATERIAL, SampleVariationType.REACTANT]:
@@ -310,11 +296,23 @@ class Variation():
             if key == str(sample.id):
                 json_data = data
 
+        vessel_volume = self._get_vessel_volume(vessel_size)
+
+        return SampleVariation(sample, sample_type, vessel_volume, json_data, self.get_ref_amount)
+
+    @staticmethod
+    def _get_vessel_volume(vessel_size):
         vessel_volume = vessel_size.get('amount')
         if vessel_volume is not None and vessel_size.get('unit') == 'l':
             vessel_volume *= 1000
+        return vessel_volume
 
-        return SampleVariation(sample, sample_type, vessel_volume, json_data, self.get_ref_amount)
+    def update_and_clean(self, vessel_size):
+        vessel_volume = self._get_vessel_volume(vessel_size)
+        for sample_type, sample_variations in self._materials.items():
+            for sample_variation in sample_variations:
+                sample_variation.set_aux(vessel_volume)
+        return self.clean()
 
     def clean(self):
         self._json_data['properties'] = self._properties
@@ -360,19 +358,19 @@ class Variation():
 class Variations(MutableSequence):
     def __init__(self, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList,
                  products: MaterialList,
-                 solvents: MaterialList, vessel_size: dict):
+                 solvents: MaterialList, vessel_size: Callable[[], dict]):
         # Initialize the list with given items
         self._data = list()
         self._materials = {'starting_materials': starting_materials, 'reactants': reactants, 'products': products,
                            'solvents': solvents}
         self._highest_id = 0
         self._analyses = analyses
-        self._vessel_size = vessel_size
+        self._get_vessel_size = vessel_size
 
     def populate(self, json_data: dict):
         for variation in json_data:
             v = Variation()
-            v.populate(variation, self._analyses, **self._materials, vessel_size=self._vessel_size)
+            v.populate(variation, self._analyses, **self._materials, vessel_size=self._get_vessel_size())
             self.append(v)
             self._highest_id = max(self._highest_id, variation['id'])
 
@@ -408,7 +406,7 @@ class Variations(MutableSequence):
             "startingMaterials": {}
         }
         v = Variation()
-        v.populate(variation, self._analyses, **self._materials, vessel_size=self._vessel_size)
+        v.populate(variation, self._analyses, **self._materials, vessel_size=self._get_vessel_size())
         self.append(v)
         return v
 
@@ -416,7 +414,7 @@ class Variations(MutableSequence):
         self._data = sorted(self._data, key=lambda v: v.id)
 
     def clean(self):
-        return [variation.clean() for variation in self._data]
+        return [variation.update_and_clean(self._get_vessel_size()) for variation in self._data]
 
     def __getitem__(self, index):
         # Retrieve the item at the given index
@@ -584,10 +582,51 @@ class Reaction(AbstractElement):
             mat_samples = {}
             for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents']:
                 mat_samples[reaction_elm_names] = self.properties[reaction_elm_names]
-            self._variations = Variations(self.analyses, **mat_samples, vessel_size=self.properties.get('vessel_size'))
+            self._variations = Variations(self.analyses, **mat_samples,
+                                          vessel_size=lambda: self.properties.get('vessel_size'))
             self._variations.populate(self.json_data['variations'])
 
         return self._variations
+
+    @property
+    def starting_materials(self) -> MaterialList:
+        return self.properties['starting_materials']
+
+    @property
+    def reactants(self) -> MaterialList:
+        return self.properties['reactants']
+
+    @property
+    def products(self) -> MaterialList:
+        return self.properties['products']
+
+    @property
+    def solvents(self) -> MaterialList:
+        return self.properties['solvents']
+
+    @property
+    def purification_solvents(self) -> MaterialList:
+        return self.properties['purification_solvents']
+
+    @property
+    def reference_sample(self) -> Optional[Sample]:
+        first_sample = None
+        for mat in [*self.starting_materials, *self.reactants]:
+            if first_sample is None:
+                first_sample = mat
+            if mat.properties['reference']:
+                return mat
+        if mat is not None:
+            mat.properties['reference'] = True
+        return mat
+
+    @reference_sample.setter
+    def reference_sample(self, value: Sample):
+        for mat in [*self.starting_materials, *self.reactants]:
+            mat.set_ref(mat.id == value.id, False)
+
+        for mat in [*self.starting_materials, *self.reactants]:
+            mat.update_equivalent()
 
     def _parse_properties(self) -> dict:
         reaction_elements = {}
@@ -625,7 +664,7 @@ class Reaction(AbstractElement):
             'temperature': Temperature(**self.json_data.get('temperature', {})),
             'status': self.json_data.get('status'),
             'vessel_size': self.json_data.get('vessel_size')
-            # 'tlc_solvents': self.json_data.get('tlc_solvents'),
+            # 'tlc_solvents': self.jreaction.properties['reactants']son_data.get('tlc_solvents'),
             # 'tlc_description': self.json_data.get('tlc_description'),
             # 'rf_value': self.json_data.get('rf_value'),
         }
@@ -683,6 +722,10 @@ class Reaction(AbstractElement):
         serialize_data['rxno'] = self.json_data.get('rxno', '')
         serialize_data['short_label'] = self.json_data.get('short_label')
         serialize_data['literatures'] = self.json_data.get('literatures')
+        serialize_data['gaseous'] = self.json_data.get('gaseous')
+        serialize_data['research_plans'] = self.json_data.get('research_plans')
+        serialize_data['user_labels'] = self.json_data.get('user_labels')
+        serialize_data['solvent'] = self.json_data.get('solvent')
 
         serialize_data['variations'] = self._clean_variations()
 

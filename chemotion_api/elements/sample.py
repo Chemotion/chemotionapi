@@ -2,7 +2,7 @@ import json
 import re
 import copy
 from enum import Enum
-from typing import Literal
+from typing import Literal, Optional
 
 from requests import Response
 
@@ -12,6 +12,19 @@ from collections.abc import MutableMapping
 from chemotion_api.connection import Connection
 from chemotion_api.utils import UnitDict, FixedDict
 from chemotion_api.utils.solvent_manager import get_solvent_list
+from chemotion_api.elements.utils import QuantityUnit, calculate_quantity
+
+
+class SampleType(Enum):
+    SAMPLE_TYPE_MIXTURE = 'Mixture'
+    SAMPLE_TYPE_MICROMOLECULE = 'Micromolecule'
+
+
+class SampleVariationType(Enum):
+    STARTING_MATERIAL = 'startingMaterials'
+    REACTANT = 'reactants'
+    PRODUCT = 'products'
+    SOLVENTS = 'solvents'
 
 
 class GasType(Enum):
@@ -115,6 +128,16 @@ class Molecule(MutableMapping):
     def _keytransform(self, key):
         return key
 
+    def clean(self) -> dict:
+        return {
+            "density": self.store.get("density"),
+            "melting_point": self.store.get("melting_point"),
+            "boiling_point": self.store.get("boiling_point"),
+            "inchistring": self.store.get("inchistring"),
+            "cano_smiles": self.store.get("cano_smiles"),
+            "inchikey": self.store.get("inchikey")
+        }
+
 
 class MoleculeManager:
     """
@@ -182,6 +205,7 @@ class Sample(AbstractElement):
         self._molecule = None
         self.is_split = False
         self._reaction = None
+        self._role_in_reaction = None
         super().__init__(*args, **kwargs)
 
     def _set_json_data(self, json_data):
@@ -194,20 +218,36 @@ class Sample(AbstractElement):
     @property
     def reaction(self):
         if self._reaction is None:
-            from chemotion_api import Instance
             try:
-                self._reaction = Instance(self._session).get_reaction(self.json_data['tag']['taggable_data']['reaction_id'])
-            except (KeyError, IndexError):
-                raise KeyError(f'Could not find Reaction of Sample: {self}')
+                self._reaction = self.reload_reaction()
+            except KeyError:
+                return None
         return self._reaction
 
     @reaction.setter
     def reaction(self, reaction):
         self._reaction = reaction
 
+    def reload_reaction(self):
+        from chemotion_api import Instance
+        try:
+            return Instance(self._session).get_reaction(self.json_data['tag']['taggable_data']['reaction_id'])
+        except (KeyError, IndexError):
+            raise KeyError(f'Could not find Reaction of Sample: {self}')
+
     @property
-    def role_in_reaction(self) -> Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
+    def role_in_reaction(self) -> Literal[
+        'starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
+        if self._role_in_reaction is None:
+            self._role_in_reaction = self.reload_role_in_reaction()
+        return self._role_in_reaction
+
+    def reload_role_in_reaction(self) -> Optional[Literal[
+        'starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']]:
+        if self.reaction is None:
+            return None
         elements = ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']
+        element: Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']
         for element in elements:
             mat_list = self.reaction.properties[element]
             for mat in mat_list:
@@ -275,6 +315,45 @@ class Sample(AbstractElement):
         """
 
         self._molecule = molecule
+
+    @property
+    def gram(self):
+        key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
+        return calculate_quantity(
+            current_value=self.properties[key]['value'],
+            current_unit=self.properties[key]['unit'],
+            output_unit=QuantityUnit.Gram,
+            molecular_weight=self.molecule['molecular_weight'],
+            purity=self.properties[key]['purity'],
+            molarity=self.properties['molarity'],
+            density=self.properties['density']
+        )
+
+    @property
+    def mol(self):
+        key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
+        return calculate_quantity(
+            current_value=self.properties[key]['value'],
+            current_unit=self.properties[key]['unit'],
+            output_unit=QuantityUnit.Mole,
+            molecular_weight=self.molecule['molecular_weight'],
+            purity=self.properties[key]['purity'],
+            molarity=self.properties['molarity'],
+            density=self.properties['density']
+        )
+
+    @property
+    def liter(self):
+        key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
+        return calculate_quantity(
+            current_value=self.properties[key]['value'],
+            current_unit=self.properties[key]['unit'],
+            output_unit=QuantityUnit.Liter,
+            molecular_weight=self.molecule['molecular_weight'],
+            purity=self.properties[key]['purity'],
+            molarity=self.properties['molarity'],
+            density=self.properties['density']
+        )
 
     def load_image(self) -> Response:
         """
@@ -386,7 +465,10 @@ class Sample(AbstractElement):
                                  value=self.json_data.get('molarity_value')),
 
             'molecular_mass': self.json_data.get('molecular_mass'),
-            'inventory_sample': self.json_data.get('inventory_sample')
+            'inventory_sample': self.json_data.get('inventory_sample'),
+            'position': self.json_data.get('position'),
+            'show_label': self.json_data.get('show_label')
+
         } | gas_props
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
@@ -445,15 +527,123 @@ class Sample(AbstractElement):
         serialize_data['imported_readout'] = self.json_data.get('imported_readout')
         serialize_data['xref'] = self.json_data.get('xref')
         serialize_data['elemental_compositions'] = self.json_data.get('elemental_compositions')
-        serialize_data['molecule_name_id'] = self.json_data.get('molecule_name_id')
+
+        self._set_serialized_if_exist('molecule_name_id', serialize_data, self.json_data)
+        self._set_serialized_if_exist('collection_id', serialize_data, self.json_data)
+        self._set_serialized_if_exist('position', serialize_data)
+        self._set_serialized_if_exist('show_label', serialize_data)
+        self._set_serialized_if_exist('components', serialize_data)
+        self._set_serialized_if_exist('sample_type', serialize_data)
+
+        
 
         if self.molecule is not None and self.molecule.id is not None:
-            serialize_data['molecule'] = self.molecule.store
+            serialize_data['molecule'] = self.molecule.clean()
             serialize_data['molecule_id'] = self.molecule.id
 
         return serialize_data
 
+    def _set_serialized_if_exist(self, key: str, serialize_data :dict, origen_data: Optional[dict] = None):
+        if origen_data is None:
+            value = self.properties.get(key, self.json_data.get(key))
+        else:
+            value = origen_data.get(key)
+        if value is not None:
+            serialize_data[key] = value
+
+    def allowed_quantity_units(self):
+        return self._allowed_quantity_units()
+
+    def _allowed_quantity_units(self):
+        if self.role_in_reaction == 'solvents':
+            return [QuantityUnit.Liter]
+        elif self.role_in_reaction == 'purification_solvents':
+            return [QuantityUnit.Liter]
+        else:
+            default_set = [QuantityUnit.Gram]
+            if self.properties['density'] != 0 or self.properties['molarity'] != 0:
+                default_set += [QuantityUnit.Liter]
+
+            if self.role_in_reaction in ['starting_materials', 'reactants']:
+                return default_set + [QuantityUnit.Mole, QuantityUnit.Equivalent]
+            elif self.role_in_reaction == 'products':
+                return default_set + [QuantityUnit.Yield]
+        return default_set + [QuantityUnit.Mole]
+
+    def update_equivalent(self):
+        self._set_equivalent()
+
+    def _set_equivalent(self, value: Optional[float] = None):
+        unit = QuantityUnit.Equivalent
+        if unit not in self.allowed_quantity_units():
+            raise KeyError(
+                f'The value {unit.value}  cannot be set for this sample. This is most likely due to the role of this sample in the reaction.')
+        if self.properties['reference']:
+            self._properties['equivalent'] = 1
+        elif value is None:
+            try:
+                self._properties['equivalent'] = self.mol / self.reaction.reference_sample.mol
+            except ZeroDivisionError:
+                self._properties['equivalent'] = None
+        else:
+            self._properties['equivalent'] = value
+            self.set_amount(self.reaction.reference_sample.mol * value, QuantityUnit.Mole)
+
+    def set_ref(self, is_ref: bool, check_ref: bool):
+        if check_ref:
+            self.properties['reference'] = is_ref
+        else:
+            self._properties['reference'] = is_ref
+
+    def set_amount(self, value: float, unit: Optional[QuantityUnit | str] = None):
+        if isinstance(unit, str):
+            unit_str = unit
+            unit = QuantityUnit.from_string(unit_str)
+            if unit is None:
+                raise ValueError(f'{unit_str} is not a valid unit')
+        amount_dict = ['target_amount', 'real_amount']
+        [key, zero_key] = amount_dict.__reversed__() if self.role_in_reaction == 'products' else amount_dict
+        if unit is None:
+            unit = QuantityUnit.from_string(self.properties[key]['unit'])
+
+        if unit not in self.allowed_quantity_units():
+            raise ValueError(f'This sample can set the {unit.value}')
+        if value < 0:
+            raise ValueError(f'The amount must be >= 0 {unit.value}')
+        if unit == QuantityUnit.Yield:
+            raise KeyError('Yield cannot be set!!')
+        elif unit == QuantityUnit.Equivalent:
+            self._set_equivalent(value)
+        else:
+            self._properties[key] = UnitDict(unit=str(unit.value), value=value)
+            self._properties[zero_key] = UnitDict(unit=str(unit.value), value=None)
+            try:
+                self._set_equivalent()
+            except (KeyError, ValueError, TypeError, ZeroDivisionError):
+                pass
 
     def on_properties_change(self, dict_obj, name, value):
-        print(name)
+        try:
+            if name in ['target_amount', 'real_amount']:
+                if len(name) > 1:
+                    dict_copy = {**dict_obj[-1], name[-1]: value[-1]}
+                    self.set_amount(**dict_copy)
+                return False
+        except ValueError:
+            pass
+        if name[-1] == 'purity' and (value[-1] <= 0 or value[-1] > 1):
+            raise ValueError('The purity must be >= 0 and <= 1')
+        if name[-1] == 'reference':
+            self.reaction.reference_sample = self
+
+        unit = QuantityUnit.from_string(name[-1])
+        if unit == QuantityUnit.Yield:
+            self.set_amount(value[-1], unit)
+            return False
+        if unit == QuantityUnit.Equivalent:
+            dict_obj[-1]['yield'] = 0
+            dict_obj[-1]['equivalent'] = 0
+            self.set_amount(value[-1], unit)
+            return False
+
         return True

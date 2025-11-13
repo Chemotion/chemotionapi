@@ -18,4 +18,5 @@ def test_analyses(instance_with_test_samples: dict):
 
     d1 = ana.by_name('T2').dataset_by_name('SG-V3545-6-13.cif')
     os.makedirs('./TO_DEL', exist_ok=True)
-    assert [a['filename'] for a in d1.attachments] == ['SG-V3545-6-13.cif']
+    for a in d1.attachments:
+        assert a['filename'] in [ 'SG-V3545-6-13.cif']

@@ -5,6 +5,8 @@ import uuid
 from abc import ABC
 from collections.abc import MutableMapping, MutableSequence
 from collections import OrderedDict
+from typing import Optional
+
 
 class PropertyDict(MutableMapping):
 
@@ -82,8 +84,11 @@ class FixedDict(PropertyDict):
 
 
 class UnitDict(FixedDict):
-    def __init__(self, unit: str, value: float):
+    def __init__(self, unit: str, value: Optional[float]):
         super().__init__({'unit': unit, 'value': value})
+
+    def set_value_unit(self, value: float):
+        self.__setitem__('value', value)
 
     def set_value(self, value: float):
         self.__setitem__('value', value)

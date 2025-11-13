@@ -1,9 +1,17 @@
 {
-  "collection_id":  null,
+  "collection_id": null,
   "dangerous_products": "",
+  "research_plans": {},
   "conditions": "",
-  "description": { "ops": [{ "insert": "\n" }] },
+  "description": {
+    "ops": [
+      {
+        "insert": "\n"
+      }
+    ]
+  },
   "duration": "",
+  "user_labels": [],
   "durationDisplay": {
     "dispUnit": "Hour(s)",
     "dispValue": "",
@@ -12,7 +20,13 @@
   },
   "literatures": {},
   "name": "",
-  "observation": { "ops": [{ "insert": "\n" }] },
+  "observation": {
+    "ops": [
+      {
+        "insert": "\n"
+      }
+    ]
+  },
   "products": [],
   "purification": "",
   "purification_solvents": [],
@@ -37,5 +51,10 @@
   "can_update": true,
   "can_copy": false,
   "variations": [
-  ]
+  ],
+  "vessel_size": {
+    "amount": null,
+    "unit": "ml"
+  },
+  "gaseous": false
 }

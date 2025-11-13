@@ -98,8 +98,6 @@ services:
   converter:
     image: ptrxyz/chemotion:converter-2.1.1
     restart: unless-stopped
-    ports:
-      - 4000:4000
     environment:
     - SECRET_KEY=3b4576cc0m927897n56v
     volumes:
