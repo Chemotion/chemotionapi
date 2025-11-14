@@ -6,6 +6,7 @@ from typing import Literal, Optional
 
 from requests import Response
 
+from chemotion_api.user import User
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.empty_elements import init_container
 from collections.abc import MutableMapping
@@ -97,45 +98,39 @@ class Molecule(MutableMapping):
 
     def __init__(self, data):
         self.all_store = dict(data)
-        self.store = dict()
         self.id = data.get('id')
         for key in ["boiling_point", "molecular_weight", "exact_molecular_weight", "cano_smiles", "density", "inchikey",
                     "inchistring", "melting_point", "sum_formular"]:
-            self.store[key] = self.all_store.get(key)
+            self.all_store[key] = self.all_store.get(key)
 
     def __getitem__(self, key: str):
         key = self._keytransform(key)
-        if key in self.store:
-            return self.store[key]
         return self.all_store[key]
 
     def __setitem__(self, key: str, value):
         key = self._keytransform(key)
-        if key in self.store:
-            self.store[key] = value
-        else:
-            self.all_store[key] = value
+        self.all_store[key] = value
 
     def __delitem__(self, key):
-        del self.store[self._keytransform(key)]
+        del self.all_store[self._keytransform(key)]
 
     def __iter__(self):
-        return iter(self.store)
+        return iter(self.all_store)
 
     def __len__(self):
-        return len(self.store)
+        return len(self.all_store)
 
     def _keytransform(self, key):
         return key
 
     def clean(self) -> dict:
         return {
-            "density": self.store.get("density"),
-            "melting_point": self.store.get("melting_point"),
-            "boiling_point": self.store.get("boiling_point"),
-            "inchistring": self.store.get("inchistring"),
-            "cano_smiles": self.store.get("cano_smiles"),
-            "inchikey": self.store.get("inchikey")
+            "density": self.all_store.get("density"),
+            "melting_point": self.all_store.get("melting_point"),
+            "boiling_point": self.all_store.get("boiling_point"),
+            "inchistring": self.all_store.get("inchistring"),
+            "cano_smiles": self.all_store.get("cano_smiles"),
+            "inchikey": self.all_store.get("inchikey")
         }
 
 
@@ -147,7 +142,7 @@ class MoleculeManager:
     def __init__(self, session: Connection):
         self._session = session
 
-    def create_molecule_by_smiles(self, smiles_code: str) -> Molecule:
+    def create_molecule_by_smiles(self, smiles_code: str, density: float = 0.0) -> Molecule:
         """
         Creates a new molecule for a given smiles code
 
@@ -163,8 +158,9 @@ class MoleculeManager:
                                  data=json.dumps(payload))
         if res.status_code != 201:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
-
-        return Molecule(res.json())
+        res_json = res.json()
+        res_json['density'] = density
+        return Molecule(res_json)
 
     def create_molecule_by_cls(self, host_url, session, inchikey) -> Molecule:
         """Not implemented yet!!"""
@@ -206,6 +202,7 @@ class Sample(AbstractElement):
         self.is_split = False
         self._reaction = None
         self._role_in_reaction = None
+        self._is_solvent = kwargs.pop("is_solvent", False)
         super().__init__(*args, **kwargs)
 
     def _set_json_data(self, json_data):
@@ -321,11 +318,11 @@ class Sample(AbstractElement):
         key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
         return calculate_quantity(
             current_value=self.properties[key]['value'],
-            current_unit=self.properties[key]['unit'],
+            current_unit=QuantityUnit.from_string(self.properties[key]['unit']),
             output_unit=QuantityUnit.Gram,
             molecular_weight=self.molecule['molecular_weight'],
-            purity=self.properties[key]['purity'],
-            molarity=self.properties['molarity'],
+            purity=self.properties['purity'],
+            molarity=self.properties['molarity']['value'],
             density=self.properties['density']
         )
 
@@ -334,11 +331,11 @@ class Sample(AbstractElement):
         key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
         return calculate_quantity(
             current_value=self.properties[key]['value'],
-            current_unit=self.properties[key]['unit'],
+            current_unit=QuantityUnit.from_string(self.properties[key]['unit']),
             output_unit=QuantityUnit.Mole,
             molecular_weight=self.molecule['molecular_weight'],
-            purity=self.properties[key]['purity'],
-            molarity=self.properties['molarity'],
+            purity=self.properties['purity'],
+            molarity=self.properties['molarity']['value'],
             density=self.properties['density']
         )
 
@@ -347,11 +344,11 @@ class Sample(AbstractElement):
         key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
         return calculate_quantity(
             current_value=self.properties[key]['value'],
-            current_unit=self.properties[key]['unit'],
+            current_unit=QuantityUnit.from_string(self.properties[key]['unit']),
             output_unit=QuantityUnit.Liter,
             molecular_weight=self.molecule['molecular_weight'],
-            purity=self.properties[key]['purity'],
-            molarity=self.properties['molarity'],
+            purity=self.properties['purity'],
+            molarity=self.properties['molarity']['value'],
             density=self.properties['density']
         )
 
@@ -388,17 +385,47 @@ class Sample(AbstractElement):
         split_sample['real_amount_value'] = None
         split_sample['is_split'] = True
         split_sample['is_new'] = True
-        split_sample['split_label'] = split_sample['short_label']
+        split_sample['short_label'] += '-NaN'
 
         split_sample['container'] = init_container()
         return Sample(generic_segments=self._generic_segments, session=self._session, json_data=split_sample)
 
     def copy(self):
-        raise NotImplementedError
+        """
+        Splits the sample.
+
+        :return: A new sample object
+        :rtype: :class:`chemotion_api.elements.sample.Sample`
+        """
+        self.save()
+        split_sample = copy.deepcopy(self.json_data)
+        split_sample['id'] = None
+
+        if 'tag' in split_sample:
+            del split_sample['tag']
+        split_sample['created_at'] = None
+        split_sample['updated_at'] = None
+        split_sample['is_split'] = False
+        split_sample['is_new'] = True
+        split_sample['short_label'] = User.load_me(self._session).get_next_short_label('sample')
+
+        split_sample['container'] = init_container()
+        return Sample(generic_segments=self._generic_segments, session=self._session, json_data=split_sample)
 
     def toggle_decoupled(self):
         """Decoupls the sample from the molecule"""
         self.properties['decoupled'] = not self.properties['decoupled']
+
+    def clean_data(self, *args, **kwargs):
+        serialize_data = super().clean_data(*args, **kwargs)
+        if self._is_solvent:
+            keys = ["real_amount_value", "gas_phase_data", "name", "boiling_point_lowerbound", "boiling_point_upperbound", "melting_point_lowerbound",
+                    "melting_point_upperbound", "dry_solvent", "equivalent", "sample_svg_file", "parent_id"]
+            for key in keys:
+                if key in serialize_data:
+                    del serialize_data[key]
+        return serialize_data
+
 
     def _parse_properties(self) -> dict:
         melting_range = re.split(r'\.{2,3}', self.json_data.get('melting_point')) if self.json_data.get(
@@ -475,15 +502,16 @@ class Sample(AbstractElement):
         if serialize_data is None:
             serialize_data = {}
 
-        serialize_data['name'] = self.properties.get('name')
+        keys = ["name", "boiling_point_lowerbound", "boiling_point_upperbound", "melting_point_lowerbound", "melting_point_upperbound", "dry_solvent", "equivalent", "sample_svg_file", "parent_id"]
+
+        for key in keys:
+            self._set_serialized_if_exist(key, serialize_data)
+
+
         serialize_data['description'] = self.properties.get('description')
         serialize_data['external_label'] = self.properties.get('external_label')
         serialize_data['short_label'] = self.properties.get('short_label')
         serialize_data['solvent'] = self.properties.get('solvent')
-        serialize_data['boiling_point_lowerbound'] = self.properties.get('boiling_point_lowerbound')
-        serialize_data['boiling_point_upperbound'] = self.properties.get('boiling_point_upperbound')
-        serialize_data['melting_point_lowerbound'] = self.properties.get('melting_point_lowerbound')
-        serialize_data['melting_point_upperbound'] = self.properties.get('melting_point_upperbound')
         serialize_data['stereo'] = self.properties.get('stereo')
         serialize_data['location'] = self.properties.get('location')
         serialize_data['purity'] = self.properties.get('purity')
@@ -491,7 +519,6 @@ class Sample(AbstractElement):
         serialize_data['decoupled'] = self.properties.get('decoupled')
         serialize_data['density'] = self.properties.get('density')
         serialize_data['metrics'] = self.properties.get('metrics')
-        serialize_data['dry_solvent'] = self.properties.get('dry_solvent')
 
         serialize_data['is_top_secret'] = self.properties.get('is_top_secret')
         serialize_data['molarity_unit'] = self.properties.get('molarity').get('unit')
@@ -501,7 +528,6 @@ class Sample(AbstractElement):
         serialize_data['waste'] = self.properties.get('waste')
         serialize_data['reference'] = self.properties.get('reference', False)
         serialize_data['sum_formula'] = self.properties.get('sum_formula')
-        serialize_data['equivalent'] = self.properties.get('equivalent')
         serialize_data['coefficient'] = self.properties.get('coefficient', 1)
 
         serialize_data['target_amount_unit'] = self.properties.get('target_amount').get('unit')
@@ -520,9 +546,7 @@ class Sample(AbstractElement):
         else:
             serialize_data['gas_phase_data'] = None
 
-        serialize_data['sample_svg_file'] = self.json_data.get('sample_svg_file')
         serialize_data['dry_solvent'] = self.json_data.get('dry_solvent')
-        serialize_data['parent_id'] = self.json_data.get('parent_id')
         serialize_data['residues'] = self.json_data.get('residues')
         serialize_data['imported_readout'] = self.json_data.get('imported_readout')
         serialize_data['xref'] = self.json_data.get('xref')
@@ -535,20 +559,19 @@ class Sample(AbstractElement):
         self._set_serialized_if_exist('components', serialize_data)
         self._set_serialized_if_exist('sample_type', serialize_data)
 
-        
-
         if self.molecule is not None and self.molecule.id is not None:
             serialize_data['molecule'] = self.molecule.clean()
             serialize_data['molecule_id'] = self.molecule.id
+            serialize_data['molfile'] = self.molecule['molfile']
 
         return serialize_data
 
     def _set_serialized_if_exist(self, key: str, serialize_data :dict, origen_data: Optional[dict] = None):
         if origen_data is None:
-            value = self.properties.get(key, self.json_data.get(key))
+            value = self.properties.get(key, self.json_data.get(key, '____NOT_EXISTING____'))
         else:
-            value = origen_data.get(key)
-        if value is not None:
+            value = origen_data.get(key, '____NOT_EXISTING____')
+        if value != '____NOT_EXISTING____':
             serialize_data[key] = value
 
     def allowed_quantity_units(self):
@@ -561,17 +584,20 @@ class Sample(AbstractElement):
             return [QuantityUnit.Liter]
         else:
             default_set = [QuantityUnit.Gram]
-            if self.properties['density'] != 0 or self.properties['molarity'] != 0:
+            if self.properties['density'] != 0 or self.properties['molarity']['value'] != 0:
                 default_set += [QuantityUnit.Liter]
 
             if self.role_in_reaction in ['starting_materials', 'reactants']:
                 return default_set + [QuantityUnit.Mole, QuantityUnit.Equivalent]
             elif self.role_in_reaction == 'products':
-                return default_set + [QuantityUnit.Yield]
+                return default_set + [QuantityUnit.Equivalent]
         return default_set + [QuantityUnit.Mole]
 
     def update_equivalent(self):
-        self._set_equivalent()
+        try:
+            self._set_equivalent()
+        except KeyError:
+            self._properties['equivalent'] = None
 
     def _set_equivalent(self, value: Optional[float] = None):
         unit = QuantityUnit.Equivalent
@@ -580,10 +606,17 @@ class Sample(AbstractElement):
                 f'The value {unit.value}  cannot be set for this sample. This is most likely due to the role of this sample in the reaction.')
         if self.properties['reference']:
             self._properties['equivalent'] = 1
+            return
+        if self.role_in_reaction == 'products':
+            stoichiometry_coeff = (self.properties['coefficient'] or 1.0) / (self.reaction.reference_sample.properties['coefficient'] or 1.0)
+            try:
+                self._properties['equivalent'] = self.mol / self.reaction.reference_sample.mol / stoichiometry_coeff
+            except ZeroDivisionError or AttributeError:
+                self._properties['equivalent'] = None
         elif value is None:
             try:
                 self._properties['equivalent'] = self.mol / self.reaction.reference_sample.mol
-            except ZeroDivisionError:
+            except ZeroDivisionError or AttributeError:
                 self._properties['equivalent'] = None
         else:
             self._properties['equivalent'] = value
@@ -594,6 +627,10 @@ class Sample(AbstractElement):
             self.properties['reference'] = is_ref
         else:
             self._properties['reference'] = is_ref
+
+    def get_amount(self):
+        key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
+        return self._properties[key]
 
     def set_amount(self, value: float, unit: Optional[QuantityUnit | str] = None):
         if isinstance(unit, str):
@@ -608,6 +645,8 @@ class Sample(AbstractElement):
 
         if unit not in self.allowed_quantity_units():
             raise ValueError(f'This sample can set the {unit.value}')
+        if value is None:
+            value = 0.0
         if value < 0:
             raise ValueError(f'The amount must be >= 0 {unit.value}')
         if unit == QuantityUnit.Yield:
@@ -618,8 +657,8 @@ class Sample(AbstractElement):
             self._properties[key] = UnitDict(unit=str(unit.value), value=value)
             self._properties[zero_key] = UnitDict(unit=str(unit.value), value=None)
             try:
-                self._set_equivalent()
-            except (KeyError, ValueError, TypeError, ZeroDivisionError):
+                self.reaction.update_equivalent()
+            except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError):
                 pass
 
     def on_properties_change(self, dict_obj, name, value):
@@ -631,17 +670,32 @@ class Sample(AbstractElement):
                 return False
         except ValueError:
             pass
-        if name[-1] == 'purity' and (value[-1] <= 0 or value[-1] > 1):
-            raise ValueError('The purity must be >= 0 and <= 1')
+        if name[-1] == 'purity':
+            if value[-1] <= 0 or value[-1] > 1:
+                raise ValueError('The purity must be >= 0 and <= 1')
+            else:
+                self._properties[name[-1]] = float(value[-1])
+                self.reaction.update_equivalent()
+                return False
+        if name[-1] == 'coefficient':
+            if value[-1] <= 0:
+                raise ValueError('The coefficient must be > 0')
+            else:
+                self._properties[name[-1]] = int(value[-1])
+                self.reaction.update_equivalent()
+                return False
         if name[-1] == 'reference':
-            self.reaction.reference_sample = self
+            if value[-1]:
+                self.reaction.reference_sample = self
+            else:
+                self.reaction.reference_sample = None
+
 
         unit = QuantityUnit.from_string(name[-1])
         if unit == QuantityUnit.Yield:
             self.set_amount(value[-1], unit)
             return False
         if unit == QuantityUnit.Equivalent:
-            dict_obj[-1]['yield'] = 0
             dict_obj[-1]['equivalent'] = 0
             self.set_amount(value[-1], unit)
             return False

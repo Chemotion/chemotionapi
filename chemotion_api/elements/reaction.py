@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Callable, Optional, Iterator
+from typing import Callable, Optional, Iterator, Literal
 
 from requests import Response
 
@@ -9,7 +9,7 @@ from datetime import datetime
 from chemotion_api.elements.sample import Sample, SampleVariationType
 from chemotion_api.elements.utils import QuantityUnit
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
-from chemotion_api.utils import TypedList, quill_hedging
+from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, UnitDict
 from collections.abc import MutableSequence
 
 
@@ -24,13 +24,40 @@ class MaterialList(TypedList):
     methode.
     """
 
-    def __init__(self, *args):
+    def __init__(self, reaction: 'Reaction',
+                 mat_type: Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'],
+                 *args):
         super().__init__(Sample, *args)
+        self._reaction = reaction
+        self._mat_type = mat_type
 
     def _prepare_element(self, element: Sample):
-        if element.id is None:
-            element.save()
-        return element.split()
+        if self._mat_type == 'starting_materials':
+            return_element = element.split()
+        elif self._mat_type == 'reactants':
+            return_element = element.split()
+            return_element.properties['short_label'] = 'reactant'
+        elif self._mat_type == 'products':
+            return_element = element.copy()
+        elif self._mat_type == 'solvents':
+            return_element = element
+        elif self._mat_type == 'purification_solvents':
+            return_element = element
+        else:
+            raise ValueError("Unknown material type.")
+        return_element.reaction = self._reaction
+        return_element._role_in_reaction = self._mat_type
+        return_element._properties['reference'] = False
+        return_element.properties['position'] = len(self)
+
+        return return_element
+
+    def after_append(self, element: Sample):
+        try:
+
+            element.set_amount(**element.get_amount())
+        except ValueError or KeyError:
+            element.set_amount(0, element.allowed_quantity_units()[0])
 
     def append_no_split(self, element: Sample):
         """
@@ -42,7 +69,7 @@ class MaterialList(TypedList):
         return super(TypedList, self).append(element)
 
 
-class SampleVariation():
+class SampleVariation:
     def __init__(self, sample: Sample, sample_type: SampleVariationType, vessel_volume: float,
                  json_data: dict | None = None,
                  get_ref_amount: Optional[Callable] = None):
@@ -249,7 +276,7 @@ class SampleVariation():
         raise ValueError(f'Sample type: {self._sample_type.value} is not supported.')
 
 
-class Variation():
+class Variation:
     def __init__(self):
         self.id = -1
         self._json_data = None
@@ -384,8 +411,16 @@ class Variations(MutableSequence):
 
     def add_new(self) -> Variation:
         self._highest_id += 1
-        variation = {
-            "id": self._highest_id,
+        variation = self.empty_variation(self._highest_id)
+        v = Variation()
+        v.populate(variation, self._analyses, **self._materials, vessel_size=self._get_vessel_size())
+        self.append(v)
+        return v
+
+    @classmethod
+    def empty_variation(cls, highest_id: int) -> dict:
+        return {
+            "id": highest_id,
             "properties": {
                 "temperature": {
                     "value": 0,
@@ -405,16 +440,16 @@ class Variations(MutableSequence):
             "solvents": {},
             "startingMaterials": {}
         }
-        v = Variation()
-        v.populate(variation, self._analyses, **self._materials, vessel_size=self._get_vessel_size())
-        self.append(v)
-        return v
 
     def sort(self):
         self._data = sorted(self._data, key=lambda v: v.id)
 
     def clean(self):
         return [variation.update_and_clean(self._get_vessel_size()) for variation in self._data]
+
+    def _prepare_variation(self, json_data: dict):
+        empty_variation = self.empty_variation(self._highest_id)
+        return merge_dicts(empty_variation, json_data)
 
     def __getitem__(self, index):
         # Retrieve the item at the given index
@@ -497,9 +532,9 @@ class Reaction(AbstractElement):
     >>> # Create a new solvent CDCl3
     >>> solv = col_solv.new_solvent('CDCl3')
     >>> # Add CDCl3 as solvent to the reaction
-    >>> rea.properties['solvents'].append_no_split(solv)
+    >>> rea.solvents.append(solv)
     >>> # Add a split of sample with ID 1 as starting material
-    >>> rea.properties['starting_materials'].append(instance.get_sample(1))
+    >>> rea.starting_materials.append(instance.get_sample(1))
     >>> # Add a new time/temperature step to the temperature timeline
     >>> rea.properties['temperature'].add_time_point(2,3,0,100)
     >>> rea.save()
@@ -621,11 +656,16 @@ class Reaction(AbstractElement):
         return mat
 
     @reference_sample.setter
-    def reference_sample(self, value: Sample):
+    def reference_sample(self, value: Sample | None):
+        id = None if value is None else value.id
         for mat in [*self.starting_materials, *self.reactants]:
-            mat.set_ref(mat.id == value.id, False)
+            mat.set_ref(mat.id == id, False)
+        for mat in [*self.products, *self.solvents, *self.purification_solvents]:
+            mat.set_ref(mat.id == id, False)
+        self.update_equivalent()
 
-        for mat in [*self.starting_materials, *self.reactants]:
+    def update_equivalent(self):
+        for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents, *self.purification_solvents]:
             mat.update_equivalent()
 
     def _parse_properties(self) -> dict:
@@ -637,7 +677,7 @@ class Reaction(AbstractElement):
                 sample_obj = Sample(self._generic_segments, self._session, sample)
                 sample_obj.reaction = self
                 temp.append(sample_obj)
-            reaction_elements[reaction_elm_names] = MaterialList(temp)
+            reaction_elements[reaction_elm_names] = MaterialList(self, reaction_elm_names, temp)
 
         try:
             timestamp_start = datetime.strptime(self.json_data.get('timestamp_start'), self.datetime_format)
@@ -663,7 +703,8 @@ class Reaction(AbstractElement):
             'rxno': self.json_data.get('rxno'),
             'temperature': Temperature(**self.json_data.get('temperature', {})),
             'status': self.json_data.get('status'),
-            'vessel_size': self.json_data.get('vessel_size')
+            'vessel_size': self.json_data.get('vessel_size'),
+            'gaseous': self.json_data.get('gaseous')
             # 'tlc_solvents': self.jreaction.properties['reactants']son_data.get('tlc_solvents'),
             # 'tlc_description': self.json_data.get('tlc_description'),
             # 'rf_value': self.json_data.get('rf_value'),
@@ -714,15 +755,17 @@ class Reaction(AbstractElement):
         if self.properties.get('vessel_size') is not None:
             serialize_data['vessel_size'] = self.properties.get('vessel_size')
 
+        serialize_data['role'] = self.properties.get('role', '')
+        serialize_data['gaseous'] = self.properties.get('gaseous')
         serialize_data['tlc_solvents'] = self.json_data.get('tlc_solvents')
         serialize_data['tlc_description'] = self.json_data.get('tlc_description')
         serialize_data['reaction_svg_file'] = self.json_data.get('reaction_svg_file')
-        serialize_data['role'] = self.properties.get('role', '')
+        
         serialize_data['rf_value'] = self.json_data.get('rf_value')
         serialize_data['rxno'] = self.json_data.get('rxno', '')
         serialize_data['short_label'] = self.json_data.get('short_label')
         serialize_data['literatures'] = self.json_data.get('literatures')
-        serialize_data['gaseous'] = self.json_data.get('gaseous')
+
         serialize_data['research_plans'] = self.json_data.get('research_plans')
         serialize_data['user_labels'] = self.json_data.get('user_labels')
         serialize_data['solvent'] = self.json_data.get('solvent')
@@ -764,6 +807,10 @@ class Reaction(AbstractElement):
                 }
                 }
 
+    def on_properties_change(self, dict_obj, name, value):
+        if name[-1] == 'gaseous':
+            pass
+        return True
     def _clean_variations(self) -> dict:
         cleand_data = self.variations.clean()
         self._variations = None

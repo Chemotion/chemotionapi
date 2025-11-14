@@ -274,6 +274,9 @@ class TypedList(list):
     def _prepare_element(self, element):
         return element
 
+    def after_append(self, element):
+        pass
+
     def _check_elements(self):
         for element in self:
             self._check_element(element)
@@ -284,7 +287,10 @@ class TypedList(list):
 
     def append(self, element):
         self._check_element(element)
-        super().append(self._prepare_element(element))
+        prepared_element = self._prepare_element(element)
+        super().append(prepared_element)
+        self.after_append(prepared_element)
+        return prepared_element
 
     def extend(self, iterable):
         for element in iterable:
@@ -292,7 +298,9 @@ class TypedList(list):
 
     def insert(self, index, element):
         self._check_element(element)
-        super().insert(index, self._prepare_element(element))
+        prepared_element = self._prepare_element(element)
+        super().insert(index, prepared_element)
+        self.after_append(prepared_element)
 
     def __setitem__(self, index, element):
         if isinstance(index, slice):

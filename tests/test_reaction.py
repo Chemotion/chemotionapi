@@ -143,7 +143,6 @@ def test_calculate_amount_from_gram(instance_with_test_reaction: dict):
     assert in_g == 2
 
 
-
 def test_calculate_amount_from_liter(instance_with_test_reaction: dict):
     in_l = calculate_quantity(
         current_value=2,
@@ -165,7 +164,7 @@ def test_calculate_amount_from_liter(instance_with_test_reaction: dict):
         molarity=3,
         density=0
     )
-    assert int(in_g * 10)  == 1021
+    assert int(in_g * 10) == 1021
 
     in_m = calculate_quantity(
         current_value=2,
@@ -203,7 +202,6 @@ def test_calculate_amount_from_liter(instance_with_test_reaction: dict):
 
 def test_get_reaction_amount(instance_with_test_reaction: dict):
     logged_in_instance: Instance = instance_with_test_reaction['instance']
-    reaction = instance_with_test_reaction['reaction']
     reaction = instance_with_test_reaction['main_collection'].new_reaction()
     s1 = instance_with_test_reaction['main_collection'].new_sample_smiles('N')
     s2 = instance_with_test_reaction['main_collection'].new_sample_smiles('O')
@@ -212,3 +210,47 @@ def test_get_reaction_amount(instance_with_test_reaction: dict):
     reaction.properties['reactants'].append(s2)
 
     reaction.save()
+
+
+def test_extended_reaction_amount(instance_with_test_reaction: dict):
+    i = instance_with_test_reaction['instance']
+    col = instance_with_test_reaction['main_collection']
+    sol = col.new_solvent('Acetone')
+    sol.set_amount(300, 'l')
+    reactant = i.get_sample(2)
+    st_mt = col.new_sample_smiles('N')
+    pr_mt = col.new_sample_smiles('NO')
+    st_mt.save()
+    reaction = col.new_reaction()
+    reaction.reactants.append(reactant)
+    reaction.starting_materials.append(st_mt)
+    reaction.products.append(pr_mt)
+    reaction.solvents.append(sol)
+    reaction.save()
+    reaction.reactants[0].set_amount(200, 'mol')
+    reaction.reactants[0].properties['density'] = 2
+    reaction.starting_materials[0].set_amount(100, 'mol')
+    reaction.save()
+    mats = [*reaction.starting_materials, *reaction.reactants, *reaction.products]
+
+    assert [mat.mol for mat in [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [100,
+                                                                                                            200, 0]
+    assert [mat.gram for mat in mats] == [1703.052, 3406.104, 0]
+    assert [mat.liter for mat in mats] == [0, 1.703052, 0]
+    assert [mat.properties['equivalent'] for mat in mats] == [0.5, 1, 0]
+
+    reaction.products[0].set_amount(1000, 'g')
+    reaction.products[0].properties['coefficient'] = 2
+    reaction.save()
+
+    assert [mat.mol for mat in [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [100,
+                                                                                                            200,
+                                                                                                            30.275580443428264]
+    assert [mat.gram for mat in [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [
+        1703.052, 3406.104, 1000]
+    assert [mat.liter for mat in [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [0,
+                                                                                                              1.703052,
+                                                                                                              0]
+    assert [mat.properties['equivalent'] for mat in
+            [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [0.5, 1,
+                                                                                         0.07568895110857066]
