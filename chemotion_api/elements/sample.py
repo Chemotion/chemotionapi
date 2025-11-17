@@ -2,10 +2,12 @@ import json
 import re
 import copy
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal, Optional, Self
 
 from requests import Response
 
+from chemotion_api.elements.utils.converter import convert_value_to_default
+from chemotion_api.elements.utils.equivalent import get_equivalent
 from chemotion_api.user import User
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.empty_elements import init_container
@@ -13,7 +15,69 @@ from collections.abc import MutableMapping
 from chemotion_api.connection import Connection
 from chemotion_api.utils import UnitDict, FixedDict
 from chemotion_api.utils.solvent_manager import get_solvent_list
-from chemotion_api.elements.utils import QuantityUnit, calculate_quantity
+from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity, GasCalculations
+
+
+class GasPhaseObj(FixedDict):
+    default_val = {
+        "time": {
+            "unit": "h",
+            "value": None
+        },
+        "temperature": {
+            "unit": "K",
+            "value": None
+        },
+        "turnover_number": None,
+        "part_per_million": None,
+        "turnover_frequency": {
+            "unit": "TON/h",
+            "value": None
+        }
+    }
+
+    def __init__(self, sample: 'Sample', kwargs: Optional[dict] = None):
+        self._sample = sample
+        if kwargs is None:
+            kwargs = {**self.default_val}
+        else:
+            kwargs = copy.deepcopy(kwargs)
+        kwargs['turnover_frequency'] = UnitDict(**kwargs['turnover_frequency'])
+        kwargs['temperature'] = UnitDict(**kwargs['temperature'])
+        kwargs['time'] = UnitDict(**kwargs['time'])
+        super().__init__(kwargs)
+
+    @property
+    def ppm(self) -> float:
+        return self.data['part_per_million']
+
+    @ppm.setter
+    def ppm(self, value: float):
+        self['part_per_million'] = value
+
+    @property
+    def time_in_h(self) -> float:
+        return convert_value_to_default(**self.data['time'])
+
+    @time_in_h.setter
+    def time_in_h(self, value: float):
+        self['time'] = UnitDict(unit='h', value=value)
+
+    @property
+    def temperature_in_k(self) -> float:
+        return convert_value_to_default(**self.data['temperature'])
+
+    @temperature_in_k.setter
+    def temperature_in_k(self, value: float):
+        self['temperature'] = UnitDict(unit='K', value=value)
+
+    def to_dict(self):
+        return {
+            **self.data,
+            'turnover_frequency': self.data['turnover_frequency'].to_dict(),
+            'temperature': self.data['temperature'].to_dict(),
+            'time': self.data['time'].to_dict()
+        }
 
 
 class SampleType(Enum):
@@ -27,12 +91,11 @@ class SampleVariationType(Enum):
     PRODUCT = 'products'
     SOLVENTS = 'solvents'
 
-
-class GasType(Enum):
-    OFF = 'off'
-    GAS = 'gas'
-    CATALYST = 'catalyst'
-    FEEDSTOCK = 'feedstock'
+    def from_role(self, sample: 'Sample') -> Self:
+        role = sample.role_in_reaction
+        if role == 'starting_aterials':
+            return SampleVariationType.STARTING_MATERIAL
+        return SampleVariationType(role)
 
 
 class SolventList(list):
@@ -197,6 +260,8 @@ class Sample(AbstractElement):
     >>> s.save()
     """
 
+    material_types = ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']
+
     def __init__(self, *args, **kwargs):
         self._molecule = None
         self.is_split = False
@@ -223,6 +288,7 @@ class Sample(AbstractElement):
 
     @reaction.setter
     def reaction(self, reaction):
+        self._role_in_reaction = None
         self._reaction = reaction
 
     def reload_reaction(self):
@@ -239,13 +305,21 @@ class Sample(AbstractElement):
             self._role_in_reaction = self.reload_role_in_reaction()
         return self._role_in_reaction
 
+    @role_in_reaction.setter
+    def role_in_reaction(self, role_in_reaction: Literal[
+        'starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']):
+        self._role_in_reaction = role_in_reaction
+        if role_in_reaction not in self.material_types:
+            raise ValueError(f'Unknown role: {role_in_reaction}')
+        self._role_in_reaction = role_in_reaction
+
     def reload_role_in_reaction(self) -> Optional[Literal[
         'starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']]:
         if self.reaction is None:
             return None
-        elements = ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']
+
         element: Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']
-        for element in elements:
+        for element in self.material_types:
             mat_list = self.reaction.properties[element]
             for mat in mat_list:
                 if mat.id == self.id:
@@ -314,43 +388,95 @@ class Sample(AbstractElement):
         self._molecule = molecule
 
     @property
+    def vessel_size(self):
+        if self.reaction is None:
+            return None
+        return self.reaction.properties['vessel_size']
+
+    @property
     def gram(self):
-        key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
-        return calculate_quantity(
-            current_value=self.properties[key]['value'],
-            current_unit=QuantityUnit.from_string(self.properties[key]['unit']),
-            output_unit=QuantityUnit.Gram,
-            molecular_weight=self.molecule['molecular_weight'],
-            purity=self.properties['purity'],
-            molarity=self.properties['molarity']['value'],
-            density=self.properties['density']
-        )
+        return self._get_converted_amount(QuantityUnit.Gram)
 
     @property
     def mol(self):
-        key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
-        return calculate_quantity(
-            current_value=self.properties[key]['value'],
-            current_unit=QuantityUnit.from_string(self.properties[key]['unit']),
-            output_unit=QuantityUnit.Mole,
-            molecular_weight=self.molecule['molecular_weight'],
-            purity=self.properties['purity'],
-            molarity=self.properties['molarity']['value'],
-            density=self.properties['density']
-        )
+        return self._get_converted_amount(QuantityUnit.Mole)
 
     @property
     def liter(self):
+        return self._get_converted_amount(QuantityUnit.Liter)
+
+    def _get_converted_amount(self, output_unit):
         key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
+        gp: GasPhaseObj= self.properties.get('gas_phase_data')
+        if gp is not None:
+            gas_attres = {'temperature_in_k': gp.temperature_in_k, 'ppm': gp.ppm, 'time_in_h': gp.time_in_h}
+
+        else:
+            gas_attres = {}
         return calculate_quantity(
             current_value=self.properties[key]['value'],
             current_unit=QuantityUnit.from_string(self.properties[key]['unit']),
-            output_unit=QuantityUnit.Liter,
+            output_unit=output_unit,
             molecular_weight=self.molecule['molecular_weight'],
             purity=self.properties['purity'],
             molarity=self.properties['molarity']['value'],
-            density=self.properties['density']
+            density=self.properties['density'],
+            gas_type=self.gas_type,
+            vessel_size=self.vessel_size,
+            **gas_attres
         )
+
+    @property
+    def equivalent(self) -> float:
+        return self.properties['equivalent']
+
+    @equivalent.setter
+    def equivalent(self, equivalent: float):
+        self.properties['equivalent'] = equivalent
+
+    @property
+    def gas_type(self) -> GasType:
+        gt = self._properties.get('gas_type', GasType.OFF)
+        if self.reaction is None and gt is not GasType.OFF:
+            self.set_gas_type(GasType.OFF)
+            return GasType.OFF
+        return gt
+
+    @property
+    def reference(self) -> bool:
+        return self.properties['reference']
+
+    @reference.setter
+    def reference(self, ref: bool):
+        self.set_ref(ref)
+
+    @gas_type.setter
+    def gas_type(self, gas_type: GasType | str):
+        self.set_gas_type(gas_type)
+
+    def set_gas_type(self, gas_type: GasType | str, reaction_update: bool = True):
+        if isinstance(gas_type, str):
+            gas_type = GasType(gas_type)
+
+        if gas_type != GasType.OFF and self.reaction is not None and not self.reaction.gas_schema:
+            raise ValueError(f'Reaction is not a gas schema reaction')
+        if gas_type not in self.allowed_gas_types():
+            raise ValueError(f'Reaction is not a gas schema reaction')
+        has_change = self._properties['gas_type'] != gas_type and self.reaction is not None
+        if has_change and gas_type in [GasType.FEEDSTOCK, GasType.CATALYST]:
+            gas_elem = self.reaction.get_gas_component(gas_type)
+            if gas_elem is not None:
+                gas_elem.set_gas_type(GasType.OFF, False)
+        origin_gas_type = self.gas_type
+        self._properties['gas_type'] = gas_type
+        if has_change and gas_type == GasType.GAS:
+            self.properties['gas_phase_data'] = GasPhaseObj(self)
+        if has_change and origin_gas_type == GasType.FEEDSTOCK:
+            cat_sample = self.reaction.get_catalyst()
+            if cat_sample is not None:
+                cat_sample.gas_type = GasType.OFF
+        if has_change and reaction_update:
+            self.reaction.update_amount()
 
     def load_image(self) -> Response:
         """
@@ -372,7 +498,7 @@ class Sample(AbstractElement):
         :return: A new sample object
         :rtype: :class:`chemotion_api.elements.sample.Sample`
         """
-        self.save()
+        self.save(True)
         split_sample = copy.deepcopy(self.json_data)
         split_sample['parent_id'] = self.id
         split_sample['id'] = None
@@ -419,13 +545,13 @@ class Sample(AbstractElement):
     def clean_data(self, *args, **kwargs):
         serialize_data = super().clean_data(*args, **kwargs)
         if self._is_solvent:
-            keys = ["real_amount_value", "gas_phase_data", "name", "boiling_point_lowerbound", "boiling_point_upperbound", "melting_point_lowerbound",
+            keys = ["real_amount_value", "gas_phase_data", "name", "boiling_point_lowerbound",
+                    "boiling_point_upperbound", "melting_point_lowerbound",
                     "melting_point_upperbound", "dry_solvent", "equivalent", "sample_svg_file", "parent_id"]
             for key in keys:
                 if key in serialize_data:
                     del serialize_data[key]
         return serialize_data
-
 
     def _parse_properties(self) -> dict:
         melting_range = re.split(r'\.{2,3}', self.json_data.get('melting_point')) if self.json_data.get(
@@ -439,25 +565,8 @@ class Sample(AbstractElement):
         else:
             gas_props['gas_type'] = GasType.OFF
 
-        if self.json_data.get('gas_phase_data') is None:
-            gas_props['gas_phase_data'] = FixedDict({
-                "time": {
-                    "unit": "h",
-                    "value": None
-                },
-                "temperature": {
-                    "unit": "K",
-                    "value": None
-                },
-                "turnover_number": None,
-                "part_per_million": None,
-                "turnover_frequency": {
-                    "unit": "TON/h",
-                    "value": None
-                }
-            })
-        else:
-            gas_props['gas_phase_data'] = FixedDict(self.json_data.get('gas_phase_data'))
+        if self.json_data.get('gas_phase_data') is not None:
+            gas_props['gas_phase_data'] = GasPhaseObj(self, self.json_data.get('gas_phase_data'))
 
         return {
             'name': self.json_data.get('name'),
@@ -502,17 +611,17 @@ class Sample(AbstractElement):
         if serialize_data is None:
             serialize_data = {}
 
-        keys = ["name", "boiling_point_lowerbound", "boiling_point_upperbound", "melting_point_lowerbound", "melting_point_upperbound", "dry_solvent", "equivalent", "sample_svg_file", "parent_id"]
+        keys = ["name", "boiling_point_lowerbound", "boiling_point_upperbound", "melting_point_lowerbound",
+                "melting_point_upperbound", "dry_solvent", "equivalent", "sample_svg_file", "parent_id"]
 
         for key in keys:
             self._set_serialized_if_exist(key, serialize_data)
-
 
         serialize_data['description'] = self.properties.get('description')
         serialize_data['external_label'] = self.properties.get('external_label')
         serialize_data['short_label'] = self.properties.get('short_label')
         serialize_data['solvent'] = self.properties.get('solvent')
-        serialize_data['stereo'] = self.properties.get('stereo')
+        serialize_data['stereo'] = self.properties.get('stereo').to_dict()
         serialize_data['location'] = self.properties.get('location')
         serialize_data['purity'] = self.properties.get('purity')
         serialize_data['user_labels'] = self.properties.get('user_labels')
@@ -541,8 +650,8 @@ class Sample(AbstractElement):
         serialize_data['molfile'] = self.json_data.get('molfile')
         serialize_data['inventory_sample'] = self.properties.get('inventory_sample')
         serialize_data['gas_type'] = self.properties.get('gas_type').value
-        if self.properties.get('gas_type') != GasType.OFF.value and self.properties.get('gas_phase_data') is not None:
-            serialize_data['gas_phase_data'] = self.properties.get('gas_phase_data')
+        if self.gas_type == GasType.GAS and self.properties.get('gas_phase_data') is not None:
+            serialize_data['gas_phase_data'] = self.properties.get('gas_phase_data').to_dict()
         else:
             serialize_data['gas_phase_data'] = None
 
@@ -566,13 +675,26 @@ class Sample(AbstractElement):
 
         return serialize_data
 
-    def _set_serialized_if_exist(self, key: str, serialize_data :dict, origen_data: Optional[dict] = None):
+    def _set_serialized_if_exist(self, key: str, serialize_data: dict, origen_data: Optional[dict] = None):
         if origen_data is None:
             value = self.properties.get(key, self.json_data.get(key, '____NOT_EXISTING____'))
         else:
             value = origen_data.get(key, '____NOT_EXISTING____')
         if value != '____NOT_EXISTING____':
             serialize_data[key] = value
+
+    def allowed_gas_types(self):
+        if self.reaction is None:
+            return [GasType.OFF]
+        if self.role_in_reaction in ['starting_materials', 'reactants']:
+            feedstock_mat = self.reaction.get_feedstock()
+            if feedstock_mat is not None:
+                return [GasType.OFF, GasType.FEEDSTOCK, GasType.CATALYST]
+            else:
+                return [GasType.OFF, GasType.FEEDSTOCK]
+        if self.role_in_reaction == 'products':
+            return [GasType.OFF, GasType.GAS]
+        return [GasType.OFF]
 
     def allowed_quantity_units(self):
         return self._allowed_quantity_units()
@@ -583,14 +705,17 @@ class Sample(AbstractElement):
         elif self.role_in_reaction == 'purification_solvents':
             return [QuantityUnit.Liter]
         else:
-            default_set = [QuantityUnit.Gram]
-            if self.properties['density'] != 0 or self.properties['molarity']['value'] != 0:
-                default_set += [QuantityUnit.Liter]
+            if self.gas_type == GasType.FEEDSTOCK:
+                default_set = [QuantityUnit.Liter]
+            else:
+                default_set = [QuantityUnit.Gram]
+                if self.properties['density'] != 0 or self.properties['molarity']['value'] != 0:
+                    default_set += [QuantityUnit.Liter]
 
             if self.role_in_reaction in ['starting_materials', 'reactants']:
                 return default_set + [QuantityUnit.Mole, QuantityUnit.Equivalent]
             elif self.role_in_reaction == 'products':
-                return default_set + [QuantityUnit.Equivalent]
+                return default_set + []
         return default_set + [QuantityUnit.Mole]
 
     def update_equivalent(self):
@@ -599,30 +724,37 @@ class Sample(AbstractElement):
         except KeyError:
             self._properties['equivalent'] = None
 
+    def update_amount(self):
+        amount = self.get_amount()
+        unit = QuantityUnit.from_string(amount['unit'])
+        allowed_units = self.allowed_quantity_units()
+        if unit not in allowed_units:
+            self.set_amount(0.0, allowed_units[-1])
+
     def _set_equivalent(self, value: Optional[float] = None):
         unit = QuantityUnit.Equivalent
-        if unit not in self.allowed_quantity_units():
-            raise KeyError(
-                f'The value {unit.value}  cannot be set for this sample. This is most likely due to the role of this sample in the reaction.')
-        if self.properties['reference']:
-            self._properties['equivalent'] = 1
-            return
-        if self.role_in_reaction == 'products':
-            stoichiometry_coeff = (self.properties['coefficient'] or 1.0) / (self.reaction.reference_sample.properties['coefficient'] or 1.0)
-            try:
-                self._properties['equivalent'] = self.mol / self.reaction.reference_sample.mol / stoichiometry_coeff
-            except ZeroDivisionError or AttributeError:
-                self._properties['equivalent'] = None
-        elif value is None:
-            try:
-                self._properties['equivalent'] = self.mol / self.reaction.reference_sample.mol
-            except ZeroDivisionError or AttributeError:
-                self._properties['equivalent'] = None
-        else:
+        if value is not None:
+            if unit not in self.allowed_quantity_units():
+                raise KeyError(
+                    f'The value {unit.value}  cannot be set for this sample. This is most likely due to the role of this sample in the reaction.')
             self._properties['equivalent'] = value
             self.set_amount(self.reaction.reference_sample.mol * value, QuantityUnit.Mole)
+        elif self.properties['reference']:
+            self._properties['equivalent'] = 1
+        else:
+            try:
+                ref_mol = self.reaction.reference_sample.mol
+            except AttributeError:
+                ref_mol = None
+            try:
+                ppm = self.properties.get('gas_phase_data').ppm
+                temperature_in_k = self.properties.get('gas_phase_data').temperature_in_k
+            except AttributeError:
+                ppm = None
+                temperature_in_k = None
+            self._properties['equivalent'] = get_equivalent(self, self.mol, ref_mol, ppm=ppm, temperature_in_k=temperature_in_k)
 
-    def set_ref(self, is_ref: bool, check_ref: bool):
+    def set_ref(self, is_ref: bool, check_ref: bool = True):
         if check_ref:
             self.properties['reference'] = is_ref
         else:
@@ -670,6 +802,17 @@ class Sample(AbstractElement):
                 return False
         except ValueError:
             pass
+        if name[-1] == 'vessel_size':
+            self._properties[name[-1]] = value[-1]
+            return False
+        if name[0] == 'gas_phase_data':
+            dict_obj[-1][name[-1]] = value[-1]
+            self.update_equivalent()
+            return False
+        if name[-1] == 'gas_type':
+            self.gas_type = value[-1]
+            return False
+
         if name[-1] == 'purity':
             if value[-1] <= 0 or value[-1] > 1:
                 raise ValueError('The purity must be >= 0 and <= 1')
@@ -689,7 +832,6 @@ class Sample(AbstractElement):
                 self.reaction.reference_sample = self
             else:
                 self.reaction.reference_sample = None
-
 
         unit = QuantityUnit.from_string(name[-1])
         if unit == QuantityUnit.Yield:

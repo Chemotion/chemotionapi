@@ -1,4 +1,5 @@
 import json
+from math import isnan
 
 import pytest
 
@@ -236,7 +237,11 @@ def test_extended_reaction_amount(instance_with_test_reaction: dict):
     assert [mat.mol for mat in [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [100,
                                                                                                             200, 0]
     assert [mat.gram for mat in mats] == [1703.052, 3406.104, 0]
-    assert [mat.liter for mat in mats] == [0, 1.703052, 0]
+
+    assert isnan(reaction.starting_materials[0].liter)
+    assert reaction.reactants[0].liter == 1.703052
+    assert isnan(reaction.products[0].liter)
+
     assert [mat.properties['equivalent'] for mat in mats] == [0.5, 1, 0]
 
     reaction.products[0].set_amount(1000, 'g')
@@ -248,9 +253,11 @@ def test_extended_reaction_amount(instance_with_test_reaction: dict):
                                                                                                             30.275580443428264]
     assert [mat.gram for mat in [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [
         1703.052, 3406.104, 1000]
-    assert [mat.liter for mat in [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [0,
-                                                                                                              1.703052,
-                                                                                                              0]
+
+    assert isnan(reaction.starting_materials[0].liter)
+    assert reaction.reactants[0].liter == 1.703052
+    assert isnan(reaction.products[0].liter)
+
     assert [mat.properties['equivalent'] for mat in
             [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [0.5, 1,
                                                                                          0.07568895110857066]

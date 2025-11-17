@@ -7,9 +7,9 @@ from chemotion_api.elements.abstract_element import AbstractElement, Analyses, A
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample, SampleVariationType
-from chemotion_api.elements.utils import QuantityUnit
+from chemotion_api.elements.utils import QuantityUnit, GasType
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
-from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, UnitDict
+from chemotion_api.utils import TypedList, quill_hedging, merge_dicts
 from collections.abc import MutableSequence
 
 
@@ -46,8 +46,8 @@ class MaterialList(TypedList):
         else:
             raise ValueError("Unknown material type.")
         return_element.reaction = self._reaction
-        return_element._role_in_reaction = self._mat_type
-        return_element._properties['reference'] = False
+        return_element.role_in_reaction = self._mat_type
+        return_element.set_ref(False, False)
         return_element.properties['position'] = len(self)
 
         return return_element
@@ -69,10 +69,8 @@ class MaterialList(TypedList):
         return super(TypedList, self).append(element)
 
 
-class SampleVariation:
-    def __init__(self, sample: Sample, sample_type: SampleVariationType, vessel_volume: float,
-                 json_data: dict | None = None,
-                 get_ref_amount: Optional[Callable] = None):
+class SampleVariation(Sample):
+    def __init__(self, sample: Sample):
         self._sample = sample
         self._sample_type = sample_type
         if get_ref_amount is not None:
@@ -151,8 +149,7 @@ class SampleVariation:
             self._values['equivalent']['value'] = value = self.get_equivalent_or_yield()
 
     def _set_quantity_from_sample(self):
-        key = 'real_amount' if self._sample_type == SampleVariationType.PRODUCT else 'target_amount'
-        value = self._sample.properties[key]
+        value = self._sample.get_amount()
         self.set_quantity(**value)
 
     def set_quantity(self, value: float, unit: str | QuantityUnit | None):
@@ -664,8 +661,41 @@ class Reaction(AbstractElement):
             mat.set_ref(mat.id == id, False)
         self.update_equivalent()
 
+    @property
+    def gas_schema(self) -> bool:
+        return self._properties.get('gaseous', False)
+
+    @gas_schema.setter
+    def gas_schema(self, gaseous: bool):
+        self._properties['gaseous'] = gaseous
+        if not gaseous:
+            for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
+                        *self.purification_solvents]:
+                mat.set_gas_type('off', False)
+        self.update_equivalent()
+
+    def get_feedstock(self) ->  Sample | None:
+        return self.get_gas_component(GasType.FEEDSTOCK)
+
+    def get_catalyst(self) -> Sample | None:
+        return self.get_gas_component(GasType.CATALYST)
+
+    def get_gas_component(self, gt: GasType):
+        if self.gas_schema:
+            for mat in [*self.starting_materials, *self.reactants]:
+                if mat.gas_type == gt:
+                    return mat
+        return None
+
+
+    def update_amount(self):
+        for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
+                    *self.purification_solvents]:
+            mat.update_amount()
+
     def update_equivalent(self):
-        for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents, *self.purification_solvents]:
+        for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
+                    *self.purification_solvents]:
             mat.update_equivalent()
 
     def _parse_properties(self) -> dict:
@@ -760,7 +790,7 @@ class Reaction(AbstractElement):
         serialize_data['tlc_solvents'] = self.json_data.get('tlc_solvents')
         serialize_data['tlc_description'] = self.json_data.get('tlc_description')
         serialize_data['reaction_svg_file'] = self.json_data.get('reaction_svg_file')
-        
+
         serialize_data['rf_value'] = self.json_data.get('rf_value')
         serialize_data['rxno'] = self.json_data.get('rxno', '')
         serialize_data['short_label'] = self.json_data.get('short_label')
@@ -809,8 +839,14 @@ class Reaction(AbstractElement):
 
     def on_properties_change(self, dict_obj, name, value):
         if name[-1] == 'gaseous':
-            pass
+            self.gas_schema = value[-1]
+            return False
+        if name[-1] == 'vessel_size':
+            self._properties['vessel_size'] = value[-1]
+            self.update_amount()
+            return False
         return True
+
     def _clean_variations(self) -> dict:
         cleand_data = self.variations.clean()
         self._variations = None

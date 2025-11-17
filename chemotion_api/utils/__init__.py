@@ -28,7 +28,7 @@ class PropertyDict(MutableMapping):
             ret_val = PropertyDict(None, ret_val)
         if isinstance(ret_val, PropertyDict):
             def inner_on_change(inner_dict_obj, inner_name, inner_value):
-                return self._on_change([self.__dict__(), *inner_dict_obj], [name, *inner_name], [ret_val.__dict__(), *inner_value])
+                return self._on_change([self.to_dict(), *inner_dict_obj], [name, *inner_name], [ret_val.to_dict(), *inner_value])
             ret_val.on_change = inner_on_change
         return ret_val
 
@@ -48,6 +48,7 @@ class PropertyDict(MutableMapping):
     def __contains__(self, k):
         return k in self.data
 
+    @property
     def __dict__(self):
         return self.to_dict()
 
