@@ -24,8 +24,9 @@ variables:
 
 before_script:
   - apt-get update
-  - apt-get install -y python3-pip
-  - pip3 install poetry==$POETRY_VERSION
+  - python3 -m venv venv
+  - source venv/bin/activate
+  - pip install poetry==$POETRY_VERSION
 
 
 
