@@ -3,6 +3,8 @@ import os.path
 import re
 import uuid
 from datetime import datetime
+from operator import truediv
+from typing import Optional, Self
 
 import dateutil.parser
 from jsonschema.validators import validate
@@ -14,7 +16,7 @@ from chemotion_api.elements.attachments import Attachments, MutableAttachments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
-    clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer
+    clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer, PropertyDict
 
 from requests.exceptions import RequestException
 
@@ -336,7 +338,7 @@ class AbstractElement:
     """
 
     def __init__(self, generic_segments: GenericSegments, session: Connection, json_data: dict = None, id: int = None,
-                 element_type: str = None):
+                 element_type: str = None, avoid_load:bool = False):
         self._attachments: Attachments | None = None
         self._generic_segments = generic_segments
         self._session = session
@@ -350,22 +352,27 @@ class AbstractElement:
         # Last update of the element
         self.last_update: datetime | None = None
         self._element_type = element_type
-        self._id = id
-        # Json LD description of the element. It contains @type and @ID
         self.json_ld: dict = {}
         # Json data contains the raw data fetched from the server
         self.json_data: dict | None = None
+        self.id = id or uuid.uuid4().__str__()
+        # Json LD description of the element. It contains @type and @ID
+
         self._data_loaded = False
+        if avoid_load:
+            return
         if json_data is not None:
             self._set_json_data(json_data)
-        elif id is not None and element_type is not None:
+        elif not self.is_new and element_type is not None:
             self.load()
         else:
             raise ValueError("Either 'json_data' or 'id' and 'element_type' must be provided during initialization")
 
+
     @property
     def name(self) -> str:
         return self._name
+
 
     @name.setter
     def name(self, name: str) -> None:
@@ -383,13 +390,13 @@ class AbstractElement:
         return self._short_label
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> PropertyDict:
         """
         The properties property contains all data from the main tab of the elements in Chemotion.
 
         :return: Element properties
         """
-        return self._properties
+        return PropertyDict(self.on_properties_change, self._properties)
 
     @property
     def analyses(self) -> AnalysesList:
@@ -433,10 +440,21 @@ class AbstractElement:
         return self._id
 
     @id.setter
-    def id(self, id_val: int):
+    def id(self, id_val: Optional[int | str]):
         """
         Database ID of the element
         """
+        if id_val is None:
+            self.is_new = True
+        elif isinstance(id_val, str):
+            if id_val.isdigit():
+                id_val = int(id_val)
+                self.is_new = False
+            else:
+                self.is_new = True
+        elif isinstance(id_val, int):
+            self.is_new = False
+
         self._id = id_val
         if self.json_data is not None:
             self.json_ld[
@@ -463,7 +481,10 @@ class AbstractElement:
             self.json_ld['@type'] = self._session.schema_manager.generate_model_type(self.element_type, schema_version)
 
 
-
+    def __copy__(self) -> Self:
+        return {'generic_segments': self._generic_segments,
+                'element_type': self._element_type, 'avoid_load': True,
+                'session': self._session, 'json_data': self.json_data, 'id': self.id}
 
     def properties_schema(self) -> dict:
         """
@@ -492,7 +513,7 @@ class AbstractElement:
 
     def _load_data_from_server(self):
 
-        if self._id is None:
+        if self.is_new:
             raise ValueError("No ID available")
         payload = {}
         res = self._session.get(f"{self.__class__.get_url(self.element_type)}/{self.id}.json",
@@ -523,7 +544,7 @@ class AbstractElement:
 
         self._short_label = self.json_data.get('short_label')
         self.element_type = json_data.get('type')
-        self.id = json_data.get('id')
+        self.id = json_data.get('id', self._id)
 
         self._properties: dict = self._parse_properties()
         self._analyses: AnalysesList = self._parse_analyses()
@@ -551,7 +572,7 @@ class AbstractElement:
         :raises RequestException: If request was not successful
         :raises jsonschema.exceptions.ValidationError: If the properties ar not valid
         """
-        if not self._data_loaded and self.id is not None:
+        if not self._data_loaded and not self.is_new:
             _attachment_data, json_data = self._load_data_from_server()
             self.json_data = json_data
 
@@ -560,7 +581,12 @@ class AbstractElement:
         data = self.clean_data()
         is_created = False
         json_dumps_data = json.dumps(data, default=fixeddict_serializer)
-        if self.id is None:
+        # Uncomment  after Chem update to write upload json to compare with Chemotion Browser upload
+        # dump_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'test_config/dumps/upload_jsons')
+        # os.makedirs(dump_dir, exist_ok=True)
+        # with open(os.path.join(dump_dir, f'{self.element_type}_{self.id}_{uuid.uuid4().__str__()}.json'), 'w+') as outfile:
+        #     outfile.write(json_dumps_data)
+        if self.is_new:
             res = self._session.post(self.save_url(), data=json_dumps_data)
             is_created = True
         else:
@@ -588,7 +614,7 @@ class AbstractElement:
         """
         cleaned_data = {
             'id': self.id or uuid.uuid4().__str__(),
-            'is_new': self.id is None,
+            'is_new': self.is_new,
             'type': self.element_type
         }
         if isinstance(self.name, str):
@@ -601,6 +627,9 @@ class AbstractElement:
             cleaned_data['attachments'] = self.attachments.attachment_data
 
         cleaned_prop_data = self._clean_properties_data()
+        for key, value in cleaned_prop_data.items():
+            if isinstance(value, PropertyDict):
+                cleaned_prop_data[key] = value.to_dict()
         validate(cleaned_prop_data, self.properties_schema())
 
         merge_dicts(cleaned_data, self._clean_segments_data(), cleaned_prop_data,
@@ -613,9 +642,12 @@ class AbstractElement:
 
         :return: The save URL
         """
-        if self.id is not None:
+        if not self.is_new:
             return "/api/v1/{}s/{}".format(self.json_data.get('type'), self.id)
         return "/api/v1/{}s/".format(self.json_data.get('type'))
+
+    def on_properties_change(self, dict_obj, name, value):
+        return True
 
     def __eq__(self, other):
         return isinstance(other, AbstractElement) and self.json_ld['@id'] == other.json_ld['@id']
@@ -657,9 +689,9 @@ class AbstractElement:
         obj["container"]["children"][0]["children"] = res_list
         return obj
 
-    def _parse_segments(self) -> dict[str: dict]:
-        results: dict[str: dict] = {}
-        results_mapping: dict[str: dict] = {}
+    def _parse_segments(self) -> dict[str, dict]:
+        results: dict[str, dict] = {}
+        results_mapping: dict[str, dict] = {}
         for segment in self.json_data.get('segments', []):
             a = [x for x in self._generic_segments.all_classes if x['id'] == segment['segment_klass_id']]
             temp_segment = parse_generic_object_json(segment)

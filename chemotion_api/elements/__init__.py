@@ -170,9 +170,9 @@ class ElementSet(list):
         self.append(s)
         return s
 
-    def new_element(self, json_data: dict) -> AbstractElement:
+    def new_element(self, json_data: dict, **kwargs) -> AbstractElement:
         segments = GenericSegments(self._session)
-        s = self._get_element_class()(segments, self._session, json_data=json_data)
+        s = self._get_element_class()(segments, self._session, json_data=json_data, **kwargs)
         self.append(s)
         return s
 

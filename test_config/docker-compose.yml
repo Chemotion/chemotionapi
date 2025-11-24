@@ -1,19 +1,28 @@
 services:
+
+  dbupgrade:
+    image: ptrxyz/chemotion:dbupgrade-2.1.1
+    volumes:
+      - chemotion_db:/var/lib/postgresql/data/
+    restart: "no"
   db:
-    image: postgres:14
+    image: ptrxyz/chemotion:db-2.1.1
     restart: unless-stopped
     hostname: db
     ports:
     - 54320:5432
+    depends_on:
+      dbupgrade:
+        condition: service_completed_successfully
     environment:
-    - POSTGRES_USER=postgres
-    - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
     volumes:
     - chemotion_db:/var/lib/postgresql/data/
     networks:
     - chemotion
   msconvert:
-    image: ptrxyz/chemotion:msconvert-1.10.5
+    image: ptrxyz/chemotion:msconvert-2.1.1
     restart: unless-stopped
     hostname: msconvert
     volumes:
@@ -21,7 +30,7 @@ services:
     networks:
     - chemotion
   spectra:
-    image: ptrxyz/chemotion:spectra-1.10.5
+    image: ptrxyz/chemotion:spectra-2.1.1
     restart: unless-stopped
     hostname: spectra
     volumes:
@@ -31,7 +40,7 @@ services:
     networks:
     - chemotion
   worker:
-    image: ptrxyz/chemotion:eln-1.10.5
+    image: ptrxyz/chemotion:eln-2.1.1
     restart: unless-stopped
     environment:
     - CONFIG_ROLE=worker
@@ -47,13 +56,13 @@ services:
     networks:
     - chemotion
   eln:
-    image: ptrxyz/chemotion:eln-1.10.5
+    image: ptrxyz/chemotion:eln-2.1.1
     restart: unless-stopped
     env_file: .env
     environment:
     - CONFIG_ROLE=eln
     - SECRET_KEY_BASE=3b4576cc0m927897n56v
-    - PUBLIC_URL=https://chemotion.knmf.kit.edu
+    - PUBLIC_URL=http://0.0.0.0:3579
     depends_on:
     - db
     - spectra
@@ -67,7 +76,7 @@ services:
     networks:
     - chemotion
   ketchersvc:
-    image: ptrxyz/chemotion:ketchersvc-1.10.5
+    image: ptrxyz/chemotion:ketchersvc-2.1.1
     restart: unless-stopped
     init: true
     environment:
@@ -79,7 +88,7 @@ services:
     networks:
     - chemotion
   knmfproposalminer:
-    image: mstarman/knmfproposalminer:0.1.6
+    image: mstarman/knmfproposalminer:0.1.9
     env_file:
     - .env
     volumes:
@@ -87,7 +96,7 @@ services:
     networks:
     - chemotion
   converter:
-    image: ptrxyz/chemotion:converter-1.10.5
+    image: ptrxyz/chemotion:converter-2.1.1
     restart: unless-stopped
     environment:
     - SECRET_KEY=3b4576cc0m927897n56v

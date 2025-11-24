@@ -31,7 +31,7 @@ class GenericElement(AbstractElement, WorkflowInterface):
         super()._set_json_data(json_data)
 
     def save_url(self) -> str:
-        if self.id is not None:
+        if not self.is_new:
             return "/api/v1/generic_elements/{}".format(self.id)
         return "/api/v1/generic_elements"
 

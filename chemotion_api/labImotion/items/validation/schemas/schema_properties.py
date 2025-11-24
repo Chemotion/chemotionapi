@@ -2,7 +2,7 @@ from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 
 properties_schema = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "chmotion://generic/properties/draft-01",
+    "$id": "chemotion://generic/properties/draft-01",
     "title": "Schema for generic element properties",
     "type": "object",
     "properties": {
@@ -16,10 +16,10 @@ properties_schema = {
                             "type": ["string", "number"]
                         },
                         "base_revision": {
-                            "type": "string"
+                            "type": ["string", "number", "null"]
                         },
                         "current_revision": {
-                            "type": ["string", "number"]
+                            "type": ["string", "number", "null"]
                         }
                     },
                     "required": [
@@ -53,7 +53,7 @@ properties_schema = {
             "type": "object",
             "patternProperties": {
                 "^[a-z][a-zA-Z_]{1,20}[a-z]$": {
-                    "$ref": "chmotion://generic/layer/draft-01"
+                    "$ref": "chemotion://generic/layer/draft-01"
                 }
             },
             "additionalProperties": False
@@ -262,7 +262,7 @@ properties_schema = {
             "type": ["string", "null"]
         },
         "select_options": {
-            "$ref": "chmotion://generic/select_option/draft-01"
+            "$ref": "chemotion://generic/select_option/draft-01"
         },
         "eln": {
             "type": "object",

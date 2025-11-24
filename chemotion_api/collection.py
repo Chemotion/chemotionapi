@@ -5,7 +5,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 from enum import Enum
 from random import random
-from typing import TypeVar, Iterator, Optional
+from typing import TypeVar, Iterator, Optional, Self, Any, Generator
 
 from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan
 from chemotion_api.user import Person, Group
@@ -45,13 +45,13 @@ class AbstractCollection:
 
     def __init__(self):
         self.is_sync = False
-        self._children: list[TAbstractCollection] = []
+        self._children: list[Self] = []
         self._label: str | None = None
-        self._parent: TAbstractCollection | None = None
+        self._parent: Self | None = None
         self._id: int | None = None
 
     @property
-    def children(self) -> list[TAbstractCollection]:
+    def children(self) -> list[Self]:
         """
         A list of all children collection
 
@@ -106,13 +106,16 @@ class AbstractCollection:
     def __str__(self) -> str:
         return self.get_path()
 
-    def __iter__(self) -> Iterator[tuple[str: dict]]:
+    def __iter__(self) -> Generator[tuple[str, list[Self]], None, None]:
         """
         Iterate over all children
 
         :return: Iterator
         """
-        yield ('collections', self._children)
+        yield 'collections', self._children
+
+    def move(self, dest: str | list[str], case_insensitive: bool = False):
+        raise NotImplementedError('Cannot not move this Collection')
 
     def _set_children(self, new_children: list[dict]):
         if new_children is None:
@@ -121,7 +124,7 @@ class AbstractCollection:
         ids = []
         for child in new_children:
             ids.append(child['id'])
-            child_obj: TAbstractCollection | None = next((x for x in self._children if x.id == child['id']), None)
+            child_obj: Self | None = next((x for x in self._children if x.id == child['id']), None)
             if child_obj is None:
                 self._children.append(Collection(child))
             else:
@@ -143,7 +146,7 @@ class AbstractCollection:
         """
         return {'children': [x.to_json() for x in self._children]}
 
-    def find(self, label: str | None = None, **kwargs) -> list[TAbstractCollection]:
+    def find(self, label: str | None = None, **kwargs) -> list[typing.Union['AbstractCollection', 'Collection']]:
         """
         Finds a collection by its label or other properties. Path is not needed.
 
@@ -153,7 +156,7 @@ class AbstractCollection:
         :return: All found Collections
         """
 
-        results: list[AbstractCollection] = []
+        results: list[Collection | AbstractCollection] = []
         if label is not None: kwargs['label'] = label
         hit = True
         for (key, val) in kwargs.items():
@@ -194,7 +197,7 @@ class AbstractCollection:
             col = col._parent
         return col
 
-    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> TAbstractCollection:
+    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> 'AbstractCollection':
         """
         Gets a collection a path points to.
 
@@ -415,7 +418,7 @@ class AbstractEditableCollection(AbstractCollection):
         new_json = root._element_manager.build_solvent_sample(name, self.id)
         e = ElementSet(root._session, root._element_manager.all_classes.get('sample'), self.id,
                        self.is_sync)
-        return typing.cast(Sample, e.new_element(new_json))
+        return typing.cast(Sample, e.new_element(new_json, is_solvent=True))
 
     def new_reaction(self) -> Reaction:
         """
@@ -464,7 +467,7 @@ class AbstractEditableCollection(AbstractCollection):
 
         for (elem_name, elem) in self.get_root()._element_manager.all_classes.items():
             if elem['label'] == label:
-                return self._create_new_element(elem_name)
+                return typing.cast(GenericElement, self._create_new_element(elem_name))
         raise ValueError(f'Could not find a generic element with the label: "{label}"')
 
     def new_element_by_iri(self, element_type: str) -> AbstractElement:
@@ -697,7 +700,7 @@ class RootCollection(AbstractCollection):
         return self._sync_root
 
     @property
-    def all(self) -> dict[str:any]:
+    def all(self) -> dict[str,dict]:
         """
         Returns all information of the 'All' collections
 
@@ -717,7 +720,7 @@ class RootCollection(AbstractCollection):
 
         self._element_manager = element_manager
 
-    def load_collection(self) -> dict[str:any]:
+    def load_collection(self) -> dict[str,dict]:
         """
         Load collection information
 
@@ -769,7 +772,7 @@ class RootCollection(AbstractCollection):
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         self.load_collection()
 
-    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> TAbstractCollection:
+    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> 'AbstractCollection':
         """
         Gets a collection a path points to.
 
@@ -844,7 +847,7 @@ class RootCollection(AbstractCollection):
         self._update_relations()
         return c
 
-    def to_json(self) -> dict[str: list]:
+    def to_json(self) -> dict[str, list]:
         """
         Generates a dict containing all list of all children collection
 

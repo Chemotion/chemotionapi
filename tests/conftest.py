@@ -26,7 +26,9 @@ DEFAULT_CONFIG = {
     "ELN_PORT": "3579",
     "DOCKER_FILE": "docker-compose.yml",
     "DOCKER_CWD": "../../test_config",
-    "DOCKER_COMPOSE_SERVICE": "eln"
+    "DOCKER_COMPOSE_SERVICE": "eln",
+    "WAIT_FOR_MANUAL_RESTART": "0",
+    "NO_SETUP": "0"
 }
 
 CONFIG = {}
@@ -42,7 +44,7 @@ def set_config():
         data = json.load(jsonfile)
 
     for key, val in DEFAULT_CONFIG.items():
-        CONFIG[key] = data.get(key, val)
+        CONFIG[key] = str(os.getenv(key, data.get(key, val)))
 
 
 # task for worker threads
@@ -61,7 +63,7 @@ def write_proces_logs():
 def pytest_sessionstart(session):
     global DEFAULT_CONFIG, CONFIG, CHEMOTION_PROCESS
     set_config()
-    if os.getenv('NO_SETUP') is not '1':
+    if CONFIG.get('NO_SETUP') != '1':
         path = os.path.join(os.getcwd(), 'data/setup_chemotion_db.sh')
         path_dir = os.path.join(os.getcwd(), 'data')
 
@@ -79,6 +81,10 @@ def pytest_sessionstart(session):
             if "**SUCCESS**" in line:
                 Thread(target=write_proces_logs, args=()).start()
                 break
+
+        if CONFIG["WAIT_FOR_MANUAL_RESTART"] != 0:
+            print("Waiting for manual restart of the Chemotion Server...")
+            input("Press Enter to continue...")
 
     logging.info('Config:\n' + '\n'.join(["#\t%s=%s" % (key, val) for key, val in CONFIG.items()]))
 

@@ -3,7 +3,6 @@ from enum import Enum
 from string import ascii_lowercase
 from typing import Optional, Literal, Generator
 
-from rdflib.plugins.sparql.results.tsvresults import NONE_VALUE
 from typing_extensions import Self
 
 from chemotion_api.elements.reaction import Reaction

@@ -1,8 +1,6 @@
 import abc
-import hashlib
 import json
 import re
-import uuid
 from chemotion_api.connection import Connection
 
 
@@ -153,6 +151,13 @@ class Person(User):
     def populate(self, json_contnet):
         json_contnet['type'] = json_contnet.get('type', 'person')
         return super().populate(json_contnet)
+
+    def get_next_short_label(self, type_name):
+        if type_name == 'sample':
+            return '{}-{}'.format(self.initials, self.counters[type_name + 's'])
+        if type_name == 'reaction':
+            return '{}-R{}'.format(self.initials, self.counters[type_name + 's'])
+        return f"{self.initials}-{type_name}{self.counters.get(type_name + 's', self.counters.get(type_name, 0))}"
 
     def create_group(self, first_name: str, last_name: str, name_abbreviation: str) -> Group:
         data = {

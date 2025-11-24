@@ -3,7 +3,7 @@ PURIFICATION_OPTIONS = ['Flash-Chromatography', 'TLC', 'HPLC', 'Extraction', 'Di
 STATUS_OPTIONS = ['', 'Planned', 'Running', 'Done', 'Analyses Pending', 'Successful',
  'Not Successful']
 schema = {
-    "$schema": "chmotion:type/reaction/1.9.3/draft-01/schema#",
+    "$schema": "chemotion:type/reaction/1.9.3/draft-01/schema#",
     "title": "Reaction Properties",
     "type": "object",
     "properties": {

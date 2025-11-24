@@ -1,7 +1,7 @@
 production:
-  :url: 'http://converter:4000/'
-  :profile: eln
-  :secret_key: eln
+  :url: 'http://193.196.38.137:4000/api/v1/'
+  :profile: A
+  :secret_key: A
   :timeout: 300
   :ext:
     - '.zip'

@@ -1,0 +1,53 @@
+{
+  "collection_id": null,
+  "type": "sample",
+  "name": "",
+  "is_top_secret": false,
+  "dry_solvent": false,
+  "reference": false,
+  "equivalent": 0,
+  "external_label": "",
+  "target_amount_value": 0,
+  "target_amount_unit": "g",
+  "molarity_value": 0,
+  "molarity_unit": "M",
+  "metrics": "mmmm",
+  "purity": 1,
+  "density": 0,
+  "coefficient": 1,
+  "solvent": [],
+  "location": "",
+  "molfile": "",
+  "molecule_id": null,
+  "molecule": {
+  },
+  "residues": [],
+  "elemental_compositions": [
+    {
+      "composition_type": "found",
+      "data": {}
+    }
+  ],
+  "imported_readout": "",
+  "attached_amount_mg": "",
+  "can_update": true,
+  "can_copy": false,
+  "stereo": {
+    "abs": "any",
+    "rel": "any"
+  },
+  "decoupled": false,
+  "molecular_mass": 0,
+  "sum_formula": "",
+  "xref": {},
+  "inventory_sample": false,
+  "is_new": true,
+  "is_split": false,
+  "position": 0,
+  "show_label": true,
+  "real_amount_unit": "g",
+  "user_labels": [],
+  "components": [],
+  "sample_type": "Micromolecule"
+}
+

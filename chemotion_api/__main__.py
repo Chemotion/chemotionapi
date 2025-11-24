@@ -3,8 +3,6 @@ import os.path
 import click
 import configparser
 
-import requests
-
 from chemotion_api.commands import InstanceManager
 
 

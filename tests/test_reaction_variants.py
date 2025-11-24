@@ -19,6 +19,7 @@ def instance_with_test_reaction(instance_with_test_samples):
         'reaction': ra
     }
 
+
 def test_ana_variation(instance_with_test_reaction):
     ra = instance_with_test_reaction['reaction']
     ra.variations.add_new()
@@ -28,6 +29,7 @@ def test_ana_variation(instance_with_test_reaction):
     ra.save(True)
 
     assert [a['name'] for a in ra.variations[0].get_analyses()] == ['T1']
+
 
 def test_reaction_variants(instance_with_test_reaction):
     ra = instance_with_test_reaction['instance'].get_reaction(1)
@@ -52,46 +54,41 @@ def test_add_variations(instance_with_test_reaction):
     variant.starting_materials[0].set_quantity(2, QuantityUnit.Gram)
     ra.save(True)
     assert variant.starting_materials[0].potential_units() == [QuantityUnit.Mole, QuantityUnit.Gram]
-    assert variant.reactants[0].potential_units() ==  [QuantityUnit.Mole, QuantityUnit.Gram, QuantityUnit.Equivalent]
-    assert variant.products[0].potential_units() ==  [QuantityUnit.Mole, QuantityUnit.Gram]
+    assert variant.reactants[0].potential_units() == [QuantityUnit.Mole, QuantityUnit.Gram, QuantityUnit.Equivalent]
+    assert variant.products[0].potential_units() == [QuantityUnit.Mole, QuantityUnit.Gram, QuantityUnit.Yield]
     assert [x.sample.id for x in variant.starting_materials] == [2]
     assert [x.clean() for x in variant.starting_materials] == [{'amount': {'unit': 'mol', 'value': 0.11743622625733097},
-                                                                'aux': {'coefficient': 1.0,
-                                                                        'equivalent': 0.0,
-                                                                        'isReference': True,
-                                                                        'loading': None,
-                                                                        'molarity': 0.0,
-                                                                        'molecularWeight': 17.03052,
-                                                                        'purity': 1.0,
-                                                                        'sumFormula': 'H3N',
-                                                                        'yield': None},
-                                                                'mass': {'unit': 'g', 'value':  0.006895633618781516},
+                                                                'aux': {'coefficient': 1.0, 'gasType': 'off',
+                                                                        'density': 0.0,
+                                                                        'isReference': True, 'loading': None,
+                                                                        'materialType': 'startingMaterials',
+                                                                        'molarity': 0.0, 'molecularWeight': 17.03052,
+                                                                        'purity': 1.0, 'sumFormula': 'H3N',
+                                                                        'vesselVolume': None},
+                                                                'equivalent': {'unit': None, 'value': 1.0},
+                                                                'mass': {'unit': 'g', 'value': 0.006895633618781516},
                                                                 'volume': {'unit': 'l', 'value': 0}}]
     assert [x.sample.id for x in variant.reactants] == [3]
     assert [x.clean() for x in variant.reactants] == [{'amount': {'unit': 'mol', 'value': 0.0015901905481965069},
-                                                       'aux': {'coefficient': 1.0,
-                                                               'equivalent': 0.013540885967435785,
-                                                               'isReference': False,
-                                                               'loading': None,
-                                                               'molarity': 0.0,
-                                                               'molecularWeight': 13.83482,
-                                                               'purity': 1.0,
-                                                               'sumFormula': 'BH3',
-                                                               'yield': None},
+                                                       'aux': {'coefficient': 1.0, 'gasType': 'off',
+                                                               'density': 1.0,
+                                                               'isReference': False, 'loading': None,
+                                                               'materialType': 'reactants', 'molarity': 0.0,
+                                                               'molecularWeight': 13.83482, 'purity': 1.0,
+                                                               'sumFormula': 'BH3', 'vesselVolume': None},
+                                                       'equivalent': {'unit': None, 'value': 0.013540885967435785},
                                                        'mass': {'unit': 'g', 'value': 0.00011494118088970488},
-                                                       'volume': {'unit': 'l', 'value': 0}}]
+                                                       'volume': {'unit': 'l', 'value': 1.1494118088970488e-07}}]
     assert [x.sample.id for x in variant.products] == [4]
     assert [x.clean() for x in variant.products] == [{'amount': {'unit': 'mol', 'value': 0.0},
-                                                      'aux': {'coefficient': 1.0,
-                                                              'equivalent': 0.0,
-                                                              'isReference': False,
-                                                              'loading': None,
-                                                              'molarity': 0.0,
-                                                              'molecularWeight': 142.19710000000003,
-                                                              'purity': 1.0,
-                                                              'sumFormula': 'C11H10',
-                                                              'yield': 0.0},
+                                                      'aux': {'coefficient': 1.0, 'gasType': 'off',
+                                                              'density': 0.0,
+                                                              'isReference': False, 'loading': None,
+                                                              'materialType': 'products', 'molarity': 0.0,
+                                                              'molecularWeight': 142.19710000000003, 'purity': 1.0,
+                                                              'sumFormula': 'C11H10', 'vesselVolume': None},
                                                       'mass': {'unit': 'g', 'value': 0.0},
+                                                      'yield': {'unit': None, 'value': 0.0},
                                                       'volume': {'unit': 'l', 'value': 0}}]
 
 

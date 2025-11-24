@@ -24,7 +24,7 @@ class ElementManager:
         self.is_loaded = False
 
     @property
-    def all_classes(self) -> dict[str: dict]:
+    def all_classes(self) -> dict[str, dict]:
         if self._all_classes is None:
             self._all_classes = self.get_all_classes()
             self.is_loaded = True
@@ -47,7 +47,7 @@ class ElementManager:
         return self._all_types
 
     @property
-    def all_version_of_generic_class(self) -> dict[str: set[str]]:
+    def all_version_of_generic_class(self) -> dict[str, set[str]]:
         version_list = {}
         for name, class_obj in self.all_classes.items():
             if not class_obj['is_generic']:
@@ -86,13 +86,12 @@ class ElementManager:
         u = User.load_me(self._session)
         return u
 
+    @staticmethod
+    def get_next_shot_label(self, type_name, session):
+        return self._get_short_label(type_name)
+
     def _get_short_label(self, type_name):
-        u = self._get_user()
-        if type_name == 'sample':
-            return '{}-{}'.format(u.initials, u.counters[type_name + 's'])
-        if type_name == 'reaction':
-            return '{}-R{}'.format(u.initials, u.counters[type_name + 's'])
-        return f"{u.initials}-{type_name}{u.counters.get(type_name + 's', u.counters.get(type_name, 0))}"
+        return self._get_user().get_next_short_label(type_name)
 
     def build_new(self, type_name, collection_id):
         class_obj = self.all_classes[type_name]
@@ -154,13 +153,16 @@ class ElementManager:
                     name))
         sample_data = self.build_new('sample', collection_id)
 
-        mol = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'])
+        mol = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'], solvent_info['density'])
 
         sample_data['molecule'] = mol
         sample_data['density'] = solvent_info['density']
         sample_data['external_label'] = '{}'.format(name)
         sample_data['short_label'] = 'solvent'
+        sample_data['show_label'] = False
+        sample_data['reference'] = False
         sample_data['is_split'] = True
+
         return sample_data
 
     @classmethod

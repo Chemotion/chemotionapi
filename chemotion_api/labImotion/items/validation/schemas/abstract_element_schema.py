@@ -15,10 +15,10 @@ generic_element_schema = {
             "type": "string"
         },
         "properties_template": {
-            "$ref": "chmotion://generic/properties/draft-01"
+            "$ref": "chemotion://generic/properties/draft-01"
         },
         "properties_release": {
-            "$ref": "chmotion://generic/properties/draft-01"
+            "$ref": "chemotion://generic/properties/draft-01"
         },
         "is_active": {
             "type": "boolean"
