@@ -1,0 +1,20 @@
+default: &default
+  username: postgres
+  password: postgres
+  adapter: postgresql
+  database: chemotion
+  encoding: unicode
+  host: db
+  pool: 5
+  port: 5432
+  timeout: 5000
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  <<: *default
+

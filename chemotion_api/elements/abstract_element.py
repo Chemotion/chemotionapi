@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import datetime
 from operator import truediv
-from typing import Optional
+from typing import Optional, Self
 
 import dateutil.parser
 from jsonschema.validators import validate
@@ -338,7 +338,7 @@ class AbstractElement:
     """
 
     def __init__(self, generic_segments: GenericSegments, session: Connection, json_data: dict = None, id: int = None,
-                 element_type: str = None):
+                 element_type: str = None, avoid_load:bool = False):
         self._attachments: Attachments | None = None
         self._generic_segments = generic_segments
         self._session = session
@@ -359,6 +359,8 @@ class AbstractElement:
         # Json LD description of the element. It contains @type and @ID
 
         self._data_loaded = False
+        if avoid_load:
+            return
         if json_data is not None:
             self._set_json_data(json_data)
         elif not self.is_new and element_type is not None:
@@ -370,6 +372,7 @@ class AbstractElement:
     @property
     def name(self) -> str:
         return self._name
+
 
     @name.setter
     def name(self, name: str) -> None:
@@ -478,7 +481,10 @@ class AbstractElement:
             self.json_ld['@type'] = self._session.schema_manager.generate_model_type(self.element_type, schema_version)
 
 
-
+    def __copy__(self) -> Self:
+        return {'generic_segments': self._generic_segments,
+                'element_type': self._element_type, 'avoid_load': True,
+                'session': self._session, 'json_data': self.json_data, 'id': self.id}
 
     def properties_schema(self) -> dict:
         """

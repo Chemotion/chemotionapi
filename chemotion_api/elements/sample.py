@@ -13,7 +13,7 @@ from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.empty_elements import init_container
 from collections.abc import MutableMapping
 from chemotion_api.connection import Connection
-from chemotion_api.utils import UnitDict, FixedDict
+from chemotion_api.utils import UnitDict, FixedDict, PropertyDict
 from chemotion_api.utils.solvent_manager import get_solvent_list
 from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity, GasCalculations
 
@@ -327,7 +327,7 @@ class Sample(AbstractElement):
         raise KeyError(f'Could not find Role In {self}')
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> PropertyDict:
         """
         The properties property contains all data which can be altered
         through the chemotion api from the main tab of the sample.
@@ -407,7 +407,7 @@ class Sample(AbstractElement):
 
     def _get_converted_amount(self, output_unit):
         key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
-        gp: GasPhaseObj= self.properties.get('gas_phase_data')
+        gp: GasPhaseObj = self.properties.get('gas_phase_data')
         if gp is not None:
             gas_attres = {'temperature_in_k': gp.temperature_in_k, 'ppm': gp.ppm, 'time_in_h': gp.time_in_h}
 
@@ -752,7 +752,8 @@ class Sample(AbstractElement):
             except AttributeError:
                 ppm = None
                 temperature_in_k = None
-            self._properties['equivalent'] = get_equivalent(self, self.mol, ref_mol, ppm=ppm, temperature_in_k=temperature_in_k)
+            self._properties['equivalent'] = get_equivalent(self, self.mol, ref_mol, ppm=ppm,
+                                                            temperature_in_k=temperature_in_k)
 
     def set_ref(self, is_ref: bool, check_ref: bool = True):
         if check_ref:
