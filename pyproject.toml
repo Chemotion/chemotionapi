@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chemotion-api"
-version = "0.4.6"
+version = "211.0.1"
 description = "A Chemotion python API"
 authors = ["Maritn Starman <martin.starman@kit.edu>"]
 license = "MIT"

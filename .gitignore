@@ -19,3 +19,5 @@ ElnDataFatcher.iml
 /test_config/.env
 /example.json
 /example_2.json
+/test_config/new_version/dumps/
+/test_config/new_version/shared/backup/
