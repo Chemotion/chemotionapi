@@ -9,6 +9,12 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-02 — Migrate to uv + just, target Python 3.14
+
+- `pyproject.toml`: uv-managed deps, Python ≥ 3.14.
+- `justfile`: reproducible dev tasks (build, test, lint, coverage).
+- Removed the `requirements.txt` files.
+
 ## 2026-06-01 — Remove build artifacts, generated dumps and stale configs
 
 - Housekeeping: deleted `.gitlab-ci.yml`, `.readthedocs.yaml`, `.tool-versions`, `chemotionapi.iml`, `config.json.sample` and the `dist/` wheels.
