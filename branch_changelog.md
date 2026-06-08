@@ -9,6 +9,12 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-08 — Modernize the core plumbing
+
+- `Instance`, `ElementManager`, `User` strongly typed.
+- `Connection` configurable with `verify_ssl`, auto-retrying transient failures (HTTP 502/503/504, idempotent methods only).
+- `SchemaManager` decouples version/schema metadata from request logic.
+
 ## 2026-06-02 — Migrate to uv + just, target Python 3.14
 
 - `pyproject.toml`: uv-managed deps, Python ≥ 3.14.
