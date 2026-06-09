@@ -9,6 +9,11 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-09 — Typed fields and a schema validation registry
+
+- `chemotion_api.labImotion.items.{layer, fields, …}` typed; `.value` properties on field types.
+- `SchemaRegistry` (jsonschema validator store, singleton) enables runtime property validation before model construction.
+
 ## 2026-06-08 — Modernize the core plumbing
 
 - `Instance`, `ElementManager`, `User` strongly typed.

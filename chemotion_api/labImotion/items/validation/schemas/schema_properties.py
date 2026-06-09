@@ -1,6 +1,10 @@
+"""JSON schema validating a generic element's properties template (layers, options, flow)."""
+
+from typing import Any
+
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 
-properties_schema = {
+properties_schema: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "chemotion://generic/properties/draft-01",
     "title": "Schema for generic element properties",

@@ -1,3 +1,5 @@
+"""JSON schemas validating a generic segment klass and its properties template."""
+
 import copy
 
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry

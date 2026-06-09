@@ -1,3 +1,5 @@
+"""JSON schema validating a generic flow object (workflow nodes and edges)."""
+
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 
 generic_schema = {

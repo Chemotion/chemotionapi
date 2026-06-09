@@ -1,3 +1,5 @@
+"""JSON schema validating a generic element klass (extends the base element schema)."""
+
 import copy
 
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry

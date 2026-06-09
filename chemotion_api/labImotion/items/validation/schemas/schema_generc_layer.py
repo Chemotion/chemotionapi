@@ -1,3 +1,5 @@
+"""JSON schema validating a generic layer (a group of fields within an element)."""
+
 from chemotion_api.labImotion.items.options import ConditionOperator, LayerColor
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 

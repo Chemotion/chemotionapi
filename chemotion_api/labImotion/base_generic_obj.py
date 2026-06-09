@@ -1,23 +1,35 @@
+"""Base classes shared by LabIMotion generic objects (serialization and change tracking)."""
 import json
-from typing import Self, Callable
+from typing import Self, cast
+from collections.abc import Callable
 
 from chemotion_api.connection import Connection
 from chemotion_api.labImotion.items.genericproperties import GenericProperties
-from chemotion_api.labImotion.items.options import SaveActionType
+from chemotion_api.labImotion.items.options import SaveActionType, ElementType
 from chemotion_api.labImotion.structure import StructureRegistry
 from chemotion_api.labImotion.utils import ChemotionSerializable, generate_pkg_info
 
 
 class GenericObj(ChemotionSerializable):
-    url = None
-    url_create = None
-    url_upload = None
-    url_activate = None
-    url_save = None
-    url_save_template = None
-    element_type = None
+    """Base class for a generic klass, handling its properties, validation and persistence.
+
+    Subclasses set the ``url_*`` endpoints and ``element_type`` for their concrete kind.
+    """
+
+    url: str | None = None
+    url_create: str | None = None
+    url_upload: str | None = None
+    url_activate: str | None = None
+    url_save: str | None = None
+    url_save_template: str | None = None
+    element_type: ElementType | None = None
 
     def __init__(self, json_data: dict, connection: Connection):
+        """Build a generic object from its raw klass JSON.
+
+        :param json_data: The raw klass dict returned by the Chemotion backend.
+        :param connection: Authenticated connection used for save/activate calls.
+        """
         self._json_data = json_data
         self._connection = connection
         self._id = json_data['id']
@@ -31,10 +43,14 @@ class GenericObj(ChemotionSerializable):
         sr = StructureRegistry(self)
         self._properties = None
         if self.is_generic:
-            self._properties = GenericProperties(json_data['properties_template'], self.element_type, sr)
-            self._release = GenericProperties(json_data['properties_release'], self.element_type, sr)
+            self._properties = GenericProperties(json_data['properties_template'], cast(ElementType, self.element_type), sr)
+            self._release = GenericProperties(json_data['properties_release'], cast(ElementType, self.element_type), sr)
 
     def to_dict(self):
+        """Serialise the object back into its klass JSON dictionary.
+
+        :return: The updated raw klass dict.
+        """
         if self.is_generic:
             self._json_data |= {
                 'uuid': self._identifier,
@@ -45,23 +61,38 @@ class GenericObj(ChemotionSerializable):
         return self._json_data
 
     def save(self, save_type_action: SaveActionType = SaveActionType.DRAFT):
+        """Persist the object, saving its template and/or general properties as supported.
+
+        :param save_type_action: Release level (draft/minor/major) for the template save.
+        """
         if self.url_save_template is not None:
             self.save_template(save_type_action)
         if self.url_save is not None:
             self.save_generale_properties()
 
     def save_template(self, save_type_action: SaveActionType = SaveActionType.DRAFT):
+        """Save the properties template at the given release level.
+
+        :param save_type_action: Release level (draft/minor/major) of the template.
+        :raises TypeError: If this kind of object does not support template saving.
+        :raises ConnectionError: If the backend does not return HTTP 201.
+        """
         if self.url_save_template is None:
             raise TypeError('Save template is not supported')
         res = self._connection.post(self.url_save_template, data=self.to_dict() | {
             "release": save_type_action.value,
-            "klass": self.element_type.value,
+            "klass": cast(ElementType, self.element_type).value,
             "version": None
         })
         if res.status_code != 201:
             raise ConnectionError(f"{res.status_code} -> {res.text}")
 
     def save_generale_properties(self):
+        """Save the object's general (non-template) properties to the backend.
+
+        :raises TypeError: If this kind of object does not support saving.
+        :raises ConnectionError: If the backend does not return HTTP 201.
+        """
         if self.url_save is None:
             raise TypeError('Save template is not supported')
         res = self._connection.post(self.url_save, data=self.to_dict())
@@ -69,45 +100,64 @@ class GenericObj(ChemotionSerializable):
             raise ConnectionError(f"{res.status_code} -> {res.text}")
 
     def activate(self):
+        """Mark the object as active on the backend."""
         self.is_active = True
 
     def deactivate(self):
+        """Mark the object as inactive on the backend."""
         self.is_active = False
 
     @property
     def label(self) -> str:
+        """The display label of the object."""
         return self._label
 
     @label.setter
     def label(self, value: str):
+        """Set the label.
+
+        :raises TypeError: If ``value`` is not a string.
+        """
         if not isinstance(value, str):
             raise TypeError(f"label {type(value)} not supported")
         self._label = value
         
     @property
     def desc(self) -> str:
+        """The description of the object."""
         return self._desc
     
     @desc.setter
     def desc(self, value: str):
+        """Set the description.
+
+        :raises TypeError: If ``value`` is not a string.
+        """
         if not isinstance(value, str):
             raise TypeError(f"desc {type(value)} not supported")
         self._desc = value
 
     @property
     def version(self) -> str:
+        """The version string of the object."""
         return self._version
 
     @property
     def is_active(self) -> bool:
+        """Whether the object is currently active."""
         return self._is_active
 
     @is_active.setter
     def is_active(self, value: bool):
+        """Activate or deactivate the object, pushing the change to the backend.
+
+        :raises TypeError: If ``value`` is not a boolean.
+        :raises ConnectionError: If the backend does not return HTTP 201.
+        """
         if not isinstance(value, bool):
             raise TypeError(f"is_active {type(value)} not supported")
-        res = self._connection.post(self.url_activate, data={
-            'klass': self.element_type.value,
+        res = self._connection.post(cast(str, self.url_activate), data={
+            'klass': cast(ElementType, self.element_type).value,
             'id': self.id,
             'is_active': value
         })
@@ -117,10 +167,15 @@ class GenericObj(ChemotionSerializable):
 
     @property
     def identifier(self) -> str:
+        """The identifier of the object."""
         return self._identifier
 
     @identifier.setter
     def identifier(self, value: str):
+        """Set the identifier; ``None`` is ignored.
+
+        :raises TypeError: If ``value`` is neither ``None`` nor a string.
+        """
         if value is None:
             return
         if not isinstance(value, str):
@@ -129,25 +184,35 @@ class GenericObj(ChemotionSerializable):
 
     @property
     def uuid(self) -> str:
+        """The UUID of the object."""
         return self._uuid
 
     @property
     def properties(self) -> GenericProperties | None:
+        """The editable properties template, or ``None`` for a non-generic object."""
         return self._properties
 
     @property
     def release(self) -> GenericProperties | None:
+        """The released (read-only) properties, or ``None`` for a non-generic object."""
         return self._release
 
     @property
     def id(self) -> int:
+        """The numeric backend id of the object."""
         return self._id
 
     @property
     def is_generic(self) -> bool:
+        """Whether the object is a generic (user-defined) klass."""
         return self._is_generic
 
-    def validate(self, json_data: dict = None):
+    def validate(self, json_data: dict | None = None):
+        """Validate the object against its class-specific JSON schema.
+
+        :param json_data: Data to validate; defaults to this object's own raw data.
+        :raises jsonschema.ValidationError: If the data does not match the schema.
+        """
         if json_data is None:
             json_data = self._json_data
 
@@ -155,10 +220,21 @@ class GenericObj(ChemotionSerializable):
 
     @classmethod
     def validator(cls) -> Callable[[dict], None]:
+        """Return the validation function for this klass.
+
+        :return: A callable validating a klass dict.
+        :raises NotImplementedError: If the subclass does not define a validator.
+        """
         raise NotImplementedError()
 
     @classmethod
     def load_all(cls, con: Connection) -> list[Self]:
+        """Load all klasses of this kind from the backend.
+
+        :param con: Authenticated connection to query.
+        :return: All klasses of this kind, or an empty list if no list URL is defined.
+        :raises ConnectionError: If the backend does not return HTTP 200.
+        """
         if cls.url is None:
             return []
         res = con.get(cls.url)
@@ -172,17 +248,31 @@ class GenericObj(ChemotionSerializable):
 
     @classmethod
     def upload(cls, con: Connection, file_path: str) -> list[Self]:
+        """Upload a klass definition from a JSON file and reload all klasses.
+
+        :param con: Authenticated connection to upload through.
+        :param file_path: Path to the JSON file describing the klass.
+        :return: All klasses of this kind after the upload.
+        :raises ConnectionError: If the backend does not return HTTP 201.
+        """
         if cls.url_create is None:
             return []
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             json_data = json.loads(f.read())
-        res = con.post(cls.url_upload, data=json_data)
+        res = con.post(cast(str, cls.url_upload), data=json_data)
         if res.status_code != 201:
             raise ConnectionError(f"{res.status_code} -> {res.text}")
         return cls.load_all(con)
 
     @classmethod
     def create_new(cls, con: Connection, **kwargs) -> list[Self]:
+        """Create a new klass on the backend and reload all klasses.
+
+        :param con: Authenticated connection to create through.
+        :param kwargs: Klass attributes forwarded to the create endpoint.
+        :return: All klasses of this kind after creation.
+        :raises ConnectionError: If the backend does not return HTTP 201.
+        """
         if cls.url_create is None:
             return []
         res = con.post(cls.url_create, data={

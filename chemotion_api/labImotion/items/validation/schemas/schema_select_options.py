@@ -1,3 +1,5 @@
+"""JSON schema validating the select-options map of a generic element's properties."""
+
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 
 generic_schema = {

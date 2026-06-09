@@ -1,3 +1,9 @@
+"""Validation helpers that check LabIMotion structures against their JSON schemas.
+
+Importing this package registers every schema with :class:`SchemaRegistry`. Running it as a
+script regenerates ``schemas/imports.py`` from the ``schema_*.py`` modules on disk.
+"""
+
 import os
 
 import chemotion_api.labImotion.items.validation.schemas.imports
@@ -18,40 +24,80 @@ if __name__ == '__main__':
 
 
 def validate_selection_options(json_to_test: dict):
+    """Validate a select-options map against the generic select-option schema.
+
+    :param json_to_test: The select-options dictionary to validate.
+    :raises jsonschema.ValidationError: If ``json_to_test`` does not match the schema.
+    """
     validator = SchemaRegistry.instance().validator_for('chemotion://generic/select_option/draft-01')
     validator.validate(json_to_test)
 
 
 def validate_generic_element(json_to_test: dict):
+    """Validate a generic element klass against its JSON schema.
+
+    :param json_to_test: The element klass dictionary to validate.
+    :raises jsonschema.ValidationError: If ``json_to_test`` does not match the schema.
+    """
     validator = SchemaRegistry.instance().validator_for('chemotion://generic/element/draft-01')
     validator.validate(json_to_test)
 
 
 def validate_generic_dataset(json_to_test: dict):
+    """Validate a generic dataset klass against its JSON schema.
+
+    :param json_to_test: The dataset klass dictionary to validate.
+    :raises jsonschema.ValidationError: If ``json_to_test`` does not match the schema.
+    """
     validator = SchemaRegistry.instance().validator_for('chemotion://generic/dataset/draft-01')
     validator.validate(json_to_test)
 
 
 def validate_generic_segment(json_to_test: dict):
+    """Validate a generic segment klass against its JSON schema.
+
+    :param json_to_test: The segment klass dictionary to validate.
+    :raises jsonschema.ValidationError: If ``json_to_test`` does not match the schema.
+    """
     validator = SchemaRegistry.instance().validator_for('chemotion://generic/segment/draft-01')
     validator.validate(json_to_test)
 
 
 def validate_generic_properties(json_to_test: dict):
+    """Validate a generic element's properties template against its JSON schema.
+
+    :param json_to_test: The properties dictionary to validate.
+    :raises jsonschema.ValidationError: If ``json_to_test`` does not match the schema.
+    """
     validator = SchemaRegistry.instance().validator_for('chemotion://generic/properties/draft-01')
     validator.validate(json_to_test)
 
 
 def validate_generic_dataset_properties(json_to_test: dict):
+    """Validate a generic dataset's properties template against its JSON schema.
+
+    :param json_to_test: The dataset properties dictionary to validate.
+    :raises jsonschema.ValidationError: If ``json_to_test`` does not match the schema.
+    """
     validator = SchemaRegistry.instance().validator_for('chemotion://generic/dataset_properties/draft-01')
     validator.validate(json_to_test)
 
 
 def validate_generic_segment_properties(json_to_test: dict):
+    """Validate a generic segment's properties template against its JSON schema.
+
+    :param json_to_test: The segment properties dictionary to validate.
+    :raises jsonschema.ValidationError: If ``json_to_test`` does not match the schema.
+    """
     validator = SchemaRegistry.instance().validator_for('chemotion://generic/segment_properties/draft-01')
     validator.validate(json_to_test)
 
 
 def validate_generic_layer(json_to_test: dict):
+    """Validate a single generic layer against its JSON schema.
+
+    :param json_to_test: The layer dictionary to validate.
+    :raises jsonschema.ValidationError: If ``json_to_test`` does not match the schema.
+    """
     validator = SchemaRegistry.instance().validator_for('chemotion://generic/layer/draft-01')
     validator.validate(json_to_test)
