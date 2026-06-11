@@ -9,6 +9,11 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-11 — Pydantic v2 data models for samples, reactions and molecules
+
+- `chemotion_api/models.py` with Pydantic v2 models (`ConfigDict(extra='allow')` so unknown server fields pass through) for chem-dcat-ap aware fields (SMILES, InChI, density, stoichiometry).
+- Replaces inline dict-based schema handling; proper IDE autocomplete.
+
 ## 2026-06-09 — Typed fields and a schema validation registry
 
 - `chemotion_api.labImotion.items.{layer, fields, …}` typed; `.value` properties on field types.
