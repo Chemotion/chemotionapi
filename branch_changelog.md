@@ -9,6 +9,10 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-15 — CHMO term resolution via embedded codes and cached OLS lookup
+
+- `chemotion_api/ontology/ols_lookup.py` + `OntologyRegistry` resolve CHMO terms from the code embedded in an analysis' `extended_metadata.kind`, hitting the OLS API on first use with caching; an embedded fallback mapping covers offline use.
+
 ## 2026-06-11 — Pydantic v2 data models for samples, reactions and molecules
 
 - `chemotion_api/models.py` with Pydantic v2 models (`ConfigDict(extra='allow')` so unknown server fields pass through) for chem-dcat-ap aware fields (SMILES, InChI, density, stoichiometry).
