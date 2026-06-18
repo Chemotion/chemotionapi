@@ -1,8 +1,16 @@
+"""Workflow model driving a generic element's layer/field progression."""
 import copy
 import uuid
 
 
 class Workflow:
+    """
+    Models a generic element's workflow: the directed graph of layers (nodes) and their
+    transitions (edges) defined in the element's released properties.
+
+    It parses the flow graph into a tree, tracks the workflow instances currently present on an
+    element, and offers operations to advance an element to its next layer or to add a layer.
+    """
 
     def __init__(self, props):
         self._props = props
@@ -13,10 +21,20 @@ class Workflow:
 
     @property
     def workflows(self):
+        """
+        The workflow instances currently present on the element (as built by :meth:`init_wf`).
+
+        :return: List of workflow dicts, each with its ``layers``, ``pos`` and ``id``
+        """
         return self._wfs
 
     @property
     def wf_tree(self):
+        """
+        The parsed workflow graph as a nested tree keyed by node id (parsed lazily and cached).
+
+        :return: The workflow tree
+        """
         if self._wf_tree is None:
             self._wf_tree = self._parse_wf()
         return self._wf_tree
@@ -91,6 +109,15 @@ class Workflow:
         return results
 
     def init_wf(self, json_data):
+        """
+        Build the workflow instances for an element from its property layers.
+
+        For each root entry in the workflow tree, the existing matching layers are collected; if none
+        exist yet a fresh starting layer is created and appended to the element's properties. The
+        resulting instances are stored in :attr:`workflows`.
+
+        :param json_data: the element's JSON data (its ``properties.layers`` are read and extended)
+        """
         max_pos = max(-1, 0, *[elm['position'] for k, elm in json_data['properties']['layers'].items()])
         self._wfs = []
         for (id, entry) in self.wf_tree.items():
@@ -113,6 +140,14 @@ class Workflow:
                 })
 
     def next_options(self, flat = True):
+        """
+        List the possible next layers for each current workflow instance.
+
+        :param flat: if True (default) return a flat list of option dicts; if False return a list
+            grouped per workflow, each with a ``label`` and its ``options``
+
+        :return: The available next-step options
+        """
         result = []
         for wf in self._wfs:
             layer = wf['layers'][-1]
@@ -137,6 +172,16 @@ class Workflow:
         return result
 
     def add_layer(self, json_data, layer_label, pos):
+        """
+        Add a workflow layer identified by its label to the element's properties.
+
+        :param json_data: the element's JSON data (its ``properties.layers`` are extended)
+        :param layer_label: label of the released workflow layer to add
+        :param pos: position for the new layer; if None it is placed after the existing layers
+
+        :return: a ``(key, layer)`` tuple for the added layer, or ``(None, None)`` if no released
+            workflow layer with that label exists
+        """
         if pos is None:
             pos = max(1,0,*[x['position'] for x in json_data['properties']['layers'].values()]) + 10
         layer = next(iter(x for x in json_data['properties_release']['layers'].values() if x['wf'] and x['label'] == layer_label), None)
@@ -148,6 +193,20 @@ class Workflow:
                                                          pos=pos))
 
     def next(self, json_data, layer_id=None, wf_idx=0, wf_id=None, **kwargs) -> tuple[int,dict] | tuple[None,None]:
+        """
+        Advance a workflow instance to its next layer and append that layer to the element.
+
+        The workflow instance is selected by ``wf_id`` if given, otherwise by ``wf_idx``. If
+        ``layer_id`` is not given the first available next option of the current layer is used.
+
+        :param json_data: the element's JSON data (its ``properties.layers`` are extended)
+        :param layer_id: node id of the next layer to add; defaults to the first available option
+        :param wf_idx: index of the workflow instance to advance (used when ``wf_id`` is None)
+        :param wf_id: id of the workflow instance to advance
+
+        :return: a ``(key, layer)`` tuple for the added layer, or ``(None, None)`` if there is no
+            next layer
+        """
         if wf_id is not None:
             wf = next(x for x in self._wfs if x['id'] == wf_id)
         else:

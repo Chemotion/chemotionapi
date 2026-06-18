@@ -1,10 +1,18 @@
+"""Wellplate element: a grid of wells, each optionally holding a :class:`~chemotion_api.elements.sample.Sample`."""
 from chemotion_api.elements.abstract_element import AbstractElement
 
 from chemotion_api.elements.sample import Sample
 from collections.abc import MutableMapping
+from typing import cast
 import string
 
 class WellplateCol(MutableMapping):
+    """
+    One column of a well plate: a mapping from row key ``'A'``-``'H'`` to a
+    :class:`~chemotion_api.elements.sample.Sample` (or None for an empty well).
+
+    Keys are case-insensitive; any key outside ``A``-``H`` raises an ``IndexError``.
+    """
 
     def __init__(self, *args, **kwargs):
         self._keys = [letter for letter in string.ascii_uppercase[0:8]]
@@ -76,13 +84,13 @@ class Wellplate(AbstractElement):
     def _parse_properties(self) -> dict:
 
         return {
-            'name': self.json_data.get('name'),
-            'description': self.json_data.get('description')
+            'name': cast(dict, self.json_data).get('name'),
+            'description': cast(dict, self.json_data).get('description')
         }
 
     def _clean_properties_data(self, serialize_data : dict | None =None) -> dict:
-        self.json_data['wells'] = self.json_data.get('wells')[:self.json_data.get('size')]
-        for element in self.json_data.get('wells'):
+        cast(dict, self.json_data)['wells'] = cast(list, cast(dict, self.json_data).get('wells'))[:cast(dict, self.json_data).get('size')]
+        for element in cast(list, cast(dict, self.json_data).get('wells')):
             x = int(element['position']['x']) - 1
             y = chr(int(element['position']['y']) + ord('A') - 1)
             element['is_new'] = element.get('is_new', False)
@@ -92,10 +100,38 @@ class Wellplate(AbstractElement):
                 element['sample'] = self.wells[x][y].clean_data()
 
 
-        self.json_data['name'] = self.properties.get('name')
-        self.json_data['description'] = self.properties.get('description')
-        return self.json_data
+        cast(dict, self.json_data)['name'] = self.properties.get('name')
+        cast(dict, self.json_data)['description'] = self.properties.get('description')
+        return cast(dict, self.json_data)
+
+    def eln_node_content(self) -> dict:
+        """Emit each occupied well as a schema.org ``PropertyValue`` (position → sample label)."""
+        property_values: list[dict] = []
+        for x, col in enumerate(self.wells or []):
+            for y, sample in col.items():
+                if sample is None:
+                    continue
+                try:
+                    label = (sample.properties.get('short_label') or sample.name
+                             or sample.molecule.get('cano_smiles'))
+                except Exception:
+                    label = None
+                property_values.append({
+                    "@type": "PropertyValue",
+                    "name": f"well {y}{x + 1}",
+                    "value": label or "occupied",
+                })
+        content: dict = {}
+        if property_values:
+            content["variableMeasured"] = property_values
+        desc = self.properties.get('description') if self._properties is not None else None
+        if isinstance(desc, str) and desc.strip():
+            content["description"] = desc
+        return content
 
     def save(self):
+        """
+        Save the well plate to the server and reload it to refresh the well/sample data.
+        """
         super().save()
         self.load()

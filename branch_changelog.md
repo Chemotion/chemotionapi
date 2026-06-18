@@ -9,6 +9,12 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-18 — Typed element layer with chem-dcat-ap mapping
+
+- `Sample.to_dcat_ap()` / `Reaction.to_dcat_ap()` map element JSON to chem-dcat-ap objects.
+- Reaction: starting materials/reactants/products/solvents with roles and quantities; conditions (temperature, duration) as typed properties.
+- Sample: molecule identifiers (SMILES/InChI) and quantities (mass, volume, amount, density, molarity) as QUDT-typed values.
+
 ## 2026-06-15 — CHMO term resolution via embedded codes and cached OLS lookup
 
 - `chemotion_api/ontology/ols_lookup.py` + `OntologyRegistry` resolve CHMO terms from the code embedded in an analysis' `extended_metadata.kind`, hitting the OLS API on first use with caching; an embedded fallback mapping covers offline use.

@@ -1,9 +1,11 @@
+"""Attachment containers for elements and datasets, with chunked upload and streaming download."""
 import hashlib
 import json
 import os
 import uuid
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Sequence, Iterator
+from typing import cast
 import magic
 import requests
 
@@ -32,7 +34,7 @@ class Attachment(dict):
     :param data: attachment information (from the sever)
     """
 
-    def __init__(self, con: Connection, data: dict[str:str]):
+    def __init__(self, con: Connection, data: dict[str, str]):
         self._con = con
         super().__init__(data)
 
@@ -44,9 +46,26 @@ class Attachment(dict):
         """
         res = self._con.get(f"/api/v1/attachments/{self['id']}")
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         return res.content
+
+    def iter_file(self, chunk_size: int = 1 << 20) -> Iterator[bytes]:
+        """Stream the attachment file in chunks instead of loading it fully into memory.
+
+        :param chunk_size: bytes per chunk (default 1 MiB).
+        :yields: successive byte chunks of the file.
+        """
+        res = self._con.get(f"/api/v1/attachments/{self['id']}", stream=True)
+        if res.status_code != 200:
+            res.close()
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        try:
+            for chunk in res.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    yield chunk
+        finally:
+            res.close()
 
     def save_file(self, directory: str = '.') -> str:
         """
@@ -60,7 +79,7 @@ class Attachment(dict):
             raise NotADirectoryError(f"{directory} is not a directory")
         res = self._con.get(f"/api/v1/attachments/{self['id']}")
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         file_path = os.path.join(directory, self['filename'])
         with open(file_path, 'wb+') as f:
             f.write(res.content)
@@ -94,17 +113,17 @@ class Attachments(Sequence):
     :param attachment_data: list of attachment information (from the sever)
     """
 
-    def __init__(self, con: Connection, attachment_data: list[dict] = None):
+    def __init__(self, con: Connection, attachment_data: list[dict] | None = None):
         super().__init__()
         if attachment_data is None:
             attachment_data = []
         self._attachment_data = [Attachment(con, x) for x in attachment_data]
-        self._new_attachment_data = []
+        self._new_attachment_data: list = []
         self._con = con
-        self._to_uploads = []             # Direct inheritance
+        self._to_uploads: list = []             # Direct inheritance
 
             # Extra method not required by the ABC
-    def __getitem__(self, index: int) -> Attachment:
+    def __getitem__(self, index: int) -> Attachment:  # type: ignore[override]
         return self.attachment_data[index]
     def __len__(self):
         return len(self.attachment_data)
@@ -134,7 +153,7 @@ class Attachments(Sequence):
         """
         if id is not None:
             key = 'id'
-            identifier = id
+            identifier = cast("str | None", id)
         elif identifier is not None:
             key = 'identifier'
         elif filename is not None:
@@ -170,7 +189,7 @@ class Attachments(Sequence):
             chunk = f.read()
 
             f.close()
-            data = OrderedDict(file={"preview": f"{self._con.host_url}/images/wild_card/not_available.svg"},
+            data: dict[str, object] = OrderedDict(file={"preview": f"{self._con.host_url}/images/wild_card/not_available.svg"},
                                name=filename,
                                filename=filename,
                                is_deleted=False,
@@ -224,15 +243,29 @@ class MutableAttachments(Attachments):
     Same as :class:`chemotion_api.elements.attachments.Attachments` only add File is not allowed.
     """
 
-    def __init__(self, con: Connection, attachment_data: list[dict] = None, *file_paths: str):
+    def __init__(self, con: Connection, attachment_data: list[dict] | None = None, *file_paths: str):
         super().__init__(con, attachment_data)
         for fp in file_paths:
             super().add_file(fp)
 
     def add_file(self, file_path: str) -> dict:
-        raise NotImplemented("In a MutableAttachments add_file is not allowed")
+        """Adding files this way is not allowed for :class:`MutableAttachments`.
 
-    def save(self, id: int = -1, element_type: str = '') -> requests.Response | None:
+        :param file_path: ignored
+
+        :raises NotImplementedError: always, since add_file is disabled here
+        """
+        raise NotImplementedError("In a MutableAttachments add_file is not allowed")
+
+    def save(self, id: int = -1, element_type: str = '') -> requests.Response | None:  # type: ignore[override]
+        """
+        Upload all queued files via :meth:`AnalysesManager.upload_file`.
+
+        :param id: unused (kept for signature compatibility with :meth:`Attachments.save`)
+        :param element_type: unused (kept for signature compatibility)
+
+        :return: None
+        """
         for x in self._to_uploads:
             AnalysesManager.upload_file(self._con, x['file_path'], x['file_uuid'])
         return None

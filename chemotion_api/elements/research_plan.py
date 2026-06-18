@@ -1,9 +1,11 @@
+"""Research plan element and its rich-text/table body model."""
 import uuid
 from enum import Enum
 from string import ascii_lowercase
-from typing import Optional, Literal, Generator
+from typing import Optional, Literal, Any, cast
+from collections.abc import Generator
 
-from typing_extensions import Self
+from typing import Self
 
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.sample import Sample
@@ -11,6 +13,7 @@ from chemotion_api.elements.abstract_element import AbstractElement
 
 
 class BodyElements(Enum):
+    """The supported research-plan body element types (richtext, ketcher, table, image, sample, reaction)."""
     richtext = 'richtext'
     ketcher = 'ketcher'
     table = 'table'
@@ -60,6 +63,11 @@ class Table(dict):
 
     @property
     def id(self) -> str:
+        """
+        The table's unique id.
+
+        :return: The table id
+        """
         return self['id']
 
     def _get_col_id(self):
@@ -77,17 +85,22 @@ class Table(dict):
         """
         return next(self.column_ids_by_labels(label))
 
-    def column_ids_by_labels(self, *labels: str) -> Generator[str, None, None]:
+    def column_ids_by_labels(self, *labels: str) -> Generator[str]:
         """
         Finds all column IDs of columns with a given labels
 
         :param labels: Labels of the column
 
         :return: Column id
+        :raises KeyError: if no column carries one of the labels
         """
 
         for l in labels:
-            yield next(x['field'] for x in self['value']['columns'] if x['headerName'] == l)
+            # an inner StopIteration would surface as an opaque RuntimeError (PEP 479)
+            match = next((x['field'] for x in self['value']['columns'] if x['headerName'] == l), None)
+            if match is None:
+                raise KeyError(f"Table has no column labeled {l!r}")
+            yield match
 
     def add_columns(self, *labels: str) -> list[str]:
         """
@@ -126,19 +139,19 @@ class Table(dict):
         """
 
         new_row = {}
-        entries = list(entries)
+        entries = list(entries)  # type: ignore[assignment]  # narrowing *entries tuple to list, value unchanged
         for idx, colId in enumerate(x['field'] for x in self['value']['columns']):
             if colId in placed_entries:
                 new_row[colId] = placed_entries[colId]
             elif len(entries) != 0:
-                new_row[colId] = entries.pop(0)
+                new_row[colId] = entries.pop(0)  # type: ignore[attr-defined]  # entries reassigned to list above
             else:
                 new_row[colId] = ''
 
         self['value']['rows'].append(new_row)
         return self
 
-    def set_entry(self, row: int, column_id: str, value: any) -> Self:
+    def set_entry(self, row: int, column_id: str, value: Any) -> Self:
         """
         Sets an entry to the table
 
@@ -170,12 +183,19 @@ class Table(dict):
 
 
 class RichText(dict):
+    """
+    A research-plan rich-text body element backed by a Quill delta (a list of ``ops``).
+
+    Use :meth:`add_text` to append formatted text fragments.
+    """
+
     class HeaderType(Enum):
+        """Header levels (H1-H3) usable when adding rich text via :meth:`RichText.add_text`."""
         H1 = 1
         H2 = 2
         H3 = 3
 
-    def __init__(self, id: str, value: Optional[dict] = None):
+    def __init__(self, id: str, value: dict | None = None):
         if value is None:
             value = {"ops": []}
         value = {"ops": value.get('ops', [])}
@@ -188,19 +208,41 @@ class RichText(dict):
 
     @property
     def id(self) -> str:
+        """
+        The rich-text element's unique id.
+
+        :return: The element id
+        """
         return self['id']
 
     @property
     def value(self) -> list[dict]:
+        """
+        The underlying list of Quill delta operations (``ops``).
+
+        :return: The list of delta operations
+        """
         return self['value']['ops']
 
     def add_text(self, text: str,
-                 bold: Optional[bool] = None,
-                 underline: Optional[bool] = None,
-                 italic: Optional[bool] = None,
-                 list: Optional[Literal['bullet', 'ordered']] = None,
-                 header: Optional[HeaderType] = None) -> Self:
-        attributes = {}
+                 bold: bool | None = None,
+                 underline: bool | None = None,
+                 italic: bool | None = None,
+                 list: Literal['bullet', 'ordered'] | None = None,
+                 header: HeaderType | None = None) -> Self:
+        """
+        Append a (optionally formatted) text fragment to the rich-text element.
+
+        :param text: the text to append
+        :param bold: render the text bold
+        :param underline: render the text underlined
+        :param italic: render the text italic
+        :param list: wrap the text as a ``'bullet'`` or ``'ordered'`` list
+        :param header: apply a header level (see :class:`RichText.HeaderType`)
+
+        :return: Self
+        """
+        attributes: dict[str, Any] = {}
         if bold is not None:
             attributes['bold'] = bold
         if underline is not None:
@@ -268,6 +310,21 @@ class ResearchPlan(AbstractElement):
         """
         return self.properties['body']
 
+    def eln_node_content(self) -> dict:
+        """Emit the plan's name + rich-text body as ``description`` for the RO-Crate Dataset node."""
+        texts: list[str] = []
+        try:
+            for element in self.body:
+                value = getattr(element, "value", None)
+                if isinstance(value, list):  # RichText: a list of Quill delta ops
+                    txt = "".join(op.get("insert", "") for op in value if isinstance(op, dict))
+                    if txt.strip():
+                        texts.append(txt.strip())
+        except Exception:
+            pass
+        description = "\n".join(texts).strip()
+        return {"description": description} if description else {}
+
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
 
@@ -324,19 +381,19 @@ class ResearchPlan(AbstractElement):
         return value
 
     def _parse_properties(self) -> dict:
-        body = self.json_data.get('body')
+        body = cast(dict, self.json_data).get('body')
         return {
-            'body': [self._parse_body_element(x) for x in body]
+            'body': [self._parse_body_element(x) for x in cast(list, body)]
         }
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
-        self.json_data['body'] = []
+        cast(dict, self.json_data)['body'] = []
         for elem in self.body:
-            self.json_data['body'].append(self._reparse_body_element(elem))
+            cast(dict, self.json_data)['body'].append(self._reparse_body_element(elem))
 
-        return self.json_data
+        return cast(dict, self.json_data)
 
-    def add_richtext(self, text: Optional[str] = None, at_idx: Optional[int] = None) -> RichText:
+    def add_richtext(self, text: str | None = None, at_idx: int | None = None) -> RichText:
         """
         Adds a text block to the Research plan
 
@@ -349,7 +406,7 @@ class ResearchPlan(AbstractElement):
             body_obj.add_text(text)
         return body_obj
 
-    def add_image(self, image_path: str, at_idx: Optional[int] = None) -> dict:
+    def add_image(self, image_path: str, at_idx: int | None = None) -> dict:
         """
         Adds an image to the Research plan
 
@@ -368,7 +425,7 @@ class ResearchPlan(AbstractElement):
         body_obj['value'] = file_obj
         return body_obj
 
-    def add_table(self, at_idx: Optional[int] = None) -> Table:
+    def add_table(self, at_idx: int | None = None) -> Table:
         """
         Adds a new table to the Research plan
 
@@ -378,7 +435,7 @@ class ResearchPlan(AbstractElement):
         body_obj = self._add_new_element(BodyElements.table, at_idx)
         return body_obj
 
-    def _add_new_element(self, element_type: BodyElements, at_idx: Optional[int]):
+    def _add_new_element(self, element_type: BodyElements, at_idx: int | None):
         body_elem = {
             'id': uuid.uuid4().__str__(),
             'type': element_type.name,
