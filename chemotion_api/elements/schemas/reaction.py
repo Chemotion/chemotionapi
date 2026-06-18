@@ -1,3 +1,5 @@
+"""JSON schema (and option lists) describing the validatable ``properties`` of a Reaction element."""
+
 PURIFICATION_OPTIONS = ['Flash-Chromatography', 'TLC', 'HPLC', 'Extraction', 'Distillation', 'Dialysis', 'Filtration',
                         'Sublimation', 'Crystallisation', 'Recrystallisation', 'Precipitation']
 STATUS_OPTIONS = ['', 'Planned', 'Running', 'Done', 'Analyses Pending', 'Successful',
