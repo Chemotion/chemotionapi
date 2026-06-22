@@ -9,6 +9,11 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-22 — RO-Crate 1.1 .eln exporter (logged-in user as author)
+
+- `Collection.export_eln(...)` bundles a collection + its elements as a ZIP containing RO-Crate 1.1 metadata (crate descriptor, datasets per element type, file payloads).
+- Offline-capable: the RO-Crate JSON-LD context is vendored (`chemotion_api/data/ro-crate-context.jsonld`), so serialization needs no network access.
+
 ## 2026-06-18 — Typed element layer with chem-dcat-ap mapping
 
 - `Sample.to_dcat_ap()` / `Reaction.to_dcat_ap()` map element JSON to chem-dcat-ap objects.
