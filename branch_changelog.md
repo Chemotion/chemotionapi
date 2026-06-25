@@ -9,6 +9,11 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-25 — Explicit ORCID + ROR authorship replaces the logged-in-user default
+
+- `Author` and `AuthorAffiliation` capture full identity (ORCID, name) and org identity (ROR, name) respectively.
+- Export no longer defaults to the logged-in user; `export_eln` raises `ValueError` unless authors with ORCID + ROR affiliations are supplied (`validate_authors`).
+
 ## 2026-06-22 — RO-Crate 1.1 .eln exporter (logged-in user as author)
 
 - `Collection.export_eln(...)` bundles a collection + its elements as a ZIP containing RO-Crate 1.1 metadata (crate descriptor, datasets per element type, file payloads).

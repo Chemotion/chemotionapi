@@ -109,51 +109,50 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
 
 
 def _build_author_nodes(metadata_dict: dict, graph_nodes: dict,
-                        session) -> tuple[list[dict], Optional[dict]]:
-    """Add Person/Organization contextual entities for the logged-in user.
+                        authors: list) -> tuple[list[dict], Optional[dict]]:
+    """Add Person (ORCID-identified) and Organization (ROR-identified) contextual entities for the
+    manually-provided authors. Returns ``(author_refs, publisher_ref)`` where author_refs is a list
+    of ``{"@id": <orcid url>}`` dicts and publisher_ref is the first organization (or None). Authors
+    are pre-validated by ``chemotion_api.authors.validate_authors``."""
+    author_refs: list[dict] = []
+    publisher_ref: Optional[dict] = None
 
-    Chemotion elements do not expose a per-element creator, so the **exporting user** is
-    recorded as the crate's author (name, email, identifier), with their affiliations
-    (Grape ``/api/v1/affiliations``) as ``Organization`` entities linked through
-    ``Person.affiliation``; the first affiliation doubles as the descriptor's
-    ``sdPublisher``. Best-effort: any failure is logged and the export continues
-    without author metadata. Returns ``(author_refs, publisher_ref)``."""
-    from chemotion_api.user import User
-
-    try:
-        user = User.load_me(session)
-        person_id = f"#author-{user.id}" if user.id is not None else "#author"
+    for author in authors:
+        person_id = author.orcid_url
         person_node = {
             "@id": person_id,
             "@type": "Person",
-            "name": user.name,
+            "name": author.name,
+            "identifier": author.orcid_url,
         }
-        if user.email:
-            person_node["email"] = user.email
-            person_node["identifier"] = user.email
+        if author.email:
+            person_node["email"] = author.email
 
-        publisher_ref: Optional[dict] = None
         org_refs = []
-        for i, aff in enumerate(user.get_affiliations()):
-            aff_id = getattr(aff, "id", None)
-            org_id = f"#organization-{aff_id}" if aff_id is not None else f"#organization-{i}"
+        for aff in author.affiliations:
+            org_id = aff.ror_url
             if org_id not in graph_nodes:
-                org_node = {"@id": org_id, "@type": "Organization", "name": aff.name}
+                org_node = {
+                    "@id": org_id,
+                    "@type": "Organization",
+                    "name": aff.name,
+                    "identifier": aff.ror_url,
+                }
                 metadata_dict["@graph"].append(org_node)
                 graph_nodes[org_id] = org_node
             org_refs.append({"@id": org_id})
             if publisher_ref is None:
                 publisher_ref = {"@id": org_id}
+
         if org_refs:
             person_node["affiliation"] = org_refs if len(org_refs) > 1 else org_refs[0]
 
         if person_id not in graph_nodes:
             metadata_dict["@graph"].append(person_node)
             graph_nodes[person_id] = person_node
-        return [{"@id": person_id}], publisher_ref
-    except Exception as e:
-        logger.warning("Could not determine the logged-in user for author metadata: %s", e)
-        return [], None
+        author_refs.append({"@id": person_id})
+
+    return author_refs, publisher_ref
 
 
 class SyncPermission(Enum):
@@ -539,6 +538,7 @@ class AbstractCollection:
 
     def export_eln(self, file_path: str, strict: bool = False,
                    ontology_lookup: bool = True, ols_cache: Optional[str] = None,
+                   authors: Optional[list] = None,
                    progress_callback: Optional[Callable[[int, int, Optional[str]], None]] = None) -> str:
         """
         Exports the collection and all its elements to a .eln ZIP file.
@@ -551,6 +551,11 @@ class AbstractCollection:
             phase as ``progress_callback(processed_count, total_count, current_item_name)`` (1-based
             ``processed_count``). Useful for progress bars in notebooks/GUIs. Exceptions raised by
             the callback are caught and logged so a faulty callback never aborts the export.
+        :param authors: the export's author(s) as a list of :class:`chemotion_api.authors.Author`,
+            each with an ORCID iD and ROR-identified affiliation(s). **Required**: every ``.eln``
+            must declare its authors. If omitted here, the authors set via :meth:`set_authors` are
+            used; if neither is provided a ``ValueError`` explains how to set them. Authorship is no
+            longer taken from the logged-in user.
         :param ontology_lookup: annotate each analysis with a ``measurementTechnique`` ontology
             term. Resolution order: the ``CHMO:…`` code embedded in the analysis ``kind`` →
             (when no code) an EBI OLS lookup. OLS access is cached and never fatal; set this
@@ -569,6 +574,14 @@ class AbstractCollection:
         from linkml_runtime.utils.schemaview import SchemaView
         import chem_dcat_ap.datamodel as dm
         from chem_dcat_ap.datamodel import MAIN_SCHEMA_PATH
+        from chemotion_api.authors import validate_authors
+
+        # Authorship is explicit: use the authors passed here, else those set via set_authors().
+        # validate_authors() raises a helpful ValueError (with examples) if none/invalid — fail fast
+        # before doing any export work.
+        export_authors = validate_authors(
+            authors if authors is not None else getattr(self, "_export_authors", None)
+        )
 
         def sanitize_filename(name: str) -> str:
             if not name:
@@ -929,12 +942,12 @@ class AbstractCollection:
                     root_has_part.append({"@id": other_id})
         root_node["hasPart"] = root_has_part
 
-        # Author + affiliation: the logged-in user is recorded as the crate's author, per
-        # TheELNFileFormat / RO-Crate (Person + Organization contextual entities). Every Dataset
-        # node references the author via ``author``; the descriptor's ``sdPublisher`` references
-        # the first affiliation. Best-effort — author metadata never breaks an export.
+        # Author + affiliation: the manually-provided authors (validated above) become Person
+        # contextual entities (ORCID iD as @id) with ROR-identified Organization affiliations, per
+        # TheELNFileFormat / RO-Crate. Every Dataset node references the author(s) via ``author``;
+        # the descriptor's ``sdPublisher`` references the first author's first organization.
         author_refs, publisher_ref = _build_author_nodes(
-            metadata_dict, graph_nodes, getattr(self, "_session", None))
+            metadata_dict, graph_nodes, export_authors)
         if author_refs:
             author_value = author_refs if len(author_refs) > 1 else author_refs[0]
             for other_id, node in graph_nodes.items():
@@ -979,6 +992,19 @@ class AbstractCollection:
             if strict:
                 raise RuntimeError(f"export_eln strict mode: {len(skipped)} issue(s) during export: {skipped}")
         return file_path
+
+    def set_authors(self, authors: list) -> None:
+        """Set the author(s) used by :meth:`export_eln`.
+
+        :param authors: list of :class:`chemotion_api.authors.Author`, each with an ORCID iD and
+            ROR-identified affiliation(s). Validated at export time.
+        """
+        self._export_authors = list(authors)
+
+    @property
+    def authors(self) -> list:
+        """The author(s) currently set for export (see :meth:`set_authors`)."""
+        return getattr(self, "_export_authors", []) or []
 
 
 
