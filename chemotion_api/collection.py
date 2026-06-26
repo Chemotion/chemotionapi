@@ -65,11 +65,31 @@ def _get_export_schemaview(schema_path: Any, importmap: dict[str, str]):
     return sv
 
 
+def _make_progress_bar(total: int, desc: str, unit: str):
+    """Best-effort tqdm progress bar; returns None if tqdm is unavailable.
+
+    Uses ``tqdm.auto`` (widget in Jupyter/IPython, text bar in a terminal). tqdm.auto emits a
+    TqdmWarning ("IProgress not found …") in kernels whose ipywidgets isn't a working widget
+    frontend; that warning is silenced so tqdm falls back to a text bar, which renders everywhere.
+    """
+    try:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            from tqdm.auto import tqdm
+            return tqdm(total=total, desc=desc, unit=unit)
+    except Exception as e:
+        logger.debug("interactive progress bar unavailable (%s); continuing without it", e)
+        return None
+
+
 def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem_files: dict,
                      elem_paths: dict, sanitize_filename: Callable[[str], str],
-                     skipped: list[dict]) -> None:
+                     skipped: list[dict],
+                     progress: Callable[[str], None] | None = None) -> None:
     """Write the RO-Crate ZIP: ro-crate-metadata.json + each element's attachment files.
-    Attachment download failures are logged and recorded in ``skipped`` (not fatal)."""
+    Attachment download failures are logged and recorded in ``skipped`` (not fatal).
+    ``progress`` (if given) is called with the filename after each attachment is written."""
     import json, os, zipfile
 
     def _json_default(o):
@@ -107,6 +127,8 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
                     logger.warning("Failed to download attachment %s: %s", orig_filename, e)
                     skipped.append({"kind": "attachment", "stage": "download",
                                     "filename": orig_filename, "error": str(e)})
+                if progress is not None:
+                    progress(orig_filename)
 
 
 def _build_author_nodes(metadata_dict: dict, graph_nodes: dict,
@@ -619,7 +641,8 @@ class AbstractCollection:
     def export_eln(self, file_path: str, strict: bool = False,
                    ontology_lookup: bool = True, ols_cache: str | None = None,
                    authors: list | None = None,
-                   progress_callback: Callable[[int, int, str | None], None] | None = None) -> str:
+                   progress_callback: Callable[[int, int, str | None], None] | None = None,
+                   interactive: bool = False) -> str:
         """
         Exports the collection and all its elements to a .eln ZIP file.
 
@@ -642,6 +665,12 @@ class AbstractCollection:
             ``False`` to use only embedded codes and skip all network calls.
         :param ols_cache: optional path to a JSON OLS cache (read + updated) for deterministic
             and offline-friendly lookups.
+        :param interactive: if True, show progress bars during the export when possible (uses
+            ``tqdm.auto``, which renders a widget in Jupyter/IPython and a text bar in a terminal):
+            one for the element→DCAT mapping, then one for attachment download/ZIP writing (the
+            slow phase). Best-effort: if ``tqdm`` is not installed it degrades silently to no bar.
+            Composes with ``progress_callback`` (both are invoked; the callback's index/total
+            continue across the two phases).
         :return: the written ``file_path``.
         """
         import zipfile
@@ -789,22 +818,38 @@ class AbstractCollection:
         rdf_dumper = RDFLibDumper()
 
         _total = len(elements_by_id)
-        for _i, elem in enumerate(elements_by_id.values(), start=1):
+        # Phase 1 of the interactive progress display: the (fast) element→DCAT mapping. The slow
+        # phase — downloading attachments into the ZIP — gets its own bar further down, so the
+        # display doesn't sit at 100 % while multi-MB attachments stream.
+        _bar = _make_progress_bar(_total, "Mapping elements", "element") if interactive else None
+
+        def _report(i, total, name):
+            if _bar is not None:
+                if name:
+                    _bar.set_postfix_str(str(name)[:40], refresh=False)
+                _bar.update(1)
             if progress_callback is not None:
+                progress_callback(i, total, name)
+
+        try:
+            for _i, elem in enumerate(elements_by_id.values(), start=1):
                 try:
-                    progress_callback(_i, _total, getattr(elem, "name", None) or getattr(elem, "id", None))
-                except Exception as e:  # a faulty callback must never abort the export
-                    logger.debug("progress_callback raised: %s", e)
-            if hasattr(elem, "to_dcat_ap"):
-                try:
-                    dcat_obj = elem.to_dcat_ap()
-                    class_name = dcat_obj.__class__.__name__
-                    linkml_cls = getattr(dm, class_name)
-                    l_obj = linkml_cls(**dcat_obj.model_dump(exclude_none=True))
-                    rdf_dumper.inject_triples(l_obj, schemaview, graph)
-                except Exception as e:
-                    logger.warning("Could not map element %s to DCAT-AP (exported as generic Dataset): %s", elem.id, e)
-                    skipped.append({"kind": "dcat_mapping", "stage": "to_dcat_ap", "id": getattr(elem, "id", None), "error": str(e)})
+                    _report(_i, _total, getattr(elem, "name", None) or getattr(elem, "id", None))
+                except Exception as e:  # a faulty callback/bar must never abort the export
+                    logger.debug("progress reporting raised: %s", e)
+                if hasattr(elem, "to_dcat_ap"):
+                    try:
+                        dcat_obj = elem.to_dcat_ap()
+                        class_name = dcat_obj.__class__.__name__
+                        linkml_cls = getattr(dm, class_name)
+                        l_obj = linkml_cls(**dcat_obj.model_dump(exclude_none=True))
+                        rdf_dumper.inject_triples(l_obj, schemaview, graph)
+                    except Exception as e:
+                        logger.warning("Could not map element %s to DCAT-AP (exported as generic Dataset): %s", elem.id, e)
+                        skipped.append({"kind": "dcat_mapping", "stage": "to_dcat_ap", "id": getattr(elem, "id", None), "error": str(e)})
+        finally:
+            if _bar is not None:
+                _bar.close()
 
         mapped_graph = Graph()
         for prefix, ns in graph.namespaces():
@@ -1057,8 +1102,31 @@ class AbstractCollection:
             root_folder = "export"
         root_folder = root_folder + ".eln"
 
-        _write_crate_zip(file_path, root_folder, metadata_dict, elem_files, elem_paths,
-                         sanitize_filename, skipped)
+        # Phase 2 of the progress display: attachment download/ZIP writing — the slow part of a
+        # real export. progress_callback continues counting past phase 1 (elements, then files).
+        _n_att = sum(len(files) for files in elem_files.values())
+        _bar2 = _make_progress_bar(_n_att, "Writing attachments", "file") if interactive and _n_att else None
+        _att_done = 0
+
+        def _tick_file(filename):
+            nonlocal _att_done
+            _att_done += 1
+            try:  # a faulty callback/bar must never abort the export
+                if _bar2 is not None:
+                    if filename:
+                        _bar2.set_postfix_str(str(filename)[:40], refresh=False)
+                    _bar2.update(1)
+                if progress_callback is not None:
+                    progress_callback(_total + _att_done, _total + _n_att, filename)
+            except Exception as e:
+                logger.debug("progress reporting raised: %s", e)
+
+        try:
+            _write_crate_zip(file_path, root_folder, metadata_dict, elem_files, elem_paths,
+                             sanitize_filename, skipped, progress=_tick_file)
+        finally:
+            if _bar2 is not None:
+                _bar2.close()
         _ols_cache.save()
 
         logger.info("Exported %d element(s) and %d collection(s) to %s",
