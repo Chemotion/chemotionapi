@@ -9,6 +9,10 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-29 — chem-dcat-ap mapping, SHACL conformance and ontology-annotation suites
+
+- Test suites for the chem-dcat-ap mapping, SHACL shape conformance of exported crates, and ontology annotation of analyses.
+
 ## 2026-06-29 — Offline ingestion of Chemotion export ZIPs
 
 - `chemotion_api.offline.import_export_zip` navigates and indexes exported collections without a server. Returns `OfflineCollection` tree; RO-Crate support (`.eln` files) came later (2026-07-02 importer).
