@@ -9,6 +9,10 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-29 — Offline ingestion of Chemotion export ZIPs
+
+- `chemotion_api.offline.import_export_zip` navigates and indexes exported collections without a server. Returns `OfflineCollection` tree; RO-Crate support (`.eln` files) came later (2026-07-02 importer).
+
 ## 2026-06-26 — Analysis ontology annotation, streamed attachments, two-phase progress
 
 - Analyses are annotated with CHMO ontology IRIs during export, resolved by `chemotion_api/ontology/ols_lookup.py` from the CHMO code embedded in `extended_metadata.kind` (with a typed fallback mapping and cached OLS lookups).

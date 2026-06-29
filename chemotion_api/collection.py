@@ -17,7 +17,8 @@ from datetime import datetime
 from urllib.parse import urlparse
 from enum import Enum
 from random import random
-from typing import TypeVar, Iterator, Optional, Self, Any, Generator, Callable
+from typing import TypeVar, Optional, Self, Any
+from collections.abc import Iterator, Generator, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ def _make_progress_bar(total: int, desc: str, unit: str):
 def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem_files: dict,
                      elem_paths: dict, sanitize_filename: Callable[[str], str],
                      skipped: list[dict],
-                     progress: Optional[Callable[[str], None]] = None) -> None:
+                     progress: Callable[[str], None] | None = None) -> None:
     """Write the RO-Crate ZIP: ro-crate-metadata.json + each element's attachment files.
     Attachment download failures are logged and recorded in ``skipped`` (not fatal).
     ``progress`` (if given) is called with the filename after each attachment is written."""
@@ -131,13 +132,13 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
 
 
 def _build_author_nodes(metadata_dict: dict, graph_nodes: dict,
-                        authors: list) -> tuple[list[dict], Optional[dict]]:
+                        authors: list) -> tuple[list[dict], dict | None]:
     """Add Person (ORCID-identified) and Organization (ROR-identified) contextual entities for the
     manually-provided authors. Returns ``(author_refs, publisher_ref)`` where author_refs is a list
     of ``{"@id": <orcid url>}`` dicts and publisher_ref is the first organization (or None). Authors
     are pre-validated by ``chemotion_api.authors.validate_authors``."""
     author_refs: list[dict] = []
-    publisher_ref: Optional[dict] = None
+    publisher_ref: dict | None = None
 
     for author in authors:
         person_id = author.orcid_url
@@ -264,7 +265,7 @@ class AbstractCollection:
         return f"Collection(id={self.id}, path={self.get_path()!r})"
 
 
-    def __iter__(self) -> Generator[tuple[str, list[Self]], None, None]:
+    def __iter__(self) -> Generator[tuple[str, list[Self]]]:
         """
         Iterate over all children
 
@@ -312,7 +313,7 @@ class AbstractCollection:
         """
         return {'children': [x.to_json() for x in self._children]}
 
-    def find(self, label: str | None = None, **kwargs) -> list[typing.Union['AbstractCollection', 'Collection']]:
+    def find(self, label: str | None = None, **kwargs) -> list[AbstractCollection | Collection]:
         """
         Finds a collection by its label or other properties. Path is not needed.
 
@@ -351,7 +352,7 @@ class AbstractCollection:
         abs_path.reverse()
         return '/'.join(typing.cast(list[str], abs_path))
 
-    def get_root(self) -> "RootCollection":
+    def get_root(self) -> RootCollection:
         """
         Get root Collection
 
@@ -363,7 +364,7 @@ class AbstractCollection:
             col = col._parent
         return typing.cast("RootCollection", col)
 
-    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> 'AbstractCollection':
+    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> AbstractCollection:
         """
         Gets a collection a path points to.
 
@@ -379,7 +380,7 @@ class AbstractCollection:
         return self.get_root().get_collection(_col_path_join(abs_path, col_path), case_insensitive)
 
     def get_or_create_collection(self, col_path: str | list[str],
-                                 case_insensitive: bool = False) -> "AbstractCollection":
+                                 case_insensitive: bool = False) -> AbstractCollection:
         """
         Gets or creates a collection the col_path path points to. If the collection needs to be created
         the collection is saved right away.
@@ -415,8 +416,8 @@ class AbstractCollection:
             raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
-    def get_elements_of_iri(self, element_type: str, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None) -> ElementSet:
+    def get_elements_of_iri(self, element_type: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None) -> ElementSet:
         """
         Gets all elements of given IRI type.
 
@@ -440,8 +441,8 @@ class AbstractCollection:
             return e
         raise ValueError(f'Could not find a element with the IRI: "{element_type}"')
 
-    def get_samples(self, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None, product_only: bool = False) -> ElementSet:
+    def get_samples(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None, product_only: bool = False) -> ElementSet:
         """
         List of all samples.
 
@@ -460,8 +461,8 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date, product_only)
         return e
 
-    def get_reactions(self, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None) -> ElementSet:
+    def get_reactions(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None) -> ElementSet:
         """
         List of all reactions.
 
@@ -479,8 +480,8 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
-    def get_research_plans(self, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None) -> ElementSet:
+    def get_research_plans(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None) -> ElementSet:
         """
         List of all research plans.
 
@@ -498,8 +499,8 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
-    def get_wellplates(self, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None) -> ElementSet:
+    def get_wellplates(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None) -> ElementSet:
         """
         List of all well plates.
 
@@ -517,8 +518,8 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
-    def get_generics_by_name(self, name: str, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None) -> ElementSet:
+    def get_generics_by_name(self, name: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None) -> ElementSet:
         """
         List of all generic elements of a given name.
 
@@ -539,8 +540,8 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
-    def get_generics_by_label(self, label: str, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None) -> ElementSet:
+    def get_generics_by_label(self, label: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None) -> ElementSet:
         """
         List of all generic elements of a given label.
 
@@ -559,9 +560,9 @@ class AbstractCollection:
         raise ValueError(f'Could not find a generic element with the label: "{label}"')
 
     def export_eln(self, file_path: str, strict: bool = False,
-                   ontology_lookup: bool = True, ols_cache: Optional[str] = None,
-                   authors: Optional[list] = None,
-                   progress_callback: Optional[Callable[[int, int, Optional[str]], None]] = None,
+                   ontology_lookup: bool = True, ols_cache: str | None = None,
+                   authors: list | None = None,
+                   progress_callback: Callable[[int, int, str | None], None] | None = None,
                    interactive: bool = False) -> str:
         """
         Exports the collection and all its elements to a .eln ZIP file.
@@ -699,6 +700,17 @@ class AbstractCollection:
                 traverse(child, f"{parent_path}{child_name}_{child.id}/")
 
         traverse(self, "./")
+
+        # Offline collections may hold entity kinds their ingestion cannot reconstruct yet
+        # (wellplates, screens, research plans, generic elements). Record them in the skipped
+        # manifest so the crate never silently comes out thinner than the archive.
+        _unrec = getattr(self, "unreconstructed_counts", None)
+        if callable(_unrec):
+            for _kind, _count in _unrec().items():
+                logger.warning("Offline ingestion does not reconstruct %s elements; "
+                               "%d omitted from the crate.", _kind, _count)
+                skipped.append({"kind": _kind, "stage": "offline_reconstruction", "count": _count,
+                                "error": "offline ingestion does not reconstruct this element type"})
 
         uri_mapping = {}
         for elem_id, relative_path in elem_paths.items():
@@ -1446,7 +1458,7 @@ class RootCollection(AbstractCollection):
         res = self._session.get(collection_url)
 
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         collections = json.loads(res.content)
         self._all = self._load_all_collection()['collection']
@@ -1466,7 +1478,7 @@ class RootCollection(AbstractCollection):
         res = self._session.get(collection_url)
 
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         collections = json.loads(res.content)
         self._sync_root = RootSyncCollection(self._session, self._element_manager)
         self._sync_root._set_children(collections['syncCollections'])
@@ -1483,10 +1495,10 @@ class RootCollection(AbstractCollection):
         res = self._session.patch(collection_url,
                                   data=payload)
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         self.load_collection()
 
-    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> 'AbstractCollection':
+    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> AbstractCollection:
         """
         Gets a collection a path points to.
 
@@ -1587,5 +1599,5 @@ class RootCollection(AbstractCollection):
         res = self._session.get(collection_url)
 
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         return json.loads(res.content)
