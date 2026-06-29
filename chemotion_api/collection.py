@@ -780,6 +780,17 @@ class AbstractCollection:
 
         traverse(self, "./")
 
+        # Offline collections may hold entity kinds their ingestion cannot reconstruct yet
+        # (wellplates, screens, research plans, generic elements). Record them in the skipped
+        # manifest so the crate never silently comes out thinner than the archive.
+        _unrec = getattr(self, "unreconstructed_counts", None)
+        if callable(_unrec):
+            for _kind, _count in _unrec().items():
+                logger.warning("Offline ingestion does not reconstruct %s elements; "
+                               "%d omitted from the crate.", _kind, _count)
+                skipped.append({"kind": _kind, "stage": "offline_reconstruction", "count": _count,
+                                "error": "offline ingestion does not reconstruct this element type"})
+
         uri_mapping = {}
         for elem_id, relative_path in elem_paths.items():
             elem = elements_by_id[elem_id]

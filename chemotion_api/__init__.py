@@ -1,5 +1,25 @@
+"""Public entry point for the Chemotion API client.
+
+The package exposes :class:`Instance`, the facade for connecting to a Chemotion ELN server and
+reaching every other part of the client: collections and elements, users/groups/devices, molecule
+and generic managers, sample/reaction search, and the inbox. Typical use is::
+
+    from chemotion_api import Instance
+    instance = Instance("https://my.chemotion").test_connection().login("user", "password")
+    root = instance.get_root_collection()
+
+:class:`Instance` also offers :meth:`Instance.import_export_zip` to open a Chemotion export ZIP
+offline (no live server) and re-export it as a ``.eln`` RO-Crate.
+"""
+
+import logging as _logging
 import typing
-from typing import TypeVar
+from typing import TypeVar, Optional, Self
+
+# Library logging hygiene: attach a NullHandler so importing chemotion_api never emits log
+# output unless the consuming application configures handlers itself.
+_logging.getLogger(__name__).addHandler(_logging.NullHandler())
+
 from chemotion_api.collection import RootCollection, Collection
 from chemotion_api.converter import ProfileManager
 from chemotion_api.element_manager import ElementManager
@@ -7,14 +27,14 @@ from chemotion_api.inbox import Inbox
 from chemotion_api.labImotion import GenericManager
 from chemotion_api.search.reaction import ReactionSearcher
 from chemotion_api.search.sample import SampleSearcher
-from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
+from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation
+from chemotion_api.authors import Author, AuthorAffiliation
 from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
-from chemotion_api.authors import Author as Author, AuthorAffiliation as AuthorAffiliation
 
 TInstance = TypeVar("TInstance", bound="Instance")
 
@@ -40,14 +60,27 @@ class Instance:
 
     """
 
-    def __init__(self, host_url: str | Connection, verify_ssl: bool = True):
+    def __init__(self, host_url: str | Connection, verify_ssl: bool = True, username: str | None = None, password: str | None = None):
         if isinstance(host_url, Connection):
             self._con = host_url
         else:
             self._con = Connection(host_url, verify_ssl)
-        self._root_col = None
-        self._inbox = None
+        self._root_col: RootCollection | None = None
+        self._inbox: Inbox | None = None
         self.element_manager = ElementManager(self._con)
+        if username and password:
+            self.test_connection()
+            self.login(username, password)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if hasattr(self, "_con") and hasattr(self._con, "close"):
+            try:
+                self._con.close()
+            except Exception:
+                pass
 
     @property
     def host_url(self) -> str:
@@ -88,7 +121,7 @@ class Instance:
             self._inbox = Inbox(self._con)
         return self._inbox
 
-    def test_connection(self) -> TInstance:
+    def test_connection(self) -> Self:
         """
         This test_connection methode simply test if the connection to a chemotion instance can be established.
         The instance does not need to be logged in to use this methode.
@@ -118,7 +151,7 @@ class Instance:
         """
         return self.element_manager.all_types
 
-    def login(self, user: str, password: str) -> TInstance:
+    def login(self, user: str, password: str) -> Self:
         """
         This login methode allows you to log in to a chemotion instance.
          To do this, you need a valid chemotion user (abbreviation name or e-mail) and password.
@@ -143,7 +176,7 @@ class Instance:
         self._con.set_bearer_token(res.json()['token'])
         return self
 
-    def login_token(self, jwt_token: str) -> TInstance:
+    def login_token(self, jwt_token: str) -> Self:
         """
         You can use this login_token method to log in to a Chemotion instance.
         To do this, you need a valid Chemotion jwt token. This token can be generated using the
@@ -160,6 +193,11 @@ class Instance:
         return self
 
     def get_profile_manager(self):
+        """
+        Returns a ProfileManager used to read and edit the logged-in user's profile.
+
+        :return: a ProfileManager instance
+        """
         return ProfileManager(self._con)
 
     def get_user(self) -> Admin | Person | Group | Device:
@@ -173,6 +211,14 @@ class Instance:
         u = User.load_me(self._con)
         return u
 
+    def get_affiliations(self) -> list[Affiliation]:
+        """Return the logged-in user's affiliations (organization, department, group, country)
+        as exposed by Grape (`/api/v1/affiliations`).
+
+        :raise PermissionError: if the userdata cannot be fetched. Make sure that you are logged in.
+        """
+        return self.get_user().get_affiliations()
+
     def find_user_by_name(self, name: str) -> list[Person]:
         """
         This find_user_by_name methode finds all user by name and returns the three top matches.
@@ -184,6 +230,23 @@ class Instance:
         """
 
         return self.get_user().find_user_by_name(self._con, name)
+
+    @staticmethod
+    def import_export_zip(path, label: str | None = None):
+        """Open a Chemotion *export collection* ZIP (or extracted dir) offline.
+
+        Reconstructs the collection's samples/reactions from the relational export dump
+        into an :class:`~chemotion_api.offline.offline_collection.OfflineCollection`, which
+        supports :meth:`export_eln` with **no live server**::
+
+            Instance.import_export_zip("my_export.zip").export_eln("out.eln")
+
+        :param path: path to the export ZIP or an already-extracted directory.
+        :param label: optional collection label override.
+        :return: an ``OfflineCollection``.
+        """
+        from chemotion_api.offline import import_export_zip as _import
+        return _import(path, label=label)
 
     def get_root_collection(self, reload=True) -> RootCollection:
         """
@@ -199,7 +262,7 @@ class Instance:
             self._root_col.set_element_manager(self.element_manager)
             self._root_col.load_collection()
             self._root_col.load_sync_collection()
-        return self._root_col
+        return typing.cast(RootCollection, self._root_col)
 
     def get_collection_by_id(self, collection_id: int) -> Collection:
         """
@@ -210,7 +273,32 @@ class Instance:
         :param collection_id: DB id of the collection
         :return:
         """
-        return self.get_root_collection().find(id=collection_id)[0]
+        return typing.cast(Collection, self.get_root_collection().find(id=collection_id)[0])
+
+    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> Collection:
+        """
+        Gets a collection a path points to from the root collection.
+
+        :param col_path: is either a string based on a unix path or a list
+        :param case_insensitive: If true the cases of path are taken into account
+
+        :return: Collection the path points to
+        """
+        return typing.cast(Collection, self.get_root_collection().get_collection(col_path, case_insensitive))
+
+    def get_or_create_collection(self, col_path: str | list[str],
+                                 case_insensitive: bool = False) -> Collection:
+        """
+        Gets or creates a collection the col_path path points to from the root collection.
+        If the collection needs to be created the collection is saved right away.
+
+        :param col_path: is either a string based on a unix path or a list
+        :param case_insensitive: If true the cases of path are taken into account
+
+        :return: Collection the path points to
+        """
+        return typing.cast(Collection, self.get_root_collection().get_or_create_collection(col_path, case_insensitive))
+
 
     def get_collection_of_element(self, element: AbstractElement):
         """
@@ -223,10 +311,10 @@ class Instance:
         """
         try:
             try:
-                collection_id = element.json_data['tag']['taggable_data']['collection_labels'][0]["id"]
+                collection_id = typing.cast(dict, element.json_data)['tag']['taggable_data']['collection_labels'][0]["id"]
             except (KeyError, IndexError):
                 element.load()
-                collection_id = element.json_data['tag']['taggable_data']['collection_labels'][0]["id"]
+                collection_id = typing.cast(dict, element.json_data)['tag']['taggable_data']['collection_labels'][0]["id"]
             return self.get_collection_by_id(collection_id)
         except KeyError:
             raise KeyError(f'Could not find collection of {element}')
@@ -311,7 +399,7 @@ class Instance:
         :return: a Reacton object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, self.all_element_classes.get('reaction'))
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('reaction')))
         return typing.cast(Reaction, e.load_element(id))
 
     def get_wellplate(self, id: int) -> Wellplate:
@@ -325,7 +413,7 @@ class Instance:
         :return: a Reacton object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, self.all_element_classes.get('wellplate'))
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('wellplate')))
         return typing.cast(Wellplate, e.load_element(id))
 
     def get_research_plan(self, id: int) -> ResearchPlan:
@@ -339,7 +427,7 @@ class Instance:
         :return: a ResearchPlan object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, self.all_element_classes.get('research_plan'))
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('research_plan')))
         return typing.cast(ResearchPlan, e.load_element(id))
 
     def get_sample(self, id: int) -> Sample:
@@ -353,7 +441,7 @@ class Instance:
         :return: a Sample object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, self.all_element_classes.get('sample'))
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('sample')))
         return typing.cast(Sample, e.load_element(id))
 
     def get_generic_by_name(self, name: str, id: int) -> GenericElement:
@@ -403,7 +491,7 @@ class Instance:
         """
         o = urlparse(id)
         if not self._con.host_url.startswith(f'{o.scheme}://{o.hostname}'):
-            raise ValueError('Host dose not fit!')
+            raise ValueError('Host does not fit!')
         path_array = o.path.split('/')
         elem = self.all_element_classes.get(path_array[-2][:-1])
         if elem is None:
