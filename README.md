@@ -1,27 +1,210 @@
-# ChemotionApi
+# Chemotion API Python Client (Pydantic & Chem-DCAT-AP)
 
-A python api for [Chemotion](https://chemotion.net/). Chemotion is a Electronic Laboratory Notebook (ELN) developed at
-the KIT is a web-based platform designed to help researchers manage and organize their experimental data in a secure and
-efficient manner.
+A modernized Python client for the [Chemotion ELN](https://chemotion.net/) REST/Grape API,
+focused on making your lab data **FAIR**: it validates element properties with **Pydantic v2**,
+maps chemistry entities onto the NFDI **[chem-dcat-ap](https://nfdi-de.github.io/chem-dcat-ap/)**
+metadata schemas, and exports collections as **RO-Crate 1.1** conformant
+[`.eln`](https://github.com/TheELNConsortium/TheELNFileFormat) archives — from a live server or
+fully offline from a Chemotion export ZIP.
 
-The ChemotionApi Python package is a wrapper for the RESTful API built on top of the Ruby on Rails
-framework that allows users to interact with Chemotion ELN. The package provides a simple and intuitive
-interface for creating, retrieving, updating, and deleting data stored in the ELN using Python. With
-its RESTful architecture and comprehensive documentation, the ChemotionApi allows users to build custom applications and
-workflows that leverage the ELN's capabilities and streamline their research processes.
+## Key features
+
+- **Full REST client** — collections, samples, reactions, wellplates, research plans, LabIMotion
+  generic elements/segments/datasets, attachments and analyses, search, users/groups/devices,
+  inbox, converter profiles, and admin endpoints.
+- **Pydantic v2 type safety** — element properties are validated and normalized on read and write.
+- **chem-dcat-ap mapping** — `Sample.to_dcat_ap()` / `Reaction.to_dcat_ap()` produce typed
+  `SubstanceSample` / `ChemicalReaction` metadata (QUDT units, CHEBI/CHMO/CHEMINF terms).
+- **RO-Crate 1.1 `.eln` export** — `Collection.export_eln()` packages a collection tree, its
+  metadata graph, and all attachments into a standards-compliant ZIP: crate-relative paths (no
+  server URIs), a JSON-LD `ro-crate-metadata.json`, zip-slip-safe filenames, streamed attachment
+  downloads, and a skipped-items manifest so nothing is lost silently.
+- **Offline ingestion** — `Instance.import_export_zip()` rebuilds a collection from a Chemotion
+  *export collection* ZIP and exports it to `.eln` with **no live server**.
+- **Ontology resolution** — analysis techniques are annotated with CHMO terms via embedded codes
+  or a cached [EBI OLS4](https://www.ebi.ac.uk/ols4) lookup; `chemotion_api.ontology_patch` can
+  upgrade existing `.eln` files in place.
+- **Explicit authorship** — `.eln` export requires ORCID-identified authors with ROR-identified
+  affiliations, so the resulting crates carry citable provenance.
+- **Instance management CLI** — the `chemotion_api` command scaffolds and manages local
+  dockerized Chemotion instances (start/stop, ports, backups).
+
+## Requirements & installation
+
+- Python **>= 3.14** (managed automatically by [uv](https://docs.astral.sh/uv/))
+- A Chemotion ELN server (v2.1+; tested against 2.1.1 and 3.1.2) — or none at all for the
+  offline workflow.
+- For development: [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/)
+  (plus docker for the integration test stack).
+
+Install from source (dependencies, including `chem_dcat_ap` and `dcat_ap_plus`, resolve from PyPI):
+
+```bash
+git clone <this repository> && cd chemotionapi
+
+# for development (locked environment with all dependency groups)
+uv sync --all-groups      # or: just sync
+
+# as a plain library install
+pip install .
+```
+
+## Development tasks
+
+Everything is automated through [`just`](./justfile) — run `just` for the full list:
+
+```bash
+just sync               # create/refresh the locked virtualenv (uv)
+just check              # lint + mypy + offline test suite (the local gate)
+just test-integration   # integration suite against the self-contained docker ELN (also runs nightly in CI)
+just cov                # offline-suite coverage report (gated at 48%)
+just docs               # build the Sphinx documentation
+just schemas            # dump the LabIMotion JSON schemas from a live ELN
+just stack-up           # start / stop / reset / watch the dockerized test ELN
+just build              # build sdist + wheel
+```
+
+## Quickstart
+
+Connect, create a validated sample, and export the collection as a citable `.eln`:
+
+```python
+from chemotion_api import Instance, Author, AuthorAffiliation
+
+with Instance("https://chemotion.dept.uni.de", username="USER", password="PASS") as instance:
+    project = instance.get_or_create_collection("My Synthesis Project")
+
+    sample = project.new_sample_smiles("CCO")
+    sample.name = "Ethanol Stock"
+    sample.properties.purity = 0.998        # validated by Pydantic
+    sample.save()
+
+    reaction = project.new_reaction()
+    reaction.name = "Oxidation of ethanol"
+    reaction.starting_materials.append(sample)
+    reaction.save()
+
+    # .eln export requires authors: ORCID iD + at least one ROR-identified affiliation
+    project.set_authors([
+        Author(name="Ada Lovelace", orcid="0000-0002-1825-0097",
+               affiliations=[AuthorAffiliation(name="Example University",
+                                               ror="https://ror.org/05dxps055")]),
+    ])
+    project.export_eln("my_project.eln")
+```
+
+### Export options
+
+`export_eln(file_path, ...)` accepts:
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `authors` | collection's `set_authors` | Author list for the crate (mandatory, validated). |
+| `strict` | `False` | Fail hard if anything would be omitted; otherwise omissions are logged and recorded in the manifest. |
+| `ontology_lookup` | `True` | Resolve analysis techniques via EBI OLS4 (network); `False` uses only embedded codes. |
+| `ols_cache` | `None` | Path to a JSON OLS cache (read + updated) for deterministic/offline runs. |
+| `interactive` | `False` | tqdm progress bars (element mapping, then attachment download). |
+| `progress_callback` | `None` | `callback(i, total, name)` invoked across both phases. |
+
+### Offline: Chemotion export ZIP → `.eln`
+
+No server or credentials needed — convert an *export collection* ZIP (or its extracted
+directory, or a bare `export.json`) directly:
+
+```python
+from chemotion_api import Author, AuthorAffiliation
+from chemotion_api.offline import import_export_zip
+
+col = import_export_zip("my_chemotion_export.zip")
+col.export_eln("out.eln", authors=[Author(...)])
+```
+
+Samples and reactions (with molecules, analyses, and attachments) are reconstructed; element
+kinds that are not yet reconstructed offline (wellplates, screens, research plans, generic
+elements) are counted in the export manifest — with `strict=True` their presence fails the
+export instead.
+
+### DCAT-AP metadata without an archive
+
+```python
+substance = sample.to_dcat_ap()      # chem-dcat-ap SubstanceSample (Pydantic)
+reaction_md = reaction.to_dcat_ap()  # chem-dcat-ap ChemicalReaction
+```
+
+## Dumping the JSON validation schemas
+
+The client validates LabIMotion generic structures (element/segment/dataset klasses, layers,
+fields, select options) against JSON Schemas that ship as Python modules under
+`chemotion_api/labImotion/items/validation/schemas/`. To export every registered schema as
+plain JSON — e.g. for external tooling, documentation, or diffing against a server release —
+use the generic manager:
+
+```python
+from chemotion_api import Instance
+
+with Instance("https://...", username="USER", password="PASS") as instance:
+    instance.generic_manager().write_all_validation_schemas()
+```
+
+Or, against the local test stack (credentials overridable via `ELN_URL`/`ELN_USER`/`ELN_PASS`):
+
+```bash
+just schemas
+```
+
+This writes one `<kind>/draft-01.json` per schema (element, segment, dataset, layer, field,
+properties, select_option, …) into a `schemas/` directory under the **current working
+directory**. The dump is a generated artifact — regenerate it on demand rather than committing
+it (the repository gitignores `schemas/`). The copy under `tests/schemas/` is rewritten
+automatically by the integration test suite.
+
+## Command-line interface
+
+The package installs a `chemotion_api` command for managing local dockerized Chemotion
+instances (useful for development and testing):
+
+```bash
+chemotion_api --help    # scaffold, start/stop, configure ports, back up local instances
+```
 
 ## Documentation
 
-Detaild documentation can be found [here](https://chemotionapi.readthedocs.io/en/main/)
+Sphinx documentation (API reference + guides) lives in [docs/](./docs) and builds in CI on
+every push:
 
-## Contributing
+```bash
+just docs    # → docs/_build/html/index.html
+```
 
-Contributions to ChemotionApi are welcome! If you have any bug reports, feature requests, or suggestions, please
-open an issue on the GitHub repository. You can also submit
-pull requests with your proposed changes.
+## Testing
+
+The default test run is offline and memory-safe; integration tests run against a
+**self-contained seeded docker environment** — see [tests/README.md](./tests/README.md) and
+[tests/test_config/README.md](./tests/test_config/README.md):
+
+```bash
+# offline suite (no server; CI runs `just check` = mypy + this, on 3.14)
+just test
+
+# integration suite: boots + seeds the dockerized ELN automatically (docker required)
+just test-integration
+```
+
+## Project layout
+
+| Path | Contents |
+| --- | --- |
+| `chemotion_api/` | The client package (elements, collections, offline, ontology, LabIMotion, CLI). |
+| `tests/test_config/` | Self-contained dockerized Chemotion + seeded database for integration tests. |
+| `docs/` | Sphinx documentation. |
+
+## References
+
+- [CHANGELOG.md](./CHANGELOG.md) — recent changes, the SHACL conformance baseline, known gaps.
+- [Chemotion ELN](https://chemotion.net/) · [chem-dcat-ap](https://nfdi-de.github.io/chem-dcat-ap/) ·
+  [The .eln file format](https://github.com/TheELNConsortium/TheELNFileFormat) ·
+  [RO-Crate 1.1](https://www.researchobject.org/ro-crate/1.1/)
 
 ## License
 
-ChemotionApi is licensed under the MIT License.
-
-**Let me know if there's anything else I can help you with!**
+MIT — see [LICENSE](./LICENSE).

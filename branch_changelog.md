@@ -9,6 +9,11 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-30 — Docs: Sphinx site, user-facing README and CHANGELOG
+
+- `docs/` site: Sphinx build with cross-references and autodoc for main entry points (theme: `sphinx_rtd_theme`).
+- User-facing `README.md` and `CHANGELOG.md` (newest-first, dates, summaries).
+
 ## 2026-06-30 — Self-contained seeded integration environment
 
 - `tests/test_config/compose.yml` (Chemotion 3.1.2 + Postgres, Push2Deploy embed scripts) boots a live ELN on port 3579.

@@ -30,6 +30,16 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    GenericElementsDetails
    Attachments
    Analyses
+   FairExport
+   OfflineIngestion
+   Search
+   Admin
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Full API reference (all modules & internal helpers)
+
+   api/modules
 
 
 Indices and tables
