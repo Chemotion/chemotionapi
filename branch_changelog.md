@@ -9,6 +9,12 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-30 — Self-contained seeded integration environment
+
+- `tests/test_config/compose.yml` (Chemotion 3.1.2 + Postgres, Push2Deploy embed scripts) boots a live ELN on port 3579.
+- Pre-seeded DB (`tests/data/test.sql`): API/ADM/MM users plus sample data.
+- `conftest.py` runs `tests/data/setup_chemotion_db.sh` when `NO_SETUP=0`: boots the stack, resets the DB from the seed, waits for the `**SUCCESS**` marker.
+
 ## 2026-06-29 — chem-dcat-ap mapping, SHACL conformance and ontology-annotation suites
 
 - Test suites for the chem-dcat-ap mapping, SHACL shape conformance of exported crates, and ontology annotation of analyses.

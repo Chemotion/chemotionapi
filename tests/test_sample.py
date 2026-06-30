@@ -21,7 +21,7 @@ def test_new_sample_success(instance_with_collection):
     sample.properties['boiling_point_upperbound'] = 1
     sample.properties['melting_point_lowerbound'] = 0.55
     sample.properties['melting_point_upperbound'] = 15
-    sample.properties['name'] = "test_app{}".format(randint(1, 10))
+    sample.properties['name'] = f"test_app{randint(1, 10)}"
     sample.properties['description'] = """This is a test sample\nSmiles: B"""
     sample.properties['stereo'] = {"abs": "(S)", "rel": "p-geminal"}
     sample.properties['location'] = "Test-shelf"

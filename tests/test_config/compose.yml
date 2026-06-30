@@ -1,0 +1,55 @@
+# Based on the ChemOrc payload compose
+# (https://github.com/Chemotion/ChemOrc/raw/refs/heads/main/payload/docker-compose.yml),
+# trimmed to the minimum for the test environment: only the eln workhorse and its db.
+# - eln runs with CONFIG_ROLE=combine (serves web + background worker), so its only
+#   startup dependency is the db container.
+# - db is published on host port 54320 (used by tests/data/setup_chemotion_db.sh),
+#   eln on host port 3579 (ELN_URL/ELN_PORT in tests/conftest.py).
+services:
+  db:
+    image: ptrxyz/chemotion:db-3.1.2
+    restart: unless-stopped
+    hostname: db
+    ports:
+      - 54320:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - chemotion_db:/var/lib/postgresql/data/
+    networks:
+      - chemotion
+
+  eln:
+    image: ptrxyz/chemotion:eln-3.1.2
+    restart: unless-stopped
+    environment:
+      - CONFIG_ROLE=combine
+      - SECRET_KEY_BASE=pleasechangeme
+      - RUBYOPT=-W0
+      - OTP_SECRET_KEY=1pleasechangeme2pleasechangeme3
+      - PUBLIC_URL=http://0.0.0.0:3579
+    depends_on:
+      - db
+    volumes:
+      # The stock 3.1.2 image only knows CONFIG_ROLE eln/worker; the Push2Deploy versions of
+      # these scripts add the 'combine' role (web + worker in one container). See embed/.
+      - ./embed/run.sh:/embed/run.sh:ro
+      - ./embed/health.sh:/embed/health.sh:ro
+      - chemotion_data:/chemotion/data/
+      - chemotion:/chemotion/app
+    ports:
+      - 3579:4000
+    networks:
+      - chemotion
+
+volumes:
+  chemotion:
+    name: chemotion_app
+  chemotion_data:
+    name: chemotion_data
+  chemotion_db:
+    name: chemotion_db
+
+networks:
+  chemotion:
