@@ -9,6 +9,11 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-01 — GitHub Actions — offline gate and nightly integration
+
+- New `.github/workflows/ci.yml`: ruff lint, mypy, offline test suite and docs build on pushes to main and PRs.
+- New `.github/workflows/integration.yml`: nightly integration run against the seeded docker stack.
+
 ## 2026-06-30 — Docs: Sphinx site, user-facing README and CHANGELOG
 
 - `docs/` site: Sphinx build with cross-references and autodoc for main entry points (theme: `sphinx_rtd_theme`).

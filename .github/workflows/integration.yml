@@ -1,0 +1,59 @@
+name: Integration
+
+# The integration suite runs against the self-contained dockerized ELN
+# (tests/test_config/): nightly, and on demand via the Actions tab.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    name: integration suite (dockerized ELN)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install dependencies (locked)
+        run: uv sync --frozen --group dev
+
+      # First boot on a fresh runner pulls the images and initializes the instance
+      # (app volume, database bootstrap) — give it time BEFORE the seed reset, so the
+      # reset in test-integration doesn't race the container's own initialization.
+      - name: Boot the Chemotion stack
+        run: |
+          just stack-up
+          echo "Waiting for the ELN to finish initializing..."
+          for i in $(seq 1 240); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3579/about || true)
+            if [ "$code" = "200" ]; then
+              echo "ELN up after ~$((i*5))s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "ELN did not come up in time"
+          docker compose -f tests/test_config/compose.yml logs --tail 100 eln
+          exit 1
+
+      # Resets the DB from the committed seed (tests/data/test.sql), then runs the suite.
+      - name: just test-integration
+        run: just test-integration
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker compose -f tests/test_config/compose.yml logs --tail 300
