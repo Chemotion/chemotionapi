@@ -36,6 +36,19 @@ jobs:
       - name: just check
         run: just check
 
+      # Offline-suite coverage: gated by fail_under in pyproject ([tool.coverage.report]).
+      - name: Coverage
+        run: |
+          just cov
+          echo "## Offline-suite coverage" >> "$GITHUB_STEP_SUMMARY"
+          uv run coverage report --format=markdown --skip-covered >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
   docs:
     name: build documentation
     runs-on: ubuntu-latest

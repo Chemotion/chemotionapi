@@ -25,6 +25,10 @@ test-integration:
 mypy:
     uv run mypy chemotion_api
 
+# offline-suite coverage (single process: forked children don't report; gate = fail_under in pyproject)
+cov:
+    uv run pytest tests -q -o addopts="" -m "not integration" --cov=chemotion_api --cov-report=term-missing --cov-report=xml
+
 # modernization lint (ruff pyupgrade rules, target py314)
 lint:
     uv run ruff check chemotion_api tests docs

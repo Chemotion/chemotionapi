@@ -9,6 +9,11 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-01 — Gated coverage reporting and offline-suite expansion
+
+- Coverage gate via `fail_under` in `pyproject.toml` (54% then; since raised to 55%); CI posts the coverage summary and uploads `coverage.xml` as an artifact.
+- New unit tests: `tests/unit/test_pure_helpers.py` and `tests/unit/test_research_plan_body.py`.
+
 ## 2026-07-01 — GitHub Actions — offline gate and nightly integration
 
 - New `.github/workflows/ci.yml`: ruff lint, mypy, offline test suite and docs build on pushes to main and PRs.
