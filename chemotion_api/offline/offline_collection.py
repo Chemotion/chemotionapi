@@ -45,6 +45,9 @@ class _OfflineResponse:
         if not self._found:
             raise FileNotFoundError(f"offline attachment {self._identifier} not in archive")
 
+    def close(self) -> None:
+        """No-op: Attachment.iter_file closes its response after streaming."""
+
 
 class _OfflineSchemaManager:
     """Stand-in for ``Connection.schema_manager`` used when setting an element's ``@type``."""
@@ -90,19 +93,36 @@ class _OfflineGenericSegments:
 
 
 class OfflineCollection:
-    """A collection backed by an export-collection archive (no live server)."""
+    """A collection backed by an export-collection archive (no live server).
 
-    def __init__(self, archive: ExportArchive, label: str | None = None) -> None:
+    When the export carries collection-membership join tables (``CollectionsSample`` /
+    ``CollectionsReaction``), :func:`import_export_zip` builds one ``OfflineCollection``
+    per exported collection, wired into the original tree, each scoped to its own
+    elements. Older dumps without membership data yield a single flat collection.
+    """
+
+    def __init__(self, archive: ExportArchive, label: str | None = None,
+                 adapter: ExportAdapter | None = None,
+                 collection_uuid: str | None = None,
+                 wrapper: bool = False) -> None:
+        """:param collection_uuid: scope element getters to this exported collection
+            (``None`` = the whole archive).
+        :param wrapper: a synthetic root grouping several top-level collections; holds
+            no elements of its own."""
         self._archive = archive
-        self._adapter = ExportAdapter(archive.export_data)
+        self._adapter = adapter if adapter is not None else ExportAdapter(archive.export_data)
         self._session = OfflineConnection(archive)
         self._generic_segments = _OfflineGenericSegments()
+        self._collection_uuid = collection_uuid
+        self._wrapper = wrapper
+        if label is None and collection_uuid is not None:
+            label = self._adapter.collections.get(collection_uuid, {}).get("label")
         self.label = label or self._adapter.collection_label()
         self.children: list[OfflineCollection] = []
         self.collection_json: dict = {"label": self.label}
-        self._parent = None
+        self._parent: OfflineCollection | None = None
         self._export_authors: list = []
-        self._id = 1
+        self._id = uuid_to_id(collection_uuid) if collection_uuid else 1
 
     def set_authors(self, authors: list) -> None:
         """Set the author(s) used by :meth:`export_eln` (see ``chemotion_api.authors.Author``)."""
@@ -115,12 +135,16 @@ class OfflineCollection:
 
     @property
     def id(self) -> int:
-        """This offline collection's synthetic id (always ``1``)."""
+        """This offline collection's id (derived from the exported collection's UUID;
+        ``1`` for a flat/wrapper root)."""
         return self._id
 
     def get_root(self) -> OfflineCollection:
-        """Return the root collection (always ``self`` for an offline collection)."""
-        return self
+        """Return the root of the offline collection tree."""
+        node = self
+        while node._parent is not None:
+            node = node._parent
+        return node
 
     # -- element getters consumed by export_eln's traversal ----------------
     def _finalize(self, element: Any) -> Any:
@@ -130,19 +154,24 @@ class OfflineCollection:
         return element
 
     def get_samples(self, per_page: int = 100) -> list[Any]:
-        """Return the standalone samples (not part of any reaction) as :class:`Sample` objects."""
+        """Return this collection's standalone samples (not part of any reaction) as
+        :class:`Sample` objects."""
         from chemotion_api.elements.sample import Sample
+        if self._wrapper:
+            return []
         out = []
-        for uuid in self._adapter.standalone_sample_uuids():
+        for uuid in self._adapter.standalone_sample_uuids(self._collection_uuid):
             jd = self._adapter.to_sample_json(uuid)
             out.append(self._finalize(Sample(self._generic_segments, self._session, jd)))
         return out
 
     def get_reactions(self, per_page: int = 100) -> list[Any]:
-        """Return all reactions in the archive as :class:`Reaction` objects."""
+        """Return this collection's reactions as :class:`Reaction` objects."""
         from chemotion_api.elements.reaction import Reaction
+        if self._wrapper:
+            return []
         out = []
-        for uuid in self._adapter.reaction_uuids():
+        for uuid in self._adapter.reaction_uuids(self._collection_uuid):
             jd = self._adapter.to_reaction_json(uuid)
             out.append(self._finalize(Reaction(self._generic_segments, self._session, jd)))
         return out
@@ -171,6 +200,9 @@ class OfflineCollection:
     def unreconstructed_counts(self) -> dict[str, int]:
         """Count entities present in the archive that offline ingestion cannot reconstruct.
 
+        The counts are archive-wide (not scoped to this collection): they feed the export's
+        skipped manifest, which describes what the source archive held.
+
         :return: mapping of element kind (e.g. ``"wellplate"``) to how many the archive holds.
             :meth:`export_eln` records these in its skipped manifest so the resulting crate never
             silently omits them.
@@ -198,9 +230,54 @@ class OfflineCollection:
 def import_export_zip(path: str | Path, label: str | None = None) -> OfflineCollection:
     """Open a Chemotion export-collection ZIP (or extracted dir) as an OfflineCollection.
 
+    The archive may hold a single collection or a bundle: when the dump carries
+    collection-membership join tables, the original collection tree is rebuilt — one
+    :class:`OfflineCollection` per exported collection, each scoped to its own elements.
+    A bundle of several top-level collections is grouped under a synthetic root (labeled
+    ``label`` or ``"Exported Collections"``). Dumps without membership data (older
+    Chemotion versions) fall back to a single flat collection holding everything.
+
     Example::
 
         from chemotion_api.offline import import_export_zip
         import_export_zip("my_export.zip").export_eln("out.eln")
+
+    :param path: the export ZIP, its extracted directory, or a bare ``export.json``.
+    :param label: optional label override for the returned root collection.
     """
-    return OfflineCollection(ExportArchive(path), label=label)
+    archive = ExportArchive(path)
+    adapter = ExportAdapter(archive.export_data)
+    tree = adapter.collection_tree()
+    if not adapter.has_membership_data or not tree:
+        # No way (or no need) to scope elements per collection: single flat collection.
+        if len(tree) > 1:
+            logger.warning(
+                "Export dump lists %d collections but has no membership join tables; "
+                "importing everything as one flat collection.", len(tree))
+        return OfflineCollection(archive, label=label, adapter=adapter)
+
+    nodes: dict[str, OfflineCollection] = {
+        rec["uuid"]: OfflineCollection(archive, adapter=adapter, collection_uuid=rec["uuid"])
+        for rec in tree
+    }
+    roots: list[OfflineCollection] = []
+    for rec in tree:
+        node = nodes[rec["uuid"]]
+        parent = nodes.get(rec["parent"]) if rec["parent"] else None
+        if parent is not None:
+            node._parent = parent
+            parent.children.append(node)
+        else:
+            roots.append(node)
+
+    if len(roots) == 1:
+        root = roots[0]
+        if label:
+            root.label = label
+        return root
+    root = OfflineCollection(archive, label=label or "Exported Collections",
+                             adapter=adapter, wrapper=True)
+    for top in roots:
+        top._parent = root
+    root.children = roots
+    return root

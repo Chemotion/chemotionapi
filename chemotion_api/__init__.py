@@ -241,23 +241,27 @@ class Instance:
         return _import(path, label=label)
 
     @staticmethod
-    def import_eln(path):
+    def import_eln(path, allow_foreign: bool = False):
         """Open an existing ``.eln`` RO-Crate archive (or extracted crate directory) for reading.
 
         Parses the crate's ``ro-crate-metadata.json`` into navigable
         :class:`~chemotion_api.offline.eln_reader.ElnCrate` / ``ElnDataset`` / ``ElnFile``
-        objects — works for crates written by :meth:`Collection.export_eln
-        <chemotion_api.collection.AbstractCollection.export_eln>` as well as other producers::
+        objects. Only crates written by :meth:`Collection.export_eln
+        <chemotion_api.collection.AbstractCollection.export_eln>` are accepted (identified by
+        their ``chemotion-api`` producer marker); ``.eln`` files from other ELNs are a deferred
+        feature — pass ``allow_foreign=True`` for best-effort generic parsing::
 
             with Instance.import_eln("my_project.eln") as crate:
                 for ds in crate.elements:
                     print(ds.kind, ds.name, [f.name for f in ds.files])
 
         :param path: path to the ``.eln`` file or an already-extracted crate directory.
+        :param allow_foreign: also open crates declaring another (or no) producer.
         :return: an :class:`~chemotion_api.offline.eln_reader.ElnCrate`.
+        :raises ValueError: for foreign crates unless ``allow_foreign`` is set.
         """
         from chemotion_api.offline import import_eln as _import
-        return _import(path)
+        return _import(path, allow_foreign=allow_foreign)
 
     def get_root_collection(self, reload=True) -> RootCollection:
         """

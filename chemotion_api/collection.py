@@ -1002,7 +1002,7 @@ class AbstractCollection:
         # Author + affiliation: the manually-provided authors (validated above) become Person
         # contextual entities (ORCID iD as @id) with ROR-identified Organization affiliations, per
         # TheELNFileFormat / RO-Crate. Every Dataset node references the author(s) via ``author``;
-        # the descriptor's ``sdPublisher`` references the first author's first organization.
+        # the root dataset's ``publisher`` references the first author's first organization.
         author_refs, publisher_ref = _build_author_nodes(
             metadata_dict, graph_nodes, export_authors)
         if author_refs:
@@ -1014,16 +1014,25 @@ class AbstractCollection:
                 is_dataset = node_type == "Dataset" or (isinstance(node_type, list) and "Dataset" in node_type)
                 if is_dataset and "author" not in node:
                     node["author"] = author_value
+        if publisher_ref is not None:
+            root_node.setdefault("publisher", publisher_ref)
+
+        # Producer marker (TheELNFileFormat convention): the descriptor's ``sdPublisher`` names
+        # the software that wrote the crate. This is the stable, grep-able identifier of a
+        # chemotion-api-generated .eln — import_eln keys its "own crate" check on it.
+        from chemotion_api.eln_producer import producer_node
+        software_node = producer_node()
+        metadata_dict["@graph"].append(software_node)
+        graph_nodes[software_node["@id"]] = software_node
 
         meta_descriptor = {
             "@id": "ro-crate-metadata.json",
             "@type": "CreativeWork",
             "about": {"@id": "./"},
             "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
-            "dateCreated": datetime.now().isoformat()
+            "dateCreated": datetime.now().isoformat(),
+            "sdPublisher": {"@id": software_node["@id"]},
         }
-        if publisher_ref is not None:
-            meta_descriptor["sdPublisher"] = publisher_ref
         metadata_dict["@graph"].append(meta_descriptor)
 
         base_name = os.path.basename(file_path)

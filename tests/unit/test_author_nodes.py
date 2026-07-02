@@ -61,7 +61,7 @@ def test_build_author_nodes_person_and_org():
     org = graph_nodes["https://ror.org/04t3en479"]
     assert org["@type"] == "Organization" and org["name"] == "KIT"
     assert org["identifier"] == "https://ror.org/04t3en479"
-    assert publisher == {"@id": "https://ror.org/04t3en479"}  # descriptor sdPublisher
+    assert publisher == {"@id": "https://ror.org/04t3en479"}  # root dataset's ``publisher``
 
 
 def test_build_author_nodes_multiple_authors_and_shared_org():

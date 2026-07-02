@@ -21,7 +21,7 @@ import os
 import zipfile
 from pathlib import Path
 from typing import Any, Optional
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,13 @@ _MATERIAL_JOINS: dict[str, str] = {
     "ReactionsProductSample": "products",
     "ReactionsSolventSample": "solvents",
     "ReactionsPurificationSolventSample": "purification_solvents",
+}
+
+# Collection-membership join tables (present when the export was made by a Chemotion
+# version that scopes elements per collection) -> the entity foreign-key column.
+_MEMBERSHIP_JOINS: dict[str, str] = {
+    "CollectionsSample": "sample_id",
+    "CollectionsReaction": "reaction_id",
 }
 
 
@@ -206,6 +213,21 @@ class ExportAdapter:
                     if rec.get("sample_id"):
                         self._samples_in_reactions.add(rec["sample_id"])
 
+        # Collection membership: collection_uuid -> {fk_column: {entity_uuid, ...}}.
+        # Exports from current Chemotion versions carry CollectionsSample/CollectionsReaction
+        # join tables; without them elements cannot be scoped per collection (flat fallback).
+        self._membership: dict[str, dict[str, set[str]]] = {}
+        self.has_membership_data = False
+        for table, fk in _MEMBERSHIP_JOINS.items():
+            join_table: dict[str, dict] | None = export_data.get(table)
+            if join_table is None:
+                continue
+            self.has_membership_data = True
+            for record in join_table.values():
+                col_uuid, entity_uuid = record.get("collection_id"), record.get(fk)
+                if col_uuid and entity_uuid:
+                    self._membership.setdefault(col_uuid, {}).setdefault(fk, set()).add(entity_uuid)
+
     # -- molecules ----------------------------------------------------------
     def to_molecule_json(self, mol_uuid: str | None) -> dict:
         """Return the molecule's Rails columns plus a derived integer ``id`` (empty dict if absent)."""
@@ -323,15 +345,41 @@ class ExportAdapter:
         return out
 
     # -- collection membership ---------------------------------------------
-    def reaction_uuids(self) -> list[str]:
-        """Return the UUIDs of all reactions in the export dump."""
-        return list(self.reactions.keys())
+    def _scope(self, uuids: Iterable[str], collection_uuid: str | None,
+               fk: str) -> list[str]:
+        """Filter entity UUIDs to those joined to ``collection_uuid`` (no-op without a scope)."""
+        if collection_uuid is None:
+            return list(uuids)
+        member = self._membership.get(collection_uuid, {}).get(fk, set())
+        return [u for u in uuids if u in member]
 
-    def standalone_sample_uuids(self) -> list[str]:
-        """Return the UUIDs of samples not referenced by any reaction."""
-        return [u for u in self.samples if u not in self._samples_in_reactions]
+    def reaction_uuids(self, collection_uuid: str | None = None) -> list[str]:
+        """Return the UUIDs of the reactions in the dump (scoped to one collection if given)."""
+        return self._scope(self.reactions.keys(), collection_uuid, "reaction_id")
+
+    def standalone_sample_uuids(self, collection_uuid: str | None = None) -> list[str]:
+        """Return the UUIDs of samples not referenced by any reaction (scoped to one
+        collection if given)."""
+        standalone = (u for u in self.samples if u not in self._samples_in_reactions)
+        return self._scope(standalone, collection_uuid, "sample_id")
 
     def collection_label(self) -> str:
         """Return the first collection's label, or ``"Exported Collection"`` as a fallback."""
         first = next(iter(self.collections.values()), {})
         return first.get("label", "") or "Exported Collection"
+
+    def collection_tree(self) -> list[dict]:
+        """Return the dump's collections as ``{"uuid", "label", "parent"}`` records.
+
+        ``parent`` is the UUID of the direct parent (the last segment of the exported
+        ``ancestry`` field, which Chemotion remaps to UUIDs) — ``None`` for top-level
+        collections or when the parent is not part of the dump. Dump order is preserved
+        (Chemotion exports ancestors before their descendants).
+        """
+        tree = []
+        for uuid, record in self.collections.items():
+            ancestry = [a for a in (record.get("ancestry") or "").split("/") if a]
+            parent = ancestry[-1] if ancestry and ancestry[-1] in self.collections else None
+            tree.append({"uuid": uuid, "label": record.get("label") or "Collection",
+                         "parent": parent})
+        return tree

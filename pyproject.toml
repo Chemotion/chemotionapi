@@ -51,8 +51,8 @@ source = ["chemotion_api"]
 
 [tool.coverage.report]
 # Offline-suite floor (the REST layer is exercised by the integration suite, which is
-# not counted here). Measured 54.0% on 2026-07-03 — raise the floor as coverage grows.
-fail_under = 53
+# not counted here). Measured 55.1% on 2026-07-03 — raise the floor as coverage grows.
+fail_under = 54
 precision = 1
 
 [tool.ruff]

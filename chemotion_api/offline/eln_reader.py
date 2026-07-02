@@ -2,10 +2,15 @@
 
 A ``.eln`` file (see `TheELNFileFormat <https://github.com/TheELNConsortium/TheELNFileFormat>`_)
 is a ZIP whose single root folder contains an RO-Crate 1.1 ``ro-crate-metadata.json`` plus the
-crate's payload files. This module parses that JSON-LD graph — regardless of which application
-produced it (this library's :meth:`~chemotion_api.collection.Collection.export_eln`, a Chemotion
-server, eLabFTW, …) — and exposes it as :class:`ElnCrate` / :class:`ElnDataset` /
-:class:`ElnFile` objects with zip-slip-safe payload access.
+crate's payload files. This module parses that JSON-LD graph and exposes it as
+:class:`ElnCrate` / :class:`ElnDataset` / :class:`ElnFile` objects with zip-slip-safe payload
+access.
+
+Supported input is what this library's own
+:meth:`~chemotion_api.collection.AbstractCollection.export_eln` writes — identified by the
+``chemotion-api`` producer marker (see :mod:`chemotion_api.eln_producer`). Crates from other
+ELNs are rejected by default (importing them is a deferred feature); ``allow_foreign=True``
+opens them anyway with best-effort generic RO-Crate parsing.
 
 Entry point: :func:`import_eln`::
 
@@ -28,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from chemotion_api.authors import Author, AuthorAffiliation
+from chemotion_api.eln_producer import PRODUCER_NAME
 from chemotion_api.ontology_map import ELEMENT_TYPE_PROPERTY_ID
 
 logger = logging.getLogger(__name__)
@@ -272,6 +278,30 @@ class ElnCrate:
         return self.descriptor.get("dateCreated")
 
     @property
+    def producer(self) -> dict | None:
+        """The graph node of the software that wrote the crate, if declared.
+
+        Resolved from the descriptor's ``sdPublisher`` reference (TheELNFileFormat's
+        convention); ``None`` when the crate declares no producer.
+        """
+        for ref_id in _ref_ids(self.descriptor.get("sdPublisher")):
+            node = self._nodes.get(ref_id)
+            if node is not None:
+                return node
+        return None
+
+    @property
+    def is_chemotion_api(self) -> bool:
+        """Whether this crate was written by this library (``export_eln``).
+
+        Keys on the producer marker every chemotion-api export embeds: a
+        ``SoftwareApplication`` node named ``"chemotion-api"`` referenced by the
+        descriptor's ``sdPublisher``.
+        """
+        producer = self.producer
+        return producer is not None and producer.get("name") == PRODUCER_NAME
+
+    @property
     def datasets(self) -> list[ElnDataset]:
         """All ``Dataset`` nodes of the crate except the root itself."""
         root_id = self.root.id
@@ -360,8 +390,17 @@ class ElnCrate:
         return f"<ElnCrate {str(self.path)!r} root={self.root.name!r}>"
 
 
-def import_eln(path: str | Path) -> ElnCrate:
+def import_eln(path: str | Path, allow_foreign: bool = False) -> ElnCrate:
     """Open a ``.eln`` RO-Crate archive (ZIP or extracted directory) for reading.
+
+    Only crates exported by this library (identified by the ``chemotion-api``
+    ``SoftwareApplication`` producer marker in the metadata descriptor's ``sdPublisher``)
+    are accepted; importing ``.eln`` files from other ELNs is not supported yet.
+
+    :param allow_foreign: open crates from other producers anyway (best-effort parsing —
+        the generic RO-Crate structure is read, but element kinds and authors may be absent).
+    :raises ValueError: if the crate declares a different (or no) producer and
+        ``allow_foreign`` is not set.
 
     Example::
 
@@ -371,4 +410,14 @@ def import_eln(path: str | Path) -> ElnCrate:
             for ds in crate.elements:
                 print(ds.kind, ds.name)
     """
-    return ElnCrate(path)
+    crate = ElnCrate(path)
+    if not allow_foreign and not crate.is_chemotion_api:
+        producer = crate.producer or {}
+        described = producer.get("name") or "an unknown producer"
+        crate.close()
+        raise ValueError(
+            f"{path} was written by {described}, not by {PRODUCER_NAME} — importing .eln "
+            "files from other ELNs is not supported yet. Pass allow_foreign=True to open "
+            "it anyway (best-effort, generic RO-Crate parsing)."
+        )
+    return crate

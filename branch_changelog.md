@@ -9,6 +9,13 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-02 — Collection trees for native-ZIP import + producer marker
+
+- `import_export_zip` now rebuilds the exported **collection tree** (bundles supported): one `OfflineCollection` per collection, elements scoped via the `CollectionsSample`/`CollectionsReaction` join tables; several top-level collections group under a synthetic root. Import only — writing the native format stays with the ELN GUI.
+- Every exported crate embeds a producer marker: a `SoftwareApplication` node named `chemotion-api` (with version) referenced by the descriptor's `sdPublisher`. Grep: `"name": "chemotion-api"` in `ro-crate-metadata.json`.
+- `import_eln` accepts only our own crates by default (foreign `.eln` import is deferred); `allow_foreign=True` opens them best-effort. `ElnCrate.producer` / `.is_chemotion_api` expose the marker.
+- Fix: `_OfflineResponse` lacked `close()`, so archived attachment payloads were skipped during offline export.
+
 ## 2026-07-02 — `.eln` importer
 
 - `Instance.import_eln(path)` / `chemotion_api.offline.import_eln` opens a `.eln` (ZIP or extracted crate dir) and exposes it as navigable objects: `ElnCrate` (root, datasets, files, authors, `read_file`) / `ElnDataset` (kind, files, sub-datasets) / `ElnFile` (`read()`/`extract()`).

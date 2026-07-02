@@ -25,7 +25,10 @@ METADATA = {
             "about": {"@id": "./"},
             "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
             "dateCreated": "2026-07-03T12:00:00",
+            "sdPublisher": {"@id": "#chemotion-api"},
         },
+        {"@id": "#chemotion-api", "@type": "SoftwareApplication",
+         "name": "chemotion-api", "version": "211.0.1"},
         {
             "@id": "./",
             "@type": "Dataset",
@@ -154,6 +157,39 @@ def test_zip_slip_ids_are_rejected(tmp_path):
                 crate.read_file(evil)
 
 
+def test_producer_marker_identifies_our_crates(tmp_path):
+    from chemotion_api.offline import import_eln
+
+    with import_eln(_crate_zip(tmp_path)) as crate:
+        assert crate.is_chemotion_api
+        assert crate.producer["name"] == "chemotion-api"
+        assert crate.producer["version"]
+
+
+def test_foreign_crates_are_rejected_by_default(tmp_path):
+    """.eln files from other ELNs are a deferred feature: refuse unless allow_foreign=True."""
+    import copy
+    from chemotion_api.offline import import_eln
+
+    foreign = copy.deepcopy(METADATA)
+    for node in foreign["@graph"]:
+        if node["@id"] == "#chemotion-api":
+            node["name"] = "eLabFTW"
+    path = _crate_zip(tmp_path, metadata=foreign)
+    with pytest.raises(ValueError, match="eLabFTW.*not supported yet"):
+        import_eln(path)
+    # escape hatch: best-effort generic parsing
+    with import_eln(path, allow_foreign=True) as crate:
+        assert not crate.is_chemotion_api
+        assert crate.root.name == "My Project"
+
+    # no producer declared at all -> also rejected
+    unmarked = copy.deepcopy(METADATA)
+    unmarked["@graph"][0].pop("sdPublisher")
+    with pytest.raises(ValueError, match="unknown producer"):
+        import_eln(_crate_zip(tmp_path, metadata=unmarked))
+
+
 def test_rejects_non_crates(tmp_path):
     from chemotion_api.offline import import_eln
 
@@ -183,6 +219,9 @@ def test_roundtrip_export_then_import(tmp_path):
     Instance.import_export_zip(d).export_eln(out, ontology_lookup=False, authors=authors)
 
     with Instance.import_eln(out) as crate:
+        assert crate.is_chemotion_api             # producer marker written by export_eln
+        assert crate.producer["@type"] == "SoftwareApplication"
+        assert crate.root.node.get("publisher") == {"@id": ROR}
         assert crate.root.name  # the collection label from the export dump
         kinds = [ds.kind for ds in crate.elements]
         assert kinds.count("reaction") == 1

@@ -19,10 +19,12 @@ fully offline from a Chemotion export ZIP.
   metadata graph, and all attachments into a standards-compliant ZIP: crate-relative paths (no
   server URIs), a JSON-LD `ro-crate-metadata.json`, zip-slip-safe filenames, streamed attachment
   downloads, and a skipped-items manifest so nothing is lost silently.
-- **Offline ingestion** — `Instance.import_export_zip()` rebuilds a collection from a Chemotion
-  *export collection* ZIP and exports it to `.eln` with **no live server**.
-- **`.eln` import** — `Instance.import_eln()` reads any RO-Crate 1.1 `.eln` archive back into
-  navigable datasets, files (zip-slip-safe payload access), and ORCID/ROR authors.
+- **Offline ingestion** — `Instance.import_export_zip()` rebuilds a collection tree (single
+  collection or a bundle) from a Chemotion *export collection* ZIP and exports it to `.eln`
+  with **no live server**. Import only — writing the native format stays with the ELN GUI.
+- **`.eln` import** — `Instance.import_eln()` reads a `.eln` exported by this library back into
+  navigable datasets, files (zip-slip-safe payload access), and ORCID/ROR authors; crates are
+  identified by an embedded `chemotion-api` producer marker (foreign `.eln` import is deferred).
 - **Ontology resolution** — analysis techniques are annotated with CHMO terms via embedded codes
   or a cached [EBI OLS4](https://www.ebi.ac.uk/ols4) lookup; `chemotion_api.ontology_patch` can
   upgrade existing `.eln` files in place.
@@ -121,6 +123,11 @@ col = import_export_zip("my_chemotion_export.zip")
 col.export_eln("out.eln", authors=[Author(...)])
 ```
 
+The ZIP may hold a single collection or a bundle: the original collection tree is rebuilt
+(one collection per exported collection, elements scoped via the dump's membership join
+tables; several top-level collections are grouped under a synthetic root). Import only —
+*writing* Chemotion's native export format is the ELN GUI's domain, not this library's.
+
 Samples and reactions (with molecules, analyses, and attachments) are reconstructed; element
 kinds that are not yet reconstructed offline (wellplates, screens, research plans, generic
 elements) are counted in the export manifest — with `strict=True` their presence fails the
@@ -128,9 +135,10 @@ export instead.
 
 ### Reading a `.eln` back in
 
-`import_eln` opens any RO-Crate 1.1 `.eln` archive (or an extracted crate directory) — whether
-written by this library, a Chemotion server, or another ELN — and exposes its metadata graph and
-payload files as navigable objects:
+`import_eln` opens a `.eln` RO-Crate archive (or an extracted crate directory) and exposes its
+metadata graph and payload files as navigable objects. Supported input is what this library's
+own `export_eln` writes; `.eln` files from other ELNs are a deferred feature (pass
+`allow_foreign=True` for best-effort generic RO-Crate parsing):
 
 ```python
 from chemotion_api.offline import import_eln   # or: Instance.import_eln(...)
@@ -147,6 +155,17 @@ with import_eln("out.eln") as crate:
 `crate.datasets` lists every dataset node (including collection folders); file access is
 zip-slip safe, and File nodes whose payload is missing from the archive raise
 `FileNotFoundError` on `read()` rather than failing silently.
+
+Every crate this library exports carries a producer marker: a `SoftwareApplication` node named
+`chemotion-api` (with the package version), referenced by the metadata descriptor's
+`sdPublisher` — TheELNFileFormat's convention for "the software that wrote this crate". That
+makes our crates trivially identifiable:
+
+```bash
+unzip -p out.eln '*/ro-crate-metadata.json' | grep '"name": "chemotion-api"'
+```
+
+Programmatically: `crate.producer` (the node) and `crate.is_chemotion_api` (bool).
 
 ### DCAT-AP metadata without an archive
 
