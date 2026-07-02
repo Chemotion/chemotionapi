@@ -9,6 +9,13 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-02 — `.eln` importer
+
+- `Instance.import_eln(path)` / `chemotion_api.offline.import_eln` opens a `.eln` (ZIP or extracted crate dir) and exposes it as navigable objects: `ElnCrate` (root, datasets, files, authors, `read_file`) / `ElnDataset` (kind, files, sub-datasets) / `ElnFile` (`read()`/`extract()`).
+- Zip-slip-safe payload access; metadata-only File nodes raise `FileNotFoundError` on `read()` instead of failing silently.
+- ORCID/ROR authors round-trip back into `Author`/`AuthorAffiliation` objects.
+- Round-trip tested against our own exporter output.
+
 ## 2026-07-01 — Gated coverage reporting and offline-suite expansion
 
 - Coverage gate via `fail_under` in `pyproject.toml` (54% then; since raised to 55%); CI posts the coverage summary and uploads `coverage.xml` as an artifact.

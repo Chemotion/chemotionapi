@@ -21,6 +21,8 @@ fully offline from a Chemotion export ZIP.
   downloads, and a skipped-items manifest so nothing is lost silently.
 - **Offline ingestion** — `Instance.import_export_zip()` rebuilds a collection from a Chemotion
   *export collection* ZIP and exports it to `.eln` with **no live server**.
+- **`.eln` import** — `Instance.import_eln()` reads any RO-Crate 1.1 `.eln` archive back into
+  navigable datasets, files (zip-slip-safe payload access), and ORCID/ROR authors.
 - **Ontology resolution** — analysis techniques are annotated with CHMO terms via embedded codes
   or a cached [EBI OLS4](https://www.ebi.ac.uk/ols4) lookup; `chemotion_api.ontology_patch` can
   upgrade existing `.eln` files in place.
@@ -123,6 +125,28 @@ Samples and reactions (with molecules, analyses, and attachments) are reconstruc
 kinds that are not yet reconstructed offline (wellplates, screens, research plans, generic
 elements) are counted in the export manifest — with `strict=True` their presence fails the
 export instead.
+
+### Reading a `.eln` back in
+
+`import_eln` opens any RO-Crate 1.1 `.eln` archive (or an extracted crate directory) — whether
+written by this library, a Chemotion server, or another ELN — and exposes its metadata graph and
+payload files as navigable objects:
+
+```python
+from chemotion_api.offline import import_eln   # or: Instance.import_eln(...)
+
+with import_eln("out.eln") as crate:
+    print(crate.root.name, crate.date_created)
+    print([a.name for a in crate.authors])     # Author objects (ORCID + ROR round-trip)
+    for ds in crate.elements:                  # datasets with a recognizable element kind
+        print(ds.kind, ds.name)                # "sample" / "reaction" / ...
+        for f in ds.files:
+            f.extract("downloads/")            # or f.read() for the bytes
+```
+
+`crate.datasets` lists every dataset node (including collection folders); file access is
+zip-slip safe, and File nodes whose payload is missing from the archive raise
+`FileNotFoundError` on `read()` rather than failing silently.
 
 ### DCAT-AP metadata without an archive
 
