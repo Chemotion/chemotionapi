@@ -9,6 +9,10 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-03 — Docs: `.eln` reading + collection-tree import
+
+- `docs/OfflineIngestion.rst` covers both directions (export ZIP → `.eln`, and reading a `.eln` back) with autodoc for `ElnCrate`/`ElnDataset`/`ElnFile`.
+
 ## 2026-07-02 — Collection trees for native-ZIP import + producer marker
 
 - `import_export_zip` now rebuilds the exported **collection tree** (bundles supported): one `OfflineCollection` per collection, elements scoped via the `CollectionsSample`/`CollectionsReaction` join tables; several top-level collections group under a synthetic root. Import only — writing the native format stays with the ELN GUI.
