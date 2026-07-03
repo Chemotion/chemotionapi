@@ -7,7 +7,6 @@ and :meth:`BaseField._parse_json`, and default property accessors that concrete 
 when they actually support a given feature (e.g. ``required`` or ``sub_fields``).
 """
 
-import copy
 from enum import Enum
 from typing import cast
 
@@ -109,7 +108,7 @@ class BaseField(ChemotionSerializable, ConditionHandler):
             try:
                 value = int(value)
             except ValueError:
-                raise TypeError(f"Required {type(value)} not supported")
+                raise TypeError(f"Required {type(value)} not supported") from None
         self._cols = value
 
     @property

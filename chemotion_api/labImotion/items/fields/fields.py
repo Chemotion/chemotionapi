@@ -7,7 +7,7 @@ from chemotion_api.labImotion.items.fields.sub_fields import SubBaseField, Numbe
     SystemDefinedField as SubSystemDefinedField, LabelField
 from chemotion_api.labImotion.items.fields.table_sub_fields import TableSubBaseField, TSDragMolecule, TSDragSample, \
     TSSelect, TSSystemDefined, TSText
-from chemotion_api.labImotion.items.options import FieldType, FieldUnit, get_unit, SubFieldType, SubTableFieldType
+from chemotion_api.labImotion.items.options import FieldType, SubFieldType, SubTableFieldType
 from chemotion_api.labImotion.structure import StructureRegistry
 
 
@@ -231,7 +231,7 @@ class FormulaFieldField(BaseField):
                 float(variable)
             except ValueError:
                 if structure.get(variable) not in [FieldType.INTEGER, FieldType.SYSTEM_DEFINED]:
-                    raise ValueError(f"Only numbers (integer or floating '12.3'), field names of {FieldType.INTEGER} or {FieldType.SYSTEM_DEFINED} in the same layer or operations like addition (+), subtraction (-), multiplication (*), and division (/)")
+                    raise ValueError(f"Only numbers (integer or floating '12.3'), field names of {FieldType.INTEGER} or {FieldType.SYSTEM_DEFINED} in the same layer or operations like addition (+), subtraction (-), multiplication (*), and division (/)") from None
 
         self._formula = value
 

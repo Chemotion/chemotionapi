@@ -1,6 +1,5 @@
 """Element subsystem: the :class:`ElementSet` paginated loader and the concrete element classes."""
 from datetime import datetime
-from typing import Optional
 
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.generic_element import GenericElement
@@ -53,7 +52,7 @@ class ElementSet(list):
             stop = item.stop if item.stop is not None else len(self)
             last = stop - start
             if last <= 0 or stop < 0 or start < 0:
-                raise TypeError(f"Negative index is not supported")
+                raise TypeError("Negative index is not supported")
             per_page = self._per_page
             if item.start is not None:
                 self._per_page = start
@@ -70,9 +69,9 @@ class ElementSet(list):
             return res_list
 
         if self._iri_filter is not None:
-            raise TypeError(f"Index is prohibited if you use IRI types")
+            raise TypeError("Index is prohibited if you use IRI types")
         if item < 0:
-            raise TypeError(f"Negative index is not supported")
+            raise TypeError("Negative index is not supported")
         page = (item // self._per_page) + 1
         if page != self._page:
             self._set_page(page)

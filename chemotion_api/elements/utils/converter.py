@@ -5,9 +5,8 @@ canonical default unit. :func:`convert_value` and :func:`convert_value_to_defaul
 family-agnostic conversion entry points.
 """
 
-import math
 from enum import Enum
-from typing import Optional, Self, cast
+from typing import Self, cast
 
 
 class UnitEnum(Enum):

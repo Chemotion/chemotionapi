@@ -160,7 +160,7 @@ class Attachments(Sequence):
             key = 'filename'
             identifier = filename
         else:
-            raise ValueError(f'Either id or identifier must be not None!')
+            raise ValueError('Either id or identifier must be not None!')
 
         for attachment in self._attachment_data:
             if attachment[key] == identifier:

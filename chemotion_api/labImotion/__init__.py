@@ -43,7 +43,7 @@ class GenericElement(GenericObj):
         if icon_name.startswith(fa_prefix):
             icon_name = icon_name[len(fa_prefix):]
         if icon_name not in all_icons:
-            raise TypeError(f"icon_name is no valid icon name check https://fontawesome.com/v4/icons/")
+            raise TypeError("icon_name is no valid icon name check https://fontawesome.com/v4/icons/")
         return fa_prefix + icon_name
 
     def __init__(self, json_data: dict, connection: Connection):

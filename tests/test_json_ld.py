@@ -1,11 +1,9 @@
-import pytest
 
 from chemotion_api import Instance
 from tests.conftest import CONFIG
 
 
 def test_sliceing(instance_with_test_samples):
-    instance: Instance = instance_with_test_samples['instance']
     mc = instance_with_test_samples['main_collection']
     samples = mc.get_samples()[:2]
     assert len(samples) == 2

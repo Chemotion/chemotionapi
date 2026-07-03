@@ -103,7 +103,7 @@ class GenericProperties(ChemotionSerializable):
         """
         if isinstance(values, dict):
             self._layers = []
-            for key, value in values.items():
+            for _key, value in values.items():
                 self._layers.append(Layer(self._sr, value))
         else:
             if not isinstance(values, list):

@@ -1,7 +1,5 @@
 import pytest
 from chemotion_api import Instance
-from chemotion_api.elements import Sample
-from chemotion_api.collection import Collection
 
 def test_instance_inline_login_and_context_manager(config_login):
     # Test context manager and constructor login
@@ -74,7 +72,6 @@ def test_property_dict_attribute_access(instance_with_collection):
 
 def test_representations(instance_with_collection):
     mc = instance_with_collection['main_collection']
-    instance = instance_with_collection['instance']
     
     # Create element
     s = mc.new_sample_smiles("CCO")

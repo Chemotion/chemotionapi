@@ -259,7 +259,6 @@ def test_collection_tree_is_rebuilt_with_scoped_elements(tmp_path):
     assert child._parent is root and child.get_root() is root
     assert root.id != child.id
     # elements are scoped per collection
-    assert [r.properties for r in root.get_reactions()] is not None
     assert len(root.get_reactions()) == 1 and len(child.get_reactions()) == 0
     assert [s.name for s in child.get_samples()] == ["Extra"]
     # smp-sm / smp-prod are reaction materials, not standalone samples of col-1

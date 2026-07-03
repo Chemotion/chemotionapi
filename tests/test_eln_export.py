@@ -2,7 +2,7 @@ import os
 import zipfile
 import json
 import pytest
-from chemotion_api import Instance, Author, AuthorAffiliation
+from chemotion_api import Author, AuthorAffiliation
 
 
 def _authors():
@@ -295,7 +295,6 @@ def test_eln_export_exceptions(tmp_path):
 @pytest.mark.heavy
 def test_eln_export_load_exceptions(tmp_path):
     from unittest.mock import MagicMock
-    import zipfile
     
     root_col = MagicMock()
     root_col._element_manager.all_classes = {
@@ -340,7 +339,6 @@ def test_eln_export_load_exceptions(tmp_path):
 @pytest.mark.heavy
 def test_eln_export_attachment_write_exceptions(tmp_path):
     from unittest.mock import MagicMock
-    import zipfile
     
     root_col = MagicMock()
     root_col._element_manager.all_classes = {
@@ -392,7 +390,6 @@ def test_eln_export_attachment_write_exceptions(tmp_path):
 
 def test_eln_export_properties_and_deduplication(instance_with_collection, tmp_path):
     mc = instance_with_collection['main_collection']
-    instance = instance_with_collection['instance']
 
     # 1. Create and save samples
     s1 = mc.new_sample_smiles("CCO")

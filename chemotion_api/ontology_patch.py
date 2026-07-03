@@ -14,7 +14,6 @@ import os
 import shutil
 import tempfile
 import zipfile
-from typing import Optional
 
 from chemotion_api.ontology_map import ELEMENT_TYPE_PROPERTY_ID
 
@@ -67,7 +66,6 @@ def patch_eln_ontology(eln_path: str, mapping: dict[str, str], output_path: str 
     :return: number of nodes patched.
     :raises ValueError: if the archive has no ro-crate-metadata.json.
     """
-    in_place = output_path is None
     with zipfile.ZipFile(eln_path, "r") as zin:
         names = zin.namelist()
         meta_name = _metadata_member(names)
@@ -85,6 +83,6 @@ def patch_eln_ontology(eln_path: str, mapping: dict[str, str], output_path: str 
                 else:
                     zout.writestr(item, zin.read(item.filename))
 
-    target: str = output_path or eln_path  # output_path is set unless in_place, where we overwrite eln_path
+    target: str = output_path or eln_path  # no output_path -> patch in place (overwrite eln_path)
     shutil.move(tmp_path, target)
     return patched

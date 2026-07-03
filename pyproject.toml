@@ -59,10 +59,16 @@ precision = 1
 target-version = "py314"
 
 [tool.ruff.lint]
-# Modernization only for now: pyupgrade (UP) keeps the code on current-Python idioms
-# (X | None unions, builtin generics, modern super() etc.). The inherited upstream
-# modules are not yet clean under broader rule sets.
-select = ["UP"]
+# UP (pyupgrade): current-Python idioms (X | None unions, builtin generics, modern super()).
+# F (pyflakes): unused imports/variables, f-string misuse, undefined names.
+# B (bugbear): likely bugs — exception chaining (B904), mutable defaults, loop-var misuse.
+select = ["UP", "F", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# The integration tests use the try/except + `assert False` idiom (B011) and a few blind
+# `pytest.raises(Exception)` (B017) against server behaviour that raises varying types.
+# pytest runs never use `python -O`, so B011's rationale does not apply here.
+"tests/**" = ["B011", "B017"]
 
 [tool.mypy]
 python_version = "3.14"

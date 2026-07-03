@@ -20,7 +20,7 @@ import logging
 import os
 import zipfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Iterable, Iterator
 
 logger = logging.getLogger(__name__)

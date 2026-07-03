@@ -1,6 +1,5 @@
 """HTTP session and authentication layer for the Chemotion REST/Grape API."""
 import json
-from typing import Optional
 
 import requests
 from dateutil.parser import parse as parsedate
@@ -153,7 +152,7 @@ class Connection(requests.Session):
         try:
             res = getattr(super(), method)(**kwargs)
         except CError as e:
-            raise ConnectionError(str(e))
+            raise ConnectionError(str(e)) from e
         if self.tzinfo is None:
             if 'Date' in res.headers:
                 self.tzinfo = parsedate(res.headers['Date']).astimezone().tzinfo

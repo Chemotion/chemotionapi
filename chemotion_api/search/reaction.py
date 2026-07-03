@@ -1,6 +1,5 @@
 """Reaction search: query builder and executor."""
-from dataclasses import fields
-from typing import Literal, Optional, Self
+from typing import Literal
 
 from chemotion_api.search.search_helper import SearchHelperBase
 from chemotion_api.search.utils import EnumMatch, EnumConnector, new_base_field

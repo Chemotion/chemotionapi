@@ -9,6 +9,13 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-03 — Lint: ruff widened to pyflakes (F) and bugbear (B)
+
+- `select = ["UP", "F", "B"]`; `tests/**` ignores `B011`/`B017` (the try/except + `assert False` idiom is deliberate; pytest never runs under `python -O`).
+- ~70 unused imports/variables removed; exception chaining (`from e`/`from None`) added at every raise-inside-except; unused loop variables `_`-prefixed.
+- `schemas/imports.py` generator now emits per-line `# noqa: F401` (side-effect imports).
+- Code note: `Author`/`AuthorAffiliation` are re-exported via the PEP 484 redundant-alias idiom.
+
 ## 2026-07-03 — Docs: `.eln` reading + collection-tree import
 
 - `docs/OfflineIngestion.rst` covers both directions (export ZIP → `.eln`, and reading a `.eln` back) with autodoc for `ElnCrate`/`ElnDataset`/`ElnFile`.

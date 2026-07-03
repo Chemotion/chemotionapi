@@ -7,7 +7,7 @@ import json
 import re
 import copy
 from enum import Enum
-from typing import Any, Literal, Optional, Self, cast
+from typing import Literal, Self, cast
 from pydantic import BaseModel
 
 
@@ -22,7 +22,7 @@ from collections.abc import MutableMapping
 from chemotion_api.connection import Connection
 from chemotion_api.utils import UnitDict, FixedDict, PropertyDict
 from chemotion_api.utils.solvent_manager import get_solvent_list
-from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity, GasCalculations
+from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity
 
 
 class GasPhaseObj(FixedDict):
@@ -357,7 +357,7 @@ class Sample(AbstractElement):
         try:
             return Instance(self._session).get_reaction(self.json_data['tag']['taggable_data']['reaction_id'])
         except (KeyError, IndexError):
-            raise KeyError(f'Could not find Reaction of Sample: {self}')
+            raise KeyError(f'Could not find Reaction of Sample: {self}') from None
 
     @property
     def role_in_reaction(self) -> Literal[
@@ -556,9 +556,9 @@ class Sample(AbstractElement):
             gas_type = GasType(gas_type)
 
         if gas_type != GasType.OFF and self.reaction is not None and not self.reaction.gas_schema:
-            raise ValueError(f'Reaction is not a gas schema reaction')
+            raise ValueError('Reaction is not a gas schema reaction')
         if gas_type not in self.allowed_gas_types():
-            raise ValueError(f'Reaction is not a gas schema reaction')
+            raise ValueError('Reaction is not a gas schema reaction')
         has_change = self._properties['gas_type'] != gas_type and self.reaction is not None
         if has_change and gas_type in [GasType.FEEDSTOCK, GasType.CATALYST]:
             gas_elem = self.reaction.get_gas_component(gas_type)
@@ -1010,7 +1010,7 @@ class Sample(AbstractElement):
         :return: ``False``, as the handler applies the change itself
         :raises ValueError: If the new value violates a constraint (e.g. purity or coefficient range)
         """
-        from pydantic import BaseModel, ValidationError
+        from pydantic import BaseModel
         from chemotion_api.models import SamplePropertiesModel
 
         # 1. Build proposed dictionary state

@@ -11,7 +11,7 @@ import re
 from enum import Enum
 
 from chemotion_api.labImotion.items.fields.abstract_fields import SystemDefined
-from chemotion_api.labImotion.items.options import SubFieldType, SubTableFieldType, FieldUnit, get_unit
+from chemotion_api.labImotion.items.options import SubFieldType, SubTableFieldType
 from chemotion_api.labImotion.structure import StructureRegistry
 from chemotion_api.labImotion.utils import ChemotionSerializable
 

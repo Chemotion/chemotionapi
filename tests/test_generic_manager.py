@@ -117,14 +117,14 @@ def test_generic_selection_schema_error(json_to_test):
     try:
         validate(json_to_test, generic_schema)
         assert False
-    except ValidationError as e:
+    except ValidationError:
         assert True
 
 
 def test_read_generic_elements(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_elements()
-    except ValidationError as e:
+    except ValidationError:
         assert False
 
     # The number of built-in klasses grows with the server release (9 on 2.1.1, 10 on 3.1.2);
@@ -138,7 +138,7 @@ def test_read_generic_elements(instance_with_collection):
     old_dict['label'] += '_TEST'
     old_dict['properties_template']['identifier'] = dict_element['properties_template']['identifier']
     old_dict['uuid'] = dict_element['uuid']
-    for key, layer  in old_dict['properties_template']['layers'].items():
+    for _key, layer  in old_dict['properties_template']['layers'].items():
         for field in layer['fields']:
             if field['type'] == 'text' and 'required' not in field:
                 field['required'] = False
@@ -148,7 +148,7 @@ def test_read_generic_elements(instance_with_collection):
 def test_read_generic_segments(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_segments()
-    except ValidationError as e:
+    except ValidationError:
         assert False
     assert len(all_gs) == 1
     pass
@@ -156,7 +156,7 @@ def test_read_generic_segments(instance_with_collection):
 def test_read_generic_datasets(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_datasets()
-    except ValidationError as e:
+    except ValidationError:
         assert False
 
     assert len(all_gs) == 8
@@ -211,7 +211,7 @@ def test_element_new_layer(instance_with_collection):
     dc = ttes.to_dict()
     try:
         ttes.validate(dc)
-    except ValidationError as e:
+    except ValidationError:
         assert False
     ttes.save()
     ttes.save(SaveActionType.MAJOR)
@@ -259,7 +259,7 @@ def test_element_new_fields(instance_with_collection):
     dc = ttes.to_dict()
     try:
         ttes.validate(dc)
-    except ValidationError as e:
+    except ValidationError:
         assert False
     ttes.save()
 
@@ -285,7 +285,7 @@ def test_segment_new_layer(instance_with_collection):
     dc = ttes.to_dict()
     try:
         ttes.validate(dc)
-    except ValidationError as e:
+    except ValidationError:
         assert False
     ttes.save()
     ttes.save(SaveActionType.MAJOR)
@@ -300,7 +300,7 @@ def test_dataset_new_layer(instance_with_collection):
     dc = ttes.to_dict()
     try:
         ttes.validate(dc)
-    except ValidationError as e:
+    except ValidationError:
         assert False
     ttes.save()
     ttes.save(SaveActionType.MAJOR)

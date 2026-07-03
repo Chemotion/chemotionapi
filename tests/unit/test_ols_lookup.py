@@ -2,7 +2,6 @@
 import json
 from unittest.mock import patch
 
-import pytest
 
 from chemotion_api.ontology import (
     OlsCache,
@@ -40,7 +39,7 @@ def _fake_response(docs):
 def test_query_ols_hit_and_caches(tmp_path):
     cache = OlsCache(tmp_path / "ols.json")
     docs = [{"iri": "http://purl.obolibrary.org/obo/CHMO_0000470", "label": "mass spectrometry"}]
-    with patch("requests.get", return_value=_fake_response(docs)) as m:
+    with patch("requests.get", return_value=_fake_response(docs)):
         term = query_ols("mass spec", ontology="chmo", cache=cache)
     assert term and term.iri.endswith("CHMO_0000470")
     # second call served from cache → no new HTTP

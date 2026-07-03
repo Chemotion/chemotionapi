@@ -17,8 +17,8 @@ from datetime import datetime
 from urllib.parse import urlparse
 from enum import Enum
 from random import random
-from typing import TypeVar, Optional, Self, Any
-from collections.abc import Iterator, Generator, Callable
+from typing import TypeVar, Self, Any
+from collections.abc import Generator, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -594,14 +594,12 @@ class AbstractCollection:
             continue across the two phases).
         :return: the written ``file_path``.
         """
-        import zipfile
         import re
         import json
         import os
         from datetime import datetime
-        from rdflib import Graph, URIRef, Literal, RDF
+        from rdflib import Graph, URIRef
         from linkml_runtime.dumpers import RDFLibDumper
-        from linkml_runtime.utils.schemaview import SchemaView
         import chem_dcat_ap.datamodel as dm
         from chem_dcat_ap.datamodel import MAIN_SCHEMA_PATH
         from chemotion_api.authors import validate_authors
@@ -813,7 +811,7 @@ class AbstractCollection:
             }
 
         elem_files = {}
-        for elem_id, rel_path in elem_paths.items():
+        for elem_id in elem_paths:
             elem = elements_by_id[elem_id]
             files_list = []
             seen_filenames = set()

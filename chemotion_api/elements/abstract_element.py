@@ -4,8 +4,7 @@ import os.path
 import re
 import uuid
 from datetime import datetime
-from operator import truediv
-from typing import Optional, Self, cast, Any
+from typing import Self, cast, Any
 
 import dateutil.parser
 from jsonschema.validators import validate
@@ -249,7 +248,7 @@ class Analyses(dict):
         Do not use this methode! It is automatically used before the element is saved!
         """
 
-        for i, d in enumerate(self.datasets):
+        for _i, d in enumerate(self.datasets):
             d.save_attachments()
 
     def clean_up_after_save(self):
@@ -775,7 +774,7 @@ class AbstractElement:
                                             item.id == analyses.get('id')]
             if len(analyses_obj) == 1:
                 new_data = analyses_obj[0].to_json()
-                for (key, item) in analyses.items():
+                for (key, _item) in analyses.items():
                     if key in new_data:
                         res_list[idx][key] = new_data.get(key, res_list[idx][key])
         res_list += [item.to_json() for item in self.analyses if item.is_new]
@@ -839,4 +838,4 @@ class AbstractElement:
             return '/api/v1/wellplates'
         elif name == 'research_plan':
             return '/api/v1/research_plans'
-        return f'/api/v1/generic_elements'
+        return '/api/v1/generic_elements'

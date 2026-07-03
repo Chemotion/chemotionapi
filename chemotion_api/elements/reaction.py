@@ -9,9 +9,8 @@ through an ``equivalent`` cache.
 """
 import logging
 import re
-from enum import Enum
-from typing import Optional, Literal, cast
-from collections.abc import Callable, Iterator
+from typing import Literal, cast
+from collections.abc import Iterator
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -66,7 +65,7 @@ from chemotion_api.elements.abstract_element import AbstractElement, Analyses, A
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample, SampleVariationType
-from chemotion_api.elements.utils import QuantityUnit, GasType
+from chemotion_api.elements.utils import GasType
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict
 from collections.abc import MutableSequence
@@ -788,7 +787,6 @@ class Reaction(AbstractElement):
             Temperature,
             DefinedTerm
         )
-        from pydantic import BaseModel
 
         reaction_id = self.json_ld.get('@id') or f"{self._session._host_url}/api/v1/reactions/{self.id}"
 
@@ -997,7 +995,7 @@ class Variation(Reaction):
         :return: The cleaned variation data
         """
         vessel_volume = self._get_vessel_volume(vessel_size)
-        for sample_type, sample_variations in self._materials.items():
+        for _sample_type, sample_variations in self._materials.items():
             for sample_variation in sample_variations:
                 sample_variation.set_aux(vessel_volume)
         return self.clean()
@@ -1027,7 +1025,7 @@ class Variation(Reaction):
             int(cast(int, analyses.id))
             self._json_data['metadata']['analyses'].append(analyses.id)
         except ValueError:
-            raise ValueError("Analyses has no id. please save the Reaction first")
+            raise ValueError("Analyses has no id. please save the Reaction first") from None
 
     def get_analyses(self) -> Iterator[Analyses]:
         """

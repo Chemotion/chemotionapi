@@ -1,12 +1,10 @@
 """Shared utilities: the attribute-accessible :class:`PropertyDict`, :class:`TypedList`, unit/Quill helpers and dict merging."""
 import copy
 import os
-import sys
 import uuid
-from abc import ABC
-from collections.abc import MutableMapping, MutableSequence
+from collections.abc import MutableMapping
 from collections import OrderedDict
-from typing import Optional, Any, cast
+from typing import Any, cast
 
 
 class PropertyDict(MutableMapping):
@@ -90,7 +88,7 @@ class PropertyDict(MutableMapping):
         try:
             return self[name]
         except KeyError:
-            raise self._attr_error(name)
+            raise self._attr_error(name) from None
 
     def __setattr__(self, name, value):
         if name.startswith('_') or name in ('data', 'on_change'):
@@ -101,7 +99,7 @@ class PropertyDict(MutableMapping):
             try:
                 self[name] = value
             except KeyError:
-                raise AttributeError(f"'PropertyDict' object has no attribute '{name}'")
+                raise AttributeError(f"'PropertyDict' object has no attribute '{name}'") from None
 
 
 
@@ -480,7 +478,7 @@ class TypedList(list):
 
     def __setitem__(self, index, element):
         if isinstance(index, slice):
-            for i in element:
+            for _i in element:
                 self._check_element(element)
         else:
             self._check_element(element)

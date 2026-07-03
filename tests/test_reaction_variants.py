@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from chemotion_api.elements.reaction import QuantityUnit
+from chemotion_api.elements.utils import QuantityUnit
 
 # The reaction-variations feature is inherited incomplete from upstream (the client fails safe
 # and skips loading variations). Blueprint for completing it: old_chemotionapi branch version-3;

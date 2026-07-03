@@ -3,7 +3,7 @@ import abc
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Optional, cast
+from typing import cast
 
 from chemotion_api.connection import Connection
 
@@ -55,7 +55,7 @@ class Affiliation:
         }
 
 
-class User(abc.ABC):
+class User(abc.ABC):  # noqa: B024 — ABC marks the class as non-instantiable by convention; subclasses override behaviour via attributes, not abstract methods
     """Abstract base for the account entities exposed by the API.
 
     Concrete subclasses are :class:`Person`, :class:`Group`, :class:`Device` and :class:`Admin`.
@@ -412,7 +412,7 @@ class Admin(Person):
         :raises PermissionError: if not logged in (HTTP 401).
         :raises ConnectionError: on any other non-200 response.
         """
-        user_url = f'/api/v1/admin_user/listUsers/all.json'
+        user_url = '/api/v1/admin_user/listUsers/all.json'
         res = self._session.get(user_url)
         if res.status_code == 401:
             raise PermissionError('Not allowed to fetch user (Login first)')
@@ -575,7 +575,7 @@ class DeviceManager:
         :raises PermissionError: if not allowed (only super devices or admins; HTTP 401).
         :raises ConnectionError: on a non-201 response or if the server returns an error.
         """
-        user_url = f'/api/v1/devices/remote/create'
+        user_url = '/api/v1/devices/remote/create'
         data = {
             'first_name': first_name,
             'last_name': last_name,

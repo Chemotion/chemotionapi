@@ -2,7 +2,6 @@
 
 Pure-logic / offline: imports only the models module + pydantic. No server, no rdflib execution.
 """
-import pytest
 
 from chemotion_api.models import (
     GasType, UnitDictModel, GasPhaseModel, MoleculeModel,

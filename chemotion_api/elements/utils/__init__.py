@@ -7,7 +7,6 @@ weight, purity, density and molarity into account, and :class:`GasCalculations` 
 """
 
 from enum import Enum
-from typing import Optional
 
 
 class GasType(Enum):
@@ -47,7 +46,7 @@ def _get_from_gram(current_value: float, output_unit: QuantityUnit, molecular_we
         return current_value
     if output_unit == QuantityUnit.Mole:
         if molecular_weight is None:
-            raise KeyError(f'Molecular weight needs to be known!')
+            raise KeyError('Molecular weight needs to be known!')
         try:
             return current_value * purity / molecular_weight
         except ZeroDivisionError:
@@ -68,7 +67,7 @@ def _get_from_mol(current_value: float, output_unit: QuantityUnit, molecular_wei
         return current_value
     if output_unit == QuantityUnit.Gram:
         if molecular_weight is None:
-            raise KeyError(f'Molecular weight needs to be known!')
+            raise KeyError('Molecular weight needs to be known!')
         try:
             return current_value * molecular_weight / purity
         except ZeroDivisionError:

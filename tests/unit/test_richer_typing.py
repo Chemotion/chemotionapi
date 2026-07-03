@@ -63,7 +63,6 @@ def test_default_eln_node_content_is_empty():
 def test_untyped_element_node_enriched_in_export(tmp_path):
     """An un-typed element flows through export → Dataset node with placeholder + content."""
     from chemotion_api.offline import import_export_zip
-    from chemotion_api.offline.offline_collection import OfflineCollection
 
     fixtures = os.path.join(os.path.dirname(__file__), "..", "fixtures")
     d = tmp_path / "export"; d.mkdir()

@@ -1,7 +1,6 @@
 """Sample search: query builder and executor."""
-from typing import Literal, Optional
+from typing import Literal
 
-from chemotion_api.elements import ElementSet
 from chemotion_api.search.search_helper import SearchHelperBase
 from chemotion_api.search.utils import EnumMatch, EnumConnector, new_base_field
 

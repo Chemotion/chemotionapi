@@ -23,7 +23,6 @@ def instance_with_test_reaction(instance_with_test_samples):
 
 def test_get_collection_from_reaction(instance_with_test_reaction: dict):
     logged_in_instance: Instance = instance_with_test_reaction['instance']
-    col: Collection = instance_with_test_reaction['main_collection']
     reaction = logged_in_instance.get_reaction(1)
     assert logged_in_instance.get_collection_of_element(reaction).id == 11
 
@@ -34,7 +33,6 @@ def test_get_reaction_success(instance_with_test_reaction: dict):
 
 
 def test_set_reaction_success(instance_with_test_reaction: dict):
-    logged_in_instance: Instance = instance_with_test_reaction['instance']
     col: Collection = instance_with_test_reaction['main_collection']
     reaction = col.new_reaction()
     sample = col.new_sample_smiles('N')
@@ -202,7 +200,6 @@ def test_calculate_amount_from_liter(instance_with_test_reaction: dict):
 
 
 def test_get_reaction_amount(instance_with_test_reaction: dict):
-    logged_in_instance: Instance = instance_with_test_reaction['instance']
     reaction = instance_with_test_reaction['main_collection'].new_reaction()
     s1 = instance_with_test_reaction['main_collection'].new_sample_smiles('N')
     s2 = instance_with_test_reaction['main_collection'].new_sample_smiles('O')

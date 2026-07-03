@@ -15,7 +15,7 @@ def test_new_collection(logged_in_instance: Instance, delete_col_prefix: str):
     tc.delete()
     col.save()
     col = logged_in_instance.get_root_collection()
-    with pytest.raises(ModuleNotFoundError) as e:
+    with pytest.raises(ModuleNotFoundError):
         col.get_collection(delete_col_prefix + 'Test_collection')
 
 @pytest.fixture()
@@ -42,7 +42,7 @@ def test_move_collection(prepare_manipulation):
     b = prepare_manipulation['b_col']
     b.move(f'/{name}/A')
     root_col.save()
-    with pytest.raises(ModuleNotFoundError) as e:
+    with pytest.raises(ModuleNotFoundError):
         root_col.get_collection(name + '/B')
 
     assert root_col.get_collection(name + '/A/B').label == 'B'
@@ -73,7 +73,7 @@ def test_get_create_collection(logged_in_instance, delete_col_prefix):
 def test_sync(prepare_manipulation):
     root_col = prepare_manipulation['root_col']
     sync_root = root_col.sync_root
-    with pytest.raises(Exception)   as e:
+    with pytest.raises(Exception):
         sync_root.add_collection('A')
 
 

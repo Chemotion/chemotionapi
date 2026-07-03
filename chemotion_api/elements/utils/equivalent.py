@@ -1,7 +1,7 @@
 """Equivalent / stoichiometry calculations for the samples of a reaction."""
 from __future__ import annotations
 
-from chemotion_api.elements.utils import QuantityUnit, GasType, GasCalculations
+from chemotion_api.elements.utils import GasType, GasCalculations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

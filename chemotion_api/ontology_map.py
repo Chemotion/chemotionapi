@@ -9,7 +9,6 @@ spec-conformant RO-Crate ``Dataset`` nodes carrying a forward-compatible ontolog
 (a ``PropertyValue`` in ``variableMeasured``); when a term is decided, fill its IRI in here — a
 one-line edit — and re-export, or patch existing ``.eln`` files with ``ontology_patch``.
 """
-from typing import Optional
 
 #: ``propertyID`` used to tag the ontology placeholder PropertyValue so it can be located later.
 ELEMENT_TYPE_PROPERTY_ID = "chemotion:elementType"

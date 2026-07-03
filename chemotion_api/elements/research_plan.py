@@ -2,7 +2,7 @@
 import uuid
 from enum import Enum
 from string import ascii_lowercase
-from typing import Optional, Literal, Any, cast
+from typing import Literal, Any, cast
 from collections.abc import Generator
 
 from typing import Self
@@ -140,7 +140,7 @@ class Table(dict):
 
         new_row = {}
         entries = list(entries)  # type: ignore[assignment]  # narrowing *entries tuple to list, value unchanged
-        for idx, colId in enumerate(x['field'] for x in self['value']['columns']):
+        for _idx, colId in enumerate(x['field'] for x in self['value']['columns']):
             if colId in placed_entries:
                 new_row[colId] = placed_entries[colId]
             elif len(entries) != 0:

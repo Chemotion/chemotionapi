@@ -1,11 +1,8 @@
-import pytest
-from chemotion_api import Instance
 from chem_dcat_ap.datamodel.chem_dcat_ap_pydantic import (
     SubstanceSample,
     StartingMaterial,
     Reagent,
     ChemicalProduct,
-    DissolvingSubstance,
     ChemicalReaction,
 )
 

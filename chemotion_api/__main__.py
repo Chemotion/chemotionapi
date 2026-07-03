@@ -129,7 +129,7 @@ def up(docker_compose_path, services):
     services_obj = {'eln': True, 'db': True, 'worker': True, 'ketchersvc': True, 'msconvert': True, 'spectra': True,
                     'converter': True}
     if len(services) != 0:
-        for k, v in services_obj.items():
+        for k, _v in services_obj.items():
             services_obj[k] = k in services
 
     InstanceManager(df).up(**services_obj)
@@ -151,7 +151,7 @@ def stop(docker_compose_path, services):
     services_obj = {'eln': True, 'db': True, 'worker': True, 'ketchersvc': True, 'msconvert': True, 'spectra': True,
                     'converter': True}
     if len(services) != 0:
-        for k, v in services_obj.items():
+        for k, _v in services_obj.items():
             services_obj[k] = k in services
 
     InstanceManager(df).stop(**services_obj)
@@ -173,7 +173,7 @@ def down(docker_compose_path, services):
     services_obj = {'eln': True, 'db': True, 'worker': True, 'ketchersvc': True, 'msconvert': True, 'spectra': True,
                     'converter': True}
     if len(services) != 0:
-        for k, v in services_obj.items():
+        for k, _v in services_obj.items():
             services_obj[k] = k in services
 
     InstanceManager(df).down(**services_obj)
@@ -215,7 +215,7 @@ def new(ignore_exist, docker_compose_path, version, url, eln_port, postgres_port
         InstanceManager(df).new_instance(version=version, url=url, eln_port=eln_port, postgres_port=postgres_port, adminer_port=adminer_port)
     except ValueError as e:
         if not ignore_exist:
-            raise click.ClickException(e.__str__())
+            raise click.ClickException(e.__str__()) from e
         return
     click.echo('Docker-compose file has been created')
 
@@ -332,7 +332,7 @@ def restore(docker_compose_path, tar_file, **kwargs):
     try:
         im.restore(tar_file, **kwargs)
     except ChildProcessError as e:
-        raise click.ClickException(e.__str__())
+        raise click.ClickException(e.__str__()) from e
 
 
 @cli.command(help="Insert a dataset.")
@@ -365,7 +365,7 @@ def insert_dataset(docker_compose_path, ols_term_id, **kwargs):
     try:
         im.insert_dataset(ols_term_id, **kwargs)
     except ChildProcessError as e:
-        raise click.ClickException(e.__str__())
+        raise click.ClickException(e.__str__()) from e
 
 
 if __name__ == '__main__':

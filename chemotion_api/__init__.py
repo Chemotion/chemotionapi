@@ -15,7 +15,7 @@ to read an existing ``.eln`` RO-Crate back into navigable Python objects.
 
 import logging as _logging
 import typing
-from typing import TypeVar, Optional, Self
+from typing import TypeVar, Self
 
 # Library logging hygiene: attach a NullHandler so importing chemotion_api never emits log
 # output unless the consuming application configures handlers itself.
@@ -29,7 +29,8 @@ from chemotion_api.labImotion import GenericManager
 from chemotion_api.search.reaction import ReactionSearcher
 from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation
-from chemotion_api.authors import Author, AuthorAffiliation
+# Re-exported public API (PEP 484 redundant-alias idiom): `from chemotion_api import Author, ...`
+from chemotion_api.authors import Author as Author, AuthorAffiliation as AuthorAffiliation
 from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
     AbstractElement
@@ -332,7 +333,7 @@ class Instance:
                 collection_id = typing.cast(dict, element.json_data)['tag']['taggable_data']['collection_labels'][0]["id"]
             return self.get_collection_by_id(collection_id)
         except KeyError:
-            raise KeyError(f'Could not find collection of {element}')
+            raise KeyError(f'Could not find collection of {element}') from None
 
     def search_sample(self) -> SampleSearcher:
         """

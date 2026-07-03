@@ -74,7 +74,7 @@ class Profile:
         if self._is_saved:
             res = self._session.put(f'/api/v1/converter/profiles/{self.id}', data=self.to_dict())
         else:
-            res = self._session.post(f'/api/v1/converter/profiles', data=self.to_dict())
+            res = self._session.post('/api/v1/converter/profiles', data=self.to_dict())
         if res.status_code == 200 or res.status_code == 201:
             self._is_saved = True
         return res
