@@ -2,7 +2,7 @@
 from typing import Literal
 
 from chemotion_api.search.search_helper import SearchHelperBase
-from chemotion_api.search.utils import EnumMatch, EnumConnector, new_base_field
+from chemotion_api.search.utils import EnumMatch, EnumConnector, new_base_field, get_field_details
 
 
 def field_details(field_name: Literal[
@@ -13,84 +13,7 @@ def field_details(field_name: Literal[
     :return: a dict ``{'field': <column metadata>, 'unit': <unit string>}``.
     :raises ValueError: if ``field_name`` is not a supported reaction field.
     """
-    unit = ''
-    if field_name == 'name':
-        field_type = {
-            "column": "name",
-            "label": "Name",
-            "type": "text",
-            "advanced": True
-        }
-    elif field_name == 'short_label':
-        field_type = {
-            "column": "short_label",
-            "label": "Short Label",
-            "type": "text",
-            "advanced": True
-        }
-
-    elif field_name == 'status':
-        field_type = {
-            "column": "status",
-            "label": "Status",
-            "type": "select",
-            "option_layers": "statusOptions",
-            "advanced": True
-        }
-
-    elif field_name == 'conditions':
-        field_type = {
-            "column": "conditions",
-            "label": "Conditions",
-            "type": "text",
-            "advanced": True
-        }
-
-    elif field_name == 'temperature':
-        field_type = {
-            "column": "temperature",
-            "label": "Temperature",
-            "type": "system-defined",
-            "option_layers": "temperature",
-            "info": "Only numbers are allowed",
-            "advanced": True
-        }
-        unit = "°C"
-
-    elif field_name == 'duration':
-        field_type = {
-            "column": "duration",
-            "label": "Duration",
-            "type": "system-defined",
-            "option_layers": "duration",
-            "info": "Only numbers are allowed",
-            "advanced": True
-        }
-        unit = "Second(s)"
-
-    elif field_name == 'rxno':
-        field_type = {
-            "column": "rxno",
-            "label": "Type",
-            "type": "rxnos",
-            "advanced": True
-        }
-
-    elif field_name == 'content':
-        field_type = {
-            "column": "content",
-            "label": "Private Note",
-            "type": "text",
-            "advanced": True
-        }
-
-    else:
-        raise ValueError(f'Field "{field_name}" not supported.')
-
-    return {
-        'field': field_type,
-        'unit': unit
-    }
+    return get_field_details('reaction', field_name)
 
 
 class ReactionSearcher(SearchHelperBase):

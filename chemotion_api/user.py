@@ -77,7 +77,10 @@ class User(abc.ABC):  # noqa: B024 — ABC marks the class as non-instantiable b
             raise PermissionError('Not allowed to fetch user (Login first)')
         elif res.status_code != 200:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
-        data = res.json()['user']
+        response_data = res.json()
+        data = response_data.get('user')
+        if data is None:
+            raise ValueError("Server response missing 'user' key")
         return cls.factor_user(session, data)
 
     @classmethod
@@ -233,7 +236,11 @@ class User(abc.ABC):  # noqa: B024 — ABC marks the class as non-instantiable b
         res = _session.get(f'/api/v1/users/name.json?name={name}&type=Person')
         if res.status_code != 200:
             raise ConnectionError(f"{res.status_code} -> {res.text}")
-        return [Person(_session).populate(x) for x in res.json()["users"]]
+        response_data = res.json()
+        users = response_data.get("users", [])
+        if not isinstance(users, list):
+            raise ValueError(f"Expected list for users, got {type(users)}")
+        return [Person(_session).populate(x) for x in users]
 
 
 class Group(User):

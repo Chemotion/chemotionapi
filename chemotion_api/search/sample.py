@@ -2,7 +2,7 @@
 from typing import Literal
 
 from chemotion_api.search.search_helper import SearchHelperBase
-from chemotion_api.search.utils import EnumMatch, EnumConnector, new_base_field
+from chemotion_api.search.utils import EnumMatch, EnumConnector, new_base_field, get_field_details
 
 
 def field_details(field_name: Literal['name', 'short_label', 'external_label', 'inventory_label', 'xref', 'content']):
@@ -12,62 +12,7 @@ def field_details(field_name: Literal['name', 'short_label', 'external_label', '
     :return: a dict ``{'field': <column metadata>, 'unit': ''}``.
     :raises ValueError: if ``field_name`` is not a supported sample field.
     """
-    if field_name == 'name':
-        field_type = {
-            "column": "name",
-            "label": "Sample name",
-            "type": "text",
-            "advanced": True
-        }
-    elif field_name == 'short_label':
-        field_type = {
-            "column": "short_label",
-            "label": "Short Label",
-            "type": "text",
-            "advanced": True
-        }
-
-    elif field_name == 'external_label':
-        field_type = {
-            "column": "external_label",
-            "label": "External Label",
-            "type": "text",
-            "advanced": True
-        }
-
-    elif field_name == 'inventory_label':
-        field_type = {
-            "column": "xref",
-            "opt": "inventory_label",
-            "label": "Inventory Label",
-            "type": "text",
-            "advanced": True
-        }
-
-    elif field_name == 'xref':
-        field_type = {
-            "column": "xref",
-            "opt": "cas",
-            "label": "CAS",
-            "type": "text",
-            "advanced": True
-        }
-
-    elif field_name == 'content':
-        field_type = {
-            "column": "content",
-            "label": "Private Note",
-            "type": "text",
-            "advanced": True
-        }
-
-    else:
-        raise ValueError(f'Field "{field_name}" not supported.')
-
-    return {
-        'field': field_type,
-        'unit': ''
-    }
+    return get_field_details('sample', field_name)
 
 
 class SampleSearcher(SearchHelperBase):

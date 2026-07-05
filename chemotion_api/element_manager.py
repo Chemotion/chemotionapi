@@ -79,8 +79,12 @@ class ElementManager:
                 res = self._session.get(f"/api/v1/generic_elements/klass_revisions.json?id={class_obj['id']}&klass=ElementKlass")
                 if res.status_code != 200:
                     raise RequestException('Could not get the generic elements')
-                for revision in res.json()['revisions']:
-                    if revision['version'] is not None:
+                data = res.json()
+                revisions = data.get('revisions', [])
+                if not isinstance(revisions, list):
+                    raise ValueError(f"Expected list for revisions, got {type(revisions)}")
+                for revision in revisions:
+                    if revision.get('version') is not None:
                         version_list[name].add(revision['version'])
         return version_list
 
@@ -98,7 +102,11 @@ class ElementManager:
         if res.status_code != 200:
             raise RequestException('Could not get the generic elements')
         all_classes = {}
-        for x in res.json()['klass']:
+        data = res.json()
+        klass_list = data.get('klass', [])
+        if not isinstance(klass_list, list):
+            raise ValueError(f"Expected list for klass, got {type(klass_list)}")
+        for x in klass_list:
             all_classes[x['name']] = x
         all_classes['generic_element'] = {
             'is_generic': True,

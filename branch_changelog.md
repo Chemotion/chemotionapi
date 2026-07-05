@@ -9,6 +9,13 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — Fix: consolidate duplicate search builders and improve API error handling
+
+- **Refactored duplicate field builders** → Extracted 60+ lines of identical `field_details()` code into shared `FIELD_DEFINITIONS` dict + `get_field_details()` helper in `search/utils.py`. sample.py and reaction.py now call shared logic.
+- **API response validation** → Added safe `.get()` patterns and type checks for JSON responses in element_manager.py and user.py. Prevents silent failures on malformed server responses (missing keys, wrong types).
+- **@property caching audit** → Reviewed all @property methods; generic_segments.py and element_manager.py already have appropriate caching. No additional N+1 opportunities found at API boundaries.
+- Tests: 110/110 passing. Code maintainability and robustness improved, ~70 lines removed through consolidation.
+
 ## 2026-07-05 — Fix: typos, magic numbers, type validation, and null checks
 
 - **Typos fixed** (5 locations): "Counld"→"Could", "genetic"→"generic", "Wallplate"→"Wellplate", "Horiconcal"→"Horizontal", "starting_aterials"→"starting_materials", "perpetration"→"preparation".
