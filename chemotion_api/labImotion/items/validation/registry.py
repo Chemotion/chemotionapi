@@ -25,7 +25,12 @@ class SchemaRegistry:
         :return: Readers Singleton
         """
         if cls._instance is None:
-            cls._instance = cls.__new__(cls)
+            instance = cls.__new__(cls)
+            # per-instance state (the class attributes are only defaults), so the
+            # store is never shared through the class and cannot be double-filled
+            instance._schema_store = []
+            instance._registry = None
+            cls._instance = instance
 
         return cls._instance
 
@@ -54,3 +59,4 @@ class SchemaRegistry:
         :return:
         """
         self._schema_store.append((schema["$id"], Resource.from_contents(schema)))
+        self._registry = None  # rebuild lazily so late registrations are picked up

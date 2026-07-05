@@ -20,8 +20,8 @@ def init_container():
     :return: A new container dict with ``container_type`` ``'root'`` and one analyses child
     """
     json_path = os.path.join(resource_path(__file__), 'container.json')
-    f = open(json_path)
-    data = json.loads(f.read())
+    with open(json_path) as f:
+        data = json.loads(f.read())
     root = data.copy()
     root['container_type'] = 'root'
     root['id'] = uuid.uuid4().__str__()
@@ -29,7 +29,6 @@ def init_container():
     analyses['id'] = uuid.uuid4().__str__()
     analyses['container_type'] = 'analyses'
     root['children'] = [analyses]
-    f.close()
     return root
 
 

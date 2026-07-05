@@ -90,7 +90,7 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
     """Write the RO-Crate ZIP: ro-crate-metadata.json + each element's attachment files.
     Attachment download failures are logged and recorded in ``skipped`` (not fatal).
     ``progress`` (if given) is called with the filename after each attachment is written."""
-    import json, os, zipfile
+    import os
 
     def _json_default(o):
         # PropertyDict/UnitDict and similar wrappers expose .to_dict(); fall back to str.
@@ -102,6 +102,26 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
             if d is None or isinstance(d, (dict, list, str, int, float, bool)):
                 return d
         return str(o)
+
+    # Write to a temp file next to the target and rename at the end, so a failure
+    # mid-export cannot leave a truncated zip clobbering a previous good export.
+    tmp_path = f"{file_path}.part"
+    try:
+        _write_crate_zip_inner(tmp_path, root_folder, metadata_dict, elem_files, elem_paths,
+                               sanitize_filename, skipped, progress, _json_default)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+    os.replace(tmp_path, file_path)
+
+
+def _write_crate_zip_inner(file_path: str, root_folder: str, metadata_dict: dict, elem_files: dict,
+                           elem_paths: dict, sanitize_filename: Callable[[str], str],
+                           skipped: list[dict],
+                           progress: Callable[[str], None] | None,
+                           _json_default) -> None:
+    import json, os, zipfile
 
     with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         metadata_json = json.dumps(metadata_dict, indent=2, ensure_ascii=False, default=_json_default)

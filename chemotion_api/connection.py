@@ -157,7 +157,11 @@ class Connection:
     def _send_request(self, method: str, url_path: str, default_header: dict, kwargs: dict) -> requests.Response:
         kwargs['verify'] = kwargs.get('verify', self._verify)
         kwargs['url'] = kwargs.get('url', f"{self._host_url}/{url_path.lstrip('/')}")
-        kwargs['headers'] = kwargs.get('headers', default_header)
+        # merge caller-supplied headers over the defaults instead of replacing them,
+        # so a custom header does not silently drop the Authorization bearer
+        headers = dict(default_header)
+        headers.update(kwargs.get('headers') or {})
+        kwargs['headers'] = headers
         kwargs['timeout'] = kwargs.get('timeout', (2, 500))
         if 'files' in kwargs:
             if 'Content-Type' in kwargs['headers']:

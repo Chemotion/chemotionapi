@@ -57,16 +57,12 @@ class AnalysesManager:
         :raises ConnectionError: if any chunk or the completion request fails
         """
         with open(file_path, 'rb') as f:
-            body = f.read()
             file_name = os.path.basename(file_path)
             key = file_uuid
-            snippet = 0
             counter = 0
             hash_md5 = hashlib.md5()
-            while snippet < len(body):
-                start_snippet = snippet
-                snippet += MAX_UPLOAD_SIZE
-                file_chunk = body[start_snippet:snippet]
+            # read one chunk at a time so large files are never held fully in memory
+            while file_chunk := f.read(MAX_UPLOAD_SIZE):
                 hash_md5.update(file_chunk)
                 payload = {'file': (file_name, file_chunk)}
                 res = session.post('/api/v1/attachments/upload_chunk', data={'key': key, 'counter': counter},

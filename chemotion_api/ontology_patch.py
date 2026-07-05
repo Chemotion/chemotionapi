@@ -76,12 +76,18 @@ def patch_eln_ontology(eln_path: str, mapping: dict[str, str], output_path: str 
 
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=".eln")
         os.close(tmp_fd)
-        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zout:
-            for item in zin.infolist():
-                if item.filename == meta_name:
-                    zout.writestr(item, json.dumps(metadata, indent=2))
-                else:
-                    zout.writestr(item, zin.read(item.filename))
+        try:
+            with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zout:
+                for item in zin.infolist():
+                    if item.filename == meta_name:
+                        zout.writestr(item, json.dumps(metadata, indent=2))
+                    else:
+                        # stream each member instead of loading it fully into memory
+                        with zin.open(item) as src, zout.open(item, "w") as dst:
+                            shutil.copyfileobj(src, dst)
+        except BaseException:
+            os.unlink(tmp_path)
+            raise
 
     target: str = output_path or eln_path  # no output_path -> patch in place (overwrite eln_path)
     shutil.move(tmp_path, target)

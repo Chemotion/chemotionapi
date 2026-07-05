@@ -9,6 +9,17 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — fix: robustness & resource-handling hardening (review follow-ups)
+
+- **Duplicate uploads eliminated** → `Attachments.save`/`MutableAttachments.save` clear the upload queue after a successful request (`_mark_uploads_done`), so calling `save()` twice no longer re-uploads and duplicates files server-side.
+- **File-handle leaks fixed** → multipart upload files are opened via `contextlib.ExitStack` (attachments) or a `with` block (inbox) and always closed; `empty_elements` uses a context manager.
+- **Streaming instead of whole-body-in-memory** → `Attachment.save_file` streams via `iter_file()`; `Dataset.write_zip`/`write_data_set_xlsx` stream with `stream=True` + `iter_content`; `AnalysesManager.upload_file` reads one chunk at a time (was: whole file, then chunked from memory); `ontology_patch` streams zip members via `copyfileobj`.
+- **Atomic crate export** → `.eln` export writes to `<name>.part` and renames on success, so a failure mid-export can no longer clobber a previous good export with a truncated zip.
+- **Temp-file cleanup** → `ontology_patch` removes its temp file on failure.
+- **HTTP timeouts** → the three bare `requests.get` calls in the CLI commands (Docker Hub tags, OLS lookup) now use `timeout=30`.
+- **Header merging** → caller-supplied headers are merged over the defaults in `Connection._send_request` instead of replacing them, so custom headers no longer silently drop the `Authorization` bearer.
+- **SchemaRegistry** → schema store is per-instance state (no longer a shared class attribute); the validator registry is invalidated on late registrations.
+
 ## 2026-07-05 — refactor: eliminate the last 13 `type: ignore[override]` comments
 
 - **search builders** → base `add_search_condition(**kwargs)` renamed to protected `_add_search_conditions`; the typed `add_search_condition` methods on `SampleSearcher`/`ReactionSearcher` are no longer overrides. `new_field`/`field_details` accept `str` (allowed values documented; unsupported fields still raise `ValueError`).

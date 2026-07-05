@@ -289,7 +289,8 @@ class InstanceManager:
 
         :return: version tags derived from the ``eln*`` image tags of ``ptrxyz/chemotion``.
         """
-        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024')
+        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024',
+                           timeout=30)
         return [x['name'][4:] for x in res.json()['results'] if x['name'].startswith('eln')]
 
     @staticmethod
@@ -302,7 +303,8 @@ class InstanceManager:
         v_list = InstanceManager.get_versions()
         if version is None:
             version = v_list[0]
-        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024')
+        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024',
+                           timeout=30)
         return dict(
             [(x['name'][:-(len(version) + 1)], f"ptrxyz/chemotion:{x['name']}") for x in res.json()['results'] if
              x['name'].endswith(version)])
@@ -325,7 +327,7 @@ class InstanceManager:
         """
         ols_term_id_num = ols_term_id.split(':')[-1]
         ols_link = f'https://www.ebi.ac.uk/ols4/api/v2/ontologies/chmo/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FCHMO_{ols_term_id_num}?lang=en&includeObsoleteEntities=t'
-        res = requests.get(ols_link)
+        res = requests.get(ols_link, timeout=30)
         if res.status_code != 200:
             raise ConnectionError(f'Unable to find: {ols_term_id} ({ols_link})')
         res_json = res.json()

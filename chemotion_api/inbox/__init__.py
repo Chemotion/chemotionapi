@@ -127,7 +127,8 @@ class Inbox:
         param_name = uuid.uuid4().__str__()
         file_magic = magic.Magic(mime=True)
 
-        files = [(param_name, (os.path.basename(file_path), open(file_path, 'rb'), file_magic.from_file(file_path)))]
-        res = self._con.post('/api/v1/attachments/upload_to_inbox', data={}, files=files)
+        with open(file_path, 'rb') as f:
+            files = [(param_name, (os.path.basename(file_path), f, file_magic.from_file(file_path)))]
+            res = self._con.post('/api/v1/attachments/upload_to_inbox', data={}, files=files)
         return res
 

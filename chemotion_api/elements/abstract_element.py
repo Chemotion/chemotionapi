@@ -109,16 +109,20 @@ class Dataset(dict):
         :return: Abs filepath of the BagIT zip
         """
         image_url = f"/api/v1/attachments/zip/{self.id}"
-        res = self._session.get(image_url)
-        if res.status_code != 200:
-            raise ConnectionRefusedError(f'{res.status_code} -> {res.text}')
+        res = self._session.get(image_url, stream=True)
+        try:
+            if res.status_code != 200:
+                raise ConnectionRefusedError(f'{res.status_code} -> {res.text}')
 
-        if not os.path.exists(destination) or os.path.isdir(destination):
-            file_name = self._file_name_from_header(res, f'dataset_{self.id}.zip')
-            destination = os.path.join(destination, file_name)
+            if not os.path.exists(destination) or os.path.isdir(destination):
+                file_name = self._file_name_from_header(res, f'dataset_{self.id}.zip')
+                destination = os.path.join(destination, file_name)
 
-        with open(destination, 'wb+') as f:
-            f.write(res.content)
+            with open(destination, 'wb+') as f:
+                for chunk in res.iter_content(chunk_size=1 << 20):
+                    f.write(chunk)
+        finally:
+            res.close()
 
         return destination
 
@@ -130,16 +134,20 @@ class Dataset(dict):
         :return: Abs filepath of the BagIT zip.
         """
         image_url = f"/api/v1/export_ds/dataset/{self.id}"
-        res = self._session.get(image_url)
-        if res.status_code != 200:
-            raise ConnectionRefusedError(f'{res.status_code} -> {res.text}')
+        res = self._session.get(image_url, stream=True)
+        try:
+            if res.status_code != 200:
+                raise ConnectionRefusedError(f'{res.status_code} -> {res.text}')
 
-        if not os.path.exists(destination) or os.path.isdir(destination):
-            file_name = self._file_name_from_header(res, f'dataset_{self.id}.xlsx')
-            destination = os.path.join(destination, file_name)
+            if not os.path.exists(destination) or os.path.isdir(destination):
+                file_name = self._file_name_from_header(res, f'dataset_{self.id}.xlsx')
+                destination = os.path.join(destination, file_name)
 
-        with open(destination, 'wb+') as f:
-            f.write(res.content)
+            with open(destination, 'wb+') as f:
+                for chunk in res.iter_content(chunk_size=1 << 20):
+                    f.write(chunk)
+        finally:
+            res.close()
 
         return destination
 
