@@ -9,6 +9,14 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — refactor: eliminate the last 13 `type: ignore[override]` comments
+
+- **search builders** → base `add_search_condition(**kwargs)` renamed to protected `_add_search_conditions`; the typed `add_search_condition` methods on `SampleSearcher`/`ReactionSearcher` are no longer overrides. `new_field`/`field_details` accept `str` (allowed values documented; unsupported fields still raise `ValueError`).
+- **`Variation`** → no longer subclasses `Reaction` (it never called the inherited behaviour and its material properties hold `SampleVariation` snapshots, not `MaterialList`s — not substitutable). `Variations.remove` now follows the `MutableSequence` contract (returns `None`, raises `ValueError` when absent).
+- **collection.py** → `Collection.add_collection` accepts `str | list[str]` like the base; **`RootCollection.move` renamed to `move_collection`** (its `src, dest` signature clashed with `AbstractCollection.move(dest)`; `Collection.move(dest)` is unchanged).
+- **attachments.py** → `Attachments.__getitem__` supports slices via overloads; `Attachments.save` return type widened to `Response | None` so `MutableAttachments.save` is a clean override.
+- The CHANGELOG claim "eliminates all `type: ignore[override]` comments" is now actually true: zero remain.
+
 ## 2026-07-05 — security: path-traversal and SQL-injection fixes
 
 - **`Attachment.save_file`** → server-provided filenames are reduced to a safe basename via new `utils.safe_download_filename()`; `../../x` or absolute names can no longer escape the target directory.

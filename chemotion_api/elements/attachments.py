@@ -1,11 +1,12 @@
 """Attachment containers for elements and datasets, with chunked upload and streaming download."""
+import contextlib
 import hashlib
 import json
 import os
 import uuid
 from collections import OrderedDict
 from collections.abc import Sequence, Iterator
-from typing import cast
+from typing import cast, overload
 import magic
 import requests
 
@@ -78,14 +79,12 @@ class Attachment(dict):
         """
         if not os.path.isdir(directory):
             raise NotADirectoryError(f"{directory} is not a directory")
-        res = self._con.get(f"/api/v1/attachments/{self['id']}")
-        if res.status_code != 200:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
         # the filename comes from server JSON — reduce it to a safe basename so it
         # cannot escape the target directory (e.g. '../../x' or an absolute path)
         file_path = os.path.join(directory, safe_download_filename(self['filename'], f"attachment_{self['id']}"))
         with open(file_path, 'wb+') as f:
-            f.write(res.content)
+            for chunk in self.iter_file():
+                f.write(chunk)
 
         return os.path.abspath(file_path)
 
@@ -126,7 +125,13 @@ class Attachments(Sequence):
         self._to_uploads: list = []             # Direct inheritance
 
             # Extra method not required by the ABC
-    def __getitem__(self, index: int) -> Attachment:  # type: ignore[override]
+    @overload
+    def __getitem__(self, index: int) -> Attachment: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list[Attachment]: ...
+
+    def __getitem__(self, index):
         return self.attachment_data[index]
     def __len__(self):
         return len(self.attachment_data)
@@ -212,9 +217,12 @@ class Attachments(Sequence):
             self._new_attachment_data.append(data)
             return data
 
-    def save(self, id: int, element_type: str) -> requests.Response:
+    def save(self, id: int, element_type: str) -> requests.Response | None:
         """
         Updates or creates the Attachments of an Element after saving it!
+
+        Queued files are uploaded once: the upload queue is cleared after a successful
+        request, so calling ``save()`` again does not create duplicate attachments.
 
         :param id: ID of the element
         :param element_type: must be in 'Element' or 'ResearchPlan'
@@ -223,23 +231,33 @@ class Attachments(Sequence):
         """
         if element_type == 'Element':
             return self._save_generic(id)
-        files = [('files[]', (x['filename'], open(x['file_path'], 'rb'), x['mime_type'])) for x in self._to_uploads]
-
-        data = {'attfilesIdentifier[]': [x['file_uuid'] for x in self._to_uploads],
-                'attachable_type': element_type,
-                'attachable_id': id}
-        res = self._con.post('/api/v1/attachable/update_attachments_attachable', data=data, files=files)
+        with contextlib.ExitStack() as stack:
+            files = [('files[]', (x['filename'], stack.enter_context(open(x['file_path'], 'rb')), x['mime_type']))
+                     for x in self._to_uploads]
+            data = {'attfilesIdentifier[]': [x['file_uuid'] for x in self._to_uploads],
+                    'attachable_type': element_type,
+                    'attachable_id': id}
+            res = self._con.post('/api/v1/attachable/update_attachments_attachable', data=data, files=files)
+        self._mark_uploads_done()
         return res
 
     def _save_generic(self, id: int):
-        files = [('attfiles[]', (x['filename'], open(x['file_path'], 'rb'), x['mime_type'])) for x in self._to_uploads]
-
-        data = {'attfilesIdentifier[]': [x['file_uuid'] for x in self._to_uploads],
-                'att_type': 'Element',
-                'att_id': id,
-                'seInfo': {}}
-        res = self._con.post('/api/v1/generic_elements/upload_generics_files', data=data, files=files)
+        with contextlib.ExitStack() as stack:
+            files = [('attfiles[]', (x['filename'], stack.enter_context(open(x['file_path'], 'rb')), x['mime_type']))
+                     for x in self._to_uploads]
+            data = {'attfilesIdentifier[]': [x['file_uuid'] for x in self._to_uploads],
+                    'att_type': 'Element',
+                    'att_id': id,
+                    'seInfo': {}}
+            res = self._con.post('/api/v1/generic_elements/upload_generics_files', data=data, files=files)
+        self._mark_uploads_done()
         return res
+
+    def _mark_uploads_done(self):
+        """Move freshly uploaded attachment data into the regular list and clear the queue."""
+        self._attachment_data += [Attachment(self._con, x) for x in self._new_attachment_data]
+        self._new_attachment_data = []
+        self._to_uploads = []
 
 class MutableAttachments(Attachments):
     """
@@ -260,9 +278,12 @@ class MutableAttachments(Attachments):
         """
         raise NotImplementedError("In a MutableAttachments add_file is not allowed")
 
-    def save(self, id: int = -1, element_type: str = '') -> requests.Response | None:  # type: ignore[override]
+    def save(self, id: int = -1, element_type: str = '') -> requests.Response | None:
         """
         Upload all queued files via :meth:`AnalysesManager.upload_file`.
+
+        The upload queue is cleared afterwards, so calling ``save()`` again does not
+        re-upload the same files.
 
         :param id: unused (kept for signature compatibility with :meth:`Attachments.save`)
         :param element_type: unused (kept for signature compatibility)
@@ -271,4 +292,5 @@ class MutableAttachments(Attachments):
         """
         for x in self._to_uploads:
             AnalysesManager.upload_file(self._con, x['file_path'], x['file_uuid'])
+        self._mark_uploads_done()
         return None

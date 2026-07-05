@@ -912,16 +912,19 @@ class SampleVariation(Sample):
         """
         raise NotImplementedError(f'This sample is only a Variation of {self.short_label} and cannot be saved!')
 
-class Variation(Reaction):
+class Variation:
     """
     A single variation of a :class:`Reaction` (its own properties, notes and material snapshots).
+
+    Standalone (not a :class:`Reaction` subclass): a variation is not substitutable for a
+    reaction — its material properties hold :class:`SampleVariation` snapshots, not
+    :class:`MaterialList` objects — and it never used the inherited behaviour.
 
     .. note::
         Part of the incomplete reaction-variations feature of this client and not fully functional.
     """
 
     def __init__(self):
-        super()
         self.json_data = None
         self._json_data = None
         self.id = -1
@@ -1046,7 +1049,7 @@ class Variation(Reaction):
         return self._properties
 
     @property
-    def starting_materials(self) -> list[SampleVariation]:  # type: ignore[override]
+    def starting_materials(self) -> list[SampleVariation]:
         """
         The starting material variations.
 
@@ -1055,7 +1058,7 @@ class Variation(Reaction):
         return self._materials[SampleVariationType.STARTING_MATERIAL]
 
     @property
-    def reactants(self) -> list[SampleVariation]:  # type: ignore[override]
+    def reactants(self) -> list[SampleVariation]:
         """
         The reactant variations.
 
@@ -1064,7 +1067,7 @@ class Variation(Reaction):
         return self._materials[SampleVariationType.REACTANT]
 
     @property
-    def products(self) -> list[SampleVariation]:  # type: ignore[override]
+    def products(self) -> list[SampleVariation]:
         """
         The product variations.
 
@@ -1073,7 +1076,7 @@ class Variation(Reaction):
         return self._materials[SampleVariationType.PRODUCT]
 
     @property
-    def solvents(self) -> list[SampleVariation]:  # type: ignore[override]
+    def solvents(self) -> list[SampleVariation]:
         """
         The solvent variations.
 
@@ -1128,19 +1131,20 @@ class Variations(MutableSequence):
             logger.warning("Reaction variations are not supported by this client and were not "
                            "loaded (%d present): %s", len(json_data), e)
 
-    def remove(self, value: Variation) -> bool:  # type: ignore[override]
+    def remove(self, value: Variation) -> None:
         """
         Removes a variation from the sequence by its id.
 
+        Follows the :class:`~collections.abc.MutableSequence` contract.
+
         :param value: The variation to remove
-        :return: ``True`` if the variation was found and removed, ``False`` otherwise
+        :raises ValueError: if no variation with the given id is present
         """
         try:
             idx = next(idx for idx, v in enumerate(self) if v.id == value.id)
-            self.pop(idx)
         except StopIteration:
-            return False
-        return True
+            raise ValueError(f'Variation with id {value.id} not in list') from None
+        self.pop(idx)
 
     def add_new(self) -> Variation:
         """

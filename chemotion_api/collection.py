@@ -1279,7 +1279,7 @@ class Collection(AbstractEditableCollection):
 
         abs_path = self.get_path()
         dest = _col_path_join(os.path.dirname(abs_path), typing.cast(str, dest))
-        self.get_root().move(abs_path, dest, case_insensitive)
+        self.get_root().move_collection(abs_path, dest, case_insensitive)
 
     def delete(self):
         """
@@ -1288,16 +1288,19 @@ class Collection(AbstractEditableCollection):
         abs_path = self.get_path()
         self.get_root().delete(abs_path)
 
-    def add_collection(self, name: str):  # type: ignore[override]
+    def add_collection(self, col_path: str | list[str]):
         """
-        Creates a new child collection. The collection is not saved.
-        Please reload the collection after saving it.
+        Creates a new child collection (or a deeper descendant if a path is given).
+        The collection is not saved. Please reload the collection after saving it.
 
-        :param name: new collection`s name
+        :param col_path: the new collection's name, or a relative path as a
+            unix-style string or list of segments
 
         :return: new Collection (not saved)
         """
-        abs_path = _col_path_join(self.get_path(), name)
+        if not isinstance(col_path, str):
+            col_path = '/'.join(col_path)
+        abs_path = _col_path_join(self.get_path(), col_path)
         return self.get_root().add_collection(abs_path)
 
     def share(self, permission_level: SyncPermission, *users: Person | Group):
@@ -1525,9 +1528,12 @@ class RootCollection(AbstractCollection):
                 raise ModuleNotFoundError("'{}' Collection Not Found".format('/'.join(col_path)))
         return current_pos
 
-    def move(self, src: str | list[str], dest: str | list[str], case_insensitive: bool = False):  # type: ignore[override]
+    def move_collection(self, src: str | list[str], dest: str | list[str], case_insensitive: bool = False):
         """
         Moves a collection from a src path to a dest path.
+
+        (Renamed from ``move``, whose src/dest signature clashed with
+        :meth:`AbstractCollection.move`; ``Collection.move(dest)`` is unchanged.)
 
         :param src: is either a string based on a unix path or a list
         :param dest: is either a string based on a unix path or a list

@@ -1,15 +1,14 @@
 """Reaction search: query builder and executor."""
-from typing import Literal
 
 from chemotion_api.search.search_helper import SearchHelperBase
 from chemotion_api.search.utils import EnumMatch, EnumConnector, new_base_field, get_field_details
 
 
-def field_details(field_name: Literal[
-    'name', 'short_label', 'temperature', 'status', 'conditions', 'rxno', 'duration', 'content']):
+def field_details(field_name: str):
     """Return the column/type metadata (and unit) describing a searchable reaction field.
 
-    :param field_name: the reaction field to describe.
+    :param field_name: the reaction field to describe (one of ``name``, ``short_label``,
+        ``temperature``, ``status``, ``conditions``, ``rxno``, ``duration``, ``content``).
     :return: a dict ``{'field': <column metadata>, 'unit': <unit string>}``.
     :raises ValueError: if ``field_name`` is not a supported reaction field.
     """
@@ -21,7 +20,7 @@ class ReactionSearcher(SearchHelperBase):
 
     element_type_res = "reactions"
     element_type = "reaction"
-    def add_search_condition(self, match: EnumMatch, connector: EnumConnector, name: str | None = None,  # type: ignore[override]
+    def add_search_condition(self, match: EnumMatch, connector: EnumConnector, name: str | None = None,
                              short_label: str | None = None, status: str | None = None,
                              conditions: str | None = None, reaction_type: str | None = None,
                              temperature_in_c: float | None = None, duration_in_sec: int | None = None,
@@ -42,18 +41,19 @@ class ReactionSearcher(SearchHelperBase):
         field_values = {"name": name, "short_label": short_label, "temperature": temperature_in_c,
                         "status": status, "conditions": conditions, "rxno": reaction_type, "duration": duration_in_sec,
                         "content": private_note}
-        return super().add_search_condition(match, connector, **field_values)
+        return self._add_search_conditions(match, connector, **field_values)
 
-    def new_field(self, match: EnumMatch, connector: str, field_name: Literal[  # type: ignore[override]
-        'name', 'short_label', 'temperature', 'status', 'conditions', 'rxno', 'duration', 'content'],
+    def new_field(self, match: EnumMatch, connector: str, field_name: str,
                   value: str) -> dict:
         """Build a reaction-specific search-condition field for the payload.
 
         :param match: the match operator.
         :param connector: the connector token linking to the previous condition.
-        :param field_name: the reaction field to search.
+        :param field_name: the reaction field to search (one of ``name``, ``short_label``,
+            ``temperature``, ``status``, ``conditions``, ``rxno``, ``duration``, ``content``).
         :param value: the value to match against.
         :return: the fully-formed condition dict.
+        :raises ValueError: if ``field_name`` is not a supported reaction field.
         """
         return new_base_field(match, connector, value) | {
             "table": "reactions",

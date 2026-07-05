@@ -61,8 +61,11 @@ class SearchHelperBase(ABC):
         self._per_page = per_page
         return self
 
-    def add_search_condition(self, match: EnumMatch, connector: EnumConnector, **field_values) -> Self:
+    def _add_search_conditions(self, match: EnumMatch, connector: EnumConnector, **field_values) -> Self:
         """Add a search condition for each non-``None`` field value; returns ``self`` for chaining.
+
+        Subclasses expose a typed ``add_search_condition`` with named keyword parameters and
+        delegate here, so the public methods are not overrides (keeps them LSP-clean).
 
         The connector is applied only between conditions (the first condition has no connector).
 
