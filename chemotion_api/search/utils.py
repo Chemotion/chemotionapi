@@ -1,5 +1,6 @@
 """Enums and helpers shared by the search query builders."""
 from enum import Enum
+from typing import Any
 
 
 class EnumConnector(Enum):
@@ -19,7 +20,7 @@ class EnumMatch(Enum):
 # Shared field metadata definitions for sample and reaction search.
 # Each element type defines its searchable fields; used by field_details() in sample.py and reaction.py.
 # Fields with units (e.g. temperature, duration) are stored as tuples: (definition_dict, unit_string)
-FIELD_DEFINITIONS = {
+FIELD_DEFINITIONS: dict[str, dict[str, dict[str, Any] | tuple[dict[str, Any], str]]] = {
     'sample': {
         'name': {"column": "name", "label": "Sample name", "type": "text", "advanced": True},
         'short_label': {"column": "short_label", "label": "Short Label", "type": "text", "advanced": True},

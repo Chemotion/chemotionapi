@@ -81,7 +81,8 @@ class Wellplate(AbstractElement):
                 self.wells[x][y] = Sample(self._generic_segments, self._session, element['sample'])
 
     def _parse_properties(self) -> dict:
-
+        if self.json_data is None:
+            return {'name': None, 'description': None}
         return {
             'name': self.json_data.get('name'),
             'description': self.json_data.get('description')
