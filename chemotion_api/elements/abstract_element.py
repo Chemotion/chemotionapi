@@ -423,15 +423,15 @@ class AbstractElement:
 
 
     @property
-    def name(self) -> str:
+    def name(self) -> str | None:
         """
         The name of the element, falling back to the ``name`` entry of its properties.
 
-        :return: The element name, or an empty string if unset
+        :return: The element name, or ``None`` if unset
         """
         if not self._name and self._properties is not None and 'name' in self._properties:
-            return self._properties['name'] or ''
-        return self._name or ''
+            return self._properties['name']
+        return self._name
 
     @name.setter
     def name(self, name: str) -> None:
@@ -480,17 +480,19 @@ class AbstractElement:
         return cast(Segment, self._segments)
 
     @property
-    def attachments(self) -> Attachments:
+    def attachments(self) -> Attachments | None:
         """
-        Attachment container of the element.
- 
-        :return: Attachments container
+        Attachment container of the element, or ``None`` if the element carries no
+        attachment data (e.g. it came from a listing and was never fully loaded).
+        Returning ``None`` here keeps ``attachments`` out of save payloads for such
+        elements, so an unrelated save cannot detach server-side attachments.
+
+        :return: Attachments container or ``None``
         """
         if self._attachments is None:
             attachments_data = cast(dict, self.json_data).get('attachments')
-            if attachments_data is None:
-                attachments_data = []
-            self._attachments = Attachments(self._session, attachments_data)
+            if attachments_data is not None:
+                self._attachments = Attachments(self._session, attachments_data)
         return self._attachments
 
     @property

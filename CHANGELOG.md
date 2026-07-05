@@ -9,6 +9,9 @@ hardening work plus long-standing security issues; all are fixed:
   again (create branch was dead code); `to_dcat_ap` amount guards catch `KeyError` for decoupled
   samples; `get_collection_of_element` handles empty collection labels; crate export `_index`
   no longer crashes on an element that failed to load.
+- **Save-payload regressions** — `attachments` and `name` no longer leak empty values
+  (`attachments: []`, `name: ''`) into save payloads of elements that never had them, which
+  could detach server-side attachments or blank out names on unrelated saves.
 
 ## 🔧 Code quality & architecture hardening — 2026-07-05
 

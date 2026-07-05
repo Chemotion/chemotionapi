@@ -9,6 +9,12 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — fix: stop leaking `attachments: []` and `name: ''` into save payloads
+
+- **`AbstractElement.attachments`** → returns `None` again when the element carries no attachment data (e.g. fetched from a listing, never fully loaded), restoring pre-branch semantics. Previously every save payload included `attachments: []` and unconditionally POSTed `update_attachments_attachable` with an empty list — a server treating that as authoritative could detach existing attachments.
+- **`ResearchPlan.add_image`** → creates the attachment container on demand; `_parse_image` returns `None` when no attachment data is present.
+- **`AbstractElement.name`** → returns `None` again when unset (was `''`), so saves no longer overwrite a server-side null name with an empty string.
+
 ## 2026-07-05 — fix: exception-handling regressions found by review
 
 - **collection.py `get_or_create_collection`** → now also catches `ModuleNotFoundError`, which `get_collection` raises for missing collections; the create branch was dead code and first-time callers crashed on a fresh DB.

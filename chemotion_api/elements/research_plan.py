@@ -10,6 +10,7 @@ from typing import Self
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.attachments import Attachments
 
 
 class BodyElements(Enum):
@@ -368,8 +369,11 @@ class ResearchPlan(AbstractElement):
 
     def _parse_image(self, value):
         if value is None: return None
+        attachments = self.attachments
+        if attachments is None:
+            return None
         try:
-            res = self.attachments.load_attachment(identifier=value.get('public_name'))
+            res = attachments.load_attachment(identifier=value.get('public_name'))
         except ValueError:
             return None
         return res
@@ -417,7 +421,10 @@ class ResearchPlan(AbstractElement):
 
         if not image_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
             raise ValueError('File is not a image!')
-        file_obj = self.attachments.add_file(image_path)
+        attachments = self.attachments
+        if attachments is None:
+            attachments = self._attachments = Attachments(self._session, [])
+        file_obj = attachments.add_file(image_path)
         file_obj['is_image_field'] = True
         file_obj['ancestor'] = None
         body_obj = self._add_new_element(BodyElements.image, at_idx)
