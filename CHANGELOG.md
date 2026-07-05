@@ -1,5 +1,34 @@
 # Changelog
 
+## 🔧 Code quality & architecture hardening — 2026-07-05
+
+All improvements from the FIX_PLAN have been completed (Tiers 1–5). Ten commits focused on
+robustness, maintainability, and test coverage:
+
+- **Bare except clause elimination** (13 locations) → specified exception types (`ValueError`,
+  `TypeError`, `KeyError`, etc.). Prevents accidental swallowing of `KeyboardInterrupt`/`SystemExit`.
+- **API response validation** → replaced unsafe `res.json()['key']` with `.get('key') + isinstance()`
+  checks. Handles malformed server responses gracefully.
+- **Architecture refactoring** → `Connection` changed from inheritance to composition (now uses
+  `_http_session` attribute). Eliminates all `type: ignore[override]` comments; Liskov Substitution
+  Principle compliant.
+- **N+1 query elimination** → `ElementManager.all_version_of_generic_class` now uses
+  `@functools.cached_property` (was `@property`). Eliminates per-element API calls on bulk operations.
+- **Type safety hardening** → removed unsafe `cast()` calls; added `isinstance()` checks with clear
+  error messages in `wellplate.py` and elsewhere.
+- **Duplicate code consolidation** → extracted 60+ lines of identical `field_details()` logic from
+  `search/sample.py` and `search/reaction.py` into shared `FIELD_DEFINITIONS` dict + `get_field_details()`
+  helper in `search/utils.py`.
+- **Typo & magic number fixes** (5 locations): "Counld"→"Could", "Wallplate"→"Wellplate",
+  hardcoded 8/12 → `WELLPLATE_ROWS`/`WELLPLATE_COLUMNS` constants.
+- **Test coverage threshold** raised from 54% to 55% (current: 55.42%).
+- **Linting** — ruff widened to include pyflakes (F) and bugbear (B) checks; ~70 unused imports/variables
+  cleaned up; exception chaining added throughout.
+
+All 131 unit tests pass; 55.42% code coverage (exceeds 55% gate). Zero known defects.
+
+---
+
 ## 📚 Recovered & modernized Sphinx docs — 2026-07-01
 
 Restored the `docs/` Sphinx suite that upstream had deleted (commit "remove docs") and brought it up to
