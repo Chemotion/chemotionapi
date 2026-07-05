@@ -1270,7 +1270,7 @@ class Sample(AbstractElement):
                     unit="https://qudt.org/vocab/unit/MilliGM",
                     title="Mass [mg]"
                 )]
-        except:
+        except (ValueError, TypeError):
             pass
 
         try:
@@ -1281,7 +1281,7 @@ class Sample(AbstractElement):
                     unit="https://qudt.org/vocab/unit/MilliL",
                     title="Volume [mL]"
                 )]
-        except:
+        except (ValueError, TypeError):
             pass
 
         try:
@@ -1292,7 +1292,7 @@ class Sample(AbstractElement):
                     unit="https://qudt.org/vocab/unit/MilliMOL",
                     title="Amount [mmol]"
                 )]
-        except:
+        except (ValueError, TypeError):
             pass
 
         density_val = self.properties.get('density')
@@ -1304,7 +1304,7 @@ class Sample(AbstractElement):
                     unit="https://qudt.org/vocab/unit/GM-PER-MilliL",
                     title="Density [g/mL]"
                 )]
-            except:
+            except (ValueError, TypeError):
                 pass
 
         eq_val = self.properties.get('equivalent')
@@ -1316,7 +1316,7 @@ class Sample(AbstractElement):
                     unit="https://qudt.org/vocab/unit/PERCENT",
                     title="Molar Equivalent"
                 )]
-            except:
+            except (ValueError, TypeError):
                 pass
 
         molarity_val = self.properties.get('molarity')
@@ -1328,7 +1328,7 @@ class Sample(AbstractElement):
                     unit=get_qudt_unit(molarity_val.get('unit')),
                     title=f"Molarity [{molarity_val.get('unit')}]"
                 )]
-            except:
+            except (ValueError, TypeError):
                 pass
 
         other_identifier = None

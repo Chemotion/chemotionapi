@@ -606,12 +606,12 @@ class AbstractElement:
                     try:
                         self.last_update = datetime.strptime(json_data.get('updated_at'), pattern)
                         break
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
                 if self.last_update is None:
                     self.last_update = dateutil.parser.parse(json_data.get('updated_at'))
-            except:
+            except (ValueError, TypeError, AttributeError):
                 pass
         self.name = json_data.get('name', '')
 

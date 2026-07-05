@@ -9,6 +9,15 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — fix: specify exception types in remaining bare except clauses
+
+- Changed 10 bare except: clauses to specify exact exception types:
+- elements/__init__.py: (ValueError, TypeError) for int() conversions
+- elements/sample.py (6x): (ValueError, TypeError) for float() conversions
+- elements/workflow_manager.py: (StopIteration, KeyError) for next() lookups
+- elements/abstract_element.py (2x): (ValueError, TypeError, AttributeError) for date parsing
+- Tests: 110/110 passing. Behavior unchanged; improves debuggability by not hiding unexpected exceptions.
+
 ## 2026-07-05 — fix(arch): refactor Connection from inheritance to composition (LSP)
 
 - Refactored `Connection` from inheriting `requests.Session` to composing it.

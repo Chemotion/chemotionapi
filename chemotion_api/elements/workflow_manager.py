@@ -104,7 +104,7 @@ class Workflow:
                 next_wf_id = next(x['value'] for x in layer['fields'] if x['type'] == 'wf-next')
                 current_node = next(x for x in self.nodes if x['id'] == next_wf_id)
                 results += self._read_wf(current_node['id'], key, prop_layers)
-            except:
+            except (StopIteration, KeyError):
                 pass
         return results
 

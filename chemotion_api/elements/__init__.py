@@ -207,7 +207,7 @@ class ElementSet(list):
         try:
             self.max_page = int(res.headers.get('X-Total-Pages', 1))
             self._length = int(res.headers.get('X-Total', 0))
-        except:
+        except (ValueError, TypeError):
             pass
         self.clear()
         elements = res.json().get(self._get_result_key() + 's', [])
