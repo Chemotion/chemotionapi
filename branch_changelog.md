@@ -9,6 +9,12 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — Perf: cache generic class revisions (avoid N+1 API calls)
+
+- `ElementManager.all_version_of_generic_class` now uses `@functools.cached_property` instead of `@property`.
+- Previously, any access to `all_types` (which consults `all_version_of_generic_class`) would loop through every generic class and re-fetch its revisions from the server (one GET per class to `/api/v1/generic_elements/klass_revisions.json`).
+- Now the fetch is cached for the lifetime of the ElementManager instance, eliminating N+1 queries on paginated or bulk-element operations.
+
 ## 2026-07-05 — Fix: correctness, safety, and maintainability
 
 - **Null-safety**: Guard `wellplate.get('wells')`, segment class lookups, `klass_obj` access, and port lists against None/empty.

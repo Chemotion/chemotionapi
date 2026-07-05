@@ -1,5 +1,6 @@
 """Registry of the element classes (sample, reaction, wellplate, generic, …) available on a Chemotion instance."""
 import copy
+import functools
 import json
 import uuid
 
@@ -56,12 +57,12 @@ class ElementManager:
 
         return self._all_types
 
-    @property
+    @functools.cached_property
     def all_version_of_generic_class(self) -> dict[str, set[str | None]]:
         """Map each element class to the set of its known schema versions.
 
         Non-generic classes map to ``{None}``; generic classes map to the set of revision versions
-        reported by the server.
+        reported by the server. The result is cached per ElementManager instance.
 
         :return: mapping of class name to a set of version strings (or ``{None}``).
         :raises requests.exceptions.RequestException: if a generic class's revisions cannot be
