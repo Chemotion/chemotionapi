@@ -1,5 +1,6 @@
 """Base class and shared building blocks for all Chemotion elements (lifecycle, analyses, datasets, attachments)."""
 import json
+import logging
 import os.path
 import re
 import uuid
@@ -8,6 +9,8 @@ from typing import Self, cast, Any
 
 import dateutil.parser
 from jsonschema.validators import validate
+
+logger = logging.getLogger(__name__)
 
 from chemotion_api.elements.analyses_manager import AnalysesManager
 
