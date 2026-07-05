@@ -1,6 +1,6 @@
 [project]
 name = "chemotion-api"
-version = "211.0.1"
+version = "312.0.0"
 description = "A Chemotion python API (Pydantic & Chem-DCAT-AP enabled)"
 authors = [{ name = "Martin Starman", email = "martin.starman@kit.edu" }]
 license = { text = "MIT" }

@@ -1,5 +1,27 @@
 # Changelog
 
+## 🚨 Version 312.0.0 — breaking changes — 2026-07-05
+
+This release is compatible with Chemotion ELN **v3.1.2** (version scheme: `312.x.y` ↔ ELN 3.1.2).
+
+**Breaking changes:**
+
+- **`Connection` is no longer a `requests.Session` subclass** (composition refactor). All
+  internally used behavior is preserved (`get`/`post`/`put`/`patch`/`delete`, headers, cookies,
+  timeouts, `close()`, context-manager use), but code that relied on the inherited Session
+  surface — `con.mount(...)`, `con.headers`, `con.cookies`, `con.auth`, setting `con.verify`
+  after construction, or passing a `Connection` where a `requests.Session` is expected — must
+  be updated. TLS verification is a constructor argument (`Connection(host, verify_ssl=False)`).
+- **`RootCollection.move` renamed to `move_collection`** — its `(src, dest)` signature clashed
+  with `AbstractCollection.move(dest)`. Instance-level `Collection.move(dest)` is unchanged.
+- **`ElementManager.get_next_shot_label` renamed to `get_next_short_label`** (typo fix, no
+  alias). The old method was unusable (`@staticmethod` with a `self` parameter), so no working
+  caller is affected.
+- **`Variations.remove` follows the `MutableSequence` contract** — returns `None` and raises
+  `ValueError` when the variation is absent (previously returned `True`/`False`).
+- **`Variation` no longer subclasses `Reaction`** — `isinstance(variation, Reaction)` is now
+  `False` (the class never behaved as a reaction).
+
 ## 🩹 Review fixes: regressions & security hardening — 2026-07-05
 
 A four-way adversarial code review of the branch surfaced regressions introduced by the

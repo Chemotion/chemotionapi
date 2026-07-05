@@ -9,6 +9,16 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — release: version 312.0.0 (breaking changes documented)
+
+- **Version bumped 211.0.1 → 312.0.0** (`pyproject.toml`, `docs/conf.py`). Scheme: `312.x.y` tracks compatibility with Chemotion ELN **v3.1.2**. The major bump signals the breaking changes accumulated on this branch:
+  - `Connection` no longer subclasses `requests.Session` (composition; `.mount()`, `.headers`, post-construction `verify` etc. are gone — use constructor args; verb methods, `close()` and `with` support remain).
+  - `RootCollection.move` → `move_collection` (signature clash with `AbstractCollection.move`).
+  - `ElementManager.get_next_shot_label` → `get_next_short_label` (typo fix; old method was already broken — `@staticmethod` with a `self` param — so no working caller existed).
+  - `Variations.remove` follows the `MutableSequence` contract (returns `None`, raises `ValueError` when absent).
+  - `Variation` no longer subclasses `Reaction`.
+- CLI docs now recommend the `PGPASSWORD` environment variable over the `--pgpassword` option (CLI options end up in shell history).
+
 ## 2026-07-05 — fix: robustness & resource-handling hardening (review follow-ups)
 
 - **Duplicate uploads eliminated** → `Attachments.save`/`MutableAttachments.save` clear the upload queue after a successful request (`_mark_uploads_done`), so calling `save()` twice no longer re-uploads and duplicates files server-side.

@@ -69,13 +69,18 @@ def add_db_options():
 
     The options cover ``--pguser``, ``--port``, ``--host``, ``--pgpassword`` and ``--database``.
 
+    Prefer setting the password via the ``PGPASSWORD`` environment variable — a password
+    passed as a command-line option ends up in the shell history.
+
     :return: A decorator that applies the database options to the function it decorates
     """
     cmd_options = [
         click.option('--pguser', default='postgres', help="Postgresql User"),
         click.option('--port', default='5432', help="Postgresql server port"),
         click.option('--host', default='localhost', help="Postgresql server host"),
-        click.option('--pgpassword', default='postgres', help="Postgresql password"),
+        click.option('--pgpassword', default='postgres', envvar='PGPASSWORD', show_envvar=True,
+                     help="Postgresql password. Prefer setting the PGPASSWORD environment "
+                          "variable instead of this option (options end up in shell history)."),
         click.option('--database', default='chemotion', help="Postgresql database")
     ]
 
