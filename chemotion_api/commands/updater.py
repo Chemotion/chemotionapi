@@ -71,7 +71,10 @@ def get_eln_port(file_path: str):
     :return: the ELN host port as an ``int``.
     """
     content = read_docker_compose(file_path)
-    return int(content['services']['eln']['ports'][0].split(':')[0])
+    ports = content['services']['eln'].get('ports', [])
+    if not ports:
+        raise ValueError("ELN service has no ports configured in the compose file")
+    return int(ports[0].split(':')[0])
 
 
 def get_db_port(file_path: str):
@@ -81,4 +84,7 @@ def get_db_port(file_path: str):
     :return: the database host port as an ``int``.
     """
     content = read_docker_compose(file_path)
-    return int(content['services']['db']['ports'][0].split(':')[0])
+    ports = content['services']['db'].get('ports', [])
+    if not ports:
+        raise ValueError("Database service has no ports configured in the compose file")
+    return int(ports[0].split(':')[0])

@@ -786,6 +786,9 @@ class AbstractElement:
         results_mapping: dict[str, dict] = {}
         for segment in cast(dict, self.json_data).get('segments', []):
             a = [x for x in self._generic_segments.all_classes if x['id'] == segment['segment_klass_id']]
+            if not a:
+                logger.warning("Segment references unknown generic class: %s", segment.get('segment_klass_id'))
+                continue
             temp_segment = parse_generic_object_json(segment)
             key = add_to_dict(results, a[0].get('label', 'no_label'), temp_segment.get('values'))
             results_mapping[key] = cast(dict, temp_segment.get('obj_mapping'))

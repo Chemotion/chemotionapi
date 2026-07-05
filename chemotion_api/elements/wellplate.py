@@ -75,7 +75,7 @@ class Wellplate(AbstractElement):
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
         self.wells = [WellplateCol() for i in range(12)]
-        for element in self.json_data.get('wells'):
+        for element in (self.json_data.get('wells') or []):
             if element.get('sample') is not None:
                 x = int(element['position']['x']) - 1
                 y = chr(int(element['position']['y']) + ord('A') - 1)

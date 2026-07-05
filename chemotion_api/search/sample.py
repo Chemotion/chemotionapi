@@ -13,14 +13,14 @@ def field_details(field_name: Literal['name', 'short_label', 'external_label', '
     :raises ValueError: if ``field_name`` is not a supported sample field.
     """
     if field_name == 'name':
-        filed_type = {
+        field_type = {
             "column": "name",
             "label": "Sample name",
             "type": "text",
             "advanced": True
         }
     elif field_name == 'short_label':
-        filed_type = {
+        field_type = {
             "column": "short_label",
             "label": "Short Label",
             "type": "text",
@@ -28,7 +28,7 @@ def field_details(field_name: Literal['name', 'short_label', 'external_label', '
         }
 
     elif field_name == 'external_label':
-        filed_type = {
+        field_type = {
             "column": "external_label",
             "label": "External Label",
             "type": "text",
@@ -36,7 +36,7 @@ def field_details(field_name: Literal['name', 'short_label', 'external_label', '
         }
 
     elif field_name == 'inventory_label':
-        filed_type = {
+        field_type = {
             "column": "xref",
             "opt": "inventory_label",
             "label": "Inventory Label",
@@ -45,7 +45,7 @@ def field_details(field_name: Literal['name', 'short_label', 'external_label', '
         }
 
     elif field_name == 'xref':
-        filed_type = {
+        field_type = {
             "column": "xref",
             "opt": "cas",
             "label": "CAS",
@@ -54,7 +54,7 @@ def field_details(field_name: Literal['name', 'short_label', 'external_label', '
         }
 
     elif field_name == 'content':
-        filed_type = {
+        field_type = {
             "column": "content",
             "label": "Private Note",
             "type": "text",
@@ -65,7 +65,7 @@ def field_details(field_name: Literal['name', 'short_label', 'external_label', '
         raise ValueError(f'Field "{field_name}" not supported.')
 
     return {
-        'field': filed_type,
+        'field': field_type,
         'unit': ''
     }
 

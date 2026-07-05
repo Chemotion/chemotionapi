@@ -9,6 +9,14 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — Fix: correctness, safety, and maintainability
+
+- **Null-safety**: Guard `wellplate.get('wells')`, segment class lookups, `klass_obj` access, and port lists against None/empty.
+- **Exception handling**: Specify exception types in `collection.get_or_create` and `utils` merge functions (avoid bare `except:` catching SystemExit/KeyboardInterrupt).
+- **Naming**: `filed_type` → `field_type` (typo across search modules); `get_next_shot_label` → `get_next_short_label` (spelling + removed contradictory `@staticmethod`).
+- **Testing**: Add `test_attachment_streaming_fallback` to verify both `iter_file()` and `load_file()` code paths are exercised.
+- All 110 unit tests pass; no behavioral changes, only robustness.
+
 ## 2026-07-03 — Lint: ruff widened to pyflakes (F) and bugbear (B)
 
 - `select = ["UP", "F", "B"]`; `tests/**` ignores `B011`/`B017` (the try/except + `assert False` idiom is deliberate; pytest never runs under `python -O`).

@@ -112,11 +112,9 @@ class ElementManager:
         u = User.load_me(self._session)
         return u
 
-    @staticmethod
-    def get_next_shot_label(self, type_name, session):
+    def get_next_short_label(self, type_name, session=None):
         """Return the next short label for an element type via the current user's counters.
 
-        :param self: an :class:`ElementManager` instance used to resolve the label.
         :param type_name: the element type name (e.g. ``"sample"``, ``"reaction"``).
         :param session: unused; kept for backward compatibility.
         :return: the next short label string.
@@ -163,6 +161,8 @@ class ElementManager:
         else:
             res = self._session.get('api/v1/generic_elements/klass.json', params={'name': type_name})
             klass_obj = res.json().get('klass')
+            if klass_obj is None:
+                raise ValueError(f"Generic element class '{type_name}' not found on server")
             properties_release = copy.deepcopy(klass_obj['properties_release'])
             for key, layer in klass_obj['properties_release']['layers'].items():
                 if not layer['wf']:

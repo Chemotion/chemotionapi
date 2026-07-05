@@ -378,7 +378,7 @@ def _merge_dicts(a: dict | list, b: dict | list, path: list | None = None):
         elif isinstance(elem, list):
             try:
                 return elem[cast(int, idx)]
-            except:
+            except (IndexError, ValueError, TypeError):
                 pass
         return None
 
@@ -389,7 +389,7 @@ def _merge_dicts(a: dict | list, b: dict | list, path: list | None = None):
         elif isinstance(elem, list):
             try:
                 elem[cast(int, idx)] = value
-            except:
+            except (IndexError, ValueError, TypeError):
                 elem.append(value)
 
     for key, b_val in iterator:

@@ -15,14 +15,14 @@ def field_details(field_name: Literal[
     """
     unit = ''
     if field_name == 'name':
-        filed_type = {
+        field_type = {
             "column": "name",
             "label": "Name",
             "type": "text",
             "advanced": True
         }
     elif field_name == 'short_label':
-        filed_type = {
+        field_type = {
             "column": "short_label",
             "label": "Short Label",
             "type": "text",
@@ -30,7 +30,7 @@ def field_details(field_name: Literal[
         }
 
     elif field_name == 'status':
-        filed_type = {
+        field_type = {
             "column": "status",
             "label": "Status",
             "type": "select",
@@ -39,7 +39,7 @@ def field_details(field_name: Literal[
         }
 
     elif field_name == 'conditions':
-        filed_type = {
+        field_type = {
             "column": "conditions",
             "label": "Conditions",
             "type": "text",
@@ -47,7 +47,7 @@ def field_details(field_name: Literal[
         }
 
     elif field_name == 'temperature':
-        filed_type = {
+        field_type = {
             "column": "temperature",
             "label": "Temperature",
             "type": "system-defined",
@@ -58,7 +58,7 @@ def field_details(field_name: Literal[
         unit = "°C"
 
     elif field_name == 'duration':
-        filed_type = {
+        field_type = {
             "column": "duration",
             "label": "Duration",
             "type": "system-defined",
@@ -69,7 +69,7 @@ def field_details(field_name: Literal[
         unit = "Second(s)"
 
     elif field_name == 'rxno':
-        filed_type = {
+        field_type = {
             "column": "rxno",
             "label": "Type",
             "type": "rxnos",
@@ -77,7 +77,7 @@ def field_details(field_name: Literal[
         }
 
     elif field_name == 'content':
-        filed_type = {
+        field_type = {
             "column": "content",
             "label": "Private Note",
             "type": "text",
@@ -88,7 +88,7 @@ def field_details(field_name: Literal[
         raise ValueError(f'Field "{field_name}" not supported.')
 
     return {
-        'field': filed_type,
+        'field': field_type,
         'unit': unit
     }
 
