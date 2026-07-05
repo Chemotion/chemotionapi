@@ -98,7 +98,7 @@ class Wellplate(AbstractElement):
         size = json_data.get('size')
         if size is not None and not isinstance(size, int):
             raise TypeError(f"Expected int for size, got {type(size)}")
-        json_data['wells'] = wells[:size] if wells and size else (wells or [])
+        json_data['wells'] = wells[:size] if wells and size is not None else (wells or [])
         for element in json_data.get('wells', []):
             x = int(element['position']['x']) - 1
             y = chr(int(element['position']['y']) + ord('A') - 1)

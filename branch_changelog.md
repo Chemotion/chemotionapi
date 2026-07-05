@@ -9,6 +9,12 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — fix: minor review findings (wellplate size 0, shared search dicts, affiliations)
+
+- **wellplate.py** → `size == 0` now correctly sends an empty well list instead of all wells (truthiness test conflated "size missing" with "size zero").
+- **search/utils.py `get_field_details`** → returns a copy of the field metadata; callers mutating a built search condition can no longer corrupt the shared `FIELD_DEFINITIONS` for later searches.
+- **user.py `affiliations` setter** → normalizes raw dicts from a user payload into `Affiliation` objects, so `get_affiliations()` never returns plain dicts.
+
 ## 2026-07-05 — fix: Connection.close() and generic-klass cache invalidation
 
 - **`Connection.close()` / context-manager support** → the composition refactor dropped the inherited `Session.close()`; `with Instance(...)` silently leaked the pooled sockets (the `hasattr` guard in `Instance.__exit__` was dead code). `Connection` now delegates `close()` and supports `with`.

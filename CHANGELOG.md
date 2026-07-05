@@ -16,6 +16,9 @@ hardening work plus long-standing security issues; all are fixed:
   support), so `with Instance(...)` releases pooled sockets again; generic-klass caches are
   invalidated when element/segment classes are created, uploaded or released, preventing
   stale class data and silently dropped segments mid-session.
+- **Minor fixes** — wellplates with `size == 0` upload no wells (not all); shared search
+  field metadata can no longer be corrupted by callers mutating a built condition;
+  `User.affiliations` always yields `Affiliation` objects.
 
 ## 🔧 Code quality & architecture hardening — 2026-07-05
 

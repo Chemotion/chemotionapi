@@ -58,12 +58,13 @@ def get_field_details(element_type: str, field_name: str) -> dict:
         raise ValueError(f'Field "{field_name}" not supported for {element_type}.')
 
     field_def = definitions[field_name]
-    # Handle fields with units (stored as tuples)
+    # Handle fields with units (stored as tuples). Copy the metadata dict so callers
+    # mutating the built condition cannot corrupt the shared FIELD_DEFINITIONS.
     if isinstance(field_def, tuple):
         field_type, unit = field_def
-        return {'field': field_type, 'unit': unit}
+        return {'field': dict(field_type), 'unit': unit}
     else:
-        return {'field': field_def, 'unit': ''}
+        return {'field': dict(field_def), 'unit': ''}
 
 def new_base_field(match: EnumMatch, connector: str, value: str):
     """Build the common base of an advanced-search condition field.

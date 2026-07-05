@@ -140,7 +140,10 @@ class User(abc.ABC):  # noqa: B024 — ABC marks the class as non-instantiable b
 
     @affiliations.setter
     def affiliations(self, value):
-        # guards User.populate() in case a user payload ever carries an 'affiliations' key
+        # guards User.populate() in case a user payload ever carries an 'affiliations' key;
+        # normalize raw dicts so the cache always holds Affiliation objects
+        if value is not None:
+            value = [Affiliation.from_json(a) if isinstance(a, dict) else a for a in value]
         self._affiliations = value
 
     @property
