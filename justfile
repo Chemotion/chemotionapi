@@ -13,7 +13,7 @@ sync:
 test:
     uv run pytest tests -q
 
-# run the pure-logic unit subset (what CI runs)
+# run the tests/unit subset only (CI runs the full offline suite via `just check`)
 test-unit:
     uv run pytest tests/unit -q
 

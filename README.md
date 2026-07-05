@@ -36,8 +36,8 @@ fully offline from a Chemotion export ZIP.
 ## Requirements & installation
 
 - Python **>= 3.14** (managed automatically by [uv](https://docs.astral.sh/uv/))
-- A Chemotion ELN server (v2.1+; tested against 2.1.1 and 3.1.2) — or none at all for the
-  offline workflow.
+- A Chemotion ELN server — v3.1.2 is what the current test stack runs against (version
+  scheme `312.x.y`); 2.1.1 was covered historically. Or none at all for the offline workflow.
 - For development: [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/)
   (plus docker for the integration test stack).
 
@@ -61,10 +61,10 @@ Everything is automated through [`just`](./justfile) — run `just` for the full
 just sync               # create/refresh the locked virtualenv (uv)
 just check              # lint + mypy + offline test suite (the local gate)
 just test-integration   # integration suite against the self-contained docker ELN (also runs nightly in CI)
-just cov                # offline-suite coverage report (gated at 48%)
+just cov                # offline-suite coverage report (gated at 55%)
 just docs               # build the Sphinx documentation
 just schemas            # dump the LabIMotion JSON schemas from a live ELN
-just stack-up           # start / stop / reset / watch the dockerized test ELN
+just stack-up           # start the dockerized test ELN (see also stack-down / stack-reset / stack-logs)
 just build              # build sdist + wheel
 ```
 
@@ -213,7 +213,7 @@ chemotion_api --help    # scaffold, start/stop, configure ports, back up local i
 ## Documentation
 
 Sphinx documentation (API reference + guides) lives in [docs/](./docs) and builds in CI on
-every push:
+every push to main and on pull requests:
 
 ```bash
 just docs    # → docs/_build/html/index.html
@@ -226,7 +226,7 @@ The default test run is offline and memory-safe; integration tests run against a
 [tests/test_config/README.md](./tests/test_config/README.md):
 
 ```bash
-# offline suite (no server; CI runs `just check` = mypy + this, on 3.14)
+# offline suite (no server; CI runs `just check` = lint + mypy + this, on 3.14)
 just test
 
 # integration suite: boots + seeds the dockerized ELN automatically (docker required)

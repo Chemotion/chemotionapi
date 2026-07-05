@@ -66,11 +66,11 @@ robustness, maintainability, and test coverage:
   helper in `search/utils.py`.
 - **Typo & magic number fixes** (5 locations): "Counld"→"Could", "Wallplate"→"Wellplate",
   hardcoded 8/12 → `WELLPLATE_ROWS`/`WELLPLATE_COLUMNS` constants.
-- **Test coverage threshold** raised from 54% to 55% (current: 55.42%).
+- **Test coverage threshold** raised from 54% to 55% (55.29% at last measurement).
 - **Linting** — ruff widened to include pyflakes (F) and bugbear (B) checks; ~70 unused imports/variables
   cleaned up; exception chaining added throughout.
 
-All 131 unit tests pass; 55.42% code coverage (exceeds 55% gate). Zero known defects.
+All 131 unit tests pass; 55.29% code coverage (exceeds the 55% gate).
 
 ---
 

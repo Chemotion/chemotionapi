@@ -5,9 +5,11 @@ anywhere, while the heavy and server-dependent tests are opt-in.
 
 ## Layout
 
-- **`tests/unit/`** — pure-logic, offline, tiny footprint (~60 MB peak, <0.5 s). No live server, no
-  RO-Crate serialization, no pyshacl. Covers: Pydantic models, the ontology registry + `.eln` patch
-  helper, the `Affiliation` model, `PropertyDict`, and author-node construction.
+- **`tests/unit/`** — offline, no live server, no pyshacl (~1 s for the whole subset). Mostly
+  pure-logic tests (Pydantic models, the ontology registry + `.eln` patch helper, the
+  `Affiliation` model, `PropertyDict`, author-node construction), plus a handful of
+  `heavy`-marked tests that exercise full `export_eln` RO-Crate serialization
+  (offline ingest, `.eln` round-trip, typing enrichment).
 - **`tests/*.py`** (top level) — everything else:
   - `@pytest.mark.integration` — needs a live Chemotion server/DB (auto-applied to any test using the
     `logged_in_instance` / `instance_with_*` fixtures).
@@ -30,8 +32,9 @@ server; that combo — heavy export **+** live server in one process — is what
 # Pure-logic unit subset only (fastest; CI runs the full offline suite via `just check`):
 .venv/bin/python -m pytest tests/unit -q
 
-# Skip the fork overhead (single process; only when memory is known-bounded):
-.venv/bin/python -m pytest tests -p no:forked -q
+# Skip the fork overhead (single process; only when memory is known-bounded).
+# addopts must be overridden too, since it carries the --forked flag:
+.venv/bin/python -m pytest tests -q -o addopts='-m "not integration"'
 
 # One heavy offline test on its own (CLI -m overrides the default filter):
 .venv/bin/python -m pytest tests/test_shacl_conformance.py -m heavy -q
@@ -61,7 +64,7 @@ templates, collections), and some assertions rely on the seed's state.
   live Chemotion server (Rails+Postgres, ~1–2 GB) in one process on a constrained host. Those tests
   need the server so they carry `integration` and are excluded by default.
 - **Heavy offline tests are bounded:** repeated offline `export_eln` peaks flat at ~86 MB (the merged
-  LinkML `SchemaView` is cached process-wide in `collection.py`). `tests/unit` (67 tests, incl. the 4
+  LinkML `SchemaView` is cached process-wide in `collection.py`). `tests/unit` (110 tests, incl. the 7
   heavy offline ones) passes under a hard 2.5 GB address-space cap.
 - `tests/conftest.py` imports `chemotion_api` **lazily** (inside the server fixtures) so collecting the
   unit suite doesn't pull in rdflib/linkml. Live-CLI DEBUG logging is **off** in `pytest.ini` (it

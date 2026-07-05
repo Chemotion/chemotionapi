@@ -9,6 +9,16 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — docs: verify and correct claims across all markdown files
+
+- Every claim in `README.md`, `CHANGELOG.md`, `branch_changelog.md`, `tests/README.md` and `tests/test_config/README.md` was verified against the code and git history by three independent review agents; inaccuracies fixed:
+- **README.md** → coverage gate 48% → 55%; `just check` description includes lint; docs CI trigger scoped to "main + PRs"; `stack-up` description (start only); ELN compatibility wording (3.1.2 current, 2.1.1 historical).
+- **tests/README.md / pytest.ini / justfile** → `tests/unit` description (110 tests incl. 7 heavy export tests, not "no RO-Crate serialization"); the broken `-p no:forked` advice replaced with a working `-o addopts=` override; `test-unit` comment no longer claims to be "what CI runs".
+- **branch_changelog.md** → pre-07-05 entries rewritten against the actual commits: real commit dates restored (entries were dated up to 3 weeks off), and unverifiable claims removed (no `ChemOntologyManager`, no PyPI auto-release/`PYPI_TOKEN`, no `pytest --reset-eln`, no `models.v2`/strict mode, no `.travis.yml`/Makefile removal, no 85%/88% coverage thresholds, no `dcat:byteSize` mapping, no author-less exports — authors are mandatory).
+- **CHANGELOG.md / pyproject.toml** → coverage figure corrected to the measured 55.29%.
+- `Attachment.load_file` now delegates to `iter_file()` (single code path; whole-body-in-memory remains its documented contract).
+- Known open issue (pre-existing on main, needs a decision): `LICENSE` file is AGPL-3.0 while `pyproject.toml` and README declare MIT.
+
 ## 2026-07-05 — release: version 312.0.0 (breaking changes documented)
 
 - **Version bumped 211.0.1 → 312.0.0** (`pyproject.toml`, `docs/conf.py`). Scheme: `312.x.y` tracks compatibility with Chemotion ELN **v3.1.2**. The major bump signals the breaking changes accumulated on this branch:

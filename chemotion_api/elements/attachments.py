@@ -42,15 +42,14 @@ class Attachment(dict):
 
     def load_file(self) -> bytes:
         """
-        Loads an attachment file as binary object
+        Loads an attachment file as binary object.
+
+        The whole file is held in memory (that is this method's contract);
+        use :meth:`iter_file` to stream large attachments instead.
 
         :return:  file as binary object
         """
-        res = self._con.get(f"/api/v1/attachments/{self['id']}")
-        if res.status_code != 200:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
-
-        return res.content
+        return b''.join(self.iter_file())
 
     def iter_file(self, chunk_size: int = 1 << 20) -> Iterator[bytes]:
         """Stream the attachment file in chunks instead of loading it fully into memory.
