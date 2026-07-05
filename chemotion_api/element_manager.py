@@ -23,6 +23,8 @@ class ElementManager:
     Discovers the built-in and generic element classes (sample, reaction, wellplate, generic, …),
     caches them, and builds fresh element payloads ready to be created on the server.
     """
+    WELLPLATE_ROWS = 8  # Standard 96-well plate has 8 rows (A-H)
+    WELLPLATE_COLUMNS = 12  # Standard 96-well plate has 12 columns (1-12)
 
     def __init__(self, session: Connection):
         self._session = session
@@ -76,7 +78,7 @@ class ElementManager:
                 version_list[name] = set()
                 res = self._session.get(f"/api/v1/generic_elements/klass_revisions.json?id={class_obj['id']}&klass=ElementKlass")
                 if res.status_code != 200:
-                    raise RequestException('Counld not get the genetic elements')
+                    raise RequestException('Could not get the generic elements')
                 for revision in res.json()['revisions']:
                     if revision['version'] is not None:
                         version_list[name].add(revision['version'])
@@ -94,7 +96,7 @@ class ElementManager:
         get_url = "/api/v1/generic_elements/klasses.json"
         res = self._session.get(get_url)
         if res.status_code != 200:
-            raise RequestException('Counld not get the genetic elements')
+            raise RequestException('Could not get the generic elements')
         all_classes = {}
         for x in res.json()['klass']:
             all_classes[x['name']] = x
@@ -146,8 +148,8 @@ class ElementManager:
                     data = json.loads(f.read())
             if type_name == 'wellplate':
                 data['wells'] = []
-                for y in range(1, 9):
-                    for x in range(1, 13):
+                for y in range(1, self.WELLPLATE_ROWS + 1):
+                    for x in range(1, self.WELLPLATE_COLUMNS + 1):
                         data['wells'].append({
                             "id": uuid.uuid4().__str__(),
                             "is_new": True,

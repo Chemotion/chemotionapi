@@ -128,7 +128,7 @@ class SampleVariationType(Enum):
         :return: The corresponding :class:`SampleVariationType`
         """
         role = sample.role_in_reaction
-        if role == 'starting_aterials':
+        if role == 'starting_materials':
             return SampleVariationType.STARTING_MATERIAL
         return SampleVariationType(role)
 

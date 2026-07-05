@@ -3,7 +3,6 @@ from chemotion_api.elements.abstract_element import AbstractElement
 
 from chemotion_api.elements.sample import Sample
 from collections.abc import MutableMapping
-from typing import cast
 import string
 
 class WellplateCol(MutableMapping):
@@ -37,7 +36,7 @@ class WellplateCol(MutableMapping):
     def _keytransform(self, key):
         key = key.upper()
         if key not in self._keys:
-            raise IndexError("A Wallplate column only allows keys from A-H")
+            raise IndexError("A Wellplate column only allows keys from A-H")
         return key
 
 class Wellplate(AbstractElement):
@@ -48,7 +47,7 @@ class Wellplate(AbstractElement):
 
     - Plate size: 12 x 8
     - Verical indexing: 0-11
-    - Horiconcal indexing: 'A' - 'H'
+    - Horizontal indexing: 'A' - 'H'
 
     Usage::
 
@@ -84,13 +83,22 @@ class Wellplate(AbstractElement):
     def _parse_properties(self) -> dict:
 
         return {
-            'name': cast(dict, self.json_data).get('name'),
-            'description': cast(dict, self.json_data).get('description')
+            'name': self.json_data.get('name'),
+            'description': self.json_data.get('description')
         }
 
     def _clean_properties_data(self, serialize_data : dict | None =None) -> dict:
-        cast(dict, self.json_data)['wells'] = cast(list, cast(dict, self.json_data).get('wells'))[:cast(dict, self.json_data).get('size')]
-        for element in cast(list, cast(dict, self.json_data).get('wells')):
+        json_data = self.json_data
+        if not isinstance(json_data, dict):
+            raise TypeError(f"Expected dict for json_data, got {type(json_data)}")
+        wells = json_data.get('wells')
+        if wells is not None and not isinstance(wells, list):
+            raise TypeError(f"Expected list for wells, got {type(wells)}")
+        size = json_data.get('size')
+        if size is not None and not isinstance(size, int):
+            raise TypeError(f"Expected int for size, got {type(size)}")
+        json_data['wells'] = wells[:size] if wells and size else (wells or [])
+        for element in json_data.get('wells', []):
             x = int(element['position']['x']) - 1
             y = chr(int(element['position']['y']) + ord('A') - 1)
             element['is_new'] = element.get('is_new', False)
@@ -100,9 +108,9 @@ class Wellplate(AbstractElement):
                 element['sample'] = self.wells[x][y].clean_data()
 
 
-        cast(dict, self.json_data)['name'] = self.properties.get('name')
-        cast(dict, self.json_data)['description'] = self.properties.get('description')
-        return cast(dict, self.json_data)
+        json_data['name'] = self.properties.get('name')
+        json_data['description'] = self.properties.get('description')
+        return json_data
 
     def eln_node_content(self) -> dict:
         """Emit each occupied well as a schema.org ``PropertyValue`` (position → sample label)."""
@@ -112,9 +120,10 @@ class Wellplate(AbstractElement):
                 if sample is None:
                     continue
                 try:
-                    label = (sample.properties.get('short_label') or sample.name
-                             or sample.molecule.get('cano_smiles'))
-                except Exception:
+                    label = sample.properties.get('short_label') or sample.name
+                    if not label and sample.molecule:
+                        label = sample.molecule.get('cano_smiles')
+                except (AttributeError, TypeError):
                     label = None
                 property_values.append({
                     "@type": "PropertyValue",

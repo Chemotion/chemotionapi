@@ -124,7 +124,7 @@ class Dataset(dict):
 
     def to_clean_json(self):
         """
-        Cleans the data as perpetration to be saved
+        Cleans the data as preparation to be saved
         """
         ds = self._json_data.get('dataset')
         if ds is not None:

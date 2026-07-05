@@ -9,6 +9,14 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — Fix: typos, magic numbers, type validation, and null checks
+
+- **Typos fixed** (5 locations): "Counld"→"Could", "genetic"→"generic", "Wallplate"→"Wellplate", "Horiconcal"→"Horizontal", "starting_aterials"→"starting_materials", "perpetration"→"preparation".
+- **Magic numbers** → Replaced hardcoded 8 & 12 with `WELLPLATE_ROWS` and `WELLPLATE_COLUMNS` constants in ElementManager.
+- **Type validation** (wellplate.py) → Removed unsafe `cast()` calls; added proper `isinstance()` checks for json_data, wells, size with clear error messages.
+- **Null safety** → Added guard check for `sample.molecule` before calling `.get()`; improved exception specificity from `Exception` to `(AttributeError, TypeError)`.
+- Tests: 110/110 passing. Code clarity and type safety improved.
+
 ## 2026-07-05 — fix: specify exception types in remaining bare except clauses
 
 - Changed 10 bare except: clauses to specify exact exception types:
