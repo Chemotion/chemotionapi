@@ -9,8 +9,8 @@ from urllib3.util.retry import Retry
 from chemotion_api.schema_manager import SchemaManager
 
 
-class Connection(requests.Session):
-    """A :class:`requests.Session` configured for the Chemotion REST/Grape API.
+class Connection:
+    """An HTTP client configured for the Chemotion REST/Grape API.
 
     The HTTP verb methods (:meth:`get`, :meth:`post`, …) take a host-relative ``url_path`` instead
     of a full URL, attach the right default headers (including the bearer token when set), apply a
@@ -20,7 +20,7 @@ class Connection(requests.Session):
     :param verify_ssl: whether to verify TLS certificates on every request.
     """
     def __init__(self, host_url: str, verify_ssl: bool = True):
-        super().__init__()
+        self._http_session = requests.Session()
         self._host_url = host_url.strip('/')
         self._verify = verify_ssl
         self._bearer_token: str | None = None
@@ -42,8 +42,8 @@ class Connection(requests.Session):
             raise_on_status=False,
         )
         adapter = HTTPAdapter(max_retries=retry)
-        self.mount('http://', adapter)
-        self.mount('https://', adapter)
+        self._http_session.mount('http://', adapter)
+        self._http_session.mount('https://', adapter)
 
     @property
     def schema_manager(self) -> SchemaManager:
@@ -80,9 +80,7 @@ class Connection(requests.Session):
         """The instance base URL this connection targets (without trailing slash)."""
         return self._host_url
 
-    # These intentionally replace requests.Session's url-based signature with a host-relative
-    # url_path API, so the override-incompatibility is by design.
-    def delete(self, url_path: str = '', **kwargs) -> requests.Response:  # type: ignore[override]
+    def delete(self, url_path: str = '', **kwargs) -> requests.Response:
         """Send a ``DELETE`` request to a host-relative path with the default headers.
 
         :param url_path: path relative to :attr:`host_url`.
@@ -92,7 +90,7 @@ class Connection(requests.Session):
         """
         return self._send_request('delete', url_path, self.get_default_session_header(), kwargs)
 
-    def get(self, url_path: str = '', **kwargs) -> requests.Response:  # type: ignore[override]
+    def get(self, url_path: str = '', **kwargs) -> requests.Response:
         """Send a ``GET`` request to a host-relative path with the default headers.
 
         :param url_path: path relative to :attr:`host_url`.
@@ -102,7 +100,7 @@ class Connection(requests.Session):
         """
         return self._send_request('get', url_path, self.get_default_session_header(), kwargs)
 
-    def post(self, url_path: str = '', **kwargs) -> requests.Response:  # type: ignore[override]
+    def post(self, url_path: str = '', **kwargs) -> requests.Response:
         """Send a ``POST`` request to a host-relative path with JSON headers.
 
         Non-string ``data`` is serialized to a JSON body automatically.
@@ -114,7 +112,7 @@ class Connection(requests.Session):
         """
         return self._send_request('post', url_path, self.get_json_session_header(), kwargs)
 
-    def patch(self, url_path: str = '', **kwargs) -> requests.Response:  # type: ignore[override]
+    def patch(self, url_path: str = '', **kwargs) -> requests.Response:
         """Send a ``PATCH`` request to a host-relative path with JSON headers.
 
         Non-string ``data`` is serialized to a JSON body automatically.
@@ -126,7 +124,7 @@ class Connection(requests.Session):
         """
         return self._send_request('patch', url_path, self.get_json_session_header(), kwargs)
 
-    def put(self, url_path: str = '', **kwargs) -> requests.Response:  # type: ignore[override]
+    def put(self, url_path: str = '', **kwargs) -> requests.Response:
         """Send a ``PUT`` request to a host-relative path with JSON headers.
 
         Non-string ``data`` is serialized to a JSON body automatically.
@@ -150,7 +148,7 @@ class Connection(requests.Session):
                 'Content-Type') == 'application/json':
             kwargs['data'] = json.dumps(kwargs.get('data', {}))
         try:
-            res = getattr(super(), method)(**kwargs)
+            res = getattr(self._http_session, method)(**kwargs)
         except CError as e:
             raise ConnectionError(str(e)) from e
         if self.tzinfo is None:

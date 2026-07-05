@@ -9,6 +9,13 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — fix(arch): refactor Connection from inheritance to composition (LSP)
+
+- Refactored `Connection` from inheriting `requests.Session` to composing it.
+- Previously, the class inherited from Session but changed method signatures (url_path instead of url), requiring `# type: ignore[override]` comments—a Liskov Substitution Principle violation.
+- Now Connection owns a `_http_session` and delegates to it. No type ignores needed.
+- Behavioral changes: none. Tests: 110/110 passing.
+
 ## 2026-07-05 — Perf: cache generic class revisions (avoid N+1 API calls)
 
 - `ElementManager.all_version_of_generic_class` now uses `@functools.cached_property` instead of `@property`.
