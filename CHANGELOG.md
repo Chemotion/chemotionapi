@@ -1,5 +1,15 @@
 # Changelog
 
+## 🩹 Review fixes: regressions & security hardening — 2026-07-05
+
+A four-way adversarial code review of the branch surfaced regressions introduced by the
+hardening work plus long-standing security issues; all are fixed:
+
+- **Exception-handling regressions** — `get_or_create_collection` catches `ModuleNotFoundError`
+  again (create branch was dead code); `to_dcat_ap` amount guards catch `KeyError` for decoupled
+  samples; `get_collection_of_element` handles empty collection labels; crate export `_index`
+  no longer crashes on an element that failed to load.
+
 ## 🔧 Code quality & architecture hardening — 2026-07-05
 
 All improvements from the FIX_PLAN have been completed (Tiers 1–5). Ten commits focused on

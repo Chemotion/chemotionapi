@@ -332,7 +332,7 @@ class Instance:
                 element.load()
                 collection_id = typing.cast(dict, element.json_data)['tag']['taggable_data']['collection_labels'][0]["id"]
             return self.get_collection_by_id(collection_id)
-        except KeyError:
+        except (KeyError, IndexError, TypeError):
             raise KeyError(f'Could not find collection of {element}') from None
 
     def search_sample(self) -> SampleSearcher:

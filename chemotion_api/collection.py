@@ -393,7 +393,7 @@ class AbstractCollection:
 
         try:
             return self.get_collection(col_path, case_insensitive)
-        except (IndexError, KeyError, ValueError):
+        except (IndexError, KeyError, ValueError, ModuleNotFoundError):
             new_col = self.add_collection(col_path)
             root = self.get_root()
             new_path = new_col.get_path()
@@ -670,6 +670,7 @@ class AbstractCollection:
                     except Exception as e:
                         logger.warning("Could not load %s %s: %s", kind, getattr(it, "id", "?"), e)
                         skipped.append({"kind": kind, "stage": "load", "id": getattr(it, "id", None), "error": str(e)})
+                        continue
                 name_part = sanitize_filename(it.properties.get('short_label') or it.name or default_name)
                 elem_paths[it.id] = f"{parent_path}{plural}/{name_part}_{it.id}/"
                 elements_by_id[it.id] = it

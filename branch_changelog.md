@@ -9,6 +9,14 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — fix: exception-handling regressions found by review
+
+- **collection.py `get_or_create_collection`** → now also catches `ModuleNotFoundError`, which `get_collection` raises for missing collections; the create branch was dead code and first-time callers crashed on a fresh DB.
+- **sample.py `to_dcat_ap`** → mass/volume/amount guards widened to `(KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError)` (matching the existing guard at `_set_amount`); decoupled samples and samples with missing amount/molarity keys raised `KeyError` instead of omitting the quantity.
+- **`Instance.get_collection_of_element`** → outer handler widened to `(KeyError, IndexError, TypeError)` so empty `collection_labels` or a `None` tag still produce the friendly `KeyError` message.
+- **collection.py `_index`** → added missing `continue` after recording a failed element load; the fall-through crashed the whole crate export on `it.properties` of the unloaded element.
+- **abstract_element.py `load()`** → `_data_loaded` is now set only after the server fetch succeeds, so a failed load no longer leaves the element claiming to be loaded with `None` properties.
+
 ## 2026-07-05 — Fix: consolidate duplicate search builders and improve API error handling
 
 - **Refactored duplicate field builders** → Extracted 60+ lines of identical `field_details()` code into shared `FIELD_DEFINITIONS` dict + `get_field_details()` helper in `search/utils.py`. sample.py and reaction.py now call shared logic.

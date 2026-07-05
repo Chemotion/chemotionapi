@@ -1270,7 +1270,7 @@ class Sample(AbstractElement):
                     unit="https://qudt.org/vocab/unit/MilliGM",
                     title="Mass [mg]"
                 )]
-        except (ValueError, TypeError):
+        except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError):
             pass
 
         try:
@@ -1281,7 +1281,7 @@ class Sample(AbstractElement):
                     unit="https://qudt.org/vocab/unit/MilliL",
                     title="Volume [mL]"
                 )]
-        except (ValueError, TypeError):
+        except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError):
             pass
 
         try:
@@ -1292,7 +1292,7 @@ class Sample(AbstractElement):
                     unit="https://qudt.org/vocab/unit/MilliMOL",
                     title="Amount [mmol]"
                 )]
-        except (ValueError, TypeError):
+        except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError):
             pass
 
         density_val = self.properties.get('density')

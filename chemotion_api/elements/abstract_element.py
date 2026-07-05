@@ -580,9 +580,8 @@ class AbstractElement:
         :raises ValueError: If no ID available!
         """
 
-        self._data_loaded = True
-
         attachments_data, json_data = self._load_data_from_server()
+        self._data_loaded = True
         if attachments_data is not None:
             self._attachments = Attachments(self._session, attachments_data)
         self._set_json_data(json_data)
