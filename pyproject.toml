@@ -3,7 +3,7 @@ name = "chemotion-api"
 version = "312.0.0"
 description = "A Chemotion python API (Pydantic & Chem-DCAT-AP enabled)"
 authors = [{ name = "Martin Starman", email = "martin.starman@kit.edu" }]
-license = { text = "MIT" }
+license = { text = "AGPL-3.0-or-later" }
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

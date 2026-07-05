@@ -9,6 +9,10 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — fix: license metadata matches the LICENSE file (AGPL-3.0)
+
+- `pyproject.toml` (`AGPL-3.0-or-later`) and README now match the committed `LICENSE` file (GNU AGPL v3); both previously declared MIT, contradicting the license text shipped since the first commit.
+
 ## 2026-07-05 — docs: verify and correct claims across all markdown files
 
 - Every claim in `README.md`, `CHANGELOG.md`, `branch_changelog.md`, `tests/README.md` and `tests/test_config/README.md` was verified against the code and git history by three independent review agents; inaccuracies fixed:
@@ -17,7 +21,7 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 - **branch_changelog.md** → pre-07-05 entries rewritten against the actual commits: real commit dates restored (entries were dated up to 3 weeks off), and unverifiable claims removed (no `ChemOntologyManager`, no PyPI auto-release/`PYPI_TOKEN`, no `pytest --reset-eln`, no `models.v2`/strict mode, no `.travis.yml`/Makefile removal, no 85%/88% coverage thresholds, no `dcat:byteSize` mapping, no author-less exports — authors are mandatory).
 - **CHANGELOG.md / pyproject.toml** → coverage figure corrected to the measured 55.29%.
 - `Attachment.load_file` now delegates to `iter_file()` (single code path; whole-body-in-memory remains its documented contract).
-- Known open issue (pre-existing on main, needs a decision): `LICENSE` file is AGPL-3.0 while `pyproject.toml` and README declare MIT.
+- Flagged (pre-existing on main): `LICENSE` file is AGPL-3.0 while `pyproject.toml` and README declared MIT — resolved in the follow-up commit in favour of the LICENSE file.
 
 ## 2026-07-05 — release: version 312.0.0 (breaking changes documented)
 
