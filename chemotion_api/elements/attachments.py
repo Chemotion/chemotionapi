@@ -10,6 +10,7 @@ import magic
 import requests
 
 from chemotion_api.connection import Connection
+from chemotion_api.utils import safe_download_filename
 from chemotion_api.elements.analyses_manager import AnalysesManager
 
 
@@ -80,7 +81,9 @@ class Attachment(dict):
         res = self._con.get(f"/api/v1/attachments/{self['id']}")
         if res.status_code != 200:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
-        file_path = os.path.join(directory, self['filename'])
+        # the filename comes from server JSON — reduce it to a safe basename so it
+        # cannot escape the target directory (e.g. '../../x' or an absolute path)
+        file_path = os.path.join(directory, safe_download_filename(self['filename'], f"attachment_{self['id']}"))
         with open(file_path, 'wb+') as f:
             f.write(res.content)
 

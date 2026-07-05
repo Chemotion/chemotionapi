@@ -9,6 +9,13 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — security: path-traversal and SQL-injection fixes
+
+- **`Attachment.save_file`** → server-provided filenames are reduced to a safe basename via new `utils.safe_download_filename()`; `../../x` or absolute names can no longer escape the target directory.
+- **`Dataset.write_zip` / `write_data_set_xlsx`** → filename now parsed robustly from `Content-Disposition` (handles missing header and unquoted `filename=`) and sanitized; previously a crafted header could traverse directories and a missing/unquoted header crashed with `KeyError`/`AttributeError`.
+- **`ElnFile.extract`** → the crate-metadata `name` (attacker-controlled in a foreign `.eln`) is sanitized to a basename before writing; `"name": "../../x"` in `ro-crate-metadata.json` can no longer write outside `dest_dir`.
+- **`insert_dataset` CLI command** → OLS-fetched `label`/`definition` are passed to psql as `-v` variables with `:'var'` quoting (SQL fed via stdin) instead of f-string interpolation; apostrophes in CHMO definitions no longer break the insert and a malicious response can no longer inject SQL.
+
 ## 2026-07-05 — fix: minor review findings (wellplate size 0, shared search dicts, affiliations)
 
 - **wellplate.py** → `size == 0` now correctly sends an empty well list instead of all wells (truthiness test conflated "size missing" with "size zero").

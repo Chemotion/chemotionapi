@@ -19,7 +19,8 @@ from chemotion_api.elements.attachments import Attachments, MutableAttachments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
-    clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer, PropertyDict
+    clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer, PropertyDict, \
+    safe_download_filename
 
 from requests.exceptions import RequestException
 
@@ -83,6 +84,23 @@ class Dataset(dict):
                 self._attachments = MutableAttachments(self._session, attachments_data)
         return cast(MutableAttachments, self._attachments)
 
+    @staticmethod
+    def _file_name_from_header(res, fallback: str) -> str:
+        """Extract a safe file name from a response's ``Content-Disposition`` header.
+
+        Handles a missing header and unquoted ``filename=`` values, and strips any
+        directory components from the server-provided name.
+
+        :param res: the HTTP response.
+        :param fallback: name to use when no usable filename is present.
+        :return: a safe basename.
+        """
+        disposition = res.headers.get('Content-Disposition', '')
+        match = re.search(r'filename="([^"]+)"', disposition) or \
+            re.search(r'filename=([^;]+)', disposition)
+        name = match.group(1).strip() if match else None
+        return safe_download_filename(name, fallback)
+
     def write_zip(self, destination=''):
         """
         Writes the BagIT zip file.
@@ -96,8 +114,8 @@ class Dataset(dict):
             raise ConnectionRefusedError(f'{res.status_code} -> {res.text}')
 
         if not os.path.exists(destination) or os.path.isdir(destination):
-            regex_file_name = re.search('filename="([^"]+)', res.headers['Content-Disposition'])
-            destination = os.path.join(destination, regex_file_name.groups()[0])
+            file_name = self._file_name_from_header(res, f'dataset_{self.id}.zip')
+            destination = os.path.join(destination, file_name)
 
         with open(destination, 'wb+') as f:
             f.write(res.content)
@@ -117,8 +135,8 @@ class Dataset(dict):
             raise ConnectionRefusedError(f'{res.status_code} -> {res.text}')
 
         if not os.path.exists(destination) or os.path.isdir(destination):
-            regex_file_name = re.search('filename="([^"]+)', res.headers['Content-Disposition'])
-            destination = os.path.join(destination, regex_file_name.groups()[0])
+            file_name = self._file_name_from_header(res, f'dataset_{self.id}.xlsx')
+            destination = os.path.join(destination, file_name)
 
         with open(destination, 'wb+') as f:
             f.write(res.content)

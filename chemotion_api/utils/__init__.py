@@ -1,6 +1,7 @@
 """Shared utilities: the attribute-accessible :class:`PropertyDict`, :class:`TypedList`, unit/Quill helpers and dict merging."""
 import copy
 import os
+import posixpath
 import uuid
 from collections.abc import MutableMapping
 from collections import OrderedDict
@@ -513,3 +514,22 @@ def quill_hedging(input: str | dict, name: str) -> dict[str, list]:
     if not isinstance(input, (dict, PropertyDict)) or 'ops' not in input or not isinstance(input['ops'], list):
         raise ValueError(f'{name} must be in the Quill.js format. (https://quilljs.com/docs/delta)')
     return input
+
+
+def safe_download_filename(name: str | None, fallback: str = 'unnamed') -> str:
+    """Reduce a server-provided filename to a safe basename for writing to disk.
+
+    Strips any directory components (both ``/`` and ``\\`` separators), so a malicious
+    name like ``../../x`` or an absolute path cannot escape the target directory.
+
+    :param name: the filename as received from the server (may be ``None``).
+    :param fallback: name to use when nothing safe remains.
+    :return: a plain basename, never empty and never ``.`` / ``..``.
+    """
+    if not name:
+        return fallback
+    name = str(name).replace('\\', '/')
+    name = posixpath.basename(name)
+    if name in ('', '.', '..'):
+        return fallback
+    return name

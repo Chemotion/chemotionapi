@@ -333,9 +333,19 @@ class InstanceManager:
         label = res_json['label']
         definition = res_json['definition']['value']
         created_at = datetime.now().strftime("%Y-%m-%d, %H:%M:%S.%f")
-        sql_command = f"INSERT INTO public.dataset_klasses (ols_term_id, label, \"desc\", created_by, created_at) VALUES ('{ols_term_id}', '{label}', '{definition}', 1, '{created_at}')";
+        # The OLS values are third-party data — pass them via psql variables (:'var'
+        # quotes them safely) instead of interpolating into the SQL string, so
+        # apostrophes in CHMO definitions or a malicious response cannot inject SQL.
+        sql_command = ("INSERT INTO public.dataset_klasses (ols_term_id, label, \"desc\", created_by, created_at) "
+                       "VALUES (:'ols_term_id', :'label', :'definition', 1, :'created_at')")
         my_env = os.environ.copy()
         my_env["PGPASSWORD"] = pgpassword
-        command = ['psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database, '-c', sql_command]
+        command = ['psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database,
+                   '-v', f'ols_term_id={ols_term_id}',
+                   '-v', f'label={label}',
+                   '-v', f'definition={definition}',
+                   '-v', f'created_at={created_at}']
+        # the SQL is fed via stdin because psql does not apply variable
+        # substitution to commands passed with -c
         proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=my_env)
-        proc.communicate()
+        proc.communicate(input=sql_command.encode())

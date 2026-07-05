@@ -19,6 +19,9 @@ hardening work plus long-standing security issues; all are fixed:
 - **Minor fixes** — wellplates with `size == 0` upload no wells (not all); shared search
   field metadata can no longer be corrupted by callers mutating a built condition;
   `User.affiliations` always yields `Affiliation` objects.
+- **Security** — server- or crate-provided filenames are sanitized before writing to disk
+  (attachment downloads, BagIT/xlsx exports, `.eln` extraction — path-traversal fixes);
+  the `insert_dataset` CLI passes OLS data to psql as quoted variables (SQL-injection fix).
 
 ## 🔧 Code quality & architecture hardening — 2026-07-05
 

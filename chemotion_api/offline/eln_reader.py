@@ -107,9 +107,20 @@ class ElnFile:
         return self._crate.read_file(self.id)
 
     def extract(self, dest_dir: str | Path) -> Path:
-        """Write the payload to ``dest_dir/<name>`` and return the written path."""
-        dest = Path(dest_dir) / self.name
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        """Write the payload to ``dest_dir/<name>`` and return the written path.
+
+        The name comes from the crate metadata (attacker-controlled in a foreign
+        ``.eln``), so it is reduced to a safe basename before writing — a name like
+        ``../../x`` or an absolute path cannot escape ``dest_dir``.
+        """
+        base = Path(dest_dir)
+        safe_name = posixpath.basename(str(self.name).replace('\\', '/'))
+        if safe_name in ('', '.', '..'):
+            safe_name = posixpath.basename(self.id.rstrip('/'))
+        if safe_name in ('', '.', '..'):
+            safe_name = 'unnamed'
+        dest = base / safe_name
+        base.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(self.read())
         return dest
 
