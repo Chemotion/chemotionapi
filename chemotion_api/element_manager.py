@@ -32,6 +32,18 @@ class ElementManager:
         self._all_types: list[str] | None = None
         self.is_loaded = False
 
+    def reset_cache(self):
+        """Invalidate all cached class/type/version data so the next access refetches it.
+
+        Call after generic element/segment classes are created or released mid-session
+        (e.g. via the generic manager); otherwise the caches keep serving stale data.
+        """
+        self._all_classes = None
+        self._all_types = None
+        self.is_loaded = False
+        # drop the functools.cached_property cache entry if it has been populated
+        self.__dict__.pop('all_version_of_generic_class', None)
+
     @property
     def all_classes(self) -> dict[str, dict]:
         """All element classes available on the instance, keyed by class name, fetched once.

@@ -9,6 +9,11 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-05 — fix: Connection.close() and generic-klass cache invalidation
+
+- **`Connection.close()` / context-manager support** → the composition refactor dropped the inherited `Session.close()`; `with Instance(...)` silently leaked the pooled sockets (the `hasattr` guard in `Instance.__exit__` was dead code). `Connection` now delegates `close()` and supports `with`.
+- **Generic-klass cache invalidation** → `Connection.reset_generic_segment_cache()` and `ElementManager.reset_cache()` added; `GenericManager` (create/upload of elements and segments) and `save_template`/`save_generale_properties` invalidate the caches, so elements loaded after creating a segment class no longer silently drop that segment, and `all_version_of_generic_class` no longer serves stale revision sets. `Instance.generic_manager()` wires its `ElementManager` in.
+
 ## 2026-07-05 — fix: stop leaking `attachments: []` and `name: ''` into save payloads
 
 - **`AbstractElement.attachments`** → returns `None` again when the element carries no attachment data (e.g. fetched from a listing, never fully loaded), restoring pre-branch semantics. Previously every save payload included `attachments: []` and unconditionally POSTed `update_attachments_attachable` with an empty list — a server treating that as authoritative could detach existing attachments.

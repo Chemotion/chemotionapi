@@ -86,6 +86,7 @@ class GenericObj(ChemotionSerializable):
         })
         if res.status_code != 201:
             raise ConnectionError(f"{res.status_code} -> {res.text}")
+        self._connection.reset_generic_segment_cache()
 
     def save_generale_properties(self):
         """Save the object's general (non-template) properties to the backend.
@@ -98,6 +99,7 @@ class GenericObj(ChemotionSerializable):
         res = self._connection.post(self.url_save, data=self.to_dict())
         if res.status_code != 201:
             raise ConnectionError(f"{res.status_code} -> {res.text}")
+        self._connection.reset_generic_segment_cache()
 
     def activate(self):
         """Mark the object as active on the backend."""

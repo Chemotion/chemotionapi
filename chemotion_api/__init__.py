@@ -535,4 +535,4 @@ class Instance:
         Returns a GenericManager used to load, edit write generic elements.
         :return: a GenericManager
         """
-        return GenericManager(self._con)
+        return GenericManager(self._con, element_manager=self.element_manager)

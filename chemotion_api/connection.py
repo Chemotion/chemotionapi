@@ -45,6 +45,24 @@ class Connection:
         self._http_session.mount('http://', adapter)
         self._http_session.mount('https://', adapter)
 
+    def close(self):
+        """Close the underlying HTTP session and release its pooled connections."""
+        self._http_session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def reset_generic_segment_cache(self):
+        """Invalidate the cached generic segment classes so the next access refetches them.
+
+        Call after creating or releasing segment classes (e.g. via the generic manager) so
+        subsequently loaded elements see the new classes.
+        """
+        self._generic_segment_classes = None
+
     @property
     def schema_manager(self) -> SchemaManager:
         """The :class:`~chemotion_api.schema_manager.SchemaManager` for this instance.

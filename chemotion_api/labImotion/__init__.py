@@ -184,12 +184,21 @@ class GenericDataset(GenericObj):
 class GenericManager:
     """High-level entry point to load, query, create and upload generic klasses."""
 
-    def __init__(self, connection: Connection):
+    def __init__(self, connection: Connection, element_manager=None):
         """Store the connection used for all generic-klass operations.
 
         :param connection: Authenticated connection to the Chemotion backend.
+        :param element_manager: Optional :class:`~chemotion_api.element_manager.ElementManager`
+            whose class/version caches are invalidated when klasses are created or uploaded.
         """
         self._connection = connection
+        self._element_manager = element_manager
+
+    def _invalidate_klass_caches(self):
+        """Drop cached klass data after a mutation so subsequent reads refetch it."""
+        self._connection.reset_generic_segment_cache()
+        if self._element_manager is not None:
+            self._element_manager.reset_cache()
 
     def load_all_elements(self) -> list[GenericElement]:
         """Load all generic element klasses.
@@ -265,7 +274,9 @@ class GenericManager:
         :param file_path: Path to the element klass JSON file.
         :return: All generic elements after the upload.
         """
-        return GenericElement.upload(self._connection, file_path)
+        result = GenericElement.upload(self._connection, file_path)
+        self._invalidate_klass_caches()
+        return result
 
     def upload_segment_json(self, file_path: str) -> list[GenericSegment]:
         """Upload a segment klass definition from a JSON file.
@@ -273,7 +284,9 @@ class GenericManager:
         :param file_path: Path to the segment klass JSON file.
         :return: All generic segments after the upload.
         """
-        return GenericSegment.upload(self._connection, file_path)
+        result = GenericSegment.upload(self._connection, file_path)
+        self._invalidate_klass_caches()
+        return result
 
     def create_new_element(self, label: str, icon_name: str, description: str = '', prefix: str = '', name: str = '') -> \
             list[GenericElement]:
@@ -297,9 +310,11 @@ class GenericManager:
         if prefix == '':
             prefix = re.sub(r'[^A-Z]', '', label.upper())[:4]
         icon_name = GenericElement.preprocess_icon_name(icon_name)
-        return GenericElement.create_new(self._connection, klass_prefix=prefix, label=label, icon_name=icon_name,
-                                         name=name,
-                                         desc=description)
+        result = GenericElement.create_new(self._connection, klass_prefix=prefix, label=label, icon_name=icon_name,
+                                           name=name,
+                                           desc=description)
+        self._invalidate_klass_caches()
+        return result
 
     def create_new_segment(self, label: str, description: str, element: GenericElement) -> list[GenericSegment]:
         """Create a new generic segment attached to an active generic element.
@@ -314,8 +329,10 @@ class GenericManager:
         all_names = [(x.id, x.identifier) for x in all_elements if x.is_active]
         if (element.id, element.identifier) not in all_names:
             raise ValueError("Element is not active or not available")
-        return GenericSegment.create_new(self._connection, element_klass=element.id, label=label,
-                                         desc=description)
+        result = GenericSegment.create_new(self._connection, element_klass=element.id, label=label,
+                                           desc=description)
+        self._invalidate_klass_caches()
+        return result
 
     def write_all_validation_schemas(self):
         """Write every registered JSON schema to disk under a ``schemas`` directory.

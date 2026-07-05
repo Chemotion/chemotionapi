@@ -12,6 +12,10 @@ hardening work plus long-standing security issues; all are fixed:
 - **Save-payload regressions** — `attachments` and `name` no longer leak empty values
   (`attachments: []`, `name: ''`) into save payloads of elements that never had them, which
   could detach server-side attachments or blank out names on unrelated saves.
+- **Session lifecycle & caches** — `Connection.close()` restored (with context-manager
+  support), so `with Instance(...)` releases pooled sockets again; generic-klass caches are
+  invalidated when element/segment classes are created, uploaded or released, preventing
+  stale class data and silently dropped segments mid-session.
 
 ## 🔧 Code quality & architecture hardening — 2026-07-05
 
