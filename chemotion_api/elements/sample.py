@@ -1201,8 +1201,14 @@ class Sample(AbstractElement):
                 ))
             
             other_ids = []
-            if self.molecule.get('cas'):
-                other_ids.append(Identifier(notation=str(self.molecule.get('cas')), title="CAS Registry Number"))
+            cas_val = self.molecule.get('cas')
+            if isinstance(cas_val, (list, tuple)):
+                # the ELN stores CAS as a list; emit each number, not the list repr
+                for cas in cas_val:
+                    if cas:
+                        other_ids.append(Identifier(notation=str(cas), title="CAS Registry Number"))
+            elif cas_val:
+                other_ids.append(Identifier(notation=str(cas_val), title="CAS Registry Number"))
             if self.molecule.get('names'):
                 names_val = self.molecule.get('names')
                 if isinstance(names_val, str):
@@ -1331,9 +1337,13 @@ class Sample(AbstractElement):
             except (ValueError, TypeError):
                 pass
 
+        # Crate-relative policy: no fabricated external PIDs. A repository PID/DOI only
+        # exists once the dataset is published; it can be injected post-hoc (patch tool)
+        # by the system that minted it. The short label is an honest local identifier.
         other_identifier = None
-        if self.id:
-            other_identifier = [Identifier(notation=f"https://www.chemotion-repository.net/pid/{self.id}")]
+        short_label = self.properties.get('short_label')
+        if short_label:
+            other_identifier = [Identifier(notation=str(short_label), title="Chemotion short label")]
 
         kwargs = {
             "id": sample_id,

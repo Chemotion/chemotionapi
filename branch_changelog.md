@@ -9,6 +9,15 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-06 — fix: crate-relative identifier policy (no fabricated PIDs) + CAS list repr
+
+Outcome of an alignment review against the chem-dcat-ap canonical examples (incl. their
+Chemotion-Repository-derived `SubstanceSampleCharacterizationDataset`):
+
+- **No fabricated external PIDs** → `Sample.to_dcat_ap()` no longer emits `https://www.chemotion-repository.net/pid/<local-id>` (a plausible-looking but non-existent identifier built from the local ELN id). Policy, now documented in `docs/FairExport.rst`: IRIs naming our records are strictly crate-internal; real PIDs/DOIs come into existence at publication and can be injected post-hoc (same in-place patching approach as `ontology_patch`). External IRIs remain only for shared things: ontology terms, ORCID/ROR, CAS notations.
+- **Sample short label** is emitted as an honest local identifier notation instead.
+- **CAS fixed** → the ELN stores CAS as a list; each number is now emitted as its own identifier (was: the Python list repr `"['64-17-5']"`).
+
 ## 2026-07-05 — fix: license metadata matches the LICENSE file (AGPL-3.0)
 
 - `pyproject.toml` (`AGPL-3.0-or-later`) and README now match the committed `LICENSE` file (GNU AGPL v3); both previously declared MIT, contradicting the license text shipped since the first commit.

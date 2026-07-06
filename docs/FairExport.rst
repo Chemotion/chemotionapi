@@ -33,6 +33,23 @@ if neither is provided, ``export_eln`` raises a ``ValueError`` explaining how to
 .. autoclass:: chemotion_api.authors.AuthorAffiliation
     :members:
 
+Identifiers are crate-relative by design
+----------------------------------------
+
+Every IRI that names one of *our* records — samples, reactions, molecules, datasets, files —
+is **crate-internal** (a crate-relative path or ``#fragment``), resolved against the crate root
+as RO-Crate prescribes. The export deliberately mints **no external PIDs**: a repository PID or
+DOI only comes into existence when the dataset is actually *published*, and inventing
+plausible-looking URLs before that point would produce dead identifiers. When a PID is minted at
+publication, it can be injected into the already-written ``.eln`` post-hoc (the same in-place
+patching approach as :func:`chemotion_api.ontology_patch.patch_eln_ontology`) by the system that
+assigned it — no re-export needed.
+
+External IRIs still appear where they reference *shared, established* things rather than our
+records: ontology terms (CHEBI, CHMO, QUDT, RXNO, …), ORCID iDs and ROR ids for authors, and
+plain-string notations such as CAS registry numbers. Samples additionally carry their Chemotion
+short label as a local identifier notation.
+
 Ontology annotation and later patching
 ---------------------------------------
 

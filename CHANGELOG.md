@@ -1,5 +1,13 @@
 # Changelog
 
+## 🪪 Crate-relative identifiers — 2026-07-06
+
+- `.eln` exports no longer fabricate repository PIDs from local ELN ids; identifiers naming
+  our records are strictly crate-internal by design (real PIDs/DOIs are minted at
+  publication and can be patched in afterwards — see the FAIR-export docs). Samples carry
+  their short label as a local identifier; CAS numbers are emitted correctly (one
+  identifier per number, previously a stringified list).
+
 ## 🚨 Version 312.0.0 — breaking changes — 2026-07-05
 
 This release is compatible with Chemotion ELN **v3.1.2** (version scheme: `312.x.y` ↔ ELN 3.1.2).
