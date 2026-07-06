@@ -1,56 +1,76 @@
 @prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix ns1: <http://www.w3.org/ns/adms#> .
-@prefix ns2: <http://semanticscience.org/resource/> .
-@prefix ns3: <http://purl.obolibrary.org/obo/> .
-@prefix ns4: <http://qudt.org/schema/qudt/> .
-@prefix ns5: <http://schema.org/> .
+@prefix ns1: <http://qudt.org/schema/qudt/> .
+@prefix ns2: <http://schema.org/> .
+@prefix ns3: <http://www.w3.org/ns/adms#> .
+@prefix ns4: <http://semanticscience.org/resource/> .
+@prefix ns5: <http://purl.obolibrary.org/obo/> .
 @prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-<http://localhost:5000/api/v1/reactions/102.json> a ns2:SIO_010345 ;
+<http://127.0.0.1:3579/api/v1/reactions/27.json> a ns5:RXNO_0000329,
+        ns4:SIO_010345 ;
     dcterms:description "" ;
-    dcterms:title "Reaction-102" .
+    dcterms:relation [ a ns5:IAO_0020000,
+                prov:Entity ;
+            dcterms:title "Long-RInChIKey" ;
+            prov:value "Long-RInChIKey=SA-FUHFF" ],
+        [ a ns5:IAO_0020000,
+                prov:Entity ;
+            dcterms:title "Short-RInChIKey" ;
+            prov:value "Short-RInChIKey=SA-FUHFF-UHFFFADPSC-UHFFFADPSC-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ" ],
+        [ a ns5:IAO_0020000,
+                prov:Entity ;
+            dcterms:title "Web-RInChIKey" ;
+            prov:value "Web-RInChIKey=UHFFFADPSCTJAUYIS-NUHFFFADPSCTJSA" ] ;
+    dcterms:title "Reaction-27" .
 
-<http://localhost:5000/api/v1/samples/737.json> a ns3:CHEBI_59999,
-        ns2:SIO_001378 ;
-    ns3:BFO_0000051 <chemotion://molecule/1120> ;
+<http://127.0.0.1:3579/api/v1/samples/206.json> a ns5:CHEBI_59999,
+        ns4:SIO_001378 ;
+    ns5:BFO_0000051 <chemotion://molecule/7> ;
     dcterms:description "" ;
-    dcterms:title "MM-480" ;
-    ns2:SIO_000008 [ a ns3:CHMO_0002820 ;
+    dcterms:title "API-166" ;
+    ns4:SIO_000008 [ a ns5:CHMO_0002820 ;
             dcterms:title "Molarity [M]" ;
-            ns4:hasQuantityKind <http://qudt.org/vocab/quantitykind/AmountOfSubstanceConcentration> ;
-            ns4:unit <https://qudt.org/vocab/unit/MOL-PER-L> ;
+            ns1:hasQuantityKind <http://qudt.org/vocab/quantitykind/AmountOfSubstanceConcentration> ;
+            ns1:unit <https://qudt.org/vocab/unit/MOL-PER-L> ;
             prov:value "0.0"^^xsd:float ] ;
-    ns1:identifier [ a ns1:Identifier ;
-            skos:notation "https://www.chemotion-repository.net/pid/737" ] .
+    ns3:identifier [ a ns3:Identifier ;
+            dcterms:title "Chemotion short label" ;
+            skos:notation "API-166" ] .
 
-<chemotion://molecule/1120> a ns3:CHEBI_23367 ;
-    dcterms:description "compound assigned to http://localhost:5000/api/v1/samples/737.json" ;
-    ns2:SIO_000008 [ a <http://purl.allotrope.org/ontologies/result#AFR_0002409> ;
-            dcterms:description "Molar mass as specified in the Chemotion repository." ;
-            ns4:hasQuantityKind <http://qudt.org/vocab/quantitykind/MolarMass> ;
-            ns4:unit <https://qudt.org/vocab/unit/GM-PER-MOL> ;
-            prov:value "46.068439999999995"^^xsd:float ],
-        [ a ns2:CHEMINF_000059 ;
-            dcterms:title "assigned InChiKey" ;
-            prov:value "LFQSCWFLJHTTHZ-UHFFFAOYSA-N" ],
-        [ a ns2:CHEMINF_000107 ;
-            dcterms:description "Chemotion IUPAC name" ;
-            prov:value "ethanol" ],
-        [ a ns2:CHEMINF_000018 ;
-            dcterms:title "assigned SMILES" ;
-            prov:value "CCO" ],
-        [ a ns2:CHEMINF_000042 ;
+<chemotion://molecule/7> a ns5:CHEBI_23367 ;
+    dcterms:description "compound assigned to http://127.0.0.1:3579/api/v1/samples/206.json" ;
+    ns4:SIO_000008 [ a ns4:CHEMINF_000113 ;
+            dcterms:title "assigned InChi" ;
+            prov:value "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3" ],
+        [ a ns4:CHEMINF_000042 ;
             dcterms:title "assigned molecular formula" ;
             prov:value "C2H6O" ],
-        [ a ns2:CHEMINF_000113 ;
-            dcterms:title "assigned InChi" ;
-            prov:value "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3" ] ;
-    ns1:identifier [ a ns1:Identifier ;
+        [ a ns4:CHEMINF_000018 ;
+            dcterms:title "assigned SMILES" ;
+            prov:value "CCO" ],
+        [ a <http://purl.allotrope.org/ontologies/result#AFR_0002409> ;
+            dcterms:description "Molar mass as specified in the Chemotion repository." ;
+            ns1:hasQuantityKind <http://qudt.org/vocab/quantitykind/MolarMass> ;
+            ns1:unit <https://qudt.org/vocab/unit/GM-PER-MOL> ;
+            prov:value "46.068439999999995"^^xsd:float ],
+        [ a ns4:CHEMINF_000107 ;
+            dcterms:description "Chemotion IUPAC name" ;
+            prov:value "ethanol" ],
+        [ a ns4:CHEMINF_000059 ;
+            dcterms:title "assigned InChiKey" ;
+            prov:value "LFQSCWFLJHTTHZ-UHFFFAOYSA-N" ] ;
+    ns3:identifier [ a ns3:Identifier ;
             dcterms:title "Synonym" ;
             skos:notation "ethanol" ] .
 
-ns3:CHEBI_59999 a ns5:DefinedTerm ;
-    ns5:name "chemical substance" .
+ns5:CHEBI_59999 a ns2:DefinedTerm ;
+    ns2:name "chemical substance" .
+
+ns5:RXNO_0000329 a ns2:DefinedTerm ;
+    ns2:name "planned synthesis" .
+
+ns5:IAO_0020000 a ns2:DefinedTerm ;
+    ns2:name "identifier" .
 

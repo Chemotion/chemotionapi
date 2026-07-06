@@ -25,9 +25,13 @@ BASELINE_TTL = os.path.join(HERE, "data", "dcat_baseline.ttl")
 # package does not depend on any sibling project folder).
 SHACL_PATH = os.path.join(HERE, "data", "chem_dcat_ap.shacl.ttl")
 
-# Recorded baseline (2026-06-24, chem_dcat_ap 0.1.0rc3.post9.dev0): a SubstanceSample +
+# Recorded baseline (2026-07-06, chem_dcat_ap 0.1.0rc3.post9.dev0): a SubstanceSample +
 # its ChemicalEntity + a ChemicalReaction produce this many SHACL validation results.
-BASELINE_VIOLATIONS = 103
+# Re-baselined from 103 after deliberately adding reaction rdf_type (RXNO) + RInChI
+# qualitative attributes and the short-label identifier — the added nodes hit the same
+# known profile-strictness shapes (language-tagged literals, SIO_000008 attribute classes,
+# max-1 rdf:type, closed nodes) already documented for the sample mapping.
+BASELINE_VIOLATIONS = 180
 
 # Parse the 262 KB SHACL shapes ONCE and reuse the graph across validate() calls. Passing the file
 # path to pyshacl.validate re-parses + reprocesses the shapes on every call, and that memory is

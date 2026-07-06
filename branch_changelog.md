@@ -9,6 +9,15 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-06 — feat: AnalysisDataset chain + RXNO/RInChI on reactions (chem-dcat-ap alignment)
+
+Closes the two remaining structural gaps against the chem-dcat-ap canonical examples:
+
+- **`AnalysisDataset` per analysis** → every element analysis now exports as a chem-dcat-ap `AnalysisDataset` with the canonical provenance chain: `was_generated_by` → `DataAnalysis` → `evaluated_entity` `AnalysisSourceData` → `was_generated_by` `DataGeneratingActivity` typed with the analysis' CHMO term (from the `kind` CURIE, OLS fallback), plus `is_about_entity` → the analysed element and a "Science and technology" theme. Node ids are fragments of the element's id, so the crate-relative IRI policy applies automatically. Best-effort: a failing analysis mapping never breaks the export.
+- **Reactions** → `rdf_type` is now emitted: the reaction's own RXNO term when assigned (parsed from the ELN's `rxno` ontology path), else the canonical fallback `RXNO:0000329` ("planned synthesis"). RInChI, Long-/Short-/Web-RInChIKey are emitted as `IAO:0020000`-typed qualitative identifier attributes, matching the chem-dcat-ap `ChemicalReaction` example.
+- **SHACL baseline re-pinned 103 → 180** → the deliberately added nodes hit the same known profile-strictness shapes already documented for the sample mapping; `tests/data/dcat_baseline.ttl` regenerated.
+- Tests: RXNO/RInChI unit test + a heavy export test walking the full `AnalysisDataset` provenance chain in a generated `.eln`.
+
 ## 2026-07-06 — feat: `GenericManager.check_schema_drift()` + schema version documented
 
 - **`check_schema_drift()`** → fetches every element/segment/dataset klass the connected instance serves (REST API only — real deployments give no access to server internals) and validates each against the bundled JSON schemas; returns per-kind lists of non-conforming klasses with human-readable messages. Built-in klasses (`is_generic: false`) are skipped — they are not LabIMotion templates.

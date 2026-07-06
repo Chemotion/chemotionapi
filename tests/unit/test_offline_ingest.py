@@ -302,3 +302,37 @@ def test_export_eln_preserves_collection_tree(tmp_path):
     assert nodes[child_id]["isPartOf"] == {"@id": "./"}
     # the child's standalone sample lives under the child's folder
     assert any(i.startswith(child_id + "samples/") for i in nodes)
+
+
+def test_reaction_dcat_ap_rxno_and_rinchi(tmp_path):
+    """Reactions carry an RXNO rdf_type and RInChI identifier attributes (chem-dcat-ap style)."""
+    from chemotion_api.offline import import_export_zip
+    rxn = import_export_zip(_mini_dir(tmp_path)).get_reactions()[0]
+    dcat = json.loads(rxn.to_dcat_ap().model_dump_json(exclude_none=True))
+    assert dcat["rdf_type"]["id"].startswith("RXNO:")
+    quals = dcat.get("has_qualitative_attribute", [])
+    rinchi = [q for q in quals if q.get("rdf_type", {}).get("id") == "IAO:0020000"]
+    assert rinchi, "expected at least one RInChI identifier attribute"
+    assert all(q.get("value") for q in rinchi)
+
+
+@pytest.mark.heavy
+def test_export_emits_analysis_dataset_chain(tmp_path):
+    """Each analysis exports as an AnalysisDataset with the canonical was_generated_by chain."""
+    from chemotion_api.offline import import_export_zip
+    out = str(tmp_path / "ana.eln")
+    import_export_zip(_mini_dir(tmp_path)).export_eln(out, authors=_authors(),
+                                                      ontology_lookup=False)
+    with zipfile.ZipFile(out) as z:
+        meta = next(n for n in z.namelist() if n.endswith("ro-crate-metadata.json"))
+        graph = json.loads(z.read(meta))["@graph"]
+    by_id = {n.get("@id"): n for n in graph if isinstance(n, dict)}
+    datasets = [n for n in graph if str(n.get("@id", "")).endswith("#analysis_0")]
+    assert len(datasets) == 1
+    ds = datasets[0]
+    assert ds["@id"].startswith("./"), "analysis dataset id must be crate-relative"
+    evaluation = by_id[ds["prov:wasGeneratedBy"]["@id"]]
+    source = by_id[evaluation["prov:used"]["@id"]]
+    measurement = by_id[source["prov:wasGeneratedBy"]["@id"]]
+    types = measurement["@type"] if isinstance(measurement["@type"], list) else [measurement["@type"]]
+    assert any("CHMO" in t for t in types), f"measurement not CHMO-typed: {types}"

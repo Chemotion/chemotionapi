@@ -861,21 +861,41 @@ class Reaction(AbstractElement):
             if temp_list:
                 has_temperature = temp_list
 
+        from chem_dcat_ap.datamodel.chem_dcat_ap_pydantic import QualitativeAttribute
+        qualitative_attributes: list = []
+        # RInChI reaction identifiers (chem-dcat-ap convention: no ontology class for these
+        # yet, so they fall back on the IAO identifier class as qualitative attributes)
+        rinchi_fields = [
+            ('rinchi_string', 'RInChI'),
+            ('rinchi_long_key', 'Long-RInChIKey'),
+            ('rinchi_short_key', 'Short-RInChIKey'),
+            ('rinchi_web_key', 'Web-RInChIKey'),
+        ]
+        for prop_key, rinchi_title in rinchi_fields:
+            rinchi_val = self.properties.get(prop_key) or (self.json_data or {}).get(prop_key)
+            if rinchi_val:
+                qualitative_attributes.append(QualitativeAttribute(
+                    value=str(rinchi_val),
+                    title=rinchi_title,
+                    rdf_type=DefinedTerm(id="IAO:0020000", title="identifier")
+                ))
+
         status_val = self.properties.get('status')
-        has_qualitative_attribute = None
         if status_val:
-            from chem_dcat_ap.datamodel.chem_dcat_ap_pydantic import QualitativeAttribute
-            has_qualitative_attribute = [QualitativeAttribute(
+            qualitative_attributes.append(QualitativeAttribute(
                 value=str(status_val),
                 title="Status",
                 description="The status of the reaction",
                 rdf_type=DefinedTerm(id="SIO:001326", title="status descriptor")
-            )]
+            ))
 
         return ChemicalReaction(
             id=reaction_id,
             title=[self.name] if self.name else [f"Reaction-{self.id}"],
             description=[get_plain_text(self.properties.get('description') or self.properties.get('reaction_description'))] if (self.properties.get('description') or self.properties.get('reaction_description')) else None,
+            # RXNO typing per the chem-dcat-ap canonical example; the ELN's rxno property
+            # carries a more specific reaction type when the chemist assigned one
+            rdf_type=self._rxno_rdf_type(DefinedTerm),
             used_starting_material=used_starting_material or None,
             used_reactant=used_reactant or None,
             generated_product=generated_product or None,
@@ -883,8 +903,25 @@ class Reaction(AbstractElement):
             has_duration=has_duration,
             has_yield=has_yield,
             has_temperature=has_temperature,
-            has_qualitative_attribute=has_qualitative_attribute
+            has_qualitative_attribute=qualitative_attributes or None
         )
+
+    def _rxno_rdf_type(self, defined_term_cls):
+        """Build the RXNO ``rdf_type`` for :meth:`to_dcat_ap`.
+
+        Uses the reaction's own RXNO term when one is assigned (the ELN stores it as an
+        ontology path like ``"... | RXNO:0000165 | Suzuki coupling reaction"``); otherwise
+        falls back to the generic ``RXNO:0000329`` ("planned synthesis"), matching the
+        chem-dcat-ap canonical example.
+        """
+        rxno_val = self.properties.get('rxno') or (self.json_data or {}).get('rxno')
+        if rxno_val and isinstance(rxno_val, str):
+            parts = [p.strip() for p in rxno_val.split('|')]
+            curie = next((p for p in parts if re.match(r'^RXNO:\d+$', p)), None)
+            if curie:
+                label = parts[-1] if parts[-1] != curie else None
+                return defined_term_cls(id=curie, title=label or curie)
+        return defined_term_cls(id="RXNO:0000329", title="planned synthesis")
 
     def _clean_variations(self) -> dict:
         cleand_data = self.variations.clean()

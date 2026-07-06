@@ -1,5 +1,13 @@
 # Changelog
 
+## 🔬 Analyses as AnalysisDatasets + reaction RXNO/RInChI — 2026-07-06
+
+- Every analysis now exports as a chem-dcat-ap `AnalysisDataset` with the canonical
+  provenance chain down to a CHMO-typed measurement activity, linked to the analysed
+  element — matching the NFDI chem-dcat-ap characterization-dataset example.
+- Reactions carry an RXNO `rdf_type` (their own term when assigned, else "planned
+  synthesis") and their RInChI identifiers as qualitative attributes.
+
 ## 🧩 LabIMotion schema drift check — 2026-07-06
 
 - New `GenericManager.check_schema_drift()`: validates every klass served by the connected

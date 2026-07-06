@@ -674,6 +674,55 @@ class AbstractCollection:
                         "@id": term.iri, "@type": "DefinedTerm", "name": term.label,
                     })
 
+        def _analysis_dcat_datasets(elem, base_id):
+            """Build one chem-dcat-ap ``AnalysisDataset`` per analysis of ``elem`` (best-effort).
+
+            Mirrors the canonical chem-dcat-ap nesting: AnalysisDataset →
+            ``was_generated_by`` DataAnalysis → ``evaluated_entity`` AnalysisSourceData →
+            ``was_generated_by`` DataGeneratingActivity typed with the analysis' CHMO term.
+            Node ids are fragments of ``base_id`` (the element's DCAT id), so the existing
+            IRI rewriting makes them crate-relative alongside the element itself.
+            """
+            import re as _re
+            from chem_dcat_ap.datamodel.chem_dcat_ap_pydantic import (
+                AnalysisDataset, DataAnalysis, AnalysisSourceData, DataGeneratingActivity,
+                DefinedTerm, EvaluatedEntity, Concept)
+            out = []
+            for idx, ana in enumerate(getattr(elem, "analyses", None) or []):
+                try:
+                    getter = ana.get if hasattr(ana, "get") else (lambda _k, _d=None: _d)
+                    kind = getter("kind")
+                    name = getter("name")
+                    frag = f"{base_id}#analysis_{getter('id') or idx}"
+                    # 'kind' embeds the CHMO CURIE and label, e.g. "CHMO:0000595 | 1H NMR ..."
+                    curie_match = _re.match(r'\s*([A-Za-z]+:\d+)', str(kind or ''))
+                    term = resolve_ontology_term(name, embedded_kind=kind,
+                                                 cache=_ols_cache, enable_ols=ontology_lookup)
+                    technique = None
+                    if curie_match or term:
+                        technique = DefinedTerm(
+                            id=curie_match.group(1) if curie_match else term.iri,
+                            title=(term.label if term else None) or name or "measurement")
+                    measurement = DataGeneratingActivity(
+                        id=f"{frag}_measurement",
+                        title=[name] if name else None,
+                        rdf_type=technique)
+                    evaluation = DataAnalysis(
+                        id=f"{frag}_evaluation",
+                        evaluated_entity=[AnalysisSourceData(
+                            id=f"{frag}_source_data", was_generated_by=[measurement])])
+                    title = name or (term.label if term else None) or f"Analysis {idx + 1}"
+                    out.append(AnalysisDataset(
+                        id=frag,
+                        title=[title],
+                        description=[getter("description") or f"Dataset for {title}"],
+                        theme=[Concept(preferred_label=["Science and technology"])],
+                        is_about_entity=[EvaluatedEntity(id=base_id)],
+                        was_generated_by=[evaluation]))
+                except Exception as e:  # never break export on analysis mapping
+                    logger.debug("AnalysisDataset mapping failed for %s: %s", base_id, e)
+            return out
+
         def _index(col_id, parent_path, getter, plural, default_name, kind):
             """List one element kind for a collection, load each, and register its crate path.
             Failures are recorded in ``skipped`` instead of being silently dropped."""
@@ -795,6 +844,9 @@ class AbstractCollection:
                         linkml_cls = getattr(dm, class_name)
                         l_obj = linkml_cls(**dcat_obj.model_dump(exclude_none=True))
                         rdf_dumper.inject_triples(l_obj, schemaview, graph)
+                        for ads in _analysis_dcat_datasets(elem, str(dcat_obj.id)):
+                            l_ads = getattr(dm, ads.__class__.__name__)(**ads.model_dump(exclude_none=True))
+                            rdf_dumper.inject_triples(l_ads, schemaview, graph)
                     except Exception as e:
                         logger.warning("Could not map element %s to DCAT-AP (exported as generic Dataset): %s", elem.id, e)
                         skipped.append({"kind": "dcat_mapping", "stage": "to_dcat_ap", "id": getattr(elem, "id", None), "error": str(e)})
