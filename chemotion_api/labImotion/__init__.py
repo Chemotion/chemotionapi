@@ -334,6 +334,45 @@ class GenericManager:
         self._invalidate_klass_caches()
         return result
 
+    def check_schema_drift(self) -> dict[str, list[dict]]:
+        """Validate every klass served by the connected instance against the bundled schemas.
+
+        Fetches all element, segment and dataset klasses over the REST API and checks each
+        against the JSON schemas packaged with this client (see
+        :mod:`chemotion_api.labImotion.items.validation`). The bundled schemas track
+        **LabIMotion 2.1.1 as shipped with Chemotion ELN v3.1.2**; run this against an
+        instance on a different version to detect schema drift before editing or uploading
+        templates.
+
+        Only the REST API is used — no access to the server beyond its HTTP endpoints.
+
+        :return: mapping of kind (``element`` / ``segment`` / ``dataset``) to a list of
+            non-conforming klasses, each ``{'name': ..., 'label': ..., 'errors': [...]}``
+            with human-readable validation messages. All lists empty means no drift detected.
+        :raises ConnectionError: if a klass listing cannot be fetched.
+        """
+        kinds: list[tuple[str, type[GenericObj]]] = [
+            ('element', GenericElement), ('segment', GenericSegment), ('dataset', GenericDataset)]
+        report: dict[str, list[dict]] = {}
+        for kind, cls in kinds:
+            issues: list[dict] = []
+            if cls.url is None:
+                continue
+            res = self._connection.get(cls.url)
+            if res.status_code != 200:
+                raise ConnectionError(f"{res.status_code} -> {res.text}")
+            validator = SchemaRegistry.instance().validator_for(f'chemotion://generic/{kind}/draft-01')
+            for obj in res.json().get('klass', []):
+                # the element listing also serves the built-in klasses (sample, reaction, ...);
+                # those are not LabIMotion templates and the schemas do not apply to them
+                if obj.get('is_generic') is False:
+                    continue
+                errors = [e.message for e in validator.iter_errors(obj)]
+                if errors:
+                    issues.append({'name': obj.get('name'), 'label': obj.get('label'), 'errors': errors})
+            report[kind] = issues
+        return report
+
     @staticmethod
     def write_all_validation_schemas():
         """Write every registered JSON schema to disk under a ``schemas`` directory.

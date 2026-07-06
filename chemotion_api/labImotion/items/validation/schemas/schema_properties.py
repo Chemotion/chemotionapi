@@ -63,7 +63,9 @@ properties_schema: dict[str, Any] = {
             "additionalProperties": False
         },
         "version": {
-            "type": "string"
+            # null until the template's first release: ELN 3.1.2 serves version: null on the
+            # properties_template of a freshly created (never-released) klass
+            "type": ["null", "string"]
         },
         "flowObject": {
             "type": "object",

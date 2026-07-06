@@ -17,6 +17,12 @@ def test_write_all_schemas(instance_with_collection):
     instance_with_collection['instance'].generic_manager().write_all_validation_schemas()
     assert True
 
+def test_no_schema_drift_on_seeded_instance(logged_in_instance):
+    """The bundled schemas (LabIMotion 2.1.1 / ELN v3.1.2) must accept every klass the
+    seeded test instance serves — the live counterpart of the offline drift unit tests."""
+    report = logged_in_instance.generic_manager().check_schema_drift()
+    assert all(issues == [] for issues in report.values()), report
+
 @pytest.mark.parametrize(
 "json_file", ['fixtures/GenericElement.json']
 )

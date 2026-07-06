@@ -179,7 +179,13 @@ reaction_md = reaction.to_dcat_ap()  # chem-dcat-ap ChemicalReaction
 The client validates LabIMotion generic structures (element/segment/dataset klasses, layers,
 fields, select options) against JSON Schemas that **ship with the package** as Python modules
 under `chemotion_api/labImotion/items/validation/schemas/` — they are not fetched from a
-server. To export every registered schema as plain JSON — e.g. for external tooling,
+server (LabIMotion exposes no schema documents over its API). The bundled schemas track
+**LabIMotion 2.1.1, as shipped with Chemotion ELN v3.1.2**. Against an instance on a
+different version, run `instance.generic_manager().check_schema_drift()` — it fetches every
+klass the instance serves (REST API only) and reports any that no longer conform to the
+bundled schemas.
+
+To export every registered schema as plain JSON — e.g. for external tooling,
 documentation, or diffing against a server release:
 
 ```python

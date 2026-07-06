@@ -9,6 +9,13 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-06 — feat: `GenericManager.check_schema_drift()` + schema version documented
+
+- **`check_schema_drift()`** → fetches every element/segment/dataset klass the connected instance serves (REST API only — real deployments give no access to server internals) and validates each against the bundled JSON schemas; returns per-kind lists of non-conforming klasses with human-readable messages. Built-in klasses (`is_generic: false`) are skipped — they are not LabIMotion templates.
+- **Schema version documented** → README and the validation package now state that the bundled schemas track **LabIMotion 2.1.1 as shipped with Chemotion ELN v3.1.2** (LabIMotion serves no schema documents over its API; the bundled schemas are a client-side reimplementation).
+- **First drift finding, fixed** → running the new check against the live seeded 3.1.2 instance revealed that `properties_template.version` is `null` on a freshly created (never-released) klass; the properties schema now allows `null | string`.
+- Tests: 3 offline unit tests (fixtures conform; corrupted klass reported; empty instance clean) + a live integration test asserting no drift on the seeded instance.
+
 ## 2026-07-06 — fix: filename typos and schema-dump docs correction
 
 - **Filename typos renamed** (all references updated): `schema_generc_{dataset,element,layer,linked_element,segments}.py` → `schema_generic_*.py`; `tests/test_analyses_attachements.py` → `test_analyses_attachments.py`. Full pass over all tracked filenames found no other misspellings.

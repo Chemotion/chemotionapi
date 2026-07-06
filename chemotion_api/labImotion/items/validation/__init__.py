@@ -1,5 +1,11 @@
 """Validation helpers that check LabIMotion structures against their JSON schemas.
 
+The schemas bundled here are a client-side reimplementation of what the server accepts
+(LabIMotion serves no schema documents over its API). They track **LabIMotion 2.1.1 as
+shipped with Chemotion ELN v3.1.2** — when connecting to an instance on another version,
+use :meth:`chemotion_api.labImotion.GenericManager.check_schema_drift` to verify the
+instance's klasses still conform before editing or uploading templates.
+
 Importing this package registers every schema with :class:`SchemaRegistry`. Running it as a
 script regenerates ``schemas/imports.py`` from the ``schema_*.py`` modules on disk.
 """

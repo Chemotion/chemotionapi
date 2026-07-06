@@ -1,5 +1,14 @@
 # Changelog
 
+## 🧩 LabIMotion schema drift check — 2026-07-06
+
+- New `GenericManager.check_schema_drift()`: validates every klass served by the connected
+  instance against the client's bundled JSON schemas (REST API only) and reports
+  non-conforming klasses. The bundled schemas track **LabIMotion 2.1.1 / Chemotion ELN
+  v3.1.2** (now documented); run the check when connecting to other versions.
+- Schema fix found by the check itself: `properties_template.version` may be `null` on a
+  never-released klass.
+
 ## 🪪 Crate-relative identifiers — 2026-07-06
 
 - `.eln` exports no longer fabricate repository PIDs from local ELN ids; identifiers naming
