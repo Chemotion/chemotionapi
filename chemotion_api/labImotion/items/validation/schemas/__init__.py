@@ -4,6 +4,6 @@
 itself with :class:`SchemaRegistry` on import.
 """
 
-ALL_SCHEMAS = ["schema_generc_segments", "schema_generc_element", "schema_generc_layer", "schema_generc_linked_element",
+ALL_SCHEMAS = ["schema_generic_segments", "schema_generic_element", "schema_generic_layer", "schema_generic_linked_element",
                "schema_select_options", "schema_properties", "schema_cond_field", "schema_flow_obj", "schema_field",
-               "schema_generc_dataset"]
+               "schema_generic_dataset"]

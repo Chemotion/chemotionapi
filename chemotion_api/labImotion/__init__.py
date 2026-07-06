@@ -334,11 +334,13 @@ class GenericManager:
         self._invalidate_klass_caches()
         return result
 
-    def write_all_validation_schemas(self):
+    @staticmethod
+    def write_all_validation_schemas():
         """Write every registered JSON schema to disk under a ``schemas`` directory.
 
         Files are placed relative to the current working directory, using the schema ``$id``
-        URL path as the file path.
+        URL path as the file path. The schemas are bundled with the package (registered in
+        :class:`SchemaRegistry` at import time) — no server connection is needed.
         """
         cwd = os.getcwd()
 

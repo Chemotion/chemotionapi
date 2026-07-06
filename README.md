@@ -63,7 +63,7 @@ just check              # lint + mypy + offline test suite (the local gate)
 just test-integration   # integration suite against the self-contained docker ELN (also runs nightly in CI)
 just cov                # offline-suite coverage report (gated at 55%)
 just docs               # build the Sphinx documentation
-just schemas            # dump the LabIMotion JSON schemas from a live ELN
+just schemas            # dump the bundled LabIMotion JSON validation schemas (no server needed)
 just stack-up           # start the dockerized test ELN (see also stack-down / stack-reset / stack-logs)
 just build              # build sdist + wheel
 ```
@@ -177,19 +177,18 @@ reaction_md = reaction.to_dcat_ap()  # chem-dcat-ap ChemicalReaction
 ## Dumping the JSON validation schemas
 
 The client validates LabIMotion generic structures (element/segment/dataset klasses, layers,
-fields, select options) against JSON Schemas that ship as Python modules under
-`chemotion_api/labImotion/items/validation/schemas/`. To export every registered schema as
-plain JSON — e.g. for external tooling, documentation, or diffing against a server release —
-use the generic manager:
+fields, select options) against JSON Schemas that **ship with the package** as Python modules
+under `chemotion_api/labImotion/items/validation/schemas/` — they are not fetched from a
+server. To export every registered schema as plain JSON — e.g. for external tooling,
+documentation, or diffing against a server release:
 
 ```python
-from chemotion_api import Instance
+from chemotion_api.labImotion import GenericManager
 
-with Instance("https://...", username="USER", password="PASS") as instance:
-    instance.generic_manager().write_all_validation_schemas()
+GenericManager.write_all_validation_schemas()  # static; no login needed
 ```
 
-Or, against the local test stack (credentials overridable via `ELN_URL`/`ELN_USER`/`ELN_PASS`):
+Or simply:
 
 ```bash
 just schemas

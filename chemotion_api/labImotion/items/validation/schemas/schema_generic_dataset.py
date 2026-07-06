@@ -3,7 +3,7 @@
 import copy
 
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
-from chemotion_api.labImotion.items.validation.schemas.schema_generc_element import generic_element_schema
+from chemotion_api.labImotion.items.validation.schemas.schema_generic_element import generic_element_schema
 from chemotion_api.labImotion.items.validation.schemas.schema_properties import properties_schema as properties
 
 generic_schema = copy.deepcopy(generic_element_schema)

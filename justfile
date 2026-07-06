@@ -68,14 +68,9 @@ stack-reset:
 stack-logs:
     docker compose -f tests/test_config/compose.yml logs -f eln
 
-# dump the LabIMotion JSON validation schemas to ./schemas/ (live ELN needed; override ELN_URL/ELN_USER/ELN_PASS)
+# dump the bundled LabIMotion JSON validation schemas to ./schemas/ (no server needed)
 schemas:
     uv run python -c "\
-    import os; \
-    from chemotion_api import Instance; \
-    url = os.environ.get('ELN_URL', 'http://127.0.0.1:3579'); \
-    user = os.environ.get('ELN_USER', 'API'); \
-    pw = os.environ.get('ELN_PASS', '1234qewR!'); \
-    i = Instance(url).test_connection().login(user, pw); \
-    i.generic_manager().write_all_validation_schemas(); \
+    from chemotion_api.labImotion import GenericManager; \
+    GenericManager.write_all_validation_schemas(); \
     print('schemas written to ./schemas/')"
