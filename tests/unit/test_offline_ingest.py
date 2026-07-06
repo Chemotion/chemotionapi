@@ -336,3 +336,30 @@ def test_export_emits_analysis_dataset_chain(tmp_path):
     measurement = by_id[source["prov:wasGeneratedBy"]["@id"]]
     types = measurement["@type"] if isinstance(measurement["@type"], list) else [measurement["@type"]]
     assert any("CHMO" in t for t in types), f"measurement not CHMO-typed: {types}"
+    # the provenance chain must reach the actual data files
+    src_parts = [p["@id"] for p in source.get("hasPart", [])]
+    assert any(p.endswith(".jdx") for p in src_parts), f"source data not linked to files: {src_parts}"
+
+
+@pytest.mark.heavy
+def test_export_has_no_absolute_api_ids_and_no_duplicates(tmp_path):
+    """Crate-relative policy holds for every record (incl. embedded reaction materials);
+    the graph carries no duplicate @ids and no empty-value noise keys."""
+    import re
+    from collections import Counter
+    from chemotion_api.offline import import_export_zip
+    out = str(tmp_path / "rel.eln")
+    import_export_zip(_mini_dir(tmp_path)).export_eln(out, authors=_authors(),
+                                                      ontology_lookup=False)
+    with zipfile.ZipFile(out) as z:
+        meta = next(n for n in z.namelist() if n.endswith("ro-crate-metadata.json"))
+        graph = json.loads(z.read(meta))["@graph"]
+    ids = [n["@id"] for n in graph if isinstance(n, dict) and "@id" in n]
+    api_ids = [i for i in ids if re.match(r"https?://[^/]+/api/v1/", str(i))]
+    assert api_ids == [], f"absolute API URLs leaked into the crate: {api_ids}"
+    dups = [k for k, v in Counter(ids).items() if v > 1]
+    assert dups == [], f"duplicate @ids in graph: {dups}"
+    rxn = next(n for n in graph if str(n.get("@id", "")).startswith("./reactions/")
+               and str(n.get("@id", "")).endswith("/"))
+    noise = {k: v for k, v in rxn.items() if v in ("", [], {})}
+    assert noise == {}, f"empty-value noise keys on reaction node: {noise}"

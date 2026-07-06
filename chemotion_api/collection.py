@@ -670,9 +670,13 @@ class AbstractCollection:
                     node["measurementTechnique"].append({"@id": term.iri})
                 if term.iri not in _defined_terms_seen:
                     _defined_terms_seen.add(term.iri)
-                    metadata_dict["@graph"].append({
-                        "@id": term.iri, "@type": "DefinedTerm", "name": term.label,
-                    })
+                    # the term node may already exist in the graph (e.g. dumped as part of
+                    # the AnalysisDataset chain's DefinedTerm) — don't add a duplicate @id
+                    if not any(n.get("@id") == term.iri for n in metadata_dict["@graph"]
+                               if isinstance(n, dict)):
+                        metadata_dict["@graph"].append({
+                            "@id": term.iri, "@type": "DefinedTerm", "name": term.label,
+                        })
 
         def _analysis_dcat_datasets(elem, base_id):
             """Build one chem-dcat-ap ``AnalysisDataset`` per analysis of ``elem`` (best-effort).
@@ -792,6 +796,7 @@ class AbstractCollection:
                     logger.debug("Failed to map URI for element %s to DCAT-AP: %s", elem_id, e)
 
         def map_term(term):
+            import re as _re
             if isinstance(term, URIRef):
                 val = str(term)
                 if val.startswith("chemotion://molecule/"):
@@ -802,6 +807,14 @@ class AbstractCollection:
                         return URIRef(relative_path)
                     elif val.startswith(abs_url + "#"):
                         return URIRef(relative_path + val[len(abs_url):])
+                # Embedded sub-entities (e.g. reaction materials that are not exported as
+                # standalone elements) still carry absolute API URLs; rewrite them to crate
+                # fragments so the crate-relative identifier policy holds for every record.
+                api_match = _re.match(r'https?://[^/]+/api/v1/(.+)$', val)
+                if api_match:
+                    frag = _re.sub(r'[^A-Za-z0-9_-]+', '_',
+                                   api_match.group(1).replace('.json', '')).strip('_')
+                    return URIRef(f"#{frag}")
             return term
 
         graph = Graph()
@@ -998,19 +1011,37 @@ class AbstractCollection:
                     node['xref'] = clean_json_value(elem.properties.get('xref'))
             elif isinstance(elem, Reaction) and hasattr(elem, "properties") and elem.properties:
                 for prop_name in ['rxno', 'conditions', 'purification', 'tlc_solvents', 'rf_value', 'volume', 'use_reaction_volume', 'weight_percentage', 'rinchi_string', 'rinchi_web_key', 'variations']:
-                    if elem.properties.get(prop_name) is not None:
-                        node[prop_name] = clean_json_value(elem.properties.get(prop_name))
+                    prop_val = elem.properties.get(prop_name)
+                    # skip empty values ('' / [] / {}) — they add noise keys to the crate node
+                    if prop_val not in (None, '', [], {}):
+                        node[prop_name] = clean_json_value(prop_val)
+
+            def _safe_file_id(orig_filename, _rel_path=rel_path):
+                base = os.path.basename(orig_filename)
+                name_part, ext_part = os.path.splitext(base)
+                return f"{_rel_path}{sanitize_filename(name_part) + ext_part}"
 
             files = elem_files[elem_id]
             if files:
-                has_parts_list = []
-                for att in files:
-                    orig_filename = att['filename']
-                    safe_filename = os.path.basename(orig_filename)
-                    name_part, ext_part = os.path.splitext(safe_filename)
-                    safe_filename = sanitize_filename(name_part) + ext_part
-                    has_parts_list.append({"@id": f"{rel_path}{safe_filename}"})
-                node["hasPart"] = has_parts_list
+                node["hasPart"] = [{"@id": _safe_file_id(att['filename'])} for att in files]
+
+            # Link each analysis' data files to its AnalysisSourceData node, so the
+            # provenance chain reaches the actual spectra:
+            # AnalysisDataset → DataAnalysis → AnalysisSourceData → files.
+            if hasattr(elem, "analyses") and elem.analyses:
+                for _ana_idx, ana in enumerate(elem.analyses):
+                    _ana_get = ana.get if hasattr(ana, "get") else (lambda _k, _d=None: _d)
+                    src_node = graph_nodes.get(
+                        f"{rel_path}#analysis_{_ana_get('id') or _ana_idx}_source_data")
+                    if src_node is None:
+                        continue
+                    parts = []
+                    if hasattr(ana, "datasets") and ana.datasets:
+                        for ds in ana.datasets:
+                            for att in (ds.attachments or []):
+                                parts.append({"@id": _safe_file_id(att['filename'])})
+                    if parts:
+                        src_node["hasPart"] = parts
 
         for node in metadata_dict.get("@graph", []):
             node_id = node.get("@id", "")

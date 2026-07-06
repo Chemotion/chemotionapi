@@ -9,6 +9,17 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-07-06 — fix: crate-relative material IDs, source-data file links, graph cleanups
+
+Follow-ups from the second chem-dcat-ap alignment review (verdicts: Sample HIGH, Reaction
+HIGH, AnalysisDataset MEDIUM — all five first-round defects verified fixed in real output):
+
+- **Embedded material IDs crate-relative** → reaction materials that are not standalone exported elements kept absolute API URLs as node ids; any `…/api/v1/…` IRI is now rewritten to a crate fragment (e.g. `#samples_123`), closing the last hole in the crate-relative identifier policy.
+- **`AnalysisSourceData` linked to its files** → the provenance chain now reaches the actual spectra: each analysis' dataset attachments are attached to the source-data node via `hasPart` (was: an empty shell, files only on the element node).
+- **No duplicate `@id` nodes** → the `measurementTechnique` annotation no longer appends a second node for a CHMO term already present from the AnalysisDataset chain's DefinedTerm.
+- **No empty-value noise keys** → raw reaction props (`rxno`, `conditions`, `rinchi_*`, …) are copied onto the crate node only when non-empty.
+- Tests: provenance-chain test extended to require the file link; new heavy test asserting no absolute API ids, no duplicate `@id`s, no empty-value keys.
+
 ## 2026-07-06 — feat: AnalysisDataset chain + RXNO/RInChI on reactions (chem-dcat-ap alignment)
 
 Closes the two remaining structural gaps against the chem-dcat-ap canonical examples:

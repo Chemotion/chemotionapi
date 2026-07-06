@@ -1,5 +1,11 @@
 # Changelog
 
+## 🧹 Crate graph refinements — 2026-07-06
+
+- Embedded reaction-material ids are crate-relative fragments (no absolute API URLs leak
+  into the crate); the analysis provenance chain now links to the actual spectrum files;
+  duplicate ontology-term nodes and empty-value keys removed from the graph.
+
 ## 🔬 Analyses as AnalysisDatasets + reaction RXNO/RInChI — 2026-07-06
 
 - Every analysis now exports as a chem-dcat-ap `AnalysisDataset` with the canonical
