@@ -73,8 +73,9 @@ select = ["UP", "F", "B"]
 [tool.mypy]
 python_version = "3.14"
 ignore_missing_imports = true
-# New/refactored modules are type-clean. The inherited upstream modules still carry pre-existing
-# type issues (tracked, not yet fixed); type-check incrementally rather than failing the whole tree.
+# `just mypy` type-checks the whole chemotion_api tree (no per-module exclude/override here) and
+# currently passes clean. If a legacy module later needs a carve-out, add an
+# `[[tool.mypy.overrides]]` block scoped to it rather than reintroducing a stale blanket comment.
 
 [build-system]
 requires = ["hatchling"]

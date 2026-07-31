@@ -220,13 +220,17 @@ class Attachments(Sequence):
         """
         Updates or creates the Attachments of an Element after saving it!
 
-        Queued files are uploaded once: the upload queue is cleared after a successful
-        request, so calling ``save()`` again does not create duplicate attachments.
+        Queued files are uploaded once: the upload queue is cleared only after a successful
+        (2xx) request, so calling ``save()`` again after a failed upload resends the pending
+        files instead of silently losing them.
 
         :param id: ID of the element
         :param element_type: must be in 'Element' or 'ResearchPlan'
 
         :return: response of the request
+
+        :raises requests.RequestException: if the server returns a non-2xx response; the
+            upload queue is left intact so a retried ``save()`` resends the pending files.
         """
         if element_type == 'Element':
             return self._save_generic(id)
@@ -237,7 +241,7 @@ class Attachments(Sequence):
                     'attachable_type': element_type,
                     'attachable_id': id}
             res = self._con.post('/api/v1/attachable/update_attachments_attachable', data=data, files=files)
-        self._mark_uploads_done()
+        self._raise_or_mark_done(res)
         return res
 
     def _save_generic(self, id: int):
@@ -249,8 +253,23 @@ class Attachments(Sequence):
                     'att_id': id,
                     'seInfo': {}}
             res = self._con.post('/api/v1/generic_elements/upload_generics_files', data=data, files=files)
-        self._mark_uploads_done()
+        self._raise_or_mark_done(res)
         return res
+
+    def _raise_or_mark_done(self, res: requests.Response | None) -> None:
+        """Move the upload queue into ``_attachment_data`` only on a successful (2xx) response.
+
+        On failure (or no response at all) the queue is left untouched and a
+        ``RequestException`` is raised, so the caller can retry ``save()`` without losing or
+        duplicating the pending uploads.
+        """
+        if res is not None and res.status_code in (200, 201):
+            self._mark_uploads_done()
+            return
+        status = res.status_code if res is not None else "no response"
+        body = res.text if res is not None else ""
+        raise requests.RequestException(
+            f"Failed to upload attachments (status: {status}): {body}")
 
     def _mark_uploads_done(self):
         """Move freshly uploaded attachment data into the regular list and clear the queue."""

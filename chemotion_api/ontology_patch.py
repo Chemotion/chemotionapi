@@ -11,19 +11,28 @@ typing.
 """
 import json
 import os
+import posixpath
 import shutil
 import tempfile
 import zipfile
 
 from chemotion_api.ontology_map import ELEMENT_TYPE_PROPERTY_ID
 
+_METADATA_NAME = "ro-crate-metadata.json"
+
 
 def _metadata_member(names: list[str]) -> str | None:
-    """Return the archive member ending in ``ro-crate-metadata.json``, or ``None`` if absent."""
-    for n in names:
-        if n.endswith("ro-crate-metadata.json"):
-            return n
-    return None
+    """Return the archive member named ``ro-crate-metadata.json``, or ``None`` if absent.
+
+    Matches on the exact basename (not a suffix, which would also match a hostile
+    "evil-ro-crate-metadata.json") and, when several members match, prefers the shallowest one
+    -- independent of the ZIP's ``namelist()`` order.
+    """
+    candidates = sorted(
+        (n for n in names if posixpath.basename(n) == _METADATA_NAME),
+        key=lambda n: n.count("/"),
+    )
+    return candidates[0] if candidates else None
 
 
 def patch_metadata_dict(metadata: dict, mapping: dict[str, str]) -> int:
@@ -86,9 +95,20 @@ def patch_eln_ontology(eln_path: str, mapping: dict[str, str], output_path: str 
                         with zin.open(item) as src, zout.open(item, "w") as dst:
                             shutil.copyfileobj(src, dst)
         except BaseException:
-            os.unlink(tmp_path)
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
             raise
 
+    # The move happens only after ``zin`` is closed: with no output_path the target *is*
+    # ``eln_path``, and replacing a file that is still open for reading fails on Windows. It is
+    # still wrapped so a failing move (cross-filesystem, permissions, disk full) cannot leak
+    # tmp_path behind.
     target: str = output_path or eln_path  # no output_path -> patch in place (overwrite eln_path)
-    shutil.move(tmp_path, target)
+    try:
+        shutil.move(tmp_path, target)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+
     return patched
