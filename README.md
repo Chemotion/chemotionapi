@@ -22,6 +22,6 @@ pull requests with your proposed changes.
 
 ## License
 
-ChemotionApi is licensed under the MIT License.
+ChemotionApi is licensed under the GNU Affero General Public License v3 — see [LICENSE](./LICENSE).
 
 **Let me know if there's anything else I can help you with!**
