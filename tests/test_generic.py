@@ -17,10 +17,10 @@ def test_new_generics(instance_with_collection):
     a1_copy = instance.get_generic_by_label('Tryout', a.id)
     assert a1.id == a1_copy.id
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError):
         instance.get_generic_by_name('NO VALID NAME', 1)
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError):
         instance.get_generic_by_label('NO VALID LABEL', 1)
 
     test = instance.get_json_ld_id(a1.json_ld['@id'])

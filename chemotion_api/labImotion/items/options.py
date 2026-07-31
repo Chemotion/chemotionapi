@@ -1,21 +1,32 @@
+"""Enumerations and unit tables describing LabIMotion field, layer and element options."""
+
 from enum import Enum
 
 class ListableEnum(Enum):
+    """Enum mixin exposing the member values as a plain list."""
+
     @classmethod
     def list(cls):
+        """Return the values of all enum members as a list.
+
+        :return: List of the ``.value`` of every member of this enum.
+        """
         return list(map(lambda c: c.value, cls))
 
 class SaveActionType(Enum):
+    """Release level used when saving a generic template (draft, minor or major)."""
     DRAFT = "draft"
     MINOR = "minor"
     MAJOR = "major"
 
 class ElementType(ListableEnum):
+    """The kind of generic klass: segment, element or dataset."""
     SEGMENT = 'SegmentKlass'
     ELEMENT = 'ElementKlass'
     DATASET = 'DatasetKlass'
 
 class SubFieldType(ListableEnum):
+    """Allowed types for sub-fields of an input-group field."""
     NUMBER = 'number'
     LABEL = 'label'
     TEXT = 'text'
@@ -23,6 +34,7 @@ class SubFieldType(ListableEnum):
 
 
 class SubTableFieldType(ListableEnum):
+    """Allowed column types for the columns of a table field."""
     DRAG_MOLECULE = "drag_molecule"
     DRAG_SAMPLE = "drag_sample"
     SELECT = "select"
@@ -31,6 +43,7 @@ class SubTableFieldType(ListableEnum):
 
 
 class FieldType(ListableEnum):
+    """The type of a generic field within a layer."""
     DUMMY = 'dummy'
     CHECKBOX = "checkbox"
     DATETIME = "datetime"
@@ -51,12 +64,14 @@ class FieldType(ListableEnum):
 
 
 class ConditionOperator(ListableEnum):
+    """How multiple conditions combine: match all, any (one) or none."""
     MATCH_ALL = 9
     MATCH_ONE = 1
     MATCH_NONE = 0
 
 
 class FieldUnit(ListableEnum):
+    """Physical-quantity categories for which selectable units are defined."""
     ACCELERATION = "acceleration"
     AGITATION = "agitation"
     AMOUNT_ENZYME = "amount_enzyme"
@@ -100,6 +115,7 @@ class FieldUnit(ListableEnum):
 
 
 class LayerColor(ListableEnum):
+    """Bootstrap-style colour theme applied to a layer panel."""
     NONE = "none"
     BLUE = "primary"
     BLUE_LIGHT = "info"
@@ -152,4 +168,9 @@ UNITS = {
 }
 
 def get_unit(field_unit: FieldUnit) -> list[str]:
+    """Return the list of allowed unit codes for a physical-quantity category.
+
+    :param field_unit: The :class:`FieldUnit` whose units are requested.
+    :return: The ordered list of unit-code strings for that category.
+    """
     return UNITS[field_unit]

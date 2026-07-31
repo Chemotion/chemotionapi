@@ -3,7 +3,6 @@ from random import randint
 
 import pytest
 
-from chemotion_api import Instance
 from chemotion_api.collection import Collection
 
 
@@ -21,7 +20,7 @@ def test_new_sample_success(instance_with_collection):
     sample.properties['boiling_point_upperbound'] = 1
     sample.properties['melting_point_lowerbound'] = 0.55
     sample.properties['melting_point_upperbound'] = 15
-    sample.properties['name'] = "test_app{}".format(randint(1, 10))
+    sample.properties['name'] = f"test_app{randint(1, 10)}"
     sample.properties['description'] = """This is a test sample\nSmiles: B"""
     sample.properties['stereo'] = {"abs": "(S)", "rel": "p-geminal"}
     sample.properties['location'] = "Test-shelf"
@@ -57,8 +56,8 @@ def test_solvents(logged_in_instance, delete_col_prefix):
     assert solv.id is not None
     assert int(solv.id) > 0
 
-    with pytest.raises(KeyError) as e:
-        solv = col.new_solvent('XXX')
+    with pytest.raises(KeyError):
+        col.new_solvent('XXX')
 
 
 def test_iter_sample(instance_with_test_samples: dict):
@@ -91,7 +90,6 @@ def test_get_collection_from_sample(instance_with_test_samples: dict):
     assert logged_in_instance.get_collection_of_element(sample).id == col.id
 
 def test_filter_collection(instance_with_test_samples: dict):
-    logged_in_instance = instance_with_test_samples['instance']
     col: Collection = instance_with_test_samples['main_collection']
     assert len(col.get_samples(updated_to_date=datetime(2020, 1, 1))) == 0
     assert len(col.get_samples(updated_to_date=datetime(2060, 1, 1))) > 1

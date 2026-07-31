@@ -1,4 +1,11 @@
-generic_element_schema = {
+"""Base JSON schema describing the shared structure of a generic-element klass.
+
+Concrete element, segment and dataset schemas are derived from ``generic_element_schema``.
+"""
+
+from typing import Any
+
+generic_element_schema: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
@@ -48,6 +55,10 @@ generic_element_schema = {
         "updated_at": {
             "type": "string"
         },
+        # Chemotion >= 3.x attaches a metadata object to every klass.
+        "metadata": {
+            "type": ["object", "null"]
+        },
     },
     "additionalProperties": False,
     "required": [
@@ -63,9 +74,7 @@ generic_element_schema = {
         "released_at",
         "identifier",
         "sync_time",
-        "created_by",
-        "updated_by",
-        "created_at",
-        "updated_at",
+        # created_by/updated_by/created_at/updated_at are audit fields Chemotion 2.x serialized
+        # on every klass but 3.x omits; they stay allowed (see properties) but are not required.
     ]
 }

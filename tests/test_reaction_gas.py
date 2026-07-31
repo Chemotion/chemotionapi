@@ -24,7 +24,6 @@ def instance_with_test_reaction(instance_with_test_samples):
     reaction.reactants[0].set_amount(200, 'mol')
     reaction.reactants[0].properties['density'] = 2
     reaction.starting_materials[0].set_amount(100, 'mol')
-    mats = [*reaction.starting_materials, *reaction.reactants, *reaction.products]
 
     reaction.products[0].set_amount(1000, 'g')
     reaction.products[0].properties['coefficient'] = 2

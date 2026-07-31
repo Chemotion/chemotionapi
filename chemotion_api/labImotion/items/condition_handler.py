@@ -1,25 +1,42 @@
+"""Mixin adding conditional-visibility support (cond_fields/cond_operator) to layers/fields."""
+
 from __future__ import annotations
 import uuid
 
 from chemotion_api.labImotion.items.options import ConditionOperator, FieldType
 from chemotion_api.labImotion.structure import StructureRegistry
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from chemotion_api.labImotion.items.fields import SelectField, TextField, CheckboxField
 
 
 class ConditionHandler:
+    """Mixin holding the conditions under which an item is shown and how they combine."""
+
     def __init__(self, sr: StructureRegistry):
+        """Initialise the condition state, keeping a reference to the structure registry.
+
+        :param sr: Structure registry used to resolve referenced fields and options.
+        """
         if not hasattr(self, '_sr'):
             self._sr = sr
-        self._cond_fields = None
-        self._cond_operator = None
+        self._cond_fields: list | None = None
+        self._cond_operator: ConditionOperator | None = None
 
     def add_condition(self, field: SelectField | TextField | CheckboxField, value: str | bool):
+        """Add a condition requiring ``field`` to hold ``value`` for this item to show.
+
+        The value is coerced/validated according to the referenced field's type (select,
+        text or checkbox).
+
+        :param field: The select, text or checkbox field the condition references.
+        :param value: The value (or label, for selects) the field must hold.
+        :raises ValueError: If the field type is unsupported or ``value`` is invalid for it.
+        """
         if field.field_type == FieldType.SELECT:
-            options = self._sr.get_select_options()[field.option_layers]
+            options = self._sr.get_select_options()[cast("SelectField", field).option_layers]
             if value not in options:
                 def find_label():
                     for key, label in options:
@@ -55,10 +72,15 @@ class ConditionHandler:
 
     @property
     def cond_fields(self) -> list | None:
+        """The list of condition entries, or ``None`` when no conditions are set."""
         return self._cond_fields
 
     @cond_fields.setter
     def cond_fields(self, value: list | None):
+        """Set the condition entries from a list.
+
+        :raises TypeError: If ``value`` is not a list.
+        """
         if value is None:
             self._cond_operator = None
             self._cond_fields = None
@@ -68,12 +90,17 @@ class ConditionHandler:
 
     @property
     def cond_operator(self) -> ConditionOperator | None:
+        """How the conditions combine; defaults to ``MATCH_ONE`` when conditions exist."""
         if self.cond_fields is not None and self._cond_operator is None:
             return ConditionOperator.MATCH_ONE
         return self._cond_operator
 
     @cond_operator.setter
     def cond_operator(self, value: ConditionOperator | int | None):
+        """Set the condition operator from an enum, its int value, or ``None``.
+
+        :raises TypeError: If ``value`` cannot be interpreted as a :class:`ConditionOperator`.
+        """
         if value is None:
             if self.cond_fields is None:
                 self._cond_operator = None

@@ -1,3 +1,5 @@
+"""JSON schema validating a generic condition field (a layer/field visibility condition)."""
+
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 
 generic_schema = {

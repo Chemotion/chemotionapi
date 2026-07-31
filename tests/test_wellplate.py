@@ -33,5 +33,5 @@ def test_set_wellplate_success(instance_with_test_wellplate: dict):
     wp.wells[0]['A'] = None
     wp.wells[0]['B'] = None
     wp.save()
-    with pytest.raises(RequestException) as e:
+    with pytest.raises(RequestException):
         logged_in_instance.get_sample(new_id)

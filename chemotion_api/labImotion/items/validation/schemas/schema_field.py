@@ -1,3 +1,5 @@
+"""JSON schema validating a single generic field within a layer."""
+
 from chemotion_api.labImotion.items.options import FieldType
 from chemotion_api.labImotion.items.validation.registry import SchemaRegistry
 

@@ -11,33 +11,41 @@ from chemotion_api.labImotion.items.options import SaveActionType, FieldType, Su
 from chemotion_api.labImotion.items.validation import validate_generic_element, validate_generic_dataset, validate_generic_segment
 from chemotion_api.labImotion.items.validation.schemas.schema_select_options import generic_schema
 
+HERE = os.path.dirname(os.path.abspath(__file__))  # resolve fixtures relative to this file, not the CWD
+
 def test_write_all_schemas(instance_with_collection):
     instance_with_collection['instance'].generic_manager().write_all_validation_schemas()
     assert True
 
+def test_no_schema_drift_on_seeded_instance(logged_in_instance):
+    """The bundled schemas (LabIMotion 2.1.1 / ELN v3.1.2) must accept every klass the
+    seeded test instance serves — the live counterpart of the offline drift unit tests."""
+    report = logged_in_instance.generic_manager().check_schema_drift()
+    assert all(issues == [] for issues in report.values()), report
+
 @pytest.mark.parametrize(
-"json_file", ['GenericElement.json']
+"json_file", ['fixtures/GenericElement.json']
 )
 def test_validate_generic_element(json_file):
-    with open(json_file, 'r') as file:
+    with open(os.path.join(HERE, json_file)) as file:
         json_value = json.loads(file.read())
     validate_generic_element(json_value)
 
 
 @pytest.mark.parametrize(
-"json_file", ["GenericDataset.json"]
+"json_file", ["fixtures/GenericDataset.json"]
 )
 def test_validate_generic_dataset(json_file):
-    with open(json_file, 'r') as file:
+    with open(os.path.join(HERE, json_file)) as file:
         json_value = json.loads(file.read())
     validate_generic_dataset(json_value)
 
 
 @pytest.mark.parametrize(
-"json_file", ["GenericSegment.json"]
+"json_file", ["fixtures/GenericSegment.json"]
 )
 def test_validate_generic_segment(json_file):
-    with open(json_file, 'r') as file:
+    with open(os.path.join(HERE, json_file)) as file:
         json_value = json.loads(file.read())
     validate_generic_segment(json_value)
 
@@ -115,17 +123,19 @@ def test_generic_selection_schema_error(json_to_test):
     try:
         validate(json_to_test, generic_schema)
         assert False
-    except ValidationError as e:
+    except ValidationError:
         assert True
 
 
 def test_read_generic_elements(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_elements()
-    except ValidationError as e:
+    except ValidationError:
         assert False
 
-    assert len(all_gs) == 9
+    # The number of built-in klasses grows with the server release (9 on 2.1.1, 10 on 3.1.2);
+    # what the seed guarantees is the two generic klasses (wrk, try).
+    assert len(all_gs) >= 9
     all_gs = [x for x in all_gs if x.is_generic]
     assert len(all_gs) == 2
     all_gs[0].label += '_TEST'
@@ -134,7 +144,7 @@ def test_read_generic_elements(instance_with_collection):
     old_dict['label'] += '_TEST'
     old_dict['properties_template']['identifier'] = dict_element['properties_template']['identifier']
     old_dict['uuid'] = dict_element['uuid']
-    for key, layer  in old_dict['properties_template']['layers'].items():
+    for _key, layer  in old_dict['properties_template']['layers'].items():
         for field in layer['fields']:
             if field['type'] == 'text' and 'required' not in field:
                 field['required'] = False
@@ -144,7 +154,7 @@ def test_read_generic_elements(instance_with_collection):
 def test_read_generic_segments(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_segments()
-    except ValidationError as e:
+    except ValidationError:
         assert False
     assert len(all_gs) == 1
     pass
@@ -152,7 +162,7 @@ def test_read_generic_segments(instance_with_collection):
 def test_read_generic_datasets(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_datasets()
-    except ValidationError as e:
+    except ValidationError:
         assert False
 
     assert len(all_gs) == 8
@@ -160,13 +170,13 @@ def test_read_generic_datasets(instance_with_collection):
 
 def test_upload_generic_element(instance_with_collection):
     all_old_gs = instance_with_collection['instance'].generic_manager().load_all_elements()
-    element_fp = os.path.join(os.path.dirname(__file__), 'GenericElement.json')
+    element_fp = os.path.join(os.path.dirname(__file__), 'fixtures/GenericElement.json')
     all_gs = instance_with_collection['instance'].generic_manager().upload_elements_json(element_fp)
     assert len(all_old_gs) + 1 == len(all_gs)
 
 def test_upload_generic_segment(instance_with_collection):
     all_old_gs = instance_with_collection['instance'].generic_manager().load_all_segments()
-    element_fp = os.path.join(os.path.dirname(__file__), 'GenericSegment.json')
+    element_fp = os.path.join(os.path.dirname(__file__), 'fixtures/GenericSegment.json')
     all_gs = instance_with_collection['instance'].generic_manager().upload_segment_json(element_fp)
     assert len(all_old_gs) + 1 == len(all_gs)
 
@@ -207,7 +217,7 @@ def test_element_new_layer(instance_with_collection):
     dc = ttes.to_dict()
     try:
         ttes.validate(dc)
-    except ValidationError as e:
+    except ValidationError:
         assert False
     ttes.save()
     ttes.save(SaveActionType.MAJOR)
@@ -255,7 +265,7 @@ def test_element_new_fields(instance_with_collection):
     dc = ttes.to_dict()
     try:
         ttes.validate(dc)
-    except ValidationError as e:
+    except ValidationError:
         assert False
     ttes.save()
 
@@ -281,7 +291,7 @@ def test_segment_new_layer(instance_with_collection):
     dc = ttes.to_dict()
     try:
         ttes.validate(dc)
-    except ValidationError as e:
+    except ValidationError:
         assert False
     ttes.save()
     ttes.save(SaveActionType.MAJOR)
@@ -296,7 +306,7 @@ def test_dataset_new_layer(instance_with_collection):
     dc = ttes.to_dict()
     try:
         ttes.validate(dc)
-    except ValidationError as e:
+    except ValidationError:
         assert False
     ttes.save()
     ttes.save(SaveActionType.MAJOR)

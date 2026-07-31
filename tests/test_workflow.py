@@ -1,4 +1,3 @@
-import json
 from chemotion_api import Instance
 
 

@@ -1,5 +1,5 @@
+"""Element subsystem: the :class:`ElementSet` paginated loader and the concrete element classes."""
 from datetime import datetime
-from typing import Optional
 
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.generic_element import GenericElement
@@ -19,9 +19,9 @@ class ElementSet(list):
     """
 
     def __init__(self, session: Connection, element_type: dict,
-                 collection_id: int = None, collection_is_sync: bool = False, fixed_length:bool = False):
+                 collection_id: int | None = None, collection_is_sync: bool = False, fixed_length:bool = False):
         super().__init__()
-        self._load_options = {}
+        self._load_options: dict = {}
         self._session = session
         self._element_type = element_type
         self._collection_id = collection_id
@@ -33,6 +33,11 @@ class ElementSet(list):
         self._fixed_length = fixed_length
 
     def set_iri_filter(self, iri):
+        """
+        Restrict iteration to elements whose JSON-LD ``@type`` matches the given IRI.
+
+        :param iri: IRI string (``chemotion:xxx/xxx/xxx``) used to filter the elements
+        """
         self._iri_filter = iri
 
     def __len__(self):
@@ -47,7 +52,7 @@ class ElementSet(list):
             stop = item.stop if item.stop is not None else len(self)
             last = stop - start
             if last <= 0 or stop < 0 or start < 0:
-                raise TypeError(f"Negative index is not supported")
+                raise TypeError("Negative index is not supported")
             per_page = self._per_page
             if item.start is not None:
                 self._per_page = start
@@ -64,9 +69,9 @@ class ElementSet(list):
             return res_list
 
         if self._iri_filter is not None:
-            raise TypeError(f"Index is prohibited if you use IRI types")
+            raise TypeError("Index is prohibited if you use IRI types")
         if item < 0:
-            raise TypeError(f"Negative index is not supported")
+            raise TypeError("Negative index is not supported")
         page = (item // self._per_page) + 1
         if page != self._page:
             self._set_page(page)
@@ -76,15 +81,22 @@ class ElementSet(list):
         return elm
 
     def __iter__(self):
-        for x in self.iter_elements():
-            yield x
+        yield from self.iter_elements()
 
     @property
     def page(self):
+        """
+        The currently loaded page number (1-based).
+
+        :return: The current page number
+        """
         return self._page
 
     @page.setter
     def page(self, page: int):
+        """
+        The currently loaded page number (1-based). Setting it loads that page from the server.
+        """
         self._set_page(page)
 
     def _set_page(self, page: int) -> bool:
@@ -98,6 +110,16 @@ class ElementSet(list):
         return False
 
     def iter_elements(self, start_page=1):
+        """
+        Iterate over all elements across all pages, loading each page from the server on demand.
+
+        Starting at ``start_page``, every page is fetched and its elements yielded; if an IRI filter
+        is set only elements whose JSON-LD ``@type`` matches the filter are yielded.
+
+        :param start_page: page number to start iterating from (1-based)
+
+        :return: Generator over the elements
+        """
         self._page = start_page - 1
         while self._set_page(self.page + 1):
             for elem in super().__iter__():
@@ -105,20 +127,49 @@ class ElementSet(list):
                     yield elem
 
     def iter_pages(self):
+        """
+        Iterate over all pages, loading each from the server on demand.
+
+        :return: Generator yielding this ElementSet once per page (with that page loaded)
+        """
         self._page = 0
         while self._set_page(self.page + 1):
             yield self
 
     def next_page(self):
+        """
+        Load the next page from the server.
+
+        :return: This ElementSet with the next page loaded
+        """
         self._set_page(self.page + 1)
         return self
 
     def prev_page(self):
+        """
+        Load the previous page from the server.
+
+        :return: This ElementSet with the previous page loaded
+        """
         self._set_page(self.page - 1)
         return self
 
-    def load_elements(self, per_page: Optional[int] = None, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None, product_only: bool = False):
+    def load_elements(self, per_page: int | None = None, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None, product_only: bool = False):
+        """
+        Load the current page of elements from the server into this ElementSet.
+
+        Updates :attr:`max_page` and the total length from the server's ``X-Total-Pages`` and
+        ``X-Total`` response headers, then replaces the current contents with the page's elements.
+
+        :param per_page: number of elements per page (kept for subsequent page loads)
+        :param updated_to_date: only fetch elements updated before this date/time
+        :param updated_from_date: only fetch elements updated after this date/time
+        :param product_only: if True only samples which are products in a reaction are returned
+
+        :raises ValueError: if no collection_id is set on this ElementSet
+        :raises RequestException: if the server responds with a non-200 status code
+        """
         if per_page is not None:
             self._per_page = per_page
         if self._collection_id is None:
@@ -151,12 +202,12 @@ class ElementSet(list):
         res = self._session.get(self._get_url() + '.json',
                                 data=payload)
         if res.status_code != 200:
-            raise RequestException('{} -> {}'.format(res.status_code, res.text))
+            raise RequestException(f'{res.status_code} -> {res.text}')
 
         try:
             self.max_page = int(res.headers.get('X-Total-Pages', 1))
             self._length = int(res.headers.get('X-Total', 0))
-        except:
+        except (ValueError, TypeError):
             pass
         self.clear()
         elements = res.json().get(self._get_result_key() + 's', [])
@@ -164,6 +215,13 @@ class ElementSet(list):
             self.append(self._get_element_class()(segments, self._session, json_data=json_data))
 
     def load_element(self, id: int) -> AbstractElement:
+        """
+        Create an element of this set's type for the given DB id and add it to the set.
+
+        :param id: DB id of the element to load
+
+        :return: The created element (loaded lazily on access)
+        """
         segments = GenericSegments(self._session)
         s = self._get_element_class()(segments, self._session, id=id,
                                       element_type=self._element_type['name'])
@@ -171,12 +229,20 @@ class ElementSet(list):
         return s
 
     def new_element(self, json_data: dict, **kwargs) -> AbstractElement:
+        """
+        Create a new element of this set's type from JSON data and add it to the set.
+
+        :param json_data: JSON data used to initialize the element
+        :param kwargs: additional keyword arguments passed to the element constructor
+
+        :return: The newly created element
+        """
         segments = GenericSegments(self._session)
         s = self._get_element_class()(segments, self._session, json_data=json_data, **kwargs)
         self.append(s)
         return s
 
-    def _get_element_class(self) -> AbstractElement.__class__:
+    def _get_element_class(self) -> type[AbstractElement]:
         if self._element_type['is_generic']:
             return GenericElement
         elif self._element_type['name'] == 'sample':

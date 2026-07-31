@@ -1,3 +1,6 @@
+"""JSON schema describing the validatable ``properties`` of a Research Plan element."""
+
+from chemotion_api.elements.schemas.reaction import PURIFICATION_OPTIONS
 
 schema = {
     "$schema": "chemotion:type/research_plan/1.9.3/draft-01/schema#",
@@ -59,11 +62,11 @@ schema = {
                         "properties": {
                             "time": {
                                 "type": "string",
-                                "pattern": "^\d{2}:\d{2}:\d{2}$",
+                                "pattern": r"^\d{2}:\d{2}:\d{2}$",
                             },
                             "value": {
                                 "type": "string",
-                                "pattern": "^[\d\.]+$",
+                                "pattern": r"^[\d\.]+$",
                             }
                         },
                         "required": ["value", "time"]

@@ -1,3 +1,5 @@
+"""List of valid Font Awesome v4 icon names accepted for generic-element icons."""
+
 all_icons = ["address-book", "address-book-o", "address-card", "address-card-o", "bandcamp", "bath", "bathtub",
              "drivers-license", "drivers-license-o", "eercast", "envelope-open", "envelope-open-o", "etsy",
              "free-code-camp", "grav", "handshake-o", "id-badge", "id-card", "id-card-o", "imdb", "linode", "meetup",

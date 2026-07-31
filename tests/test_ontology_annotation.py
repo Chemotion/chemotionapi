@@ -1,0 +1,85 @@
+"""Heavy offline test: full export_eln emits the ontology placeholder for non-dcat elements.
+
+This builds a real RO-Crate via export_eln (rdflib JSON-LD serialization against the 2627-term
+context), so it is memory-heavy and marked `heavy`. The pure ontology_map/ontology_patch logic is
+covered cheaply in tests/unit/test_ontology.py.
+"""
+import json
+import zipfile
+from unittest.mock import MagicMock
+
+import pytest
+
+from chemotion_api import Author, AuthorAffiliation
+from chemotion_api.ontology_map import ELEMENT_TYPE_PROPERTY_ID
+
+pytestmark = pytest.mark.heavy
+
+
+def _authors():
+    return [Author(name="Test Author", orcid="0000-0002-1825-0097",
+                   affiliations=[AuthorAffiliation(name="Org", ror="https://ror.org/04t3en479")])]
+
+
+def test_export_emits_placeholder_offline(tmp_path, monkeypatch):
+    """Exporting an element without a chem-dcat-ap mapping produces a Dataset node carrying the
+    ontology placeholder. Stubs the network-dependent SchemaView / RDFLibDumper."""
+    import linkml_runtime.utils.schemaview as sv_mod
+    import linkml_runtime.dumpers as dmp_mod
+
+    monkeypatch.setattr(sv_mod, "SchemaView", lambda *a, **k: MagicMock())
+
+    class _NoopDumper:
+        def inject_triples(self, *a, **k):
+            return None
+    monkeypatch.setattr(dmp_mod, "RDFLibDumper", _NoopDumper)
+
+    root_col = MagicMock()
+    root_col._element_manager.all_classes = {"wellplate": {"label": "Wellplate"}}
+
+    col = MagicMock()
+    col.id = 123
+    col.label = "Onto Col"
+    col.get_root.return_value = root_col
+    col._parent = None
+    col.collection_json = None
+    col.children = []
+
+    wp = MagicMock()
+    wp.id = 2001
+    wp.name = "WP-1"
+    wp._data_loaded = True
+    wp.properties = {}
+    wp.attachments = []
+    wp.element_type = "wellplate"
+    wp.to_dcat_ap.side_effect = Exception("no dcat")
+    wp.eln_node_content.return_value = {}  # real dict, not a Mock (Mock would break json serialization)
+    del wp.analyses
+
+    col.get_samples.return_value = []
+    col.get_reactions.return_value = []
+    col.get_wellplates.return_value = [wp]
+    col.get_research_plans.return_value = []
+    col.get_generics_by_name.return_value = []
+
+    out = tmp_path / "onto.eln"
+    from chemotion_api.collection import Collection
+    try:
+        Collection.export_eln(col, str(out), authors=_authors())
+    except Exception as e:  # export_eln may fetch the remote RO-Crate @context if not vendored
+        if "URLError" in type(e).__name__ or "Network is unreachable" in str(e) or "urlopen" in str(e):
+            pytest.skip("export_eln requires network for the RO-Crate @context; unreachable here")
+        raise
+
+    with zipfile.ZipFile(out, "r") as z:
+        meta_name = next(n for n in z.namelist() if n.endswith("ro-crate-metadata.json"))
+        meta = json.loads(z.read(meta_name))
+
+    wp_nodes = [n for n in meta["@graph"]
+                if isinstance(n.get("variableMeasured"), list)
+                and any(pv.get("propertyID") == ELEMENT_TYPE_PROPERTY_ID for pv in n["variableMeasured"])]
+    assert len(wp_nodes) == 1
+    node = wp_nodes[0]
+    assert node["@type"] == "Dataset"  # structural type only, no bogus "Wellplate" type
+    pv = node["variableMeasured"][0]
+    assert pv["value"] == "wellplate" and pv["identifier"] == ""  # ready to patch later

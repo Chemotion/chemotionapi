@@ -80,7 +80,7 @@ The following methods can be used to create the standard objects. All of them ha
 
 The created object is not saved and must be saved explicitly so that the entry is transferred to the ELN.
 
-* :meth:`chemotion_api.collection.Collection.new_samples`
+* :meth:`chemotion_api.collection.Collection.new_sample`
 * :meth:`chemotion_api.collection.Collection.new_reaction`
 * :meth:`chemotion_api.collection.Collection.new_research_plan`
 * :meth:`chemotion_api.collection.Collection.new_wellplate`
