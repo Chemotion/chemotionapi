@@ -1,6 +1,5 @@
 import json
 import os
-from typing import List
 from uuid import uuid4
 
 import requests
@@ -57,7 +56,7 @@ class Profile:
         return self._session.delete(f'/api/v1/converter/profiles/{self.id}')
 
 
-class ProfileManager(object):
+class ProfileManager:
     """
     Profile manager class
     """
@@ -71,7 +70,7 @@ class ProfileManager(object):
         return next((p for p in self.profiles if p.id == profile_id), None)
 
     @property
-    def profiles(self) -> List[Profile]:
+    def profiles(self) -> list[Profile]:
         if self._all_profiles is None:
             res = self._session.get('api/v1/converter/profiles')
             if res.status_code != 200:
@@ -83,7 +82,7 @@ class ProfileManager(object):
     def new_profile_from_file(self, file_path: str) -> Profile | None:
         if os.path.exists(file_path):
             try:
-                with open(file_path, 'r') as f:
+                with open(file_path) as f:
                     pd = json.loads(f.read())
                     while self.get_profile(pd['id']) is not None:
                         pd['id'] = uuid4().__str__()

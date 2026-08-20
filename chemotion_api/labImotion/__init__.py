@@ -2,7 +2,7 @@ import json
 import os
 import re
 import string
-from typing import Callable
+from collections.abc import Callable
 
 from chemotion_api.labImotion.icons import all_icons
 from chemotion_api.labImotion.items.options import ElementType
@@ -125,7 +125,7 @@ class GenericDataset(GenericObj):
         return validate_generic_dataset
 
 
-class GenericManager():
+class GenericManager:
     def __init__(self, connection: Connection):
         self._connection = connection
 

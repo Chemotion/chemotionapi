@@ -82,10 +82,10 @@ class Dataset(dict):
         :param destination: Director where the BagIT should be saved to
         :return: Abs filepath of the BagIT zip
         """
-        image_url = "/api/v1/attachments/zip/{}".format(self.id)
+        image_url = f"/api/v1/attachments/zip/{self.id}"
         res = self._session.get(image_url)
         if res.status_code != 200:
-            raise ConnectionRefusedError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionRefusedError(f'{res.status_code} -> {res.text}')
 
         if not os.path.exists(destination) or os.path.isdir(destination):
             regex_file_name = re.search('filename="([^"]+)', res.headers['Content-Disposition'])
@@ -103,10 +103,10 @@ class Dataset(dict):
         :param destination: Director where the BagIT should be saved to.
         :return: Abs filepath of the BagIT zip.
         """
-        image_url = "/api/v1/export_ds/dataset/{}".format(self.id)
+        image_url = f"/api/v1/export_ds/dataset/{self.id}"
         res = self._session.get(image_url)
         if res.status_code != 200:
-            raise ConnectionRefusedError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionRefusedError(f'{res.status_code} -> {res.text}')
 
         if not os.path.exists(destination) or os.path.isdir(destination):
             regex_file_name = re.search('filename="([^"]+)', res.headers['Content-Disposition'])
@@ -214,10 +214,10 @@ class Analyses(dict):
         return self._load_image(self._data.get('preview_img').get('id'))
 
     def _load_image(self, file_id: int) -> bytes:
-        image_url = "/api/v1/attachments/{}".format(file_id)
+        image_url = f"/api/v1/attachments/{file_id}"
         res = self._session.get(image_url)
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         return res.content
 
@@ -324,7 +324,7 @@ class Segment(dict):
         if val is None:
             seg = next((x for x in self._all_seg_classes if x.get('label') == key), None)
             if seg is None or seg.get('element_klass').get('name') != self._element_type:
-                raise TypeError('Segemnt "{}" is not for element "{}"'.format(key, self._element_type))
+                raise TypeError(f'Segemnt "{key}" is not for element "{self._element_type}"')
             new_seq_obj = GenericSegments.new_session(seg)
             key = add_to_dict(self, key, None)
             val = self[key] = self._on_add(key, new_seq_obj)
@@ -440,7 +440,7 @@ class AbstractElement:
         return self._id
 
     @id.setter
-    def id(self, id_val: Optional[int | str]):
+    def id(self, id_val: int | str | None):
         """
         Database ID of the element
         """
@@ -519,7 +519,7 @@ class AbstractElement:
         res = self._session.get(f"{self.__class__.get_url(self.element_type)}/{self.id}.json",
                                 data=payload)
         if res.status_code != 200:
-            raise RequestException("{} -> {}".format(res.status_code, res.text))
+            raise RequestException(f"{res.status_code} -> {res.text}")
         res_json = res.json()
         attachments_data = res_json.get('attachments')
         return attachments_data, res_json[self.get_response_key(self.element_type)]

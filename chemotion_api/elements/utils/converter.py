@@ -105,7 +105,7 @@ def convert_value_to_default(value, unit: str) -> float:
     raise ValueError(f'The unit {unit} is not supported!')
 
 
-def convert_value(value: Optional[float], unit: str, out_unit: str) -> float | None:
+def convert_value(value: float | None, unit: str, out_unit: str) -> float | None:
     if value is None:
         return value
     if unit == out_unit:

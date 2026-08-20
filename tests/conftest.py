@@ -40,7 +40,7 @@ def set_config():
 
     file = "config.json"
 
-    with open(file, "r") as jsonfile:
+    with open(file) as jsonfile:
         data = json.load(jsonfile)
 
     for key, val in DEFAULT_CONFIG.items():
@@ -86,7 +86,7 @@ def pytest_sessionstart(session):
             print("Waiting for manual restart of the Chemotion Server...")
             input("Press Enter to continue...")
 
-    logging.info('Config:\n' + '\n'.join(["#\t%s=%s" % (key, val) for key, val in CONFIG.items()]))
+    logging.info('Config:\n' + '\n'.join([f"#\t{key}={val}" for key, val in CONFIG.items()]))
 
 
 def pytest_sessionfinish(session, exitstatus):
