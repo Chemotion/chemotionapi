@@ -2,10 +2,8 @@
 -- PostgreSQL database dump
 --
 
-\restrict f22ngLBAWGP6AwBHkdbHHDUdnpvZi1kKTg3VqrpCoVgTuVnIOnNgVmEWJzhT6xf
-
--- Dumped from database version 16.9 (Debian 16.9-1.pgdg120+1)
--- Dumped by pg_dump version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
+-- Dumped from database version 16.8 (Debian 16.8-1.pgdg120+1)
+-- Dumped by pg_dump version 16.8 (Debian 16.8-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -44,7 +42,7 @@ CREATE EXTENSION IF NOT EXISTS hstore WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION hstore; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION hstore; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION hstore IS 'data type for storing sets of (key, value) pairs';
@@ -58,7 +56,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
@@ -72,7 +70,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
@@ -86,7 +84,7 @@ CREATE EXTENSION IF NOT EXISTS rdkit WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION rdkit; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION rdkit; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION rdkit IS 'Cheminformatics functionality for PostgreSQL.';
@@ -100,7 +98,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
@@ -1224,6 +1222,45 @@ ALTER SEQUENCE public.analyses_experiments_id_seq OWNED BY public.analyses_exper
 
 
 --
+-- Name: api_tokens; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.api_tokens (
+    id bigint NOT NULL,
+    name character varying,
+    token_digest character varying NOT NULL,
+    user_id bigint NOT NULL,
+    expires_at timestamp without time zone,
+    revoked_at timestamp without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+ALTER TABLE public.api_tokens OWNER TO postgres;
+
+--
+-- Name: api_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.api_tokens_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.api_tokens_id_seq OWNER TO postgres;
+
+--
+-- Name: api_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.api_tokens_id_seq OWNED BY public.api_tokens.id;
+
+
+--
 -- Name: ar_internal_metadata; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -1250,7 +1287,7 @@ CREATE TABLE public.attachments (
     storage character varying(20) DEFAULT 'tmp'::character varying,
     created_by integer NOT NULL,
     created_for integer,
-    version character varying,
+    version character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C",
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     content_type character varying,
@@ -1265,7 +1302,8 @@ CREATE TABLE public.attachments (
     con_state integer,
     deleted_at timestamp without time zone,
     log_data jsonb,
-    created_by_type character varying
+    created_by_type character varying,
+    edit_state integer DEFAULT 0
 );
 
 
@@ -1348,7 +1386,8 @@ CREATE TABLE public.calendar_entries (
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     eventable_type character varying,
-    eventable_id bigint
+    eventable_id bigint,
+    status character varying
 );
 
 
@@ -1481,7 +1520,7 @@ CREATE TABLE public.cellline_samples (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     short_label character varying,
-    ancestry character varying
+    ancestry character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C"
 );
 
 
@@ -1557,7 +1596,8 @@ CREATE TABLE public.chemicals (
     chemical_data jsonb,
     updated_at timestamp without time zone,
     deleted_at timestamp without time zone,
-    log_data jsonb
+    log_data jsonb,
+    sequence_based_macromolecule_sample_id bigint
 );
 
 
@@ -1602,33 +1642,68 @@ CREATE TABLE public.code_logs (
 ALTER TABLE public.code_logs OWNER TO postgres;
 
 --
+-- Name: collection_shares; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.collection_shares (
+    id bigint NOT NULL,
+    collection_id bigint,
+    shared_with_id bigint NOT NULL,
+    permission_level integer DEFAULT 0 NOT NULL,
+    celllinesample_detail_level integer DEFAULT 0 NOT NULL,
+    devicedescription_detail_level integer DEFAULT 0 NOT NULL,
+    element_detail_level integer DEFAULT 0 NOT NULL,
+    reaction_detail_level integer DEFAULT 0 NOT NULL,
+    researchplan_detail_level integer DEFAULT 0 NOT NULL,
+    sample_detail_level integer DEFAULT 0 NOT NULL,
+    screen_detail_level integer DEFAULT 0 NOT NULL,
+    sequencebasedmacromoleculesample_detail_level integer DEFAULT 0 NOT NULL,
+    wellplate_detail_level integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+ALTER TABLE public.collection_shares OWNER TO postgres;
+
+--
+-- Name: collection_shares_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.collection_shares_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.collection_shares_id_seq OWNER TO postgres;
+
+--
+-- Name: collection_shares_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.collection_shares_id_seq OWNED BY public.collection_shares.id;
+
+
+--
 -- Name: collections; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.collections (
     id integer NOT NULL,
     user_id integer NOT NULL,
-    ancestry character varying,
+    ancestry character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C",
     label text NOT NULL,
-    shared_by_id integer,
-    is_shared boolean DEFAULT false,
-    permission_level integer DEFAULT 0,
-    sample_detail_level integer DEFAULT 10,
-    reaction_detail_level integer DEFAULT 10,
-    wellplate_detail_level integer DEFAULT 10,
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     "position" integer,
-    screen_detail_level integer DEFAULT 10,
     is_locked boolean DEFAULT false,
     deleted_at timestamp without time zone,
-    is_synchronized boolean DEFAULT false NOT NULL,
-    researchplan_detail_level integer DEFAULT 10,
-    element_detail_level integer DEFAULT 10,
     tabs_segment jsonb DEFAULT '{}'::jsonb,
-    celllinesample_detail_level integer DEFAULT 10,
     inventory_id bigint,
-    devicedescription_detail_level integer DEFAULT 10
+    shared boolean DEFAULT false NOT NULL
 );
 
 
@@ -1908,6 +1983,41 @@ ALTER SEQUENCE public.collections_screens_id_seq OWNED BY public.collections_scr
 
 
 --
+-- Name: collections_sequence_based_macromolecule_samples; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.collections_sequence_based_macromolecule_samples (
+    id bigint NOT NULL,
+    collection_id bigint,
+    sequence_based_macromolecule_sample_id bigint,
+    deleted_at timestamp without time zone
+);
+
+
+ALTER TABLE public.collections_sequence_based_macromolecule_samples OWNER TO postgres;
+
+--
+-- Name: collections_sequence_based_macromolecule_samples_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.collections_sequence_based_macromolecule_samples_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.collections_sequence_based_macromolecule_samples_id_seq OWNER TO postgres;
+
+--
+-- Name: collections_sequence_based_macromolecule_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.collections_sequence_based_macromolecule_samples_id_seq OWNED BY public.collections_sequence_based_macromolecule_samples.id;
+
+
+--
 -- Name: collections_vessels; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -2035,6 +2145,46 @@ ALTER SEQUENCE public.comments_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.comments_id_seq OWNED BY public.comments.id;
+
+
+--
+-- Name: components; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.components (
+    id bigint NOT NULL,
+    sample_id bigint NOT NULL,
+    name character varying,
+    "position" integer,
+    component_properties jsonb,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    deleted_at timestamp without time zone,
+    log_data jsonb
+);
+
+
+ALTER TABLE public.components OWNER TO postgres;
+
+--
+-- Name: components_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.components_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.components_id_seq OWNER TO postgres;
+
+--
+-- Name: components_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.components_id_seq OWNED BY public.components.id;
 
 
 --
@@ -2174,7 +2324,10 @@ CREATE TABLE public.dataset_klasses (
     sync_by integer,
     admin_ids jsonb DEFAULT '{}'::jsonb,
     user_ids jsonb DEFAULT '{}'::jsonb,
-    version character varying
+    version character varying,
+    super_class_of jsonb DEFAULT '{}'::jsonb NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_dataset_klasses_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -2217,7 +2370,10 @@ CREATE TABLE public.dataset_klasses_revisions (
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
     deleted_at timestamp without time zone,
-    version character varying
+    version character varying,
+    submitted integer DEFAULT 0 NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_dataset_klasses_revisions_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -2260,7 +2416,9 @@ CREATE TABLE public.datasets (
     uuid character varying,
     klass_uuid character varying,
     deleted_at timestamp without time zone,
-    properties_release jsonb
+    properties_release jsonb,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_datasets_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -2302,7 +2460,9 @@ CREATE TABLE public.datasets_revisions (
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
     deleted_at timestamp without time zone,
-    properties_release jsonb
+    properties_release jsonb,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_datasets_revisions_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -2383,7 +2543,7 @@ CREATE TABLE public.device_descriptions (
     id bigint NOT NULL,
     access_comments character varying,
     access_options character varying,
-    ancestry character varying,
+    ancestry character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C",
     application_name character varying,
     application_version character varying,
     building character varying,
@@ -2394,8 +2554,8 @@ CREATE TABLE public.device_descriptions (
     description text,
     description_for_methods_part text,
     device_id integer,
-    device_type character varying,
-    device_type_detail character varying,
+    device_class character varying,
+    device_class_detail character varying,
     general_tags character varying[] DEFAULT '{}'::character varying[] NOT NULL,
     helpers_uploaded boolean DEFAULT false,
     infrastructure_assignment character varying,
@@ -2435,7 +2595,17 @@ CREATE TABLE public.device_descriptions (
     vendor_company_name character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    log_data jsonb
+    log_data jsonb,
+    owner_institution character varying,
+    owner_email character varying,
+    owner_id character varying,
+    inventory_id character varying,
+    alternative_identifier character varying,
+    vendor_id_type character varying,
+    owner_id_type character varying,
+    device_type_name character varying,
+    device_type_id character varying,
+    device_type_id_type character varying
 );
 
 
@@ -2574,6 +2744,92 @@ ALTER SEQUENCE public.devices_id_seq OWNED BY public.devices.id;
 
 
 --
+-- Name: dose_resp_outputs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.dose_resp_outputs (
+    id bigint NOT NULL,
+    dose_resp_request_id bigint NOT NULL,
+    output_data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    notes text,
+    deleted_at timestamp without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+ALTER TABLE public.dose_resp_outputs OWNER TO postgres;
+
+--
+-- Name: dose_resp_outputs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.dose_resp_outputs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.dose_resp_outputs_id_seq OWNER TO postgres;
+
+--
+-- Name: dose_resp_outputs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.dose_resp_outputs_id_seq OWNED BY public.dose_resp_outputs.id;
+
+
+--
+-- Name: dose_resp_requests; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.dose_resp_requests (
+    id bigint NOT NULL,
+    request_id character varying,
+    element_id integer,
+    state integer,
+    wellplates_metadata jsonb,
+    resp_message character varying,
+    created_by integer,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    deleted_at timestamp without time zone,
+    access_token character varying,
+    expires_at timestamp without time zone,
+    revoked_at timestamp without time zone,
+    first_accessed_at timestamp without time zone,
+    last_accessed_at timestamp without time zone,
+    access_count integer DEFAULT 0,
+    input_metadata jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE public.dose_resp_requests OWNER TO postgres;
+
+--
+-- Name: dose_resp_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.dose_resp_requests_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.dose_resp_requests_id_seq OWNER TO postgres;
+
+--
+-- Name: dose_resp_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.dose_resp_requests_id_seq OWNED BY public.dose_resp_requests.id;
+
+
+--
 -- Name: element_klasses; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -2602,7 +2858,9 @@ CREATE TABLE public.element_klasses (
     sync_by integer,
     admin_ids jsonb DEFAULT '{}'::jsonb,
     user_ids jsonb DEFAULT '{}'::jsonb,
-    version character varying
+    version character varying,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_element_klasses_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -2645,7 +2903,10 @@ CREATE TABLE public.element_klasses_revisions (
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
     deleted_at timestamp without time zone,
-    version character varying
+    version character varying,
+    submitted integer DEFAULT 0 NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_element_klasses_revisions_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -2712,6 +2973,43 @@ ALTER SEQUENCE public.element_tags_id_seq OWNED BY public.element_tags.id;
 
 
 --
+-- Name: element_variations; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.element_variations (
+    id bigint NOT NULL,
+    element_id bigint NOT NULL,
+    variations jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    layout jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE public.element_variations OWNER TO postgres;
+
+--
+-- Name: element_variations_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.element_variations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.element_variations_id_seq OWNER TO postgres;
+
+--
+-- Name: element_variations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.element_variations_id_seq OWNED BY public.element_variations.id;
+
+
+--
 -- Name: elemental_compositions; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -2768,7 +3066,9 @@ CREATE TABLE public.elements (
     uuid character varying,
     klass_uuid character varying,
     properties_release jsonb,
-    ancestry character varying
+    ancestry character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C",
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_elements_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -2849,7 +3149,9 @@ CREATE TABLE public.elements_revisions (
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
     deleted_at timestamp without time zone,
-    properties_release jsonb
+    properties_release jsonb,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_elements_revisions_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -2914,6 +3216,44 @@ ALTER SEQUENCE public.elements_samples_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.elements_samples_id_seq OWNED BY public.elements_samples.id;
+
+
+--
+-- Name: elements_wellplates; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.elements_wellplates (
+    id bigint NOT NULL,
+    element_id bigint NOT NULL,
+    wellplate_id bigint NOT NULL,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    deleted_at timestamp without time zone,
+    log_data jsonb
+);
+
+
+ALTER TABLE public.elements_wellplates OWNER TO postgres;
+
+--
+-- Name: elements_wellplates_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.elements_wellplates_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.elements_wellplates_id_seq OWNER TO postgres;
+
+--
+-- Name: elements_wellplates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.elements_wellplates_id_seq OWNED BY public.elements_wellplates.id;
 
 
 --
@@ -3014,6 +3354,44 @@ ALTER SEQUENCE public.fingerprints_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.fingerprints_id_seq OWNED BY public.fingerprints.id;
+
+
+--
+-- Name: info_support_links; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.info_support_links (
+    id bigint NOT NULL,
+    label character varying NOT NULL,
+    url character varying NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+ALTER TABLE public.info_support_links OWNER TO postgres;
+
+--
+-- Name: info_support_links_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.info_support_links_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.info_support_links_id_seq OWNER TO postgres;
+
+--
+-- Name: info_support_links_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.info_support_links_id_seq OWNED BY public.info_support_links.id;
 
 
 --
@@ -3451,7 +3829,14 @@ CREATE TABLE public.reactions (
     plain_text_observation text,
     gaseous boolean DEFAULT false,
     vessel_size jsonb DEFAULT '{"unit": "ml", "amount": null}'::jsonb,
-    log_data jsonb
+    log_data jsonb,
+    weight_percentage boolean DEFAULT false,
+    volume numeric(10,4),
+    use_reaction_volume boolean DEFAULT false NOT NULL,
+    lock_reaction_volume boolean DEFAULT false NOT NULL,
+    reaction_type character varying DEFAULT 'standard'::character varying NOT NULL,
+    ph_operator character varying DEFAULT '='::character varying NOT NULL,
+    ph_value double precision
 );
 
 
@@ -3476,7 +3861,7 @@ CREATE TABLE public.samples (
     impurities character varying DEFAULT ''::character varying,
     location character varying DEFAULT ''::character varying,
     is_top_secret boolean DEFAULT false,
-    ancestry character varying,
+    ancestry character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C",
     external_label character varying DEFAULT ''::character varying,
     created_by integer,
     short_label character varying,
@@ -3504,7 +3889,9 @@ CREATE TABLE public.samples (
     solvent jsonb,
     dry_solvent boolean DEFAULT false,
     inventory_sample boolean DEFAULT false,
-    log_data jsonb
+    log_data jsonb,
+    sample_type character varying DEFAULT 'Micromolecule'::character varying,
+    sample_details jsonb
 );
 
 
@@ -3643,7 +4030,8 @@ CREATE TABLE public.measurements (
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     source_type character varying,
-    source_id bigint
+    source_id bigint,
+    metadata jsonb DEFAULT '{}'::jsonb
 );
 
 
@@ -3955,7 +4343,13 @@ CREATE TABLE public.users (
     providers jsonb,
     is_super_device boolean DEFAULT false,
     used_space bigint DEFAULT 0,
-    allocated_space bigint DEFAULT 0
+    allocated_space bigint DEFAULT 0,
+    encrypted_otp_secret character varying,
+    encrypted_otp_secret_iv character varying,
+    encrypted_otp_secret_salt character varying,
+    consumed_timestep integer,
+    otp_required_for_login boolean,
+    otp_backup_codes character varying[]
 );
 
 
@@ -3994,7 +4388,7 @@ CREATE TABLE public.ols_terms (
     id integer NOT NULL,
     owl_name character varying,
     term_id character varying,
-    ancestry character varying,
+    ancestry character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C",
     ancestry_term_id character varying,
     label character varying,
     synonym character varying,
@@ -4067,6 +4461,73 @@ ALTER SEQUENCE public.pg_search_documents_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.pg_search_documents_id_seq OWNED BY public.pg_search_documents.id;
+
+
+--
+-- Name: post_translational_modifications; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.post_translational_modifications (
+    id bigint NOT NULL,
+    phosphorylation_enabled boolean DEFAULT false NOT NULL,
+    phosphorylation_ser_enabled boolean DEFAULT false NOT NULL,
+    phosphorylation_ser_details character varying DEFAULT ''::character varying,
+    phosphorylation_thr_enabled boolean DEFAULT false NOT NULL,
+    phosphorylation_thr_details character varying DEFAULT ''::character varying,
+    phosphorylation_tyr_enabled boolean DEFAULT false NOT NULL,
+    phosphorylation_tyr_details character varying DEFAULT ''::character varying,
+    glycosylation_enabled boolean DEFAULT false NOT NULL,
+    glycosylation_n_linked_asn_enabled boolean DEFAULT false NOT NULL,
+    glycosylation_n_linked_asn_details character varying DEFAULT ''::character varying,
+    glycosylation_o_linked_lys_enabled boolean DEFAULT false NOT NULL,
+    glycosylation_o_linked_lys_details character varying DEFAULT ''::character varying,
+    glycosylation_o_linked_ser_enabled boolean DEFAULT false NOT NULL,
+    glycosylation_o_linked_ser_details character varying DEFAULT ''::character varying,
+    glycosylation_o_linked_thr_enabled boolean DEFAULT false NOT NULL,
+    glycosylation_o_linked_thr_details character varying DEFAULT ''::character varying,
+    acetylation_enabled boolean DEFAULT false NOT NULL,
+    acetylation_lysin_number double precision,
+    hydroxylation_enabled boolean DEFAULT false NOT NULL,
+    hydroxylation_lys_enabled boolean DEFAULT false NOT NULL,
+    hydroxylation_lys_details character varying DEFAULT 't'::character varying,
+    hydroxylation_pro_enabled boolean DEFAULT false NOT NULL,
+    hydroxylation_pro_details character varying DEFAULT 't'::character varying,
+    methylation_enabled boolean DEFAULT false NOT NULL,
+    methylation_arg_enabled boolean DEFAULT false NOT NULL,
+    methylation_arg_details character varying DEFAULT ''::character varying,
+    methylation_glu_enabled boolean DEFAULT false NOT NULL,
+    methylation_glu_details character varying DEFAULT ''::character varying,
+    methylation_lys_enabled boolean DEFAULT false NOT NULL,
+    methylation_lys_details character varying DEFAULT ''::character varying,
+    other_modifications_enabled boolean DEFAULT false NOT NULL,
+    other_modifications_details character varying DEFAULT ''::character varying,
+    deleted_at timestamp without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+ALTER TABLE public.post_translational_modifications OWNER TO postgres;
+
+--
+-- Name: post_translational_modifications_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.post_translational_modifications_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.post_translational_modifications_id_seq OWNER TO postgres;
+
+--
+-- Name: post_translational_modifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.post_translational_modifications_id_seq OWNED BY public.post_translational_modifications.id;
 
 
 --
@@ -4159,7 +4620,8 @@ CREATE TABLE public.profiles (
     data jsonb DEFAULT '{}'::jsonb NOT NULL,
     curation integer DEFAULT 2,
     show_sample_name boolean DEFAULT false,
-    show_sample_short_label boolean DEFAULT false
+    show_sample_short_label boolean DEFAULT false,
+    theme integer DEFAULT 0 NOT NULL
 );
 
 
@@ -4188,6 +4650,53 @@ ALTER SEQUENCE public.profiles_id_seq OWNED BY public.profiles.id;
 
 
 --
+-- Name: protein_sequence_modifications; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.protein_sequence_modifications (
+    id bigint NOT NULL,
+    modification_n_terminal boolean DEFAULT false NOT NULL,
+    modification_n_terminal_details character varying DEFAULT ''::character varying,
+    modification_c_terminal boolean DEFAULT false NOT NULL,
+    modification_c_terminal_details character varying DEFAULT ''::character varying,
+    modification_insertion boolean DEFAULT false NOT NULL,
+    modification_insertion_details character varying DEFAULT ''::character varying,
+    modification_deletion boolean DEFAULT false NOT NULL,
+    modification_deletion_details character varying DEFAULT ''::character varying,
+    modification_mutation boolean DEFAULT false NOT NULL,
+    modification_mutation_details character varying DEFAULT ''::character varying,
+    modification_other boolean DEFAULT false NOT NULL,
+    modification_other_details character varying DEFAULT ''::character varying,
+    deleted_at timestamp without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+ALTER TABLE public.protein_sequence_modifications OWNER TO postgres;
+
+--
+-- Name: protein_sequence_modifications_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.protein_sequence_modifications_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.protein_sequence_modifications_id_seq OWNER TO postgres;
+
+--
+-- Name: protein_sequence_modifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.protein_sequence_modifications_id_seq OWNED BY public.protein_sequence_modifications.id;
+
+
+--
 -- Name: reactions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -4207,6 +4716,49 @@ ALTER SEQUENCE public.reactions_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.reactions_id_seq OWNED BY public.reactions.id;
+
+
+--
+-- Name: reactions_reactant_sbmm_samples; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.reactions_reactant_sbmm_samples (
+    id bigint NOT NULL,
+    reaction_id integer NOT NULL,
+    sequence_based_macromolecule_sample_id bigint NOT NULL,
+    "position" integer,
+    deleted_at timestamp without time zone,
+    show_label boolean DEFAULT false NOT NULL,
+    reference boolean DEFAULT false NOT NULL,
+    equivalent double precision,
+    weight_percentage double precision,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    log_data jsonb
+);
+
+
+ALTER TABLE public.reactions_reactant_sbmm_samples OWNER TO postgres;
+
+--
+-- Name: reactions_reactant_sbmm_samples_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.reactions_reactant_sbmm_samples_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.reactions_reactant_sbmm_samples_id_seq OWNER TO postgres;
+
+--
+-- Name: reactions_reactant_sbmm_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.reactions_reactant_sbmm_samples_id_seq OWNED BY public.reactions_reactant_sbmm_samples.id;
 
 
 --
@@ -4230,7 +4782,9 @@ CREATE TABLE public.reactions_samples (
     conversion_rate double precision,
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
-    log_data jsonb
+    log_data jsonb,
+    weight_percentage_reference boolean DEFAULT false,
+    weight_percentage double precision
 );
 
 
@@ -4514,7 +5068,8 @@ CREATE TABLE public.research_plans (
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     body jsonb,
-    log_data jsonb
+    log_data jsonb,
+    short_label character varying
 );
 
 
@@ -4912,7 +5467,9 @@ CREATE TABLE public.segment_klasses (
     sync_by integer,
     admin_ids jsonb DEFAULT '{}'::jsonb,
     user_ids jsonb DEFAULT '{}'::jsonb,
-    version character varying
+    version character varying,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_segment_klasses_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -4955,7 +5512,10 @@ CREATE TABLE public.segment_klasses_revisions (
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
     deleted_at timestamp without time zone,
-    version character varying
+    version character varying,
+    submitted integer DEFAULT 0 NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_segment_klasses_revisions_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -4999,7 +5559,9 @@ CREATE TABLE public.segments (
     deleted_at timestamp without time zone,
     uuid character varying,
     klass_uuid character varying,
-    properties_release jsonb
+    properties_release jsonb,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_segments_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -5041,7 +5603,9 @@ CREATE TABLE public.segments_revisions (
     created_at timestamp without time zone,
     updated_at timestamp without time zone,
     deleted_at timestamp without time zone,
-    properties_release jsonb
+    properties_release jsonb,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT chk_segments_revisions_metadata CHECK ((jsonb_typeof(metadata) = 'object'::text))
 );
 
 
@@ -5067,6 +5631,141 @@ ALTER SEQUENCE public.segments_revisions_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.segments_revisions_id_seq OWNED BY public.segments_revisions.id;
+
+
+--
+-- Name: sequence_based_macromolecule_samples; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.sequence_based_macromolecule_samples (
+    id bigint NOT NULL,
+    name character varying NOT NULL,
+    deleted_at timestamp without time zone,
+    external_label character varying,
+    short_label character varying NOT NULL,
+    function_or_application character varying,
+    concentration_value double precision,
+    concentration_unit character varying DEFAULT 'ng/L'::character varying NOT NULL,
+    molarity_value double precision,
+    molarity_unit character varying DEFAULT 'mol/L'::character varying NOT NULL,
+    activity_per_volume_value double precision,
+    activity_per_volume_unit character varying DEFAULT 'U/L'::character varying NOT NULL,
+    activity_per_mass_value double precision,
+    activity_per_mass_unit character varying DEFAULT 'U/g'::character varying NOT NULL,
+    volume_as_used_value double precision,
+    volume_as_used_unit character varying DEFAULT 'L'::character varying NOT NULL,
+    amount_as_used_mol_value double precision,
+    amount_as_used_mol_unit character varying DEFAULT 'mol'::character varying NOT NULL,
+    amount_as_used_mass_value double precision,
+    amount_as_used_mass_unit character varying DEFAULT 'g'::character varying NOT NULL,
+    activity_value double precision,
+    activity_unit character varying DEFAULT 'U'::character varying NOT NULL,
+    sequence_based_macromolecule_id bigint,
+    user_id bigint,
+    ancestry character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C",
+    heterologous_expression character varying DEFAULT 'unknown'::character varying NOT NULL,
+    organism character varying DEFAULT ''::character varying,
+    taxon_id character varying DEFAULT ''::character varying,
+    strain character varying DEFAULT ''::character varying,
+    tissue character varying DEFAULT ''::character varying,
+    localisation character varying DEFAULT ''::character varying,
+    obtained_by character varying DEFAULT ''::character varying,
+    supplier character varying DEFAULT ''::character varying,
+    formulation character varying DEFAULT ''::character varying,
+    purity double precision,
+    purity_detection character varying DEFAULT ''::character varying,
+    purification_method character varying DEFAULT ''::character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    concentration_rt_value double precision,
+    concentration_rt_unit character varying DEFAULT 'mol/L'::character varying NOT NULL,
+    inventory_sample boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.sequence_based_macromolecule_samples OWNER TO postgres;
+
+--
+-- Name: sequence_based_macromolecule_samples_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.sequence_based_macromolecule_samples_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.sequence_based_macromolecule_samples_id_seq OWNER TO postgres;
+
+--
+-- Name: sequence_based_macromolecule_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.sequence_based_macromolecule_samples_id_seq OWNED BY public.sequence_based_macromolecule_samples.id;
+
+
+--
+-- Name: sequence_based_macromolecules; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.sequence_based_macromolecules (
+    id bigint NOT NULL,
+    uniprot_source jsonb,
+    parent_id bigint,
+    sbmm_type character varying NOT NULL,
+    sbmm_subtype character varying,
+    uniprot_derivation character varying NOT NULL,
+    primary_accession character varying,
+    accessions character varying[],
+    ec_numbers character varying[],
+    pdb_doi character varying,
+    systematic_name character varying,
+    short_name character varying NOT NULL,
+    molecular_weight double precision,
+    sequence character varying NOT NULL,
+    link_uniprot character varying,
+    link_pdb character varying,
+    protein_sequence_modification_id bigint,
+    heterologous_expression character varying DEFAULT 'unknown'::character varying NOT NULL,
+    organism character varying DEFAULT ''::character varying,
+    taxon_id character varying DEFAULT ''::character varying,
+    strain character varying DEFAULT ''::character varying,
+    tissue character varying DEFAULT ''::character varying,
+    localisation character varying DEFAULT ''::character varying,
+    protein_source_details_comments character varying DEFAULT ''::character varying,
+    protein_source_details_expression_system character varying DEFAULT ''::character varying,
+    own_identifier character varying DEFAULT ''::character varying,
+    other_identifier character varying DEFAULT ''::character varying,
+    post_translational_modification_id bigint,
+    deleted_at timestamp without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+ALTER TABLE public.sequence_based_macromolecules OWNER TO postgres;
+
+--
+-- Name: sequence_based_macromolecules_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.sequence_based_macromolecules_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.sequence_based_macromolecules_id_seq OWNER TO postgres;
+
+--
+-- Name: sequence_based_macromolecules_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.sequence_based_macromolecules_id_seq OWNED BY public.sequence_based_macromolecules.id;
 
 
 --
@@ -5104,55 +5803,6 @@ ALTER SEQUENCE public.subscriptions_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.subscriptions_id_seq OWNED BY public.subscriptions.id;
-
-
---
--- Name: sync_collections_users; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.sync_collections_users (
-    id integer NOT NULL,
-    user_id integer,
-    collection_id integer,
-    shared_by_id integer,
-    permission_level integer DEFAULT 0,
-    sample_detail_level integer DEFAULT 0,
-    reaction_detail_level integer DEFAULT 0,
-    wellplate_detail_level integer DEFAULT 0,
-    screen_detail_level integer DEFAULT 0,
-    fake_ancestry character varying,
-    researchplan_detail_level integer DEFAULT 10,
-    label character varying,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    element_detail_level integer DEFAULT 10,
-    celllinesample_detail_level integer DEFAULT 10,
-    devicedescription_detail_level integer DEFAULT 10
-);
-
-
-ALTER TABLE public.sync_collections_users OWNER TO postgres;
-
---
--- Name: sync_collections_users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.sync_collections_users_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.sync_collections_users_id_seq OWNER TO postgres;
-
---
--- Name: sync_collections_users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.sync_collections_users_id_seq OWNED BY public.sync_collections_users.id;
 
 
 --
@@ -5443,27 +6093,6 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
--- Name: v_samples_collections; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.v_samples_collections AS
- SELECT cols.id AS cols_id,
-    cols.user_id AS cols_user_id,
-    cols.sample_detail_level AS cols_sample_detail_level,
-    cols.wellplate_detail_level AS cols_wellplate_detail_level,
-    cols.shared_by_id AS cols_shared_by_id,
-    cols.is_shared AS cols_is_shared,
-    samples.id AS sams_id,
-    samples.name AS sams_name
-   FROM ((public.collections cols
-     JOIN public.collections_samples col_samples ON (((col_samples.collection_id = cols.id) AND (col_samples.deleted_at IS NULL))))
-     JOIN public.samples ON (((samples.id = col_samples.sample_id) AND (samples.deleted_at IS NULL))))
-  WHERE (cols.deleted_at IS NULL);
-
-
-ALTER VIEW public.v_samples_collections OWNER TO postgres;
-
---
 -- Name: vessel_templates; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -5501,7 +6130,9 @@ CREATE TABLE public.vessels (
     updated_at timestamp(6) without time zone NOT NULL,
     deleted_at timestamp without time zone,
     bar_code character varying,
-    qr_code character varying
+    qr_code character varying,
+    weight_amount double precision,
+    weight_unit character varying
 );
 
 
@@ -5671,6 +6302,13 @@ ALTER TABLE ONLY public.analyses_experiments ALTER COLUMN id SET DEFAULT nextval
 
 
 --
+-- Name: api_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.api_tokens ALTER COLUMN id SET DEFAULT nextval('public.api_tokens_id_seq'::regclass);
+
+
+--
 -- Name: attachments id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -5724,6 +6362,13 @@ ALTER TABLE ONLY public.channels ALTER COLUMN id SET DEFAULT nextval('public.cha
 --
 
 ALTER TABLE ONLY public.chemicals ALTER COLUMN id SET DEFAULT nextval('public.chemicals_id_seq'::regclass);
+
+
+--
+-- Name: collection_shares id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.collection_shares ALTER COLUMN id SET DEFAULT nextval('public.collection_shares_id_seq'::regclass);
 
 
 --
@@ -5783,6 +6428,13 @@ ALTER TABLE ONLY public.collections_screens ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: collections_sequence_based_macromolecule_samples id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.collections_sequence_based_macromolecule_samples ALTER COLUMN id SET DEFAULT nextval('public.collections_sequence_based_macromolecule_samples_id_seq'::regclass);
+
+
+--
 -- Name: collections_wellplates id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -5801,6 +6453,13 @@ ALTER TABLE ONLY public.collector_errors ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.comments ALTER COLUMN id SET DEFAULT nextval('public.comments_id_seq'::regclass);
+
+
+--
+-- Name: components id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.components ALTER COLUMN id SET DEFAULT nextval('public.components_id_seq'::regclass);
 
 
 --
@@ -5874,6 +6533,20 @@ ALTER TABLE ONLY public.devices ALTER COLUMN id SET DEFAULT nextval('public.devi
 
 
 --
+-- Name: dose_resp_outputs id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.dose_resp_outputs ALTER COLUMN id SET DEFAULT nextval('public.dose_resp_outputs_id_seq'::regclass);
+
+
+--
+-- Name: dose_resp_requests id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.dose_resp_requests ALTER COLUMN id SET DEFAULT nextval('public.dose_resp_requests_id_seq'::regclass);
+
+
+--
 -- Name: element_klasses id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -5892,6 +6565,13 @@ ALTER TABLE ONLY public.element_klasses_revisions ALTER COLUMN id SET DEFAULT ne
 --
 
 ALTER TABLE ONLY public.element_tags ALTER COLUMN id SET DEFAULT nextval('public.element_tags_id_seq'::regclass);
+
+
+--
+-- Name: element_variations id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.element_variations ALTER COLUMN id SET DEFAULT nextval('public.element_variations_id_seq'::regclass);
 
 
 --
@@ -5930,6 +6610,13 @@ ALTER TABLE ONLY public.elements_samples ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: elements_wellplates id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.elements_wellplates ALTER COLUMN id SET DEFAULT nextval('public.elements_wellplates_id_seq'::regclass);
+
+
+--
 -- Name: experiments id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -5941,6 +6628,13 @@ ALTER TABLE ONLY public.experiments ALTER COLUMN id SET DEFAULT nextval('public.
 --
 
 ALTER TABLE ONLY public.fingerprints ALTER COLUMN id SET DEFAULT nextval('public.fingerprints_id_seq'::regclass);
+
+
+--
+-- Name: info_support_links id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.info_support_links ALTER COLUMN id SET DEFAULT nextval('public.info_support_links_id_seq'::regclass);
 
 
 --
@@ -6084,6 +6778,13 @@ ALTER TABLE ONLY public.pg_search_documents ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: post_translational_modifications id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.post_translational_modifications ALTER COLUMN id SET DEFAULT nextval('public.post_translational_modifications_id_seq'::regclass);
+
+
+--
 -- Name: predictions id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -6105,10 +6806,24 @@ ALTER TABLE ONLY public.profiles ALTER COLUMN id SET DEFAULT nextval('public.pro
 
 
 --
+-- Name: protein_sequence_modifications id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.protein_sequence_modifications ALTER COLUMN id SET DEFAULT nextval('public.protein_sequence_modifications_id_seq'::regclass);
+
+
+--
 -- Name: reactions id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.reactions ALTER COLUMN id SET DEFAULT nextval('public.reactions_id_seq'::regclass);
+
+
+--
+-- Name: reactions_reactant_sbmm_samples id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.reactions_reactant_sbmm_samples ALTER COLUMN id SET DEFAULT nextval('public.reactions_reactant_sbmm_samples_id_seq'::regclass);
 
 
 --
@@ -6252,17 +6967,24 @@ ALTER TABLE ONLY public.segments_revisions ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: sequence_based_macromolecule_samples id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sequence_based_macromolecule_samples ALTER COLUMN id SET DEFAULT nextval('public.sequence_based_macromolecule_samples_id_seq'::regclass);
+
+
+--
+-- Name: sequence_based_macromolecules id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sequence_based_macromolecules ALTER COLUMN id SET DEFAULT nextval('public.sequence_based_macromolecules_id_seq'::regclass);
+
+
+--
 -- Name: subscriptions id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.subscriptions ALTER COLUMN id SET DEFAULT nextval('public.subscriptions_id_seq'::regclass);
-
-
---
--- Name: sync_collections_users id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.sync_collections_users ALTER COLUMN id SET DEFAULT nextval('public.sync_collections_users_id_seq'::regclass);
 
 
 --
@@ -6359,6 +7081,14 @@ COPY public.analyses_experiments (id, sample_id, holder_id, status, devices_anal
 
 
 --
+-- Data for Name: api_tokens; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.api_tokens (id, name, token_digest, user_id, expires_at, revoked_at, created_at, updated_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: ar_internal_metadata; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -6371,13 +7101,13 @@ environment	production	2024-01-23 13:44:02.869137	2024-09-27 09:08:54.851478
 -- Data for Name: attachments; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.attachments (id, attachable_id, filename, identifier, checksum, storage, created_by, created_for, version, created_at, updated_at, content_type, bucket, key, thumb, folder, attachable_type, aasm_state, filesize, attachment_data, con_state, deleted_at, log_data, created_by_type) FROM stdin;
-3	\N	Supporting_information.docx	0f51d8d9-1e59-43d4-97be-636c2b3e543a	\N	local	1	1	\N	2024-01-23 13:44:02.233976	2024-01-23 13:44:02.233976	\N	\N	7fdb104e-ab44-4a86-b992-5a9703d3f493	f	\N	\N	non_jcamp	\N	{"id": "1/0f51d8d9-1e59-43d4-97be-636c2b3e543a", "storage": "store", "metadata": {"md5": "c255a111db2b80cff9eba396be7de06e", "size": 32417, "filename": "Supporting_information.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 3, "key": "7fdb104e-ab44-4a86-b992-5a9703d3f493", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Supporting_information.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.233976", "created_by": 1, "deleted_at": null, "identifier": "0f51d8d9-1e59-43d4-97be-636c2b3e543a", "updated_at": "2024-01-23T13:44:02.233976", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/0f51d8d9-1e59-43d4-97be-636c2b3e543a\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"c255a111db2b80cff9eba396be7de06e\\", \\"size\\": 32417, \\"filename\\": \\"Supporting_information.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442234}], "v": 1}	\N
-4	\N	Spectra.docx	7e0def2f-c9d4-4074-91d9-b26ab5495719	\N	local	1	1	\N	2024-01-23 13:44:02.243392	2024-01-23 13:44:02.243392	\N	\N	4cf7d09d-7641-4f75-bf11-2ca69995ba3f	f	\N	\N	non_jcamp	\N	{"id": "1/7e0def2f-c9d4-4074-91d9-b26ab5495719", "storage": "store", "metadata": {"md5": "b9720669839497ede31b37dff86daf08", "size": 32379, "filename": "Spectra.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 4, "key": "4cf7d09d-7641-4f75-bf11-2ca69995ba3f", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Spectra.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.243392", "created_by": 1, "deleted_at": null, "identifier": "7e0def2f-c9d4-4074-91d9-b26ab5495719", "updated_at": "2024-01-23T13:44:02.243392", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/7e0def2f-c9d4-4074-91d9-b26ab5495719\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"b9720669839497ede31b37dff86daf08\\", \\"size\\": 32379, \\"filename\\": \\"Spectra.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442243}], "v": 1}	\N
-5	\N	rxn_list.html.erb	40161613-40ff-48b9-ae0d-be5a1ec2474d	\N	local	1	1	\N	2024-01-23 13:44:02.257439	2024-01-23 13:44:02.257439	\N	\N	08cb29e1-887e-4813-9c58-6d87366952a0	f	\N	\N	non_jcamp	\N	{"id": "1/40161613-40ff-48b9-ae0d-be5a1ec2474d", "storage": "store", "metadata": {"md5": "a85bab1410123d7bd636599f664aa235", "size": 2310, "filename": "rxn_list.html.erb", "mime_type": "text/html"}}	\N	\N	{"h": [{"c": {"id": 5, "key": "08cb29e1-887e-4813-9c58-6d87366952a0", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "rxn_list.html.erb", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.257439", "created_by": 1, "deleted_at": null, "identifier": "40161613-40ff-48b9-ae0d-be5a1ec2474d", "updated_at": "2024-01-23T13:44:02.257439", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/40161613-40ff-48b9-ae0d-be5a1ec2474d\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"a85bab1410123d7bd636599f664aa235\\", \\"size\\": 2310, \\"filename\\": \\"rxn_list.html.erb\\", \\"mime_type\\": \\"text/html\\"}}"}, "v": 1, "ts": 1706017442257}], "v": 1}	\N
-6	\N	Standard.docx	32ba77e7-5962-44cf-b2e5-1dda89f302a3	\N	local	1	1	\N	2024-01-23 13:44:02.298977	2024-01-23 13:44:02.298977	application/vnd.openxmlformats-officedocument.wordprocessingml.document	\N	db0add32-4336-4a3e-94f3-f19b07693ad2	f	\N	\N	non_jcamp	\N	{"id": "1/32ba77e7-5962-44cf-b2e5-1dda89f302a3", "storage": "store", "metadata": {"md5": "2595f44a2dc963d58d7e32cdc5861980", "size": 93876, "filename": "Standard.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 6, "key": "db0add32-4336-4a3e-94f3-f19b07693ad2", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Standard.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.298977", "created_by": 1, "deleted_at": null, "identifier": "32ba77e7-5962-44cf-b2e5-1dda89f302a3", "updated_at": "2024-01-23T13:44:02.298977", "created_for": 1, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/32ba77e7-5962-44cf-b2e5-1dda89f302a3\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"2595f44a2dc963d58d7e32cdc5861980\\", \\"size\\": 93876, \\"filename\\": \\"Standard.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442299}], "v": 1}	\N
-1	\N	Standard.docx	67e79caf-a9a2-4096-894f-5e2c571d32e2	\N	local	1	1	\N	2024-01-23 13:44:02.200237	2024-01-23 13:44:02.200237	\N	\N	21241e81-8131-42a2-8f0e-5d7a31a61054	f	\N	\N	non_jcamp	\N	{"id": "1/67e79caf-a9a2-4096-894f-5e2c571d32e2", "storage": "store", "metadata": {"md5": "2595f44a2dc963d58d7e32cdc5861980", "size": 93876, "filename": "Standard.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 1, "key": "21241e81-8131-42a2-8f0e-5d7a31a61054", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Standard.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.200237", "created_by": 1, "deleted_at": null, "identifier": "67e79caf-a9a2-4096-894f-5e2c571d32e2", "updated_at": "2024-01-23T13:44:02.200237", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/67e79caf-a9a2-4096-894f-5e2c571d32e2\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"2595f44a2dc963d58d7e32cdc5861980\\", \\"size\\": 93876, \\"filename\\": \\"Standard.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442200}], "v": 1}	\N
-2	\N	Supporting_information.docx	631520ee-cd61-45db-af4f-2f4af5efb80b	\N	local	1	1	\N	2024-01-23 13:44:02.223474	2024-01-23 13:44:02.223474	\N	\N	d7ba6c50-6ed6-4415-b8f2-d0bd7b38575d	f	\N	\N	non_jcamp	\N	{"id": "1/631520ee-cd61-45db-af4f-2f4af5efb80b", "storage": "store", "metadata": {"md5": "c255a111db2b80cff9eba396be7de06e", "size": 32417, "filename": "Supporting_information.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 2, "key": "d7ba6c50-6ed6-4415-b8f2-d0bd7b38575d", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Supporting_information.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.223474", "created_by": 1, "deleted_at": null, "identifier": "631520ee-cd61-45db-af4f-2f4af5efb80b", "updated_at": "2024-01-23T13:44:02.223474", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/631520ee-cd61-45db-af4f-2f4af5efb80b\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"c255a111db2b80cff9eba396be7de06e\\", \\"size\\": 32417, \\"filename\\": \\"Supporting_information.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442223}], "v": 1}	\N
+COPY public.attachments (id, attachable_id, filename, identifier, checksum, storage, created_by, created_for, version, created_at, updated_at, content_type, bucket, key, thumb, folder, attachable_type, aasm_state, filesize, attachment_data, con_state, deleted_at, log_data, created_by_type, edit_state) FROM stdin;
+5	\N	rxn_list.html.erb	40161613-40ff-48b9-ae0d-be5a1ec2474d	\N	local	1	1	/	2024-01-23 13:44:02.257439	2024-01-23 13:44:02.257439	\N	\N	08cb29e1-887e-4813-9c58-6d87366952a0	f	\N	\N	non_jcamp	\N	{"id": "1/40161613-40ff-48b9-ae0d-be5a1ec2474d", "storage": "store", "metadata": {"md5": "a85bab1410123d7bd636599f664aa235", "size": 2310, "filename": "rxn_list.html.erb", "mime_type": "text/html"}}	\N	\N	{"h": [{"c": {"id": 5, "key": "08cb29e1-887e-4813-9c58-6d87366952a0", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "rxn_list.html.erb", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.257439", "created_by": 1, "deleted_at": null, "identifier": "40161613-40ff-48b9-ae0d-be5a1ec2474d", "updated_at": "2024-01-23T13:44:02.257439", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/40161613-40ff-48b9-ae0d-be5a1ec2474d\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"a85bab1410123d7bd636599f664aa235\\", \\"size\\": 2310, \\"filename\\": \\"rxn_list.html.erb\\", \\"mime_type\\": \\"text/html\\"}}"}, "v": 1, "ts": 1706017442257}, {"c": {"version": "/"}, "v": 2, "ts": 1783014023587}], "v": 2}	\N	0
+3	\N	Supporting_information.docx	0f51d8d9-1e59-43d4-97be-636c2b3e543a	\N	local	1	1	/	2024-01-23 13:44:02.233976	2024-01-23 13:44:02.233976	\N	\N	7fdb104e-ab44-4a86-b992-5a9703d3f493	f	\N	\N	non_jcamp	\N	{"id": "1/0f51d8d9-1e59-43d4-97be-636c2b3e543a", "storage": "store", "metadata": {"md5": "c255a111db2b80cff9eba396be7de06e", "size": 32417, "filename": "Supporting_information.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 3, "key": "7fdb104e-ab44-4a86-b992-5a9703d3f493", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Supporting_information.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.233976", "created_by": 1, "deleted_at": null, "identifier": "0f51d8d9-1e59-43d4-97be-636c2b3e543a", "updated_at": "2024-01-23T13:44:02.233976", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/0f51d8d9-1e59-43d4-97be-636c2b3e543a\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"c255a111db2b80cff9eba396be7de06e\\", \\"size\\": 32417, \\"filename\\": \\"Supporting_information.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442234}, {"c": {"version": "/"}, "v": 2, "ts": 1783014023587}], "v": 2}	\N	0
+4	\N	Spectra.docx	7e0def2f-c9d4-4074-91d9-b26ab5495719	\N	local	1	1	/	2024-01-23 13:44:02.243392	2024-01-23 13:44:02.243392	\N	\N	4cf7d09d-7641-4f75-bf11-2ca69995ba3f	f	\N	\N	non_jcamp	\N	{"id": "1/7e0def2f-c9d4-4074-91d9-b26ab5495719", "storage": "store", "metadata": {"md5": "b9720669839497ede31b37dff86daf08", "size": 32379, "filename": "Spectra.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 4, "key": "4cf7d09d-7641-4f75-bf11-2ca69995ba3f", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Spectra.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.243392", "created_by": 1, "deleted_at": null, "identifier": "7e0def2f-c9d4-4074-91d9-b26ab5495719", "updated_at": "2024-01-23T13:44:02.243392", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/7e0def2f-c9d4-4074-91d9-b26ab5495719\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"b9720669839497ede31b37dff86daf08\\", \\"size\\": 32379, \\"filename\\": \\"Spectra.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442243}, {"c": {"version": "/"}, "v": 2, "ts": 1783014023587}], "v": 2}	\N	0
+6	\N	Standard.docx	32ba77e7-5962-44cf-b2e5-1dda89f302a3	\N	local	1	1	/	2024-01-23 13:44:02.298977	2024-01-23 13:44:02.298977	application/vnd.openxmlformats-officedocument.wordprocessingml.document	\N	db0add32-4336-4a3e-94f3-f19b07693ad2	f	\N	\N	non_jcamp	\N	{"id": "1/32ba77e7-5962-44cf-b2e5-1dda89f302a3", "storage": "store", "metadata": {"md5": "2595f44a2dc963d58d7e32cdc5861980", "size": 93876, "filename": "Standard.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 6, "key": "db0add32-4336-4a3e-94f3-f19b07693ad2", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Standard.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.298977", "created_by": 1, "deleted_at": null, "identifier": "32ba77e7-5962-44cf-b2e5-1dda89f302a3", "updated_at": "2024-01-23T13:44:02.298977", "created_for": 1, "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/32ba77e7-5962-44cf-b2e5-1dda89f302a3\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"2595f44a2dc963d58d7e32cdc5861980\\", \\"size\\": 93876, \\"filename\\": \\"Standard.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442299}, {"c": {"version": "/"}, "v": 2, "ts": 1783014023587}], "v": 2}	\N	0
+1	\N	Standard.docx	67e79caf-a9a2-4096-894f-5e2c571d32e2	\N	local	1	1	/	2024-01-23 13:44:02.200237	2024-01-23 13:44:02.200237	\N	\N	21241e81-8131-42a2-8f0e-5d7a31a61054	f	\N	\N	non_jcamp	\N	{"id": "1/67e79caf-a9a2-4096-894f-5e2c571d32e2", "storage": "store", "metadata": {"md5": "2595f44a2dc963d58d7e32cdc5861980", "size": 93876, "filename": "Standard.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 1, "key": "21241e81-8131-42a2-8f0e-5d7a31a61054", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Standard.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.200237", "created_by": 1, "deleted_at": null, "identifier": "67e79caf-a9a2-4096-894f-5e2c571d32e2", "updated_at": "2024-01-23T13:44:02.200237", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/67e79caf-a9a2-4096-894f-5e2c571d32e2\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"2595f44a2dc963d58d7e32cdc5861980\\", \\"size\\": 93876, \\"filename\\": \\"Standard.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442200}, {"c": {"version": "/"}, "v": 2, "ts": 1783014023587}], "v": 2}	\N	0
+2	\N	Supporting_information.docx	631520ee-cd61-45db-af4f-2f4af5efb80b	\N	local	1	1	/	2024-01-23 13:44:02.223474	2024-01-23 13:44:02.223474	\N	\N	d7ba6c50-6ed6-4415-b8f2-d0bd7b38575d	f	\N	\N	non_jcamp	\N	{"id": "1/631520ee-cd61-45db-af4f-2f4af5efb80b", "storage": "store", "metadata": {"md5": "c255a111db2b80cff9eba396be7de06e", "size": 32417, "filename": "Supporting_information.docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}}	\N	\N	{"h": [{"c": {"id": 2, "key": "d7ba6c50-6ed6-4415-b8f2-d0bd7b38575d", "thumb": false, "bucket": null, "folder": null, "storage": "local", "version": null, "checksum": null, "filename": "Supporting_information.docx", "filesize": null, "con_state": null, "aasm_state": "non_jcamp", "created_at": "2024-01-23T13:44:02.223474", "created_by": 1, "deleted_at": null, "identifier": "631520ee-cd61-45db-af4f-2f4af5efb80b", "updated_at": "2024-01-23T13:44:02.223474", "created_for": 1, "content_type": null, "attachable_id": null, "attachable_type": null, "attachment_data": "{\\"id\\": \\"1/631520ee-cd61-45db-af4f-2f4af5efb80b\\", \\"storage\\": \\"store\\", \\"metadata\\": {\\"md5\\": \\"c255a111db2b80cff9eba396be7de06e\\", \\"size\\": 32417, \\"filename\\": \\"Supporting_information.docx\\", \\"mime_type\\": \\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\\"}}"}, "v": 1, "ts": 1706017442223}, {"c": {"version": "/"}, "v": 2, "ts": 1783014023587}], "v": 2}	\N	0
 \.
 
 
@@ -6393,7 +7123,7 @@ COPY public.authentication_keys (id, token, user_id, ip, role, fqdn, created_at,
 -- Data for Name: calendar_entries; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.calendar_entries (id, title, description, start_time, end_time, kind, created_by, created_at, updated_at, eventable_type, eventable_id) FROM stdin;
+COPY public.calendar_entries (id, title, description, start_time, end_time, kind, created_by, created_at, updated_at, eventable_type, eventable_id, status) FROM stdin;
 \.
 
 
@@ -6431,7 +7161,6 @@ COPY public.channels (id, subject, msg_template, channel_type, created_at, updat
 3	System Maintenance	\N	9	2024-01-23 13:44:00.304971	2024-01-23 13:44:00.304971
 8	Send Individual Users	\N	8	2024-01-23 13:44:00.343494	2024-01-23 13:44:00.343494
 14	Collection Import and Export	{"data": "Collection %{operation}: %{col_labels} processed successfully. %{expires_at}", "level": "success", "action": "CollectionActions.fetchUnsharedCollectionRoots"}	8	2024-01-23 13:44:00.565768	2024-01-23 13:44:02.363346
-23	Import Samples Completed	{"data": "%{message}", "action": "CollectionActions.fetchUnsharedCollectionRoots"}	8	2024-01-23 13:44:02.712829	2024-01-23 13:44:02.71434
 18	New comment on synchronized collection	{"data": "%<commented_by>s has made a new comment on %<element_type>s, %<element_name>s", "action": "CollectionActions.fetchSyncInCollectionRoots"}	8	2024-01-23 13:44:02.449573	2024-01-23 13:44:02.720794
 19	Comment resolved in synchronized collection	{"data": "%<resolved_by>s has marked your comment as resolved on %<element_type>s, %<element_name>s", "action": "CollectionActions.fetchSyncInCollectionRoots"}	8	2024-01-23 13:44:02.452294	2024-01-23 13:44:02.723486
 17	Assign Inbox Attachment to Sample	{"data": "This file [%{filename}] has been moved to the sample[%{info}] successfully."}	8	2024-01-23 13:44:02.143073	2024-01-23 13:44:02.143073
@@ -6450,6 +7179,7 @@ COPY public.channels (id, subject, msg_template, channel_type, created_at, updat
 22	Calender Entry Notification	{"data": "%{creator_name} %{type} calendar entry %{kind}: %{range} %{title}.", "action": "CalendarActions.navigateToElement", "eventable_id": "%{eventable_id}", "eventable_type": "%{eventable_type}"}	8	2024-01-23 13:44:02.601837	2024-01-23 13:44:02.601837
 13	Gate Transfer Completed	{"data": "Data tranfer from your collection  to Chemotion-Repository: %{comment}", "level": "success", "action": "RefreshChemotionCollection"}	8	2024-01-23 13:44:00.467171	2024-01-23 13:44:02.361389
 24	Send TPA attachment arrival notification	{"data": "Attachment from the third party app %{app} is available.", "level": "info"}	8	2024-11-20 06:08:46.021333	2024-11-20 06:08:46.021333
+23	Import Samples Completed	{"data": "%{message}", "action": "RefreshSampleList"}	8	2024-01-23 13:44:02.712829	2026-07-02 17:40:23.737141
 \.
 
 
@@ -6457,7 +7187,7 @@ COPY public.channels (id, subject, msg_template, channel_type, created_at, updat
 -- Data for Name: chemicals; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.chemicals (id, sample_id, cas, chemical_data, updated_at, deleted_at, log_data) FROM stdin;
+COPY public.chemicals (id, sample_id, cas, chemical_data, updated_at, deleted_at, log_data, sequence_based_macromolecule_sample_id) FROM stdin;
 \.
 
 
@@ -6478,23 +7208,31 @@ ced018ed-bc9c-4733-84a3-d90170c786b7	sample	5	0274901470491545027998291490068106
 
 
 --
+-- Data for Name: collection_shares; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.collection_shares (id, collection_id, shared_with_id, permission_level, celllinesample_detail_level, devicedescription_detail_level, element_detail_level, reaction_detail_level, researchplan_detail_level, sample_detail_level, screen_detail_level, sequencebasedmacromoleculesample_detail_level, wellplate_detail_level, created_at, updated_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: collections; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.collections (id, user_id, ancestry, label, shared_by_id, is_shared, permission_level, sample_detail_level, reaction_detail_level, wellplate_detail_level, created_at, updated_at, "position", screen_detail_level, is_locked, deleted_at, is_synchronized, researchplan_detail_level, element_detail_level, tabs_segment, celllinesample_detail_level, inventory_id, devicedescription_detail_level) FROM stdin;
-1	2	\N	chemotion-repository.net	\N	f	0	10	10	10	2024-01-23 15:12:02.256553	2024-01-23 15:12:02.256553	1	10	t	\N	f	10	10	{}	10	\N	10
-3	3	\N	All	\N	f	0	10	10	10	2024-01-23 15:12:19.921883	2024-01-23 15:12:19.921883	0	10	t	\N	f	10	10	{}	10	\N	10
-5	4	\N	All	\N	f	0	10	10	10	2024-01-24 07:01:45.778925	2024-01-24 07:01:45.778925	0	10	t	\N	f	10	10	{}	10	\N	10
-4	2	\N	TEST 1	\N	f	0	10	10	10	2024-01-23 15:17:02.666049	2024-01-24 08:41:10.845282	1	10	f	\N	f	10	10	{"sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3, "measurements": -1}}	10	\N	10
-2	2	\N	All	\N	f	0	10	10	10	2024-01-23 15:12:02.26009	2024-01-25 10:10:02.777475	0	10	t	\N	f	10	10	{"try": {"TrySeg1": 2, "analyses": 3, "properties": 1, "attachments": 4}, "sample": {"results": 5, "analyses": 1, "properties": 3, "references": 4, "qc_curation": 2, "measurements": -1}}	10	\N	10
-6	5	\N	All	\N	f	0	10	10	10	2024-02-16 08:50:38.511259	2024-02-16 08:50:38.511259	0	10	t	\N	f	10	10	{}	10	\N	10
-7	6	\N	All	\N	f	0	10	10	10	2024-02-16 08:51:22.298693	2024-02-16 08:51:22.298693	0	10	t	\N	f	10	10	{}	10	\N	10
-8	7	\N	chemotion-repository.net	\N	f	0	10	10	10	2024-02-16 08:52:48.558915	2024-02-16 08:52:48.558915	1	10	t	\N	f	10	10	{}	10	\N	10
-9	7	\N	All	\N	f	0	10	10	10	2024-02-16 08:52:48.561313	2024-02-16 08:52:48.561313	0	10	t	\N	f	10	10	{}	10	\N	10
-10	8	\N	All	\N	f	0	10	10	10	2024-02-16 08:53:15.379007	2024-02-16 08:53:15.379007	0	10	t	\N	f	10	10	{}	10	\N	10
-11	7	\N	FIXED	\N	f	0	10	10	10	2024-03-21 10:31:23.524241	2024-03-21 10:40:57.388683	1	10	f	\N	f	10	10	{}	10	\N	10
-12	9	\N	chemotion-repository.net	\N	f	0	10	10	10	2024-09-27 09:11:56.595124	2024-09-27 09:11:56.595124	1	10	t	\N	f	10	10	{}	10	\N	10
-13	9	\N	All	\N	f	0	10	10	10	2024-09-27 09:11:56.596278	2024-09-27 09:11:56.596278	0	10	t	\N	f	10	10	{}	10	\N	10
+COPY public.collections (id, user_id, ancestry, label, created_at, updated_at, "position", is_locked, deleted_at, tabs_segment, inventory_id, shared) FROM stdin;
+1	2	/	chemotion-repository.net	2024-01-23 15:12:02.256553	2024-01-23 15:12:02.256553	1	t	\N	{}	\N	f
+3	3	/	All	2024-01-23 15:12:19.921883	2024-01-23 15:12:19.921883	0	t	\N	{}	\N	f
+5	4	/	All	2024-01-24 07:01:45.778925	2024-01-24 07:01:45.778925	0	t	\N	{}	\N	f
+4	2	/	TEST 1	2024-01-23 15:17:02.666049	2024-01-24 08:41:10.845282	1	f	\N	{"sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3, "measurements": -1}}	\N	f
+2	2	/	All	2024-01-23 15:12:02.26009	2024-01-25 10:10:02.777475	0	t	\N	{"try": {"TrySeg1": 2, "analyses": 3, "properties": 1, "attachments": 4}, "sample": {"results": 5, "analyses": 1, "properties": 3, "references": 4, "qc_curation": 2, "measurements": -1}}	\N	f
+6	5	/	All	2024-02-16 08:50:38.511259	2024-02-16 08:50:38.511259	0	t	\N	{}	\N	f
+7	6	/	All	2024-02-16 08:51:22.298693	2024-02-16 08:51:22.298693	0	t	\N	{}	\N	f
+8	7	/	chemotion-repository.net	2024-02-16 08:52:48.558915	2024-02-16 08:52:48.558915	1	t	\N	{}	\N	f
+9	7	/	All	2024-02-16 08:52:48.561313	2024-02-16 08:52:48.561313	0	t	\N	{}	\N	f
+10	8	/	All	2024-02-16 08:53:15.379007	2024-02-16 08:53:15.379007	0	t	\N	{}	\N	f
+11	7	/	FIXED	2024-03-21 10:31:23.524241	2024-03-21 10:40:57.388683	1	f	\N	{}	\N	f
+12	9	/	chemotion-repository.net	2024-09-27 09:11:56.595124	2024-09-27 09:11:56.595124	1	t	\N	{}	\N	f
+13	9	/	All	2024-09-27 09:11:56.596278	2024-09-27 09:11:56.596278	0	t	\N	{}	\N	f
 \.
 
 
@@ -6581,6 +7319,14 @@ COPY public.collections_screens (id, collection_id, screen_id, deleted_at) FROM 
 
 
 --
+-- Data for Name: collections_sequence_based_macromolecule_samples; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.collections_sequence_based_macromolecule_samples (id, collection_id, sequence_based_macromolecule_sample_id, deleted_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: collections_vessels; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -6609,6 +7355,14 @@ COPY public.collector_errors (id, error_code, created_at, updated_at) FROM stdin
 --
 
 COPY public.comments (id, content, created_by, section, status, submitter, resolver_name, commentable_id, commentable_type, created_at, updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: components; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.components (id, sample_id, name, "position", component_properties, created_at, updated_at, deleted_at, log_data) FROM stdin;
 \.
 
 
@@ -6714,15 +7468,15 @@ COPY public.containers (id, ancestry, containable_id, containable_type, name, co
 -- Data for Name: dataset_klasses; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.dataset_klasses (id, ols_term_id, label, "desc", properties_template, is_active, place, created_by, created_at, updated_at, deleted_at, uuid, properties_release, released_at, identifier, sync_time, updated_by, released_by, sync_by, admin_ids, user_ids, version) FROM stdin;
-1	CHMO:0000593	1H nuclear magnetic resonance spectroscopy (1H NMR)	1H nuclear magnetic resonance spectroscopy (1H NMR)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e9f21b78-3de7-41c1-8e55-9f38e456e454", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	10	1	2024-01-23 13:44:01.428993	2024-01-23 13:44:01.822835	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N
-2	CHMO:0000595	13C nuclear magnetic resonance spectroscopy (13C NMR)	13C nuclear magnetic resonance spectroscopy (13C NMR)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "2f981b93-2a16-417f-b255-01621fb7e3e0", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	20	1	2024-01-23 13:44:01.435117	2024-01-23 13:44:01.839669	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N
-3	CHMO:0000470	mass spectrometry (MS)	mass spectrometry (MS)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "62cc2f01-a1a6-4a06-bb93-d48f44dcf263", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	30	1	2024-01-23 13:44:01.440317	2024-01-23 13:44:01.846564	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N
-4	CHMO:0001075	elemental analysis (EA)	elemental analysis (EA)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "332651a1-4eda-4848-bcde-fed1f36cc165", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	40	1	2024-01-23 13:44:01.444747	2024-01-23 13:44:01.852804	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N
-5	CHMO:0000497	gas chromatography-mass spectrometry (GCMS)	gas chromatography-mass spectrometry (GCMS)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "417474b8-f962-43c4-b9cc-00528d5be970", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	50	1	2024-01-23 13:44:01.44912	2024-01-23 13:44:01.867143	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N
-6	CHMO:0001009	high-performance liquid chromatography (HPLC)	high-performance liquid chromatography (HPLC)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "86ddc873-4c35-4258-94cb-571d52a39183", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	60	1	2024-01-23 13:44:01.453548	2024-01-23 13:44:01.873555	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N
-7	CHMO:0000630	infrared absorption spectroscopy (IR)	infrared absorption spectroscopy (IR)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "24bd888e-6fc2-4465-b17e-897705ede07e", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	70	1	2024-01-23 13:44:01.457933	2024-01-23 13:44:01.878864	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N
-8	CHMO:0001007	thin-layer chromatography (TLC)	thin-layer chromatography (TLC)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "9a9665e0-a38b-4f0f-9358-56b72a4056d1", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	80	1	2024-01-23 13:44:01.462131	2024-01-23 13:44:01.884963	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N
+COPY public.dataset_klasses (id, ols_term_id, label, "desc", properties_template, is_active, place, created_by, created_at, updated_at, deleted_at, uuid, properties_release, released_at, identifier, sync_time, updated_by, released_by, sync_by, admin_ids, user_ids, version, super_class_of, metadata) FROM stdin;
+1	CHMO:0000593	1H nuclear magnetic resonance spectroscopy (1H NMR)	1H nuclear magnetic resonance spectroscopy (1H NMR)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e9f21b78-3de7-41c1-8e55-9f38e456e454", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	10	1	2024-01-23 13:44:01.428993	2024-01-23 13:44:01.822835	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N	{}	{}
+2	CHMO:0000595	13C nuclear magnetic resonance spectroscopy (13C NMR)	13C nuclear magnetic resonance spectroscopy (13C NMR)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "2f981b93-2a16-417f-b255-01621fb7e3e0", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	20	1	2024-01-23 13:44:01.435117	2024-01-23 13:44:01.839669	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N	{}	{}
+3	CHMO:0000470	mass spectrometry (MS)	mass spectrometry (MS)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "62cc2f01-a1a6-4a06-bb93-d48f44dcf263", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	30	1	2024-01-23 13:44:01.440317	2024-01-23 13:44:01.846564	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N	{}	{}
+4	CHMO:0001075	elemental analysis (EA)	elemental analysis (EA)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "332651a1-4eda-4848-bcde-fed1f36cc165", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	40	1	2024-01-23 13:44:01.444747	2024-01-23 13:44:01.852804	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N	{}	{}
+5	CHMO:0000497	gas chromatography-mass spectrometry (GCMS)	gas chromatography-mass spectrometry (GCMS)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "417474b8-f962-43c4-b9cc-00528d5be970", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	50	1	2024-01-23 13:44:01.44912	2024-01-23 13:44:01.867143	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N	{}	{}
+6	CHMO:0001009	high-performance liquid chromatography (HPLC)	high-performance liquid chromatography (HPLC)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "86ddc873-4c35-4258-94cb-571d52a39183", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	60	1	2024-01-23 13:44:01.453548	2024-01-23 13:44:01.873555	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N	{}	{}
+7	CHMO:0000630	infrared absorption spectroscopy (IR)	infrared absorption spectroscopy (IR)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "24bd888e-6fc2-4465-b17e-897705ede07e", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	70	1	2024-01-23 13:44:01.457933	2024-01-23 13:44:01.878864	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N	{}	{}
+8	CHMO:0001007	thin-layer chromatography (TLC)	thin-layer chromatography (TLC)	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "9a9665e0-a38b-4f0f-9358-56b72a4056d1", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	f	80	1	2024-01-23 13:44:01.462131	2024-01-23 13:44:01.884963	\N	\N	{}	\N	\N	\N	\N	\N	\N	{}	{}	\N	{}	{}
 \.
 
 
@@ -6730,15 +7484,15 @@ COPY public.dataset_klasses (id, ols_term_id, label, "desc", properties_template
 -- Data for Name: dataset_klasses_revisions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.dataset_klasses_revisions (id, dataset_klass_id, uuid, properties_release, released_at, released_by, created_by, created_at, updated_at, deleted_at, version) FROM stdin;
-1	1	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e9f21b78-3de7-41c1-8e55-9f38e456e454", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.836659	2024-01-23 13:44:01.836659	\N	\N
-2	2	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "2f981b93-2a16-417f-b255-01621fb7e3e0", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.844229	2024-01-23 13:44:01.844229	\N	\N
-3	3	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "62cc2f01-a1a6-4a06-bb93-d48f44dcf263", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.850646	2024-01-23 13:44:01.850646	\N	\N
-4	4	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "332651a1-4eda-4848-bcde-fed1f36cc165", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.85653	2024-01-23 13:44:01.85653	\N	\N
-5	5	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "417474b8-f962-43c4-b9cc-00528d5be970", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.871491	2024-01-23 13:44:01.871491	\N	\N
-6	6	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "86ddc873-4c35-4258-94cb-571d52a39183", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.87681	2024-01-23 13:44:01.87681	\N	\N
-7	7	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "24bd888e-6fc2-4465-b17e-897705ede07e", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.882792	2024-01-23 13:44:01.882792	\N	\N
-8	8	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "9a9665e0-a38b-4f0f-9358-56b72a4056d1", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.888635	2024-01-23 13:44:01.888635	\N	\N
+COPY public.dataset_klasses_revisions (id, dataset_klass_id, uuid, properties_release, released_at, released_by, created_by, created_at, updated_at, deleted_at, version, submitted, metadata) FROM stdin;
+1	1	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e9f21b78-3de7-41c1-8e55-9f38e456e454", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.836659	2024-01-23 13:44:01.836659	\N	\N	0	{}
+2	2	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "2f981b93-2a16-417f-b255-01621fb7e3e0", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.844229	2024-01-23 13:44:01.844229	\N	\N	0	{}
+3	3	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "62cc2f01-a1a6-4a06-bb93-d48f44dcf263", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.850646	2024-01-23 13:44:01.850646	\N	\N	0	{}
+4	4	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "332651a1-4eda-4848-bcde-fed1f36cc165", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.85653	2024-01-23 13:44:01.85653	\N	\N	0	{}
+5	5	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "417474b8-f962-43c4-b9cc-00528d5be970", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.871491	2024-01-23 13:44:01.871491	\N	\N	0	{}
+6	6	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "86ddc873-4c35-4258-94cb-571d52a39183", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.87681	2024-01-23 13:44:01.87681	\N	\N	0	{}
+7	7	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "24bd888e-6fc2-4465-b17e-897705ede07e", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.882792	2024-01-23 13:44:01.882792	\N	\N	0	{}
+8	8	\N	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "9a9665e0-a38b-4f0f-9358-56b72a4056d1", "klass": "DatasetKlass", "layers": {}, "select_options": {}}	\N	\N	\N	2024-01-23 13:44:01.888635	2024-01-23 13:44:01.888635	\N	\N	0	{}
 \.
 
 
@@ -6746,7 +7500,7 @@ COPY public.dataset_klasses_revisions (id, dataset_klass_id, uuid, properties_re
 -- Data for Name: datasets; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.datasets (id, dataset_klass_id, element_type, element_id, properties, created_at, updated_at, uuid, klass_uuid, deleted_at, properties_release) FROM stdin;
+COPY public.datasets (id, dataset_klass_id, element_type, element_id, properties, created_at, updated_at, uuid, klass_uuid, deleted_at, properties_release, metadata) FROM stdin;
 \.
 
 
@@ -6754,7 +7508,7 @@ COPY public.datasets (id, dataset_klass_id, element_type, element_id, properties
 -- Data for Name: datasets_revisions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.datasets_revisions (id, dataset_id, uuid, klass_uuid, properties, created_by, created_at, updated_at, deleted_at, properties_release) FROM stdin;
+COPY public.datasets_revisions (id, dataset_id, uuid, klass_uuid, properties, created_by, created_at, updated_at, deleted_at, properties_release, metadata) FROM stdin;
 \.
 
 
@@ -6763,10 +7517,9 @@ COPY public.datasets_revisions (id, dataset_id, uuid, klass_uuid, properties, cr
 --
 
 COPY public.delayed_jobs (id, priority, attempts, handler, last_error, run_at, locked_at, failed_at, locked_by, queue, created_at, updated_at, cron) FROM stdin;
-152	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemCidJob\n  job_id: 9a3b4a95-edf9-4970-8674-027caa7bcb72\n  provider_job_id: \n  queue_name: pubchem\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2025-11-13T04:54:01Z'\n	\N	2025-11-16 13:02:00	\N	\N	\N	pubchem	2025-11-13 04:54:01.68817	2025-11-13 04:54:01.68817	2 13 * * 7
-153	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemLcssJob\n  job_id: 34d66231-3001-4626-a2f9-3afab94676ea\n  provider_job_id: \n  queue_name: pubchemLcss\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2025-11-13T04:54:01Z'\n	\N	2025-11-16 09:32:00	\N	\N	\N	pubchemLcss	2025-11-13 04:54:01.697851	2025-11-13 04:54:01.697851	32 9 * * 7
-154	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: RefreshElementTagJob\n  job_id: 7cfb6ec4-b378-4c7e-86ad-73f48ff74469\n  provider_job_id: \n  queue_name: refresh_element_tag\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2025-11-13T04:54:01Z'\n	\N	2025-11-15 18:04:00	\N	\N	\N	refresh_element_tag	2025-11-13 04:54:01.704293	2025-11-13 04:54:01.704293	4 18 * * 6
-155	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: DiskUsageJob\n  job_id: bd8c3f8f-81c8-4a18-8b6c-1c3aee2d0a75\n  provider_job_id: \n  queue_name: disk_usage\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2025-11-13T04:54:01Z'\n	\N	2025-11-15 01:00:00	\N	\N	\N	disk_usage	2025-11-13 04:54:01.710421	2025-11-13 04:54:01.710421	0 1 * * 6
+197	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemLookupJob\n  job_id: f9b1230e-5116-4c1b-ba50-d7e6a01194d0\n  provider_job_id: \n  queue_name: pubchem_lookup\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-08-21T08:38:33Z'\n	\N	2026-08-23 15:44:00	\N	\N	\N	pubchem_lookup	2026-08-21 08:38:33.506381	2026-08-21 08:38:33.506381	44 15 * * 7
+198	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: RefreshElementTagJob\n  job_id: 892a778c-1528-4638-9ca7-0b7540387965\n  provider_job_id: \n  queue_name: refresh_element_tag\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-08-21T08:38:33Z'\n	\N	2026-08-23 17:41:00	\N	\N	\N	refresh_element_tag	2026-08-21 08:38:33.514094	2026-08-21 08:38:33.514094	41 17 * * 7
+199	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: DiskUsageJob\n  job_id: 4c701133-d3f6-48a5-a2d7-17219978398e\n  provider_job_id: \n  queue_name: disk_usage\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-08-21T08:38:33Z'\n	\N	2026-08-22 07:07:00	\N	\N	\N	disk_usage	2026-08-21 08:38:33.518824	2026-08-21 08:38:33.518824	7 7 * * 6
 \.
 
 
@@ -6774,7 +7527,7 @@ COPY public.delayed_jobs (id, priority, attempts, handler, last_error, run_at, l
 -- Data for Name: device_descriptions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.device_descriptions (id, access_comments, access_options, ancestry, application_name, application_version, building, contact_for_maintenance, consumables_needed_for_maintenance, created_by, deleted_at, description, description_for_methods_part, device_id, device_type, device_type_detail, general_tags, helpers_uploaded, infrastructure_assignment, institute, maintenance_contract_available, maintenance_scheduling, measures_after_full_shut_down, measures_after_short_shut_down, measures_to_plan_offline_period, name, operation_mode, operators, ontologies, planned_maintenance, policies_and_user_information, restart_after_planned_offline_period, room, serial_number, setup_descriptions, size, short_label, unexpected_maintenance, university_campus, vendor_id, vendor_url, version_characterization, version_doi, version_doi_url, version_identifier_type, version_installation_start_date, version_installation_end_date, version_number, weight, weight_unit, vendor_device_name, vendor_device_id, vendor_company_name, created_at, updated_at, log_data) FROM stdin;
+COPY public.device_descriptions (id, access_comments, access_options, ancestry, application_name, application_version, building, contact_for_maintenance, consumables_needed_for_maintenance, created_by, deleted_at, description, description_for_methods_part, device_id, device_class, device_class_detail, general_tags, helpers_uploaded, infrastructure_assignment, institute, maintenance_contract_available, maintenance_scheduling, measures_after_full_shut_down, measures_after_short_shut_down, measures_to_plan_offline_period, name, operation_mode, operators, ontologies, planned_maintenance, policies_and_user_information, restart_after_planned_offline_period, room, serial_number, setup_descriptions, size, short_label, unexpected_maintenance, university_campus, vendor_id, vendor_url, version_characterization, version_doi, version_doi_url, version_identifier_type, version_installation_start_date, version_installation_end_date, version_number, weight, weight_unit, vendor_device_name, vendor_device_id, vendor_company_name, created_at, updated_at, log_data, owner_institution, owner_email, owner_id, inventory_id, alternative_identifier, vendor_id_type, owner_id_type, device_type_name, device_type_id, device_type_id_type) FROM stdin;
 \.
 
 
@@ -6797,20 +7550,37 @@ COPY public.devices (id, name, name_abbreviation, first_name, last_name, email, 
 
 
 --
+-- Data for Name: dose_resp_outputs; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.dose_resp_outputs (id, dose_resp_request_id, output_data, notes, deleted_at, created_at, updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: dose_resp_requests; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.dose_resp_requests (id, request_id, element_id, state, wellplates_metadata, resp_message, created_by, created_at, updated_at, deleted_at, access_token, expires_at, revoked_at, first_accessed_at, last_accessed_at, access_count, input_metadata) FROM stdin;
+\.
+
+
+--
 -- Data for Name: element_klasses; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.element_klasses (id, name, label, "desc", icon_name, is_active, klass_prefix, is_generic, place, properties_template, created_by, created_at, updated_at, deleted_at, uuid, properties_release, released_at, identifier, sync_time, updated_by, released_by, sync_by, admin_ids, user_ids, version) FROM stdin;
-6	research_plan	Research Plan	ELN Research Plan	icon-research_plan	t		f	5	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "194a26e0-2663-4f76-a529-2fb6e5bc0ddf", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.362559	2024-01-23 13:44:01.740555	\N	194a26e0-2663-4f76-a529-2fb6e5bc0ddf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "194a26e0-2663-4f76-a529-2fb6e5bc0ddf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.740399	\N	\N	\N	\N	\N	{}	{}	\N
-1	cell_line	Cell Line	ELN Cell Line	icon-cell_line	t		f	5	{}	\N	2024-01-23 13:44:01.336732	2024-01-23 13:44:02.859896	\N	5f59fd06-c442-4f78-abb1-765061989227	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "5f59fd06-c442-4f78-abb1-765061989227", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.703305	\N	\N	\N	\N	\N	{}	{}	\N
-2	sample	Sample	ELN Sample	icon-sample	t		f	1	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.342669	2024-01-23 13:44:01.719032	\N	e066565a-a4a6-4933-b725-c42c92dab64d	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.718844	\N	\N	\N	\N	\N	{}	{}	\N
-3	reaction	Reaction	ELN Reaction	icon-reaction	t		f	2	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "900859ad-916e-4093-98c1-e8a87270ae64", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.34801	2024-01-23 13:44:01.72501	\N	900859ad-916e-4093-98c1-e8a87270ae64	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "900859ad-916e-4093-98c1-e8a87270ae64", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.724862	\N	\N	\N	\N	\N	{}	{}	\N
-4	wellplate	Wellplate	ELN Wellplate	icon-wellplate	t		f	3	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "85e19d00-7d22-4310-911c-ba17f234992e", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.352871	2024-01-23 13:44:01.730194	\N	85e19d00-7d22-4310-911c-ba17f234992e	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "85e19d00-7d22-4310-911c-ba17f234992e", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.73005	\N	\N	\N	\N	\N	{}	{}	\N
-5	screen	Screen	ELN Screen	icon-screen	t		f	4	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "6e8c7739-908b-4026-a38c-eee668384baf", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.357755	2024-01-23 13:44:01.735334	\N	6e8c7739-908b-4026-a38c-eee668384baf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "6e8c7739-908b-4026-a38c-eee668384baf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.735182	\N	\N	\N	\N	\N	{}	{}	\N
-8	wrk	Workflow		fa fa-sort-amount-asc	t	WRK	t	100	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	7	2024-03-20 11:27:36.257767	2024-03-21 10:38:44.894667	\N	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	2024-03-21 10:38:44.892811	\N	\N	7	7	\N	{}	{}	2.0
-7	try	Tryout		fa fa-check-square	f	T	t	100	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2	2024-01-24 07:02:39.227237	2024-12-04 12:57:28.688874	2024-12-04 12:57:28.688868	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2024-02-16 08:48:17.518249	1219ab91-45b7-4c4b-999c-96b3b864ab95	\N	2	2	\N	{}	{}	2.0
-9	try	Tryout		fa fa-check-square	t	T	t	100	{"pkg": {"eln": {"version": "v1.10.2", "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392", "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"}, "name": "chem-generic-ui", "version": "1.4.4", "labimotion": "1.4.0.2"}, "uuid": "5c136a3d-49f4-429e-a8e9-a0e7090d9956", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "748041a1-1639-424d-9147-1f5ea2436c43", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "017cd221-2419-44f1-a1b6-16411b7aa44f", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "a2c7b308-b1d5-447b-b3dd-8b090c11f4c1", "type": "label", "value": "TEST"}, {"id": "b21ffab0-8e17-4934-bb45-218ef371348d", "type": "number", "value": ""}, {"id": "087203bc-2493-4b2d-bae1-92437167ed28", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": "0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241", "select_options": {}}	7	2024-12-04 12:57:51.921336	2024-12-04 14:58:24.644875	\N	5c136a3d-49f4-429e-a8e9-a0e7090d9956	{"pkg": {"eln": {"version": "v1.10.2", "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392", "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"}, "name": "chem-generic-ui", "version": "1.4.4", "labimotion": "1.4.0.2"}, "uuid": "5c136a3d-49f4-429e-a8e9-a0e7090d9956", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "748041a1-1639-424d-9147-1f5ea2436c43", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "017cd221-2419-44f1-a1b6-16411b7aa44f", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "a2c7b308-b1d5-447b-b3dd-8b090c11f4c1", "type": "label", "value": "TEST"}, {"id": "b21ffab0-8e17-4934-bb45-218ef371348d", "type": "number", "value": ""}, {"id": "087203bc-2493-4b2d-bae1-92437167ed28", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": "0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241", "select_options": {}}	2024-12-04 14:58:24.643109	0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241	\N	7	7	\N	{}	{}	1.0
-10	device_description	Device Description	ELN Device Description	icon-device_description	t		f	6	{}	\N	2025-10-24 11:06:21.601233	2025-10-24 11:06:21.603058	\N	\N	{}	\N	ef683325-7db2-4b7f-afac-13385db0c7b4	\N	\N	\N	\N	{}	{}	\N
+COPY public.element_klasses (id, name, label, "desc", icon_name, is_active, klass_prefix, is_generic, place, properties_template, created_by, created_at, updated_at, deleted_at, uuid, properties_release, released_at, identifier, sync_time, updated_by, released_by, sync_by, admin_ids, user_ids, version, metadata) FROM stdin;
+6	research_plan	Research Plan	ELN Research Plan	icon-research_plan	t		f	5	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "194a26e0-2663-4f76-a529-2fb6e5bc0ddf", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.362559	2024-01-23 13:44:01.740555	\N	194a26e0-2663-4f76-a529-2fb6e5bc0ddf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "194a26e0-2663-4f76-a529-2fb6e5bc0ddf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.740399	\N	\N	\N	\N	\N	{}	{}	\N	{}
+1	cell_line	Cell Line	ELN Cell Line	icon-cell_line	t		f	5	{}	\N	2024-01-23 13:44:01.336732	2024-01-23 13:44:02.859896	\N	5f59fd06-c442-4f78-abb1-765061989227	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "5f59fd06-c442-4f78-abb1-765061989227", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.703305	\N	\N	\N	\N	\N	{}	{}	\N	{}
+2	sample	Sample	ELN Sample	icon-sample	t		f	1	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.342669	2024-01-23 13:44:01.719032	\N	e066565a-a4a6-4933-b725-c42c92dab64d	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.718844	\N	\N	\N	\N	\N	{}	{}	\N	{}
+3	reaction	Reaction	ELN Reaction	icon-reaction	t		f	2	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "900859ad-916e-4093-98c1-e8a87270ae64", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.34801	2024-01-23 13:44:01.72501	\N	900859ad-916e-4093-98c1-e8a87270ae64	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "900859ad-916e-4093-98c1-e8a87270ae64", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.724862	\N	\N	\N	\N	\N	{}	{}	\N	{}
+4	wellplate	Wellplate	ELN Wellplate	icon-wellplate	t		f	3	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "85e19d00-7d22-4310-911c-ba17f234992e", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.352871	2024-01-23 13:44:01.730194	\N	85e19d00-7d22-4310-911c-ba17f234992e	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "85e19d00-7d22-4310-911c-ba17f234992e", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.73005	\N	\N	\N	\N	\N	{}	{}	\N	{}
+5	screen	Screen	ELN Screen	icon-screen	t		f	4	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "6e8c7739-908b-4026-a38c-eee668384baf", "klass": "ElementKlass", "select_options": {}}	\N	2024-01-23 13:44:01.357755	2024-01-23 13:44:01.735334	\N	6e8c7739-908b-4026-a38c-eee668384baf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "6e8c7739-908b-4026-a38c-eee668384baf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.735182	\N	\N	\N	\N	\N	{}	{}	\N	{}
+8	wrk	Workflow		fa fa-sort-amount-asc	t	WRK	t	100	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	7	2024-03-20 11:27:36.257767	2024-03-21 10:38:44.894667	\N	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	2024-03-21 10:38:44.892811	\N	\N	7	7	\N	{}	{}	2.0	{}
+7	try	Tryout		fa fa-check-square	f	T	t	100	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2	2024-01-24 07:02:39.227237	2024-12-04 12:57:28.688874	2024-12-04 12:57:28.688868	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2024-02-16 08:48:17.518249	1219ab91-45b7-4c4b-999c-96b3b864ab95	\N	2	2	\N	{}	{}	2.0	{}
+9	try	Tryout		fa fa-check-square	t	T	t	100	{"pkg": {"eln": {"version": "v1.10.2", "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392", "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"}, "name": "chem-generic-ui", "version": "1.4.4", "labimotion": "1.4.0.2"}, "uuid": "5c136a3d-49f4-429e-a8e9-a0e7090d9956", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "748041a1-1639-424d-9147-1f5ea2436c43", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "017cd221-2419-44f1-a1b6-16411b7aa44f", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "a2c7b308-b1d5-447b-b3dd-8b090c11f4c1", "type": "label", "value": "TEST"}, {"id": "b21ffab0-8e17-4934-bb45-218ef371348d", "type": "number", "value": ""}, {"id": "087203bc-2493-4b2d-bae1-92437167ed28", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": "0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241", "select_options": {}}	7	2024-12-04 12:57:51.921336	2024-12-04 14:58:24.644875	\N	5c136a3d-49f4-429e-a8e9-a0e7090d9956	{"pkg": {"eln": {"version": "v1.10.2", "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392", "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"}, "name": "chem-generic-ui", "version": "1.4.4", "labimotion": "1.4.0.2"}, "uuid": "5c136a3d-49f4-429e-a8e9-a0e7090d9956", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "748041a1-1639-424d-9147-1f5ea2436c43", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "017cd221-2419-44f1-a1b6-16411b7aa44f", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "a2c7b308-b1d5-447b-b3dd-8b090c11f4c1", "type": "label", "value": "TEST"}, {"id": "b21ffab0-8e17-4934-bb45-218ef371348d", "type": "number", "value": ""}, {"id": "087203bc-2493-4b2d-bae1-92437167ed28", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": "0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241", "select_options": {}}	2024-12-04 14:58:24.643109	0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241	\N	7	7	\N	{}	{}	1.0	{}
+10	device_description	Device Description	ELN Device Description	icon-device_description	t		f	6	{}	\N	2025-10-24 11:06:21.601233	2025-10-24 11:06:21.603058	\N	\N	{}	\N	ef683325-7db2-4b7f-afac-13385db0c7b4	\N	\N	\N	\N	{}	{}	\N	{}
+11	sequence_based_macromolecule_sample	Sequence Based Macromolecule Sample	ELN Sequence Based Macromolecule Sample	icon-sequence_based_macromolecule_sample	t		f	7	{}	\N	2026-07-02 17:40:23.494097	2026-07-02 17:40:23.494097	\N	\N	{}	2026-07-02 17:40:23.483368	21ad98aa-9bca-41cc-be2d-0d274c32d78a	\N	\N	\N	\N	{}	{}	\N	{}
 \.
 
 
@@ -6818,22 +7588,22 @@ COPY public.element_klasses (id, name, label, "desc", icon_name, is_active, klas
 -- Data for Name: element_klasses_revisions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.element_klasses_revisions (id, element_klass_id, uuid, properties_release, released_at, released_by, created_by, created_at, updated_at, deleted_at, version) FROM stdin;
-1	1	5f59fd06-c442-4f78-abb1-765061989227	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "5f59fd06-c442-4f78-abb1-765061989227", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.703305	\N	\N	2024-01-23 13:44:01.71634	2024-01-23 13:44:01.71634	\N	\N
-2	2	e066565a-a4a6-4933-b725-c42c92dab64d	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.718844	\N	\N	2024-01-23 13:44:01.723034	2024-01-23 13:44:01.723034	\N	\N
-3	3	900859ad-916e-4093-98c1-e8a87270ae64	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "900859ad-916e-4093-98c1-e8a87270ae64", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.724862	\N	\N	2024-01-23 13:44:01.728263	2024-01-23 13:44:01.728263	\N	\N
-4	4	85e19d00-7d22-4310-911c-ba17f234992e	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "85e19d00-7d22-4310-911c-ba17f234992e", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.73005	\N	\N	2024-01-23 13:44:01.733502	2024-01-23 13:44:01.733502	\N	\N
-5	5	6e8c7739-908b-4026-a38c-eee668384baf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "6e8c7739-908b-4026-a38c-eee668384baf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.735182	\N	\N	2024-01-23 13:44:01.738642	2024-01-23 13:44:01.738642	\N	\N
-6	6	194a26e0-2663-4f76-a529-2fb6e5bc0ddf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "194a26e0-2663-4f76-a529-2fb6e5bc0ddf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.740399	\N	\N	2024-01-23 13:44:01.743908	2024-01-23 13:44:01.743908	\N	\N
-11	8	27604871-84ad-4c55-80a0-5698118c9ef1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.4"}, "uuid": "27604871-84ad-4c55-80a0-5698118c9ef1", "klass": "ElementKlass", "layers": {}, "select_options": {}}	2024-03-20 11:27:36.266044	7	\N	2024-03-20 11:27:36.281682	2024-03-20 11:27:36.281682	\N	\N
-7	7	287821ac-a60b-4b1c-bec4-31f8e6318523	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.1"}, "uuid": "287821ac-a60b-4b1c-bec4-31f8e6318523", "klass": "ElementKlass", "layers": {}, "select_options": {}}	2024-01-24 07:02:39.235874	2	\N	2024-01-24 07:02:39.271325	2024-12-04 12:57:28.687055	2024-12-04 12:57:28.687043	\N
-8	7	30e78480-dfa1-4e62-8260-8e7896ec7cad	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-01-24 07:03:05.11925	2	\N	2024-01-24 07:03:05.126699	2024-12-04 12:57:28.68769	2024-12-04 12:57:28.687684	1.0
-12	8	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}	2024-03-20 11:30:11.226838	7	\N	2024-03-20 11:30:11.242658	2024-03-20 11:30:11.242658	\N	1.0
-13	8	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	2024-03-21 10:38:44.892811	7	\N	2024-03-21 10:38:44.936366	2024-03-21 10:38:44.936366	\N	2.0
-9	7	e53fa6b1-4ff8-4798-b7cb-799cd7048340	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "e53fa6b1-4ff8-4798-b7cb-799cd7048340", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.1", "identifier": null, "select_options": {}}	2024-02-16 08:48:13.380617	2	\N	2024-02-16 08:48:13.389489	2024-12-04 12:57:28.688091	2024-12-04 12:57:28.688086	1.1
-10	7	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2024-02-16 08:48:17.518249	2	\N	2024-02-16 08:48:17.527177	2024-12-04 12:57:28.688488	2024-12-04 12:57:28.688484	2.0
-14	9	5ebf115b-f57b-4f33-b1b1-c68f9a896089	{"pkg": {"eln": {"version": "v1.10.2", "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392", "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"}, "labimotion": "1.4.0.2"}, "uuid": "5ebf115b-f57b-4f33-b1b1-c68f9a896089", "klass": "ElementKlass", "layers": {}, "select_options": {}}	2024-12-04 12:57:51.931147	7	\N	2024-12-04 12:57:51.934562	2024-12-04 12:57:51.934562	\N	\N
-15	9	5c136a3d-49f4-429e-a8e9-a0e7090d9956	{"pkg": {"eln": {"version": "v1.10.2", "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392", "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"}, "name": "chem-generic-ui", "version": "1.4.4", "labimotion": "1.4.0.2"}, "uuid": "5c136a3d-49f4-429e-a8e9-a0e7090d9956", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "748041a1-1639-424d-9147-1f5ea2436c43", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "017cd221-2419-44f1-a1b6-16411b7aa44f", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "a2c7b308-b1d5-447b-b3dd-8b090c11f4c1", "type": "label", "value": "TEST"}, {"id": "b21ffab0-8e17-4934-bb45-218ef371348d", "type": "number", "value": ""}, {"id": "087203bc-2493-4b2d-bae1-92437167ed28", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": "0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241", "select_options": {}}	2024-12-04 14:58:24.643109	7	\N	2024-12-04 14:58:24.654953	2024-12-04 14:58:24.654953	\N	1.0
+COPY public.element_klasses_revisions (id, element_klass_id, uuid, properties_release, released_at, released_by, created_by, created_at, updated_at, deleted_at, version, submitted, metadata) FROM stdin;
+1	1	5f59fd06-c442-4f78-abb1-765061989227	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "5f59fd06-c442-4f78-abb1-765061989227", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.703305	\N	\N	2024-01-23 13:44:01.71634	2024-01-23 13:44:01.71634	\N	\N	0	{}
+2	2	e066565a-a4a6-4933-b725-c42c92dab64d	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "e066565a-a4a6-4933-b725-c42c92dab64d", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.718844	\N	\N	2024-01-23 13:44:01.723034	2024-01-23 13:44:01.723034	\N	\N	0	{}
+3	3	900859ad-916e-4093-98c1-e8a87270ae64	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "900859ad-916e-4093-98c1-e8a87270ae64", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.724862	\N	\N	2024-01-23 13:44:01.728263	2024-01-23 13:44:01.728263	\N	\N	0	{}
+4	4	85e19d00-7d22-4310-911c-ba17f234992e	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "85e19d00-7d22-4310-911c-ba17f234992e", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.73005	\N	\N	2024-01-23 13:44:01.733502	2024-01-23 13:44:01.733502	\N	\N	0	{}
+5	5	6e8c7739-908b-4026-a38c-eee668384baf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "6e8c7739-908b-4026-a38c-eee668384baf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.735182	\N	\N	2024-01-23 13:44:01.738642	2024-01-23 13:44:01.738642	\N	\N	0	{}
+6	6	194a26e0-2663-4f76-a529-2fb6e5bc0ddf	{"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "uuid": "194a26e0-2663-4f76-a529-2fb6e5bc0ddf", "klass": "ElementKlass", "select_options": {}}	2024-01-23 13:44:01.740399	\N	\N	2024-01-23 13:44:01.743908	2024-01-23 13:44:01.743908	\N	\N	0	{}
+11	8	27604871-84ad-4c55-80a0-5698118c9ef1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.4"}, "uuid": "27604871-84ad-4c55-80a0-5698118c9ef1", "klass": "ElementKlass", "layers": {}, "select_options": {}}	2024-03-20 11:27:36.266044	7	\N	2024-03-20 11:27:36.281682	2024-03-20 11:27:36.281682	\N	\N	0	{}
+7	7	287821ac-a60b-4b1c-bec4-31f8e6318523	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.1"}, "uuid": "287821ac-a60b-4b1c-bec4-31f8e6318523", "klass": "ElementKlass", "layers": {}, "select_options": {}}	2024-01-24 07:02:39.235874	2	\N	2024-01-24 07:02:39.271325	2024-12-04 12:57:28.687055	2024-12-04 12:57:28.687043	\N	0	{}
+8	7	30e78480-dfa1-4e62-8260-8e7896ec7cad	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-01-24 07:03:05.11925	2	\N	2024-01-24 07:03:05.126699	2024-12-04 12:57:28.68769	2024-12-04 12:57:28.687684	1.0	0	{}
+12	8	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}	2024-03-20 11:30:11.226838	7	\N	2024-03-20 11:30:11.242658	2024-03-20 11:30:11.242658	\N	1.0	0	{}
+13	8	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	2024-03-21 10:38:44.892811	7	\N	2024-03-21 10:38:44.936366	2024-03-21 10:38:44.936366	\N	2.0	0	{}
+9	7	e53fa6b1-4ff8-4798-b7cb-799cd7048340	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "e53fa6b1-4ff8-4798-b7cb-799cd7048340", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.1", "identifier": null, "select_options": {}}	2024-02-16 08:48:13.380617	2	\N	2024-02-16 08:48:13.389489	2024-12-04 12:57:28.688091	2024-12-04 12:57:28.688086	1.1	0	{}
+10	7	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	2024-02-16 08:48:17.518249	2	\N	2024-02-16 08:48:17.527177	2024-12-04 12:57:28.688488	2024-12-04 12:57:28.688484	2.0	0	{}
+14	9	5ebf115b-f57b-4f33-b1b1-c68f9a896089	{"pkg": {"eln": {"version": "v1.10.2", "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392", "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"}, "labimotion": "1.4.0.2"}, "uuid": "5ebf115b-f57b-4f33-b1b1-c68f9a896089", "klass": "ElementKlass", "layers": {}, "select_options": {}}	2024-12-04 12:57:51.931147	7	\N	2024-12-04 12:57:51.934562	2024-12-04 12:57:51.934562	\N	\N	0	{}
+15	9	5c136a3d-49f4-429e-a8e9-a0e7090d9956	{"pkg": {"eln": {"version": "v1.10.2", "base_revision": "7e269bb594d29413788f3e5bfa16544981b5d392", "current_revision": "7e269bb594d29413788f3e5bfa16544981b5d392"}, "name": "chem-generic-ui", "version": "1.4.4", "labimotion": "1.4.0.2"}, "uuid": "5c136a3d-49f4-429e-a8e9-a0e7090d9956", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "748041a1-1639-424d-9147-1f5ea2436c43", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "017cd221-2419-44f1-a1b6-16411b7aa44f", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "a2c7b308-b1d5-447b-b3dd-8b090c11f4c1", "type": "label", "value": "TEST"}, {"id": "b21ffab0-8e17-4934-bb45-218ef371348d", "type": "number", "value": ""}, {"id": "087203bc-2493-4b2d-bae1-92437167ed28", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": "0e7d841f-6f2a-44e3-b2e9-b9e2a8fa6241", "select_options": {}}	2024-12-04 14:58:24.643109	7	\N	2024-12-04 14:58:24.654953	2024-12-04 14:58:24.654953	\N	1.0	0	{}
 \.
 
 
@@ -6842,20 +7612,28 @@ COPY public.element_klasses_revisions (id, element_klass_id, uuid, properties_re
 --
 
 COPY public.element_tags (id, taggable_type, taggable_id, taggable_data, created_at, updated_at) FROM stdin;
-2	Sample	1	{"collection_labels": [{"id": 4, "name": "TEST 1", "user_id": 2, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-01-23 15:17:46.432546	2024-01-23 15:17:46.432546
-5	Labimotion::Element	3	{"collection_labels": [{"id": 11, "name": "API_TEST_a3a7c777-6924-4ab2-a1b3-18c959051931", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 10:32:02.045545	2024-03-21 10:32:02.045545
-6	Labimotion::Element	4	{"collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 10:41:42.526193	2024-03-21 10:41:42.526193
-7	Labimotion::Element	5	{"collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 12:13:25.247046	2024-03-21 12:13:25.247046
 1	Molecule	1	{"pubchem_cid": 222, "pubchem_lcss": {"Record": {"Section": [{"Section": [{"URL": "https://www.osha.gov/sites/default/files/publications/OSHA3514.pdf", "Section": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/", "TOCHeading": "GHS Classification", "Description": "GHS (Globally Harmonized System of Classification and Labelling of Chemicals) is a United Nations system to identify hazardous chemicals and to inform users about these hazards. GHS has been adopted by many countries around the world and is now also used as the basis for international and national transport regulations for dangerous goods. The GHS hazard statements, class categories, pictograms, signal words, and the precautionary statements can be found on the PubChem GHS page.", "Information": [{"Name": "Note", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 185}], "String": "Pictograms displayed are for > 99.9% (3511 of 3512) of reports that indicate hazard statements. This chemical does not meet GHS hazard criteria for < 0.1% (1  of 3512) of reports."}]}, "ReferenceNumber": 47}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 4, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 47}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 47}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 29, "Length": 6}], "String": "H221 (87.7%): Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 66, "Length": 7}], "String": "H280 (29.6%): Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 57, "Length": 6}], "String": "H314 (> 99.9%): Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 32, "Length": 6}], "String": "H331 (87.6%): Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H332 (11.6%): Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 48, "Length": 7}], "String": "H335 (11.8%): May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 44, "Length": 7}], "String": "H400 (> 99.9%): Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411 (29.2%): Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 47}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P317, P319, P321, P363, P377, P381, P391, P403, P403+P233, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 47}, {"Name": "ECHA C&L Notifications Summary", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 179}], "String": "Aggregated GHS information provided per 3512 reports by companies from 57 notifications to the ECHA C&L Inventory. Each notification may be associated with multiple companies."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 146}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/11196", "Start": 125, "Length": 20}], "String": "Reported as not meeting GHS hazard criteria per 1 of 3512 reports by companies. For more detailed information, please visit  ECHA C&L website."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 103}], "String": "There are 56 notifications provided by 3511 of 3512 reports by companies with hazard statement code(s)."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 281}], "String": "Information may vary between notifications depending on impurities, additives, and other factors. The percentage value in parenthesis indicates the notified classification ratio from companies that provide hazard codes. Only hazard codes with percentage values above 10% are shown."}]}, "ReferenceNumber": 47}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 59}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 59}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 59}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P270, P271, P273, P280, P301+P317, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P321, P330, P363, P377, P381, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 59}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 60}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 60}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 60}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P264+P265, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P317, P321, P363, P377, P381, P391, P403, P403+P233, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 60}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 5, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 82}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 82}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 82}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P273, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P319, P321, P342+P316, P363, P377, P381, P391, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 82}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 5, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 83}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 83}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 44, "Length": 7}], "String": "H341: Suspected of causing genetic defects [Warning Germ cell mutagenicity]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 83}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P273, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P318, P319, P321, P342+P316, P363, P377, P381, P391, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 83}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"String": "H402: Harmful to aquatic life [Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 84}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P273, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 84}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"String": "Not Classified"}]}, "ReferenceNumber": 85}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 86}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 86}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 70, "Length": 6}], "String": "H372: Causes damage to organs through prolonged or repeated exposure [Danger Specific target organ toxicity, repeated exposure]"}]}, "ReferenceNumber": 86}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P319, P321, P342+P316, P363, P377, P381, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 86}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 99}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 99}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 99}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P321, P363, P377, P381, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 99}], "DisplayControls": {"ShowAtMost": 1, "CreateTable": {"ColumnContents": ["Name", "Value"], "NumberOfColumns": 2, "FromInformationIn": "ThisSection"}}}], "TOCHeading": "Hazards Identification", "Description": "This section identifies the hazards of the chemical presented on the safety data sheet (SDS) and the appropriate warning information associated with those hazards.  The information in this section includes, but are not limited to, the hazard classification of the chemical, signal word, pictograms, hazard statements and precautionary statements.", "Information": [{"Name": "ERG Hazard Classes", "Value": {"StringWithMarkup": [{"String": "Toxic/poison by inhalation (TIH/PIH)"}]}, "ReferenceNumber": 33}]}], "TOCHeading": "Safety and Hazards", "Description": "Information on safety and hazards for this compound, including safety/hazards properties, reactivity, incompatibilities, management techniques, first aid treatments, and more.  For toxicity and related information, please see the Toxicity section."}], "Reference": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/erg/", "ANID": 39280829, "Name": "Ammonia", "SourceID": "45d2a3a006c4667a6d3f9f0b8d5e06c9", "LicenseURL": "https://www.transportation.gov/web-policies", "SourceName": "Emergency Response Guidebook (ERG)", "Description": "The Emergency Response Guidebook 2024 provides first responders with a manual intended for use during the initial phase of a transportation incident involving hazardous materials/dangerous goods. PubChem integration of ERG information provides more opportunities for users/first responders to find ERG data and additional safety, toxicity, and more chemical information. For more information, please visit ERG website (https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg) and/or the ERG summary table (https://pubchem.ncbi.nlm.nih.gov/erg/).", "ReferenceNumber": 33}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/11196", "ANID": 1854204, "Name": "Ammonia, anhydrous (EC: 231-635-3)", "SourceID": "11196", "LicenseURL": "https://echa.europa.eu/web/guest/legal-notice", "SourceName": "European Chemicals Agency (ECHA)", "Description": "The information provided here is aggregated from the \\"Notified classification and labelling\\" from ECHA's C&L Inventory. Read more: https://echa.europa.eu/information-on-chemicals/cl-inventory-database", "LicenseNote": "Use of the information, documents and data from the ECHA website is subject to the terms and conditions of this Legal Notice, and subject to other binding limitations provided for under applicable law, the information, documents and data made available on the ECHA website may be reproduced, distributed and/or used, totally or in part, for non-commercial purposes provided that ECHA is acknowledged as the source: \\"Source: European Chemicals Agency, http://echa.europa.eu/\\". Such acknowledgement must be included in each copy of the material. ECHA permits and encourages organisations and individuals to create links to the ECHA website under the following cumulative conditions: Links can only be made to webpages that provide a link to the Legal Notice page.", "ReferenceNumber": 47}, {"URL": "http://hcis.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=225", "ANID": 2279015, "Name": "Ammonia gas", "SourceID": "225", "SourceName": "Hazardous Chemical Information System (HCIS), Safe Work Australia", "Description": "The Hazardous Chemical Information System (HCIS) at the Safe Work Australia is a database of chemical classifications and workplace exposure standards. It allows users to find information on chemicals that have been classified in accordance with the GHS or which have an Australian Workplace Exposure Standard.", "ReferenceNumber": 59}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/162", "ANID": 122, "Name": "Ammonia", "IsToxnet": true, "SourceID": "162", "LicenseURL": "https://www.nlm.nih.gov/web_policies.html", "SourceName": "Hazardous Substances Data Bank (HSDB)", "Description": "The Hazardous Substances Data Bank (HSDB) is a toxicology database that focuses on the toxicology of potentially hazardous chemicals. It provides information on human exposure, industrial hygiene, emergency handling procedures, environmental fate, regulatory requirements, nanomaterials, and related areas. The information in HSDB has been assessed by a Scientific Review Panel.", "ReferenceNumber": 60}, {"URL": "https://www.nite.go.jp/chem/english/ghs/09-mhlw-2003e.html", "ANID": 8787865, "Name": "Ammonia - FY2009 (Revised classification)", "SourceID": "21B3003", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 82}, {"URL": "https://www.nite.go.jp/chem/english/ghs/06-imcg-0557e.html", "ANID": 8787866, "Name": "Ammonia - FY2006 (New/original classication)", "SourceID": "564", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 83}, {"URL": "https://www.nite.go.jp/chem/english/ghs/21-moe-2031e.html", "ANID": 39312838, "Name": "Ammonia - FY2021 (Revised classification)", "SourceID": "R03_C_031B_MOE", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 84}, {"URL": "https://www.nite.go.jp/chem/english/ghs/16-moe-0007e.html", "ANID": 39312839, "Name": "Ammonia - FY2016 (Revised classification)", "SourceID": "H28_K_007B", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 85}, {"URL": "https://www.nite.go.jp/chem/english/ghs/14-mhlw-2011e.html", "ANID": 39312840, "Name": "Ammonia - FY2014 (Revised classification)", "SourceID": "H26_B_011__", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 86}, {"URL": "https://eur-lex.europa.eu/eli/reg/2008/1272/2023-07-31", "ANID": 391813, "Name": "ammonia, anhydrous", "SourceID": "007-001-00-5", "LicenseURL": "https://eur-lex.europa.eu/content/legal-notice/legal-notice.html", "SourceName": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council", "Description": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council of 16 December 2008 on classification, labelling and packaging of substances and mixtures.", "LicenseNote": "The copyright for the editorial content of this source, the summaries of EU legislation and the consolidated texts, which is owned by the EU, is licensed under the Creative Commons Attribution 4.0 International licence.", "ReferenceNumber": 99}], "RecordType": "CID", "RecordTitle": "Ammonia", "RecordNumber": 222}}}	2024-01-23 15:17:17.524154	2024-09-27 09:09:45.213979
 9	Molecule	2	{"pubchem_cid": 6331, "pubchem_lcss": null}	2024-11-20 06:12:29.252337	2024-11-20 06:12:33.609213
 11	Molecule	3	{"pubchem_cid": 7002, "pubchem_lcss": {"Record": {"Section": [{"Section": [{"URL": "https://www.osha.gov/sites/default/files/publications/OSHA3514.pdf", "Section": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/", "TOCHeading": "GHS Classification", "Description": "GHS (Globally Harmonized System of Classification and Labelling of Chemicals) is a United Nations system to identify hazardous chemicals and to inform users about these hazards. GHS has been adopted by many countries around the world and is now also used as the basis for international and national transport regulations for dangerous goods. The GHS hazard statements, class categories, pictograms, signal words, and the precautionary statements can be found on the PubChem GHS page.", "Information": [{"Name": "Note", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 176}], "String": "Pictograms displayed are for 95.7% (1814 of 1895) of reports that indicate hazard statements. This chemical does not meet GHS hazard criteria for 4.3% (81  of 1895) of reports."}]}, "ReferenceNumber": 28}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 28}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 28}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 36, "Length": 7}], "String": "H302 (94.7%): Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 58, "Length": 6}], "String": "H304 (90%): May be fatal if swallowed and enters airways [Danger Aspiration hazard]"}, {"String": "H411 (13%): Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 28}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P264, P270, P273, P301+P316, P301+P317, P330, P331, P391, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 28}, {"Name": "ECHA C&L Notifications Summary", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 179}], "String": "Aggregated GHS information provided per 1895 reports by companies from 13 notifications to the ECHA C&L Inventory. Each notification may be associated with multiple companies."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 147}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/20442", "Start": 126, "Length": 20}], "String": "Reported as not meeting GHS hazard criteria per 81 of 1895 reports by companies. For more detailed information, please visit  ECHA C&L website."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 103}], "String": "There are 12 notifications provided by 1814 of 1895 reports by companies with hazard statement code(s)."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 281}], "String": "Information may vary between notifications depending on impurities, additives, and other factors. The percentage value in parenthesis indicates the notified classification ratio from companies that provide hazard codes. Only hazard codes with percentage values above 10% are shown."}]}, "ReferenceNumber": 28}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 0, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 29}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 0, "Length": 7}], "String": "Warning"}]}, "ReferenceNumber": 29}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 35, "Length": 7}], "String": "H302 (100%): Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 44, "Length": 7}], "String": "H319 (100%): Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 47, "Length": 7}], "String": "H335 (100%): May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 48, "Length": 7}], "String": "H336 (100%): May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 81, "Length": 7}], "String": "H373 (100%): May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"String": "H411 (100%): Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 29}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P260, P261, P264, P264+P265, P270, P271, P273, P280, P301+P317, P304+P340, P305+P351+P338, P319, P330, P337+P317, P391, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 29}, {"Name": "ECHA C&L Notifications Summary", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 92}], "String": "The GHS information provided by 1 company from 1 notification to the ECHA C&L Inventory."}]}, "ReferenceNumber": 29}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 39}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 39}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H227: Combustible liquid [Warning Flammable liquids]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 30, "Length": 7}], "String": "H315: Causes skin irritation [Warning Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 37, "Length": 7}], "String": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 40, "Length": 7}], "String": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"String": "H401: Toxic to aquatic life [Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411: Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 39}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P233, P260, P261, P264, P264+P265, P270, P271, P273, P280, P284, P301+P317, P302+P352, P304+P340, P305+P351+P338, P319, P321, P330, P332+P317, P337+P317, P342+P316, P362+P364, P370+P378, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 39}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 75}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 0, "Length": 7}], "String": "Warning"}]}, "ReferenceNumber": 75}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H227: Combustible liquid [Warning Flammable liquids]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 37, "Length": 7}], "String": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 40, "Length": 7}], "String": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 41, "Length": 7}], "String": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"String": "H401: Toxic to aquatic life [Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411: Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 75}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P264+P265, P270, P271, P273, P280, P301+P317, P304+P340, P305+P351+P338, P319, P330, P337+P317, P370+P378, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 75}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 76}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 0, "Length": 7}], "String": "Warning"}]}, "ReferenceNumber": 76}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H227: Combustible liquid [Warning Flammable liquids]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 37, "Length": 7}], "String": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 40, "Length": 7}], "String": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 41, "Length": 7}], "String": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"String": "H401: Toxic to aquatic life [Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411: Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 76}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P264+P265, P270, P271, P273, P280, P301+P317, P304+P340, P305+P351+P338, P319, P330, P337+P317, P370+P378, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 76}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 77}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 0, "Length": 7}], "String": "Warning"}]}, "ReferenceNumber": 77}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 37, "Length": 7}], "String": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 40, "Length": 7}], "String": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 41, "Length": 7}], "String": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 77}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P260, P261, P264+P265, P271, P273, P280, P304+P340, P305+P351+P338, P319, P337+P317, P391, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 77}], "DisplayControls": {"ShowAtMost": 1, "CreateTable": {"ColumnContents": ["Name", "Value"], "NumberOfColumns": 2, "FromInformationIn": "ThisSection"}}}], "TOCHeading": "Hazards Identification", "Description": "This section identifies the hazards of the chemical presented on the safety data sheet (SDS) and the appropriate warning information associated with those hazards.  The information in this section includes, but are not limited to, the hazard classification of the chemical, signal word, pictograms, hazard statements and precautionary statements."}], "TOCHeading": "Safety and Hazards", "Description": "Information on safety and hazards for this compound, including safety/hazards properties, reactivity, incompatibilities, management techniques, first aid treatments, and more.  For toxicity and related information, please see the Toxicity section."}], "Reference": [{"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/20442", "ANID": 1857041, "Name": "1-methylnaphthalene (EC: 201-966-8)", "SourceID": "20442", "LicenseURL": "https://echa.europa.eu/web/guest/legal-notice", "SourceName": "European Chemicals Agency (ECHA)", "Description": "The information provided here is aggregated from the \\"Notified classification and labelling\\" from ECHA's C&L Inventory. Read more: https://echa.europa.eu/information-on-chemicals/cl-inventory-database", "LicenseNote": "Use of the information, documents and data from the ECHA website is subject to the terms and conditions of this Legal Notice, and subject to other binding limitations provided for under applicable law, the information, documents and data made available on the ECHA website may be reproduced, distributed and/or used, totally or in part, for non-commercial purposes provided that ECHA is acknowledged as the source: \\"Source: European Chemicals Agency, http://echa.europa.eu/\\". Such acknowledgement must be included in each copy of the material. ECHA permits and encourages organisations and individuals to create links to the ECHA website under the following cumulative conditions: Links can only be made to webpages that provide a link to the Legal Notice page.", "ReferenceNumber": 28}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/128874", "ANID": 1888956, "Name": "Methylnaphthalene (EC: 215-329-7)", "SourceID": "128874", "LicenseURL": "https://echa.europa.eu/web/guest/legal-notice", "SourceName": "European Chemicals Agency (ECHA)", "Description": "The information provided here is aggregated from the \\"Notified classification and labelling\\" from ECHA's C&L Inventory. Read more: https://echa.europa.eu/information-on-chemicals/cl-inventory-database", "LicenseNote": "Use of the information, documents and data from the ECHA website is subject to the terms and conditions of this Legal Notice, and subject to other binding limitations provided for under applicable law, the information, documents and data made available on the ECHA website may be reproduced, distributed and/or used, totally or in part, for non-commercial purposes provided that ECHA is acknowledged as the source: \\"Source: European Chemicals Agency, http://echa.europa.eu/\\". Such acknowledgement must be included in each copy of the material. ECHA permits and encourages organisations and individuals to create links to the ECHA website under the following cumulative conditions: Links can only be made to webpages that provide a link to the Legal Notice page.", "ReferenceNumber": 29}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/5268", "ANID": 3339, "Name": "1-METHYLNAPHTHALENE", "IsToxnet": true, "SourceID": "5268", "LicenseURL": "https://www.nlm.nih.gov/web_policies.html", "SourceName": "Hazardous Substances Data Bank (HSDB)", "Description": "The Hazardous Substances Data Bank (HSDB) is a toxicology database that focuses on the toxicology of potentially hazardous chemicals. It provides information on human exposure, industrial hygiene, emergency handling procedures, environmental fate, regulatory requirements, nanomaterials, and related areas. The information in HSDB has been assessed by a Scientific Review Panel.", "ReferenceNumber": 39}, {"URL": "https://www.nite.go.jp/chem/english/ghs/15-mhlw-0045e.html", "ANID": 39311682, "Name": "1-Methylnaphthalene - FY2015 (Revised classification)", "SourceID": "H27_B_024_C_045B_P", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 75}, {"URL": "https://www.nite.go.jp/chem/english/ghs/08-meti-0066e.html", "ANID": 39311683, "Name": "1-methylnaphthalene - FY2008 (New/original classication)", "SourceID": "1_438_1)", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 76}, {"URL": "https://www.nite.go.jp/chem/english/ghs/22-jniosh-0016e.html", "ANID": 39312581, "Name": "Methylnaphthalene - FY2022 (New/original classication)", "SourceID": "R04_A_016_JNIOSH,MOE", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 77}], "RecordType": "CID", "RecordTitle": "1-Methylnaphthalene", "RecordNumber": 7002}}}	2024-11-20 06:14:08.080107	2024-11-20 06:14:09.173464
-8	Sample	2	{"reaction_id": 1, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-11-20 06:11:55.316893	2024-11-20 06:14:26.456684
-10	Sample	3	{"reaction_id": 1, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-11-20 06:12:56.651298	2024-11-20 06:14:26.482592
-12	Sample	4	{"reaction_id": 1, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-11-20 06:14:15.812668	2024-11-20 06:14:26.509198
-13	Reaction	1	{"user_labels": [], "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-11-20 06:14:26.384435	2024-11-20 06:15:17.621966
-15	Sample	5	{"reaction_id": 2, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2025-11-13 04:54:36.621388	2025-11-13 04:54:36.732637
-16	Sample	6	{"reaction_id": 2, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2025-11-13 04:54:36.797966	2025-11-13 04:54:36.8375
-14	Reaction	2	{"user_labels": [], "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2025-11-13 04:54:36.238245	2025-11-13 04:55:55.119739
+2	Sample	1	{"collection_labels": [{"id": 4}]}	2024-01-23 15:17:46.432546	2024-01-23 15:17:46.432546
+8	Sample	2	{"reaction_id": 1, "collection_labels": [{"id": 11}]}	2024-11-20 06:11:55.316893	2024-11-20 06:14:26.456684
+10	Sample	3	{"reaction_id": 1, "collection_labels": [{"id": 11}]}	2024-11-20 06:12:56.651298	2024-11-20 06:14:26.482592
+12	Sample	4	{"reaction_id": 1, "collection_labels": [{"id": 11}]}	2024-11-20 06:14:15.812668	2024-11-20 06:14:26.509198
+15	Sample	5	{"reaction_id": 2, "collection_labels": [{"id": 11}]}	2025-11-13 04:54:36.621388	2025-11-13 04:54:36.732637
+16	Sample	6	{"reaction_id": 2, "collection_labels": [{"id": 11}]}	2025-11-13 04:54:36.797966	2025-11-13 04:54:36.8375
+13	Reaction	1	{"user_labels": [], "collection_labels": [{"id": 11}]}	2024-11-20 06:14:26.384435	2024-11-20 06:15:17.621966
+14	Reaction	2	{"user_labels": [], "collection_labels": [{"id": 11}]}	2025-11-13 04:54:36.238245	2025-11-13 04:55:55.119739
+5	Labimotion::Element	3	{"collection_labels": [{"id": 11}]}	2024-03-21 10:32:02.045545	2024-03-21 10:32:02.045545
+6	Labimotion::Element	4	{"collection_labels": [{"id": 11}]}	2024-03-21 10:41:42.526193	2024-03-21 10:41:42.526193
+7	Labimotion::Element	5	{"collection_labels": [{"id": 11}]}	2024-03-21 12:13:25.247046	2024-03-21 12:13:25.247046
+\.
+
+
+--
+-- Data for Name: element_variations; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.element_variations (id, element_id, variations, created_at, updated_at, layout) FROM stdin;
 \.
 
 
@@ -6883,12 +7661,12 @@ COPY public.elemental_compositions (id, sample_id, composition_type, data, loadi
 -- Data for Name: elements; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.elements (id, name, element_klass_id, short_label, properties, created_by, created_at, updated_at, deleted_at, uuid, klass_uuid, properties_release, ancestry) FROM stdin;
-3	New Workflow	8	API-WRK1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "bbedce98-ca37-48da-999c-1b020b3772f5", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "72d43a4c-dfca-4675-be87-ac294835412d", "position": 10, "timeRecord": "", "wf_position": 1}}, "version": "1.0", "identifier": null, "klass_uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6"}	7	2024-03-21 10:32:02.030721	2024-03-21 10:32:02.030721	\N	bbedce98-ca37-48da-999c-1b020b3772f5	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}	\N
-4	New Workflow	8	API-WRK2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "85006e6b-5990-4324-bbac-5d069cd31150", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "d7c31a6d-f2d5-453b-9b90-2b0ea03b24e0", "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"ai": [], "wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_info": {"node_id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "source_layer": "three"}, "position": 40, "timeRecord": "", "wf_position": 2}, "four": {"ai": [], "wf": false, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_uuid": null, "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "f1fb38f9-5e28-48a1-b5de-3fce70ef7a18", "position": 40, "timeRecord": "", "wf_position": 1}, "three.1": {"ai": [], "wf": true, "key": "three.1", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "source_layer": "one"}, "position": 20, "timeRecord": "", "wf_position": 2}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 10:41:42.513557	2024-03-21 10:41:42.513557	\N	85006e6b-5990-4324-bbac-5d069cd31150	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	\N
-5	New Workflow	8	API-WRK3	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "4b23e4ca-9994-4b85-aadb-062bf15e9af2", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "389460bf-1f80-40c6-ab6b-32e1ed58435d", "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "3767b63b-5a94-4564-9eb3-275c1a94231c", "position": 40, "timeRecord": "", "wf_position": 1}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 12:13:25.234452	2024-03-21 12:13:25.234452	\N	4b23e4ca-9994-4b85-aadb-062bf15e9af2	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	\N
-2	New Tryout	7	MSU-T2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "08eaf995-65ad-4f33-90e1-2f552a740ffa", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "value": "HALLO", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "klass_uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6"}	2	2024-02-16 08:49:01.282633	2024-12-04 12:57:28.677412	2024-12-04 12:57:28.677407	08eaf995-65ad-4f33-90e1-2f552a740ffa	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	\N
-1	New Tryout	7	MSU-T1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "face37f2-4760-4197-9d10-114d78264448", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "klass_uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad"}	2	2024-01-24 08:17:12.523778	2024-12-04 12:57:28.668778	2024-12-04 12:57:28.668764	face37f2-4760-4197-9d10-114d78264448	30e78480-dfa1-4e62-8260-8e7896ec7cad	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	\N
+COPY public.elements (id, name, element_klass_id, short_label, properties, created_by, created_at, updated_at, deleted_at, uuid, klass_uuid, properties_release, ancestry, metadata) FROM stdin;
+3	New Workflow	8	API-WRK1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "bbedce98-ca37-48da-999c-1b020b3772f5", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "72d43a4c-dfca-4675-be87-ac294835412d", "position": 10, "timeRecord": "", "wf_position": 1}}, "version": "1.0", "identifier": null, "klass_uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6"}	7	2024-03-21 10:32:02.030721	2024-03-21 10:32:02.030721	\N	bbedce98-ca37-48da-999c-1b020b3772f5	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}	/	{}
+4	New Workflow	8	API-WRK2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "85006e6b-5990-4324-bbac-5d069cd31150", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "d7c31a6d-f2d5-453b-9b90-2b0ea03b24e0", "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"ai": [], "wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_info": {"node_id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "source_layer": "three"}, "position": 40, "timeRecord": "", "wf_position": 2}, "four": {"ai": [], "wf": false, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_uuid": null, "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "f1fb38f9-5e28-48a1-b5de-3fce70ef7a18", "position": 40, "timeRecord": "", "wf_position": 1}, "three.1": {"ai": [], "wf": true, "key": "three.1", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "source_layer": "one"}, "position": 20, "timeRecord": "", "wf_position": 2}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 10:41:42.513557	2024-03-21 10:41:42.513557	\N	85006e6b-5990-4324-bbac-5d069cd31150	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	/	{}
+5	New Workflow	8	API-WRK3	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "4b23e4ca-9994-4b85-aadb-062bf15e9af2", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "389460bf-1f80-40c6-ab6b-32e1ed58435d", "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "3767b63b-5a94-4564-9eb3-275c1a94231c", "position": 40, "timeRecord": "", "wf_position": 1}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	7	2024-03-21 12:13:25.234452	2024-03-21 12:13:25.234452	\N	4b23e4ca-9994-4b85-aadb-062bf15e9af2	078843ad-4de4-40b0-bca8-136a06459f50	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	/	{}
+2	New Tryout	7	MSU-T2	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "08eaf995-65ad-4f33-90e1-2f552a740ffa", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "value": "HALLO", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "klass_uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6"}	2	2024-02-16 08:49:01.282633	2024-12-04 12:57:28.677412	2024-12-04 12:57:28.677407	08eaf995-65ad-4f33-90e1-2f552a740ffa	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	/	{}
+1	New Tryout	7	MSU-T1	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "face37f2-4760-4197-9d10-114d78264448", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "klass_uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad"}	2	2024-01-24 08:17:12.523778	2024-12-04 12:57:28.668778	2024-12-04 12:57:28.668764	face37f2-4760-4197-9d10-114d78264448	30e78480-dfa1-4e62-8260-8e7896ec7cad	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	/	{}
 \.
 
 
@@ -6904,12 +7682,12 @@ COPY public.elements_elements (id, element_id, parent_id, created_by, created_at
 -- Data for Name: elements_revisions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.elements_revisions (id, element_id, uuid, klass_uuid, name, properties, created_by, created_at, updated_at, deleted_at, properties_release) FROM stdin;
-3	3	bbedce98-ca37-48da-999c-1b020b3772f5	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "bbedce98-ca37-48da-999c-1b020b3772f5", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "72d43a4c-dfca-4675-be87-ac294835412d", "position": 10, "timeRecord": "", "wf_position": 1}}, "version": "1.0", "identifier": null, "klass_uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6"}	\N	2024-03-21 10:32:02.156786	2024-03-21 10:32:02.156786	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}
-4	4	85006e6b-5990-4324-bbac-5d069cd31150	078843ad-4de4-40b0-bca8-136a06459f50	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "85006e6b-5990-4324-bbac-5d069cd31150", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "d7c31a6d-f2d5-453b-9b90-2b0ea03b24e0", "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"ai": [], "wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_info": {"node_id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "source_layer": "three"}, "position": 40, "timeRecord": "", "wf_position": 2}, "four": {"ai": [], "wf": false, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_uuid": null, "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "f1fb38f9-5e28-48a1-b5de-3fce70ef7a18", "position": 40, "timeRecord": "", "wf_position": 1}, "three.1": {"ai": [], "wf": true, "key": "three.1", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "source_layer": "one"}, "position": 20, "timeRecord": "", "wf_position": 2}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	\N	2024-03-21 10:41:42.638735	2024-03-21 10:41:42.638735	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}
-5	5	4b23e4ca-9994-4b85-aadb-062bf15e9af2	078843ad-4de4-40b0-bca8-136a06459f50	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "4b23e4ca-9994-4b85-aadb-062bf15e9af2", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "389460bf-1f80-40c6-ab6b-32e1ed58435d", "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "3767b63b-5a94-4564-9eb3-275c1a94231c", "position": 40, "timeRecord": "", "wf_position": 1}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	\N	2024-03-21 12:13:25.354497	2024-03-21 12:13:25.354497	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}
-2	2	08eaf995-65ad-4f33-90e1-2f552a740ffa	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	New Tryout	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "08eaf995-65ad-4f33-90e1-2f552a740ffa", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "value": "HALLO", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "klass_uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6"}	\N	2024-02-16 08:49:01.416848	2024-12-04 12:57:28.6766	2024-12-04 12:57:28.676594	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}
-1	1	face37f2-4760-4197-9d10-114d78264448	30e78480-dfa1-4e62-8260-8e7896ec7cad	New Tryout	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "face37f2-4760-4197-9d10-114d78264448", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "klass_uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad"}	\N	2024-01-24 08:17:12.645707	2024-12-04 12:57:28.665581	2024-12-04 12:57:28.665569	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}
+COPY public.elements_revisions (id, element_id, uuid, klass_uuid, name, properties, created_by, created_at, updated_at, deleted_at, properties_release, metadata) FROM stdin;
+3	3	bbedce98-ca37-48da-999c-1b020b3772f5	6f6f17a4-dc54-41fd-a05d-f8ce851874f6	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "bbedce98-ca37-48da-999c-1b020b3772f5", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "72d43a4c-dfca-4675-be87-ac294835412d", "position": 10, "timeRecord": "", "wf_position": 1}}, "version": "1.0", "identifier": null, "klass_uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6"}	\N	2024-03-21 10:32:02.156786	2024-03-21 10:32:02.156786	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "6f6f17a4-dc54-41fd-a05d-f8ce851874f6", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 286.5, "y": 400.84086914062493, "zoom": 2}}, "identifier": null, "select_options": {}}	{}
+4	4	85006e6b-5990-4324-bbac-5d069cd31150	078843ad-4de4-40b0-bca8-136a06459f50	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "85006e6b-5990-4324-bbac-5d069cd31150", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "d7c31a6d-f2d5-453b-9b90-2b0ea03b24e0", "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"ai": [], "wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_info": {"node_id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "source_layer": "three"}, "position": 40, "timeRecord": "", "wf_position": 2}, "four": {"ai": [], "wf": false, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "wf_uuid": null, "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "value": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "f1fb38f9-5e28-48a1-b5de-3fce70ef7a18", "position": 40, "timeRecord": "", "wf_position": 1}, "three.1": {"ai": [], "wf": true, "key": "three.1", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "source_layer": "one"}, "position": 20, "timeRecord": "", "wf_position": 2}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	\N	2024-03-21 10:41:42.638735	2024-03-21 10:41:42.638735	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	{}
+5	5	4b23e4ca-9994-4b85-aadb-062bf15e9af2	078843ad-4de4-40b0-bca8-136a06459f50	New Workflow	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "4b23e4ca-9994-4b85-aadb-062bf15e9af2", "klass": "Element", "layers": {"one": {"ai": [], "wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "Nr 3(three)"}], "text_sub_fields": []}], "wf_info": {"node_id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f"}, "wf_uuid": "389460bf-1f80-40c6-ab6b-32e1ed58435d", "position": 20, "timeRecord": "", "wf_position": 1}, "fixed": {"ai": [], "wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"ai": [], "wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "wf-next", "field": "_wf_next", "label": "Next", "default": "", "position": 2, "required": false, "sub_fields": [], "wf_options": [{"key": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "Nr 2(two)"}, {"key": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "Nr 4(four)"}], "text_sub_fields": []}], "wf_info": {"node_id": "a9d76db6-4136-4a3a-8750-8ede5169f6db"}, "wf_uuid": "3767b63b-5a94-4564-9eb3-275c1a94231c", "position": 40, "timeRecord": "", "wf_position": 1}}, "version": "2.0", "identifier": null, "klass_uuid": "078843ad-4de4-40b0-bca8-136a06459f50"}	\N	2024-03-21 12:13:25.354497	2024-03-21 12:13:25.354497	\N	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.1.1", "labimotion": "1.1.4"}, "uuid": "078843ad-4de4-40b0-bca8-136a06459f50", "klass": "ElementKlass", "layers": {"one": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}, "two": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}, "four": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}, "fixed": {"wf": false, "key": "fixed", "cols": 1, "color": "none", "label": "Fixed", "style": "panel_generic_heading", "fields": [], "position": 10, "timeRecord": "", "wf_position": 0}, "three": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "flowObject": {"edges": [{"id": "reactflow__edge-1-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "label": "next", "source": "1", "target": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-9cf7ae08-035d-4d7c-9a3b-e20728e63409", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-a9d76db6-4136-4a3a-8750-8ede5169f6db-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "label": "next", "source": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "target": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-cb1bbed3-667a-4f3f-8d5c-5374d951f7b0-2", "label": "next", "source": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-9cf7ae08-035d-4d7c-9a3b-e20728e63409-2", "label": "next", "source": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f-2", "label": "next", "source": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "target": "2", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}, {"id": "reactflow__edge-1-a9d76db6-4136-4a3a-8750-8ede5169f6db", "label": "next", "source": "1", "target": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "animated": true, "markerEnd": {"type": "arrowclosed"}, "sourceHandle": null, "targetHandle": null}], "nodes": [{"id": "1", "data": {"label": "Start"}, "type": "input", "width": 150, "height": 39, "dragging": false, "position": {"x": 257.5, "y": -182.42043457031247}, "selected": false, "deletable": false, "positionAbsolute": {"x": 257.5, "y": -182.42043457031247}}, {"id": "2", "data": {"label": "End"}, "type": "output", "width": 150, "height": 39, "position": {"x": 250, "y": 255}, "deletable": false, "positionAbsolute": {"x": 250, "y": 255}}, {"id": "c5b4ccca-65a0-4132-9d7e-0c91e2cc9d2f", "data": {"lKey": "one", "layer": {"wf": true, "key": "one", "cols": 1, "color": "none", "label": "Nr 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_one", "label": "name_one", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 20, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 318.61363983154297, "y": -83.2996917724609}, "positionAbsolute": {"x": 318.61363983154297, "y": -83.2996917724609}}, {"id": "9cf7ae08-035d-4d7c-9a3b-e20728e63409", "data": {"lKey": "two", "layer": {"wf": true, "key": "two", "cols": 1, "color": "none", "label": "Nr 2", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_two", "label": "name_two", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 30, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "dragging": false, "position": {"x": 107.11363983154297, "y": 85.2003082275391}, "selected": false, "positionAbsolute": {"x": 107.11363983154297, "y": 85.2003082275391}}, {"id": "a9d76db6-4136-4a3a-8750-8ede5169f6db", "data": {"lKey": "three", "layer": {"wf": true, "key": "three", "cols": 1, "color": "none", "label": "Nr 3", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_three", "label": "name_three", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 40, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 533.613639831543, "y": 47.2003082275391}, "positionAbsolute": {"x": 533.613639831543, "y": 47.2003082275391}}, {"id": "cb1bbed3-667a-4f3f-8d5c-5374d951f7b0", "data": {"lKey": "four", "layer": {"wf": true, "key": "four", "cols": 1, "color": "none", "label": "Nr 4", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "name_four", "label": "name_four", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 50, "timeRecord": "", "wf_position": 0}}, "type": "default", "width": 150, "height": 57, "position": {"x": 418.61363983154297, "y": 158.7003082275391}, "positionAbsolute": {"x": 418.61363983154297, "y": 158.7003082275391}}], "viewport": {"x": 153.94964022108297, "y": 271.54511305952786, "zoom": 1.316636906723931}}, "identifier": null, "select_options": {}}	{}
+2	2	08eaf995-65ad-4f33-90e1-2f552a740ffa	8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6	New Tryout	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "08eaf995-65ad-4f33-90e1-2f552a740ffa", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "value": "HALLO", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "klass_uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6"}	\N	2024-02-16 08:49:01.416848	2024-12-04 12:57:28.6766	2024-12-04 12:57:28.676594	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "8853b3d9-2ba9-46fc-bc07-eb0b4bbaf4a6", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}, {"type": "table", "field": "Table", "label": "Table", "default": "", "position": 2, "required": false, "sub_fields": [{"id": "30848b11-f353-4b4d-8879-249f3de60f00", "type": "text", "value": "", "col_name": "Col 1"}, {"id": "f46818d3-bd57-49e9-a4de-7edfa319b972", "type": "text", "value": "", "col_name": "Col 2"}], "text_sub_fields": []}, {"type": "input-group", "field": "Group", "label": "Group", "default": "", "position": 3, "required": false, "sub_fields": [{"id": "f35ab349-63c7-4849-9e3b-db41a7d8c9dc", "type": "label", "value": "TEST"}, {"id": "edc174e1-05cc-400f-a2f9-00516c5c33ab", "type": "number", "value": ""}, {"id": "8b9223a1-ea34-4f69-93fc-3dc5e4865e7f", "type": "text", "value": ""}], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "2.0", "identifier": null, "select_options": {}}	{}
+1	1	face37f2-4760-4197-9d10-114d78264448	30e78480-dfa1-4e62-8260-8e7896ec7cad	New Tryout	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "face37f2-4760-4197-9d10-114d78264448", "klass": "Element", "layers": {"one": {"ai": [], "wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "klass_uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad"}	\N	2024-01-24 08:17:12.645707	2024-12-04 12:57:28.665581	2024-12-04 12:57:28.665569	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "30e78480-dfa1-4e62-8260-8e7896ec7cad", "klass": "ElementKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "Nr. 1", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	{}
 \.
 
 
@@ -6918,6 +7696,14 @@ COPY public.elements_revisions (id, element_id, uuid, klass_uuid, name, properti
 --
 
 COPY public.elements_samples (id, element_id, sample_id, created_by, created_at, updated_at, deleted_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: elements_wellplates; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.elements_wellplates (id, element_id, wellplate_id, created_at, updated_at, deleted_at, log_data) FROM stdin;
 \.
 
 
@@ -6937,6 +7723,14 @@ COPY public.fingerprints (id, fp0, fp1, fp2, fp3, fp4, fp5, fp6, fp7, fp8, fp9, 
 1	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0	2024-01-23 15:17:46.387447	2024-01-23 15:17:46.387447	\N
 2	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000100000	1	2024-11-20 06:12:56.643615	2024-11-20 06:12:56.643615	\N
 3	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000010000000000000000000000010000001000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000100001000000	0000000000000000000000000000000001000000000000001000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000010000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000001000000000000000000000001000	0000000000000000000000000000000000000000010000000000000000000000	0000000000000000000000000000000010000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000100000000000000000	0000000000000000000000000000000000000000000000000000000000000000	13	2024-11-20 06:14:15.798414	2024-11-20 06:14:15.798414	\N
+\.
+
+
+--
+-- Data for Name: info_support_links; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.info_support_links (id, label, url, "position", enabled, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -7214,10 +8008,10 @@ COPY public.matrices (id, name, enabled, label, include_ids, exclude_ids, config
 8	genericDataset	t	genericDataset	{}	{}	{}	2024-01-23 13:44:01.408293	2024-01-24 07:05:09.339511	\N
 7	segment	t	segment	{}	{}	{}	2024-01-23 13:44:01.38501	2024-01-24 07:05:14.327721	\N
 5	sampleDecoupled	t	sampleDecoupled	{}	{}	{}	2024-01-23 13:44:01.055112	2024-01-24 07:05:24.958261	\N
-11	ketcher2Editor	f	ketcher2Editor	{}	{}	{"editor": "ketcher2"}	2024-01-23 13:44:02.10268	2024-01-23 13:44:02.10268	\N
 15	moleculeViewer	t	moleculeViewer	{}	{}	{}	2024-11-20 06:08:45.935531	2024-11-20 06:08:45.935531	\N
 1	userLabel	f	userLabel	{}	{}	{}	2024-01-23 13:44:00.872595	2024-11-20 06:08:45.99473	2024-11-20 06:08:45.994721
 16	fastInput	t	fastInput	{}	{}	{"cas_api_key": ""}	2025-11-13 04:53:16.676496	2025-11-13 04:53:16.676496	\N
+11	ketcherEditor	t	ketcherEditor	{}	{}	{"editor": "ketcher"}	2024-01-23 13:44:02.10268	2024-01-23 13:44:02.10268	\N
 \.
 
 
@@ -7225,7 +8019,7 @@ COPY public.matrices (id, name, enabled, label, include_ids, exclude_ids, config
 -- Data for Name: measurements; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.measurements (id, description, value, unit, deleted_at, well_id, sample_id, created_at, updated_at, source_type, source_id) FROM stdin;
+COPY public.measurements (id, description, value, unit, deleted_at, well_id, sample_id, created_at, updated_at, source_type, source_id, metadata) FROM stdin;
 \.
 
 
@@ -7315,6 +8109,14 @@ COPY public.pg_search_documents (id, content, searchable_type, searchable_id, cr
 
 
 --
+-- Data for Name: post_translational_modifications; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.post_translational_modifications (id, phosphorylation_enabled, phosphorylation_ser_enabled, phosphorylation_ser_details, phosphorylation_thr_enabled, phosphorylation_thr_details, phosphorylation_tyr_enabled, phosphorylation_tyr_details, glycosylation_enabled, glycosylation_n_linked_asn_enabled, glycosylation_n_linked_asn_details, glycosylation_o_linked_lys_enabled, glycosylation_o_linked_lys_details, glycosylation_o_linked_ser_enabled, glycosylation_o_linked_ser_details, glycosylation_o_linked_thr_enabled, glycosylation_o_linked_thr_details, acetylation_enabled, acetylation_lysin_number, hydroxylation_enabled, hydroxylation_lys_enabled, hydroxylation_lys_details, hydroxylation_pro_enabled, hydroxylation_pro_details, methylation_enabled, methylation_arg_enabled, methylation_arg_details, methylation_glu_enabled, methylation_glu_details, methylation_lys_enabled, methylation_lys_details, other_modifications_enabled, other_modifications_details, deleted_at, created_at, updated_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: predictions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -7334,15 +8136,23 @@ COPY public.private_notes (id, content, created_by, created_at, updated_at, note
 -- Data for Name: profiles; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.profiles (id, show_external_name, user_id, deleted_at, created_at, updated_at, data, curation, show_sample_name, show_sample_short_label) FROM stdin;
-3	f	4	\N	2024-01-24 07:01:45.783739	2024-01-24 07:01:45.783739	{}	2	f	f
-2	f	3	\N	2024-01-23 15:12:19.925682	2024-01-23 15:15:49.216912	{"generic_admin": {"datasets": true, "elements": true, "segments": true}, "molecule_editor": true, "is_templates_moderator": true}	2	f	f
-1	f	2	\N	2024-01-23 15:12:02.27083	2024-01-25 10:10:02.792749	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": 2, "sample": 1, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6}, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": false, "layout_detail_try": {"TrySeg1": 2, "analyses": 3, "properties": 1, "attachments": 4}, "layout_detail_sample": {"results": 5, "analyses": 1, "properties": 3, "references": 4, "qc_curation": 2, "measurements": -1}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": false, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f
-7	f	8	\N	2024-02-16 08:53:15.389988	2024-02-16 08:53:15.389988	{}	2	f	f
-6	f	7	\N	2024-02-16 08:52:48.565375	2024-03-21 12:13:12.53115	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": -2, "wrk": 1, "sample": 2, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6}, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": true, "layout_detail_sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": true, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f
-8	f	9	\N	2024-09-27 09:11:56.606768	2024-09-27 09:11:56.606768	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"sample": 1, "screen": 4, "reaction": 2, "cell_line": -1000, "wellplate": 3, "research_plan": 5}, "converter_admin": false, "molecule_editor": false, "is_templates_moderator": false}	2	f	f
-4	f	5	2024-11-20 06:08:45.949671	2024-02-16 08:50:38.515631	2024-02-16 08:50:38.515631	{}	2	f	f
-5	f	6	2024-11-20 06:08:45.949671	2024-02-16 08:51:22.3029	2024-02-16 08:51:22.3029	{}	2	f	f
+COPY public.profiles (id, show_external_name, user_id, deleted_at, created_at, updated_at, data, curation, show_sample_name, show_sample_short_label, theme) FROM stdin;
+3	f	4	\N	2024-01-24 07:01:45.783739	2024-01-24 07:01:45.783739	{"inbox_auto": false, "inbox_manual": true}	2	f	f	0
+2	f	3	\N	2024-01-23 15:12:19.925682	2024-01-23 15:15:49.216912	{"inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "molecule_editor": true, "is_templates_moderator": true}	2	f	f	0
+7	f	8	\N	2024-02-16 08:53:15.389988	2024-02-16 08:53:15.389988	{"inbox_auto": false, "inbox_manual": true}	2	f	f	0
+4	f	5	2024-11-20 06:08:45.949671	2024-02-16 08:50:38.515631	2024-02-16 08:50:38.515631	{"inbox_auto": false, "inbox_manual": true}	2	f	f	0
+5	f	6	2024-11-20 06:08:45.949671	2024-02-16 08:51:22.3029	2024-02-16 08:51:22.3029	{"inbox_auto": false, "inbox_manual": true}	2	f	f	0
+1	f	2	\N	2024-01-23 15:12:02.27083	2026-07-02 17:40:23.461861	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": 2, "sample": 1, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": false, "layout_detail_try": {"TrySeg1": 2, "analyses": 3, "properties": 1, "attachments": 4}, "layout_detail_sample": {"results": 5, "analyses": 1, "properties": 3, "references": 4, "qc_curation": 2, "measurements": -1}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": false, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f	0
+6	f	7	\N	2024-02-16 08:52:48.565375	2026-07-02 17:40:23.47451	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": -2, "wrk": 1, "sample": 2, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": true, "layout_detail_sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": true, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f	0
+8	f	9	\N	2024-09-27 09:11:56.606768	2026-07-02 17:40:23.477677	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"sample": 1, "screen": 4, "reaction": 2, "cell_line": -1000, "wellplate": 3, "research_plan": 5, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "converter_admin": false, "molecule_editor": false, "is_templates_moderator": false}	2	f	f	0
+\.
+
+
+--
+-- Data for Name: protein_sequence_modifications; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.protein_sequence_modifications (id, modification_n_terminal, modification_n_terminal_details, modification_c_terminal, modification_c_terminal_details, modification_insertion, modification_insertion_details, modification_deletion, modification_deletion_details, modification_mutation, modification_mutation_details, modification_other, modification_other_details, deleted_at, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -7350,9 +8160,17 @@ COPY public.profiles (id, show_external_name, user_id, deleted_at, created_at, u
 -- Data for Name: reactions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.reactions (id, name, created_at, updated_at, description, timestamp_start, timestamp_stop, observation, purification, dangerous_products, tlc_solvents, tlc_description, rf_value, temperature, status, reaction_svg_file, solvent, deleted_at, short_label, created_by, role, origin, rinchi_string, rinchi_long_key, rinchi_short_key, rinchi_web_key, duration, rxno, conditions, variations, plain_text_description, plain_text_observation, gaseous, vessel_size, log_data) FROM stdin;
-1		2024-11-20 06:14:26.377705	2024-11-20 06:15:51.753287	--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n			--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n	{}	{}			0	{"data": [], "userText": "", "valueUnit": "°C"}		ed612b54b097d204efc8df601ea8b808e3741b66b1ca286a3a9f32d781a71685.svg		\N	API-R1	7		{}	RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3<>BH3/h1H3/d-	Long-RInChIKey=SA-BUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N--UORVGPXVDQYIDP-UHFFFAOYSA-N	Short-RInChIKey=SA-BUHFF-QPUYECUOLP-QGZKDVFQNN-UORVGPXVDQ-NUHFF-NUHFF-NUHFF-ZZZ	Web-RInChIKey=QIYMARWDEZAJTNBIR-NUHFFFADPSCTJSA				{"2eaad41c-1bec-480c-89ef-eca2702e4933": {"id": 2, "uuid": "2eaad41c-1bec-480c-89ef-eca2702e4933", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}, "5c7e6ff4-9caa-43e6-9805-af4ebba87e40": {"id": 1, "uuid": "5c7e6ff4-9caa-43e6-9805-af4ebba87e40", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}}			f	{"unit": "ml", "amount": null}	{"h": [{"c": {"id": 1, "name": "", "role": "", "rxno": "", "origin": "{}", "status": "", "gaseous": false, "solvent": "", "duration": "", "rf_value": "0", "conditions": "", "created_at": "2024-11-20T06:14:26.377705", "created_by": 7, "deleted_at": null, "updated_at": "2024-11-20T06:15:51.753287", "variations": [{"id": 1, "notes": "", "analyses": [], "products": {"4": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}, {"id": 2, "notes": "", "analyses": [], "products": {"4": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}], "description": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "observation": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "short_label": "API-R1", "temperature": "{\\"data\\": [], \\"userText\\": \\"\\", \\"valueUnit\\": \\"°C\\"}", "vessel_size": "{\\"unit\\": \\"ml\\", \\"amount\\": null}", "purification": [], "tlc_solvents": "", "rinchi_string": "RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3<>BH3/h1H3/d-", "rinchi_web_key": "Web-RInChIKey=QIYMARWDEZAJTNBIR-NUHFFFADPSCTJSA", "timestamp_stop": "", "rinchi_long_key": "Long-RInChIKey=SA-BUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N--UORVGPXVDQYIDP-UHFFFAOYSA-N", "timestamp_start": "", "tlc_description": "", "rinchi_short_key": "Short-RInChIKey=SA-BUHFF-QPUYECUOLP-QGZKDVFQNN-UORVGPXVDQ-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "ed612b54b097d204efc8df601ea8b808e3741b66b1ca286a3a9f32d781a71685.svg", "dangerous_products": [], "plain_text_description": "", "plain_text_observation": ""}, "v": 1, "ts": 1732083351753}, {"c": {"variations": "[{\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}]"}, "v": 2, "ts": 1761303981846}, {"c": {"variations": "[{\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}]"}, "m": {}, "v": 3, "ts": 1761303981876}, {"c": {"variations": "{\\"2eaad41c-1bec-480c-89ef-eca2702e4933\\": {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\": {\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}}"}, "v": 4, "ts": 1763009596649}, {"c": {"variations": "{\\"2eaad41c-1bec-480c-89ef-eca2702e4933\\": {\\"id\\": 2, \\"uuid\\": \\"2eaad41c-1bec-480c-89ef-eca2702e4933\\", \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\": {\\"id\\": 1, \\"uuid\\": \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\", \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}}"}, "v": 5, "ts": 1763009596657}], "v": 5}
-2		2025-11-13 04:54:36.226688	2025-11-13 04:55:55.215867	--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n			--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n	{}	{}			0	{"data": [], "userText": "", "valueUnit": "°C"}		779d62b419f418c49538e3c017b2ce65c5898ebff73c1fa1a3cf20d2755c90f9.svg		\N	API-R2	7		{}	RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3/d+	Long-RInChIKey=SA-FUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N	Short-RInChIKey=SA-FUHFF-QPUYECUOLP-QGZKDVFQNN-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ	Web-RInChIKey=ONFXTVIYXQQOERKPO-NUHFFFADPSCTJSA				{"b3ba05e8-7855-4298-9797-e7cc5f6706a3": {"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, "bf7593ac-1b23-47df-b452-75b3f30f1b6a": {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}}			f	{"unit": "ml", "amount": null}	{"h": [{"c": {"id": 2, "name": "", "role": "", "rxno": "", "origin": null, "status": "", "gaseous": false, "solvent": "", "duration": "", "rf_value": "0", "conditions": "", "created_at": "2025-11-13T04:54:36.226688", "created_by": 7, "deleted_at": null, "updated_at": "2025-11-13T04:54:36.226688", "variations": "{}", "description": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "observation": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "short_label": "API-R2", "temperature": "{\\"data\\": [], \\"userText\\": \\"\\", \\"valueUnit\\": \\"°C\\"}", "vessel_size": "{\\"unit\\": \\"ml\\", \\"amount\\": null}", "purification": [], "tlc_solvents": "", "rinchi_string": "RInChI=1.00.1S//d+", "rinchi_web_key": "Web-RInChIKey=UHFFFADPSCTJAUYIS-NUHFFFADPSCTJSA", "timestamp_stop": "", "rinchi_long_key": "Long-RInChIKey=SA-FUHFF", "timestamp_start": "", "tlc_description": "", "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-UHFFFADPSC-UHFFFADPSC-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "12754d42c7c347783fa6b27c02608b97cefec1926c7be9ee965492601462b68eafbe5bee1d61a3236a245ddfe14ea3a95a5052ba4bc205f213c5b875450d5b08.svg", "dangerous_products": [], "plain_text_description": null, "plain_text_observation": null}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676227}, {"c": {"updated_at": "2025-11-13T04:54:36.335017", "reaction_svg_file": "297737d5fc116aa03b734d96c16dc64dd20ced292d141a043f8ce08034d913e8.svg"}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 2, "ts": 1763009676335}, {"c": {"updated_at": "2025-11-13T04:54:36.887903", "rinchi_string": "RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3/d+", "rinchi_web_key": "Web-RInChIKey=ONFXTVIYXQQOERKPO-NUHFFFADPSCTJSA", "rinchi_long_key": "Long-RInChIKey=SA-FUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N", "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-QPUYECUOLP-QGZKDVFQNN-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "779d62b419f418c49538e3c017b2ce65c5898ebff73c1fa1a3cf20d2755c90f9.svg"}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 3, "ts": 1763009676888}, {"c": {"plain_text_description": "", "plain_text_observation": ""}, "v": 4, "ts": 1763009679034}, {"c": {"origin": {}, "updated_at": "2025-11-13T04:55:55.201587", "variations": {"b3ba05e8-7855-4298-9797-e7cc5f6706a3": {"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, "bf7593ac-1b23-47df-b452-75b3f30f1b6a": {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}}}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 5, "ts": 1763009755202}, {"c": {"updated_at": "2025-11-13T04:55:55.215867"}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 6, "ts": 1763009755216}], "v": 6}
+COPY public.reactions (id, name, created_at, updated_at, description, timestamp_start, timestamp_stop, observation, purification, dangerous_products, tlc_solvents, tlc_description, rf_value, temperature, status, reaction_svg_file, solvent, deleted_at, short_label, created_by, role, origin, rinchi_string, rinchi_long_key, rinchi_short_key, rinchi_web_key, duration, rxno, conditions, variations, plain_text_description, plain_text_observation, gaseous, vessel_size, log_data, weight_percentage, volume, use_reaction_volume, lock_reaction_volume, reaction_type, ph_operator, ph_value) FROM stdin;
+1		2024-11-20 06:14:26.377705	2024-11-20 06:15:51.753287	--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n			--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n	{}	{}			0	{"data": [], "userText": "", "valueUnit": "°C"}		ed612b54b097d204efc8df601ea8b808e3741b66b1ca286a3a9f32d781a71685.svg		\N	API-R1	7		{}	RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3<>BH3/h1H3/d-	Long-RInChIKey=SA-BUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N--UORVGPXVDQYIDP-UHFFFAOYSA-N	Short-RInChIKey=SA-BUHFF-QPUYECUOLP-QGZKDVFQNN-UORVGPXVDQ-NUHFF-NUHFF-NUHFF-ZZZ	Web-RInChIKey=QIYMARWDEZAJTNBIR-NUHFFFADPSCTJSA				[{"id": 2, "uuid": "2eaad41c-1bec-480c-89ef-eca2702e4933", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}, {"id": 1, "uuid": "5c7e6ff4-9caa-43e6-9805-af4ebba87e40", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}]			f	{"unit": "ml", "amount": null}	{"h": [{"c": {"id": 1, "name": "", "role": "", "rxno": "", "origin": "{}", "status": "", "gaseous": false, "solvent": "", "duration": "", "rf_value": "0", "conditions": "", "created_at": "2024-11-20T06:14:26.377705", "created_by": 7, "deleted_at": null, "updated_at": "2024-11-20T06:15:51.753287", "variations": [{"id": 1, "notes": "", "analyses": [], "products": {"4": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}, {"id": 2, "notes": "", "analyses": [], "products": {"4": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}], "description": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "observation": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "short_label": "API-R1", "temperature": "{\\"data\\": [], \\"userText\\": \\"\\", \\"valueUnit\\": \\"°C\\"}", "vessel_size": "{\\"unit\\": \\"ml\\", \\"amount\\": null}", "purification": [], "tlc_solvents": "", "rinchi_string": "RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3<>BH3/h1H3/d-", "rinchi_web_key": "Web-RInChIKey=QIYMARWDEZAJTNBIR-NUHFFFADPSCTJSA", "timestamp_stop": "", "rinchi_long_key": "Long-RInChIKey=SA-BUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N--UORVGPXVDQYIDP-UHFFFAOYSA-N", "timestamp_start": "", "tlc_description": "", "rinchi_short_key": "Short-RInChIKey=SA-BUHFF-QPUYECUOLP-QGZKDVFQNN-UORVGPXVDQ-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "ed612b54b097d204efc8df601ea8b808e3741b66b1ca286a3a9f32d781a71685.svg", "dangerous_products": [], "plain_text_description": "", "plain_text_observation": ""}, "v": 1, "ts": 1732083351753}, {"c": {"variations": "[{\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}]"}, "v": 2, "ts": 1761303981846}, {"c": {"variations": "[{\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}]"}, "m": {}, "v": 3, "ts": 1761303981876}, {"c": {"variations": "{\\"2eaad41c-1bec-480c-89ef-eca2702e4933\\": {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\": {\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}}"}, "v": 4, "ts": 1763009596649}, {"c": {"variations": "{\\"2eaad41c-1bec-480c-89ef-eca2702e4933\\": {\\"id\\": 2, \\"uuid\\": \\"2eaad41c-1bec-480c-89ef-eca2702e4933\\", \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\": {\\"id\\": 1, \\"uuid\\": \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\", \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}}"}, "v": 5, "ts": 1763009596657}, {"c": {"variations": [{"id": 2, "uuid": "2eaad41c-1bec-480c-89ef-eca2702e4933", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}, {"id": 1, "uuid": "5c7e6ff4-9caa-43e6-9805-af4ebba87e40", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}]}, "v": 6, "ts": 1783014023767}], "v": 6}	f	\N	f	f	standard	=	\N
+2		2025-11-13 04:54:36.226688	2025-11-13 04:55:55.215867	--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n			--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n	{}	{}			0	{"data": [], "userText": "", "valueUnit": "°C"}		779d62b419f418c49538e3c017b2ce65c5898ebff73c1fa1a3cf20d2755c90f9.svg		\N	API-R2	7		{}	RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3/d+	Long-RInChIKey=SA-FUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N	Short-RInChIKey=SA-FUHFF-QPUYECUOLP-QGZKDVFQNN-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ	Web-RInChIKey=ONFXTVIYXQQOERKPO-NUHFFFADPSCTJSA				[{"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}]			f	{"unit": "ml", "amount": null}	{"h": [{"c": {"id": 2, "name": "", "role": "", "rxno": "", "origin": null, "status": "", "gaseous": false, "solvent": "", "duration": "", "rf_value": "0", "conditions": "", "created_at": "2025-11-13T04:54:36.226688", "created_by": 7, "deleted_at": null, "updated_at": "2025-11-13T04:54:36.226688", "variations": "{}", "description": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "observation": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "short_label": "API-R2", "temperature": "{\\"data\\": [], \\"userText\\": \\"\\", \\"valueUnit\\": \\"°C\\"}", "vessel_size": "{\\"unit\\": \\"ml\\", \\"amount\\": null}", "purification": [], "tlc_solvents": "", "rinchi_string": "RInChI=1.00.1S//d+", "rinchi_web_key": "Web-RInChIKey=UHFFFADPSCTJAUYIS-NUHFFFADPSCTJSA", "timestamp_stop": "", "rinchi_long_key": "Long-RInChIKey=SA-FUHFF", "timestamp_start": "", "tlc_description": "", "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-UHFFFADPSC-UHFFFADPSC-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "12754d42c7c347783fa6b27c02608b97cefec1926c7be9ee965492601462b68eafbe5bee1d61a3236a245ddfe14ea3a95a5052ba4bc205f213c5b875450d5b08.svg", "dangerous_products": [], "plain_text_description": null, "plain_text_observation": null}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676227}, {"c": {"updated_at": "2025-11-13T04:54:36.335017", "reaction_svg_file": "297737d5fc116aa03b734d96c16dc64dd20ced292d141a043f8ce08034d913e8.svg"}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 2, "ts": 1763009676335}, {"c": {"updated_at": "2025-11-13T04:54:36.887903", "rinchi_string": "RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3/d+", "rinchi_web_key": "Web-RInChIKey=ONFXTVIYXQQOERKPO-NUHFFFADPSCTJSA", "rinchi_long_key": "Long-RInChIKey=SA-FUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N", "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-QPUYECUOLP-QGZKDVFQNN-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "779d62b419f418c49538e3c017b2ce65c5898ebff73c1fa1a3cf20d2755c90f9.svg"}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 3, "ts": 1763009676888}, {"c": {"plain_text_description": "", "plain_text_observation": ""}, "v": 4, "ts": 1763009679034}, {"c": {"origin": {}, "updated_at": "2025-11-13T04:55:55.201587", "variations": {"b3ba05e8-7855-4298-9797-e7cc5f6706a3": {"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, "bf7593ac-1b23-47df-b452-75b3f30f1b6a": {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}}}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 5, "ts": 1763009755202}, {"c": {"updated_at": "2025-11-13T04:55:55.215867"}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 6, "ts": 1763009755216}, {"c": {"variations": [{"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}]}, "v": 7, "ts": 1783014023772}], "v": 7}	f	\N	f	f	standard	=	\N
+\.
+
+
+--
+-- Data for Name: reactions_reactant_sbmm_samples; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.reactions_reactant_sbmm_samples (id, reaction_id, sequence_based_macromolecule_sample_id, "position", deleted_at, show_label, reference, equivalent, weight_percentage, created_at, updated_at, log_data) FROM stdin;
 \.
 
 
@@ -7360,12 +8178,12 @@ COPY public.reactions (id, name, created_at, updated_at, description, timestamp_
 -- Data for Name: reactions_samples; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.reactions_samples (id, reaction_id, sample_id, reference, equivalent, "position", type, deleted_at, waste, coefficient, show_label, gas_type, gas_phase_data, conversion_rate, created_at, updated_at, log_data) FROM stdin;
-1	1	2	t	1	0	ReactionsStartingMaterialSample	\N	f	1	f	\N	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	\N	\N	{"h": [{"c": {"id": 1, "type": "ReactionsStartingMaterialSample", "waste": false, "gas_type": null, "position": 0, "reference": true, "sample_id": 2, "created_at": null, "deleted_at": null, "equivalent": 1, "show_label": false, "updated_at": null, "coefficient": 1, "reaction_id": 1, "gas_phase_data": "{\\"time\\": {\\"unit\\": \\"h\\", \\"value\\": null}, \\"temperature\\": {\\"unit\\": \\"K\\", \\"value\\": null}, \\"turnover_number\\": null, \\"part_per_million\\": null, \\"turnover_frequency\\": {\\"unit\\": \\"TON/h\\", \\"value\\": null}}", "conversion_rate": null}, "v": 1, "ts": 1761303981824}], "v": 1}
-3	1	4	f	0	0	ReactionsProductSample	\N	f	1	f	\N	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	\N	\N	{"h": [{"c": {"id": 3, "type": "ReactionsProductSample", "waste": false, "gas_type": null, "position": 0, "reference": false, "sample_id": 4, "created_at": null, "deleted_at": null, "equivalent": 0, "show_label": false, "updated_at": null, "coefficient": 1, "reaction_id": 1, "gas_phase_data": "{\\"time\\": {\\"unit\\": \\"h\\", \\"value\\": null}, \\"temperature\\": {\\"unit\\": \\"K\\", \\"value\\": null}, \\"turnover_number\\": null, \\"part_per_million\\": null, \\"turnover_frequency\\": {\\"unit\\": \\"TON/h\\", \\"value\\": null}}", "conversion_rate": null}, "v": 1, "ts": 1761303981824}], "v": 1}
-2	1	3	f	0	0	ReactionsReactantSample	\N	f	1	f	\N	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	\N	\N	{"h": [{"c": {"id": 2, "type": "ReactionsReactantSample", "waste": false, "gas_type": null, "position": 0, "reference": false, "sample_id": 3, "created_at": null, "deleted_at": null, "equivalent": 0, "show_label": false, "updated_at": null, "coefficient": 1, "reaction_id": 1, "gas_phase_data": "{\\"time\\": {\\"unit\\": \\"h\\", \\"value\\": null}, \\"temperature\\": {\\"unit\\": \\"K\\", \\"value\\": null}, \\"turnover_number\\": null, \\"part_per_million\\": null, \\"turnover_frequency\\": {\\"unit\\": \\"TON/h\\", \\"value\\": null}}", "conversion_rate": null}, "v": 1, "ts": 1761303981824}], "v": 1}
-4	2	5	t	\N	0	ReactionsStartingMaterialSample	\N	f	1	f	0	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	2025-11-13 04:54:36.715908	2025-11-13 04:54:36.715908	{"h": [{"c": {"id": 4, "type": "ReactionsStartingMaterialSample", "waste": false, "gas_type": 0, "position": 0, "reference": true, "sample_id": 5, "created_at": "2025-11-13T04:54:36.715908", "deleted_at": null, "equivalent": null, "show_label": false, "updated_at": "2025-11-13T04:54:36.715908", "coefficient": 1, "reaction_id": 2, "gas_phase_data": "{\\"time\\": {\\"unit\\": \\"h\\", \\"value\\": null}, \\"temperature\\": {\\"unit\\": \\"K\\", \\"value\\": null}, \\"turnover_number\\": null, \\"part_per_million\\": null, \\"turnover_frequency\\": {\\"unit\\": \\"TON/h\\", \\"value\\": null}}", "conversion_rate": null}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676716}], "v": 1}
-5	2	6	f	0	0	ReactionsProductSample	\N	f	1	f	0	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	2025-11-13 04:54:36.824977	2025-11-13 04:55:55.354941	{"h": [{"c": {"id": 5, "type": "ReactionsProductSample", "waste": false, "gas_type": 0, "position": 0, "reference": false, "sample_id": 6, "created_at": "2025-11-13T04:54:36.824977", "deleted_at": null, "equivalent": 0, "show_label": false, "updated_at": "2025-11-13T04:54:36.824977", "coefficient": 1, "reaction_id": 2, "gas_phase_data": null, "conversion_rate": null}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676825}, {"c": {"updated_at": "2025-11-13T04:55:55.354941", "gas_phase_data": {"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 2, "ts": 1763009755355}], "v": 2}
+COPY public.reactions_samples (id, reaction_id, sample_id, reference, equivalent, "position", type, deleted_at, waste, coefficient, show_label, gas_type, gas_phase_data, conversion_rate, created_at, updated_at, log_data, weight_percentage_reference, weight_percentage) FROM stdin;
+1	1	2	t	1	0	ReactionsStartingMaterialSample	\N	f	1	f	\N	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	\N	\N	{"h": [{"c": {"id": 1, "type": "ReactionsStartingMaterialSample", "waste": false, "gas_type": null, "position": 0, "reference": true, "sample_id": 2, "created_at": null, "deleted_at": null, "equivalent": 1, "show_label": false, "updated_at": null, "coefficient": 1, "reaction_id": 1, "gas_phase_data": "{\\"time\\": {\\"unit\\": \\"h\\", \\"value\\": null}, \\"temperature\\": {\\"unit\\": \\"K\\", \\"value\\": null}, \\"turnover_number\\": null, \\"part_per_million\\": null, \\"turnover_frequency\\": {\\"unit\\": \\"TON/h\\", \\"value\\": null}}", "conversion_rate": null}, "v": 1, "ts": 1761303981824}], "v": 1}	f	\N
+3	1	4	f	0	0	ReactionsProductSample	\N	f	1	f	\N	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	\N	\N	{"h": [{"c": {"id": 3, "type": "ReactionsProductSample", "waste": false, "gas_type": null, "position": 0, "reference": false, "sample_id": 4, "created_at": null, "deleted_at": null, "equivalent": 0, "show_label": false, "updated_at": null, "coefficient": 1, "reaction_id": 1, "gas_phase_data": "{\\"time\\": {\\"unit\\": \\"h\\", \\"value\\": null}, \\"temperature\\": {\\"unit\\": \\"K\\", \\"value\\": null}, \\"turnover_number\\": null, \\"part_per_million\\": null, \\"turnover_frequency\\": {\\"unit\\": \\"TON/h\\", \\"value\\": null}}", "conversion_rate": null}, "v": 1, "ts": 1761303981824}], "v": 1}	f	\N
+2	1	3	f	0	0	ReactionsReactantSample	\N	f	1	f	\N	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	\N	\N	{"h": [{"c": {"id": 2, "type": "ReactionsReactantSample", "waste": false, "gas_type": null, "position": 0, "reference": false, "sample_id": 3, "created_at": null, "deleted_at": null, "equivalent": 0, "show_label": false, "updated_at": null, "coefficient": 1, "reaction_id": 1, "gas_phase_data": "{\\"time\\": {\\"unit\\": \\"h\\", \\"value\\": null}, \\"temperature\\": {\\"unit\\": \\"K\\", \\"value\\": null}, \\"turnover_number\\": null, \\"part_per_million\\": null, \\"turnover_frequency\\": {\\"unit\\": \\"TON/h\\", \\"value\\": null}}", "conversion_rate": null}, "v": 1, "ts": 1761303981824}], "v": 1}	f	\N
+4	2	5	t	\N	0	ReactionsStartingMaterialSample	\N	f	1	f	0	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	2025-11-13 04:54:36.715908	2025-11-13 04:54:36.715908	{"h": [{"c": {"id": 4, "type": "ReactionsStartingMaterialSample", "waste": false, "gas_type": 0, "position": 0, "reference": true, "sample_id": 5, "created_at": "2025-11-13T04:54:36.715908", "deleted_at": null, "equivalent": null, "show_label": false, "updated_at": "2025-11-13T04:54:36.715908", "coefficient": 1, "reaction_id": 2, "gas_phase_data": "{\\"time\\": {\\"unit\\": \\"h\\", \\"value\\": null}, \\"temperature\\": {\\"unit\\": \\"K\\", \\"value\\": null}, \\"turnover_number\\": null, \\"part_per_million\\": null, \\"turnover_frequency\\": {\\"unit\\": \\"TON/h\\", \\"value\\": null}}", "conversion_rate": null}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676716}], "v": 1}	f	\N
+5	2	6	f	0	0	ReactionsProductSample	\N	f	1	f	0	{"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}	\N	2025-11-13 04:54:36.824977	2025-11-13 04:55:55.354941	{"h": [{"c": {"id": 5, "type": "ReactionsProductSample", "waste": false, "gas_type": 0, "position": 0, "reference": false, "sample_id": 6, "created_at": "2025-11-13T04:54:36.824977", "deleted_at": null, "equivalent": 0, "show_label": false, "updated_at": "2025-11-13T04:54:36.824977", "coefficient": 1, "reaction_id": 2, "gas_phase_data": null, "conversion_rate": null}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676825}, {"c": {"updated_at": "2025-11-13T04:55:55.354941", "gas_phase_data": {"time": {"unit": "h", "value": null}, "temperature": {"unit": "K", "value": null}, "turnover_number": null, "part_per_million": null, "turnover_frequency": {"unit": "TON/h", "value": null}}}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 2, "ts": 1763009755355}], "v": 2}	f	\N
 \.
 
 
@@ -7420,7 +8238,7 @@ COPY public.research_plan_table_schemas (id, name, value, created_by, deleted_at
 -- Data for Name: research_plans; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.research_plans (id, name, created_by, deleted_at, created_at, updated_at, body, log_data) FROM stdin;
+COPY public.research_plans (id, name, created_by, deleted_at, created_at, updated_at, body, log_data, short_label) FROM stdin;
 \.
 
 
@@ -7460,13 +8278,13 @@ COPY public.sample_tasks (id, result_value, result_unit, description, creator_id
 -- Data for Name: samples; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.samples (id, name, target_amount_value, target_amount_unit, created_at, updated_at, description, molecule_id, molfile, purity, deprecated_solvent, impurities, location, is_top_secret, ancestry, external_label, created_by, short_label, real_amount_value, real_amount_unit, imported_readout, deleted_at, sample_svg_file, user_id, identifier, density, melting_point, boiling_point, fingerprint_id, xref, molarity_value, molarity_unit, molecule_name_id, molfile_version, stereo, metrics, decoupled, molecular_mass, sum_formula, solvent, dry_solvent, inventory_sample, log_data) FROM stdin;
-1	\N	0	g	2024-01-23 15:17:46.412096	2024-01-23 15:17:46.412096		1	\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44	1				f	\N		2	MSU-1	\N	g	\N	\N	\N	\N	\N	0	(,)	(,)	1	{}	0	M	3	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 1, "name": null, "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2024-01-23T15:17:46.412096", "created_by": 2, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2024-01-23T15:17:46.412096", "description": "", "dry_solvent": false, "molecule_id": 1, "short_label": "MSU-1", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 1, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": null, "imported_readout": null, "inventory_sample": false, "molecule_name_id": 3, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "v": 1, "ts": 1706023066412}], "v": 1}
-2	\N	0	g	2024-11-20 06:11:55.311593	2024-11-20 06:11:55.311593		1	\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44	1				f	\N		7	API-1	\N	g	\N	\N	\N	\N	\N	0	(,)	(,)	1	{}	0	M	2	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 2, "name": null, "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2024-11-20T06:11:55.311593", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2024-11-20T06:11:55.311593", "description": "", "dry_solvent": false, "molecule_id": 1, "short_label": "API-1", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 1, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": null, "imported_readout": null, "inventory_sample": false, "molecule_name_id": 2, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "v": 1, "ts": 1732083115312}], "v": 1}
-3	\N	0.022	g	2024-11-20 06:12:56.646234	2024-11-20 06:14:26.471014		2	\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e303030302042202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44	1				f	\N		7	reactant	\N	g	\N	\N	\N	\N	\N	1	(,)	(,)	2	{}	0	M	4	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 3, "name": null, "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 1, "metrics": "mmm", "molfile": "\\\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e303030302042202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2024-11-20T06:12:56.646234", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2024-11-20T06:14:26.471014", "description": "", "dry_solvent": false, "molecule_id": 2, "short_label": "reactant", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 2, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": null, "imported_readout": null, "inventory_sample": false, "molecule_name_id": 4, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0.022}, "v": 1, "ts": 1732083266471}], "v": 1}
-4	API-R1-A	0	g	2024-11-20 06:14:15.809067	2024-11-20 06:14:26.498125		3	\\x0a20204b657463686572203131323032343037313432442031202020312e30303030302020202020302e30303030302020202020300a0a2031312031322020302020202020302020302020202020202020202020203939392056323030300a20202020342e363530302020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832312020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d312e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a2020312020322020312020302020202020302020300a2020322020332020312020302020202020302020300a2020332020342020312020302020202020302020300a2020342020352020322020302020202020302020300a2020352020362020312020302020202020302020300a2020362020312020322020302020202020302020300a2020322020372020322020302020202020302020300a2020372020382020312020302020202020302020300a2020382020392020322020302020202020302020300a2020392031302020312020302020202020302020300a2031302020332020322020302020202020302020300a2020312031312020312020302020202020302020300a4d2020454e440a242424240a0a	1				f	\N		7	API-3	\N	g	\N	\N	18bb8133763ad42880d28d267b93f23f6fa48d34516d5c966d8f28c05efe8b8458ebae6f5f1fd5f3581fdab74f1b9b443eb8869ed46b8b067eedae28cfb3245f.svg	\N	\N	0	(,)	(,)	3	{}	0	M	6	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 4, "name": "API-R1-A", "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a20204b657463686572203131323032343037313432442031202020312e30303030302020202020302e30303030302020202020300a0a2031312031322020302020202020302020302020202020202020202020203939392056323030300a20202020342e363530302020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832312020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d312e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a2020312020322020312020302020202020302020300a2020322020332020312020302020202020302020300a2020332020342020312020302020202020302020300a2020342020352020322020302020202020302020300a2020352020362020312020302020202020302020300a2020362020312020322020302020202020302020300a2020322020372020322020302020202020302020300a2020372020382020312020302020202020302020300a2020382020392020322020302020202020302020300a2020392031302020312020302020202020302020300a2031302020332020322020302020202020302020300a2020312031312020312020302020202020302020300a4d2020454e440a242424240a0a", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2024-11-20T06:14:15.809067", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2024-11-20T06:14:26.498125", "description": "", "dry_solvent": false, "molecule_id": 3, "short_label": "API-3", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 3, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": "18bb8133763ad42880d28d267b93f23f6fa48d34516d5c966d8f28c05efe8b8458ebae6f5f1fd5f3581fdab74f1b9b443eb8869ed46b8b067eedae28cfb3245f.svg", "imported_readout": null, "inventory_sample": false, "molecule_name_id": 6, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "v": 1, "ts": 1732083266498}], "v": 1}
-5	API-R1-A	0	g	2025-11-13 04:54:36.591863	2025-11-13 04:54:36.591863		3	\\x0a20204b657463686572203131323032343037313432442031202020312e30303030302020202020302e30303030302020202020300a0a2031312031322020302020202020302020302020202020202020202020203939392056323030300a20202020342e363530302020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832312020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d312e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a2020312020322020312020302020202020302020300a2020322020332020312020302020202020302020300a2020332020342020312020302020202020302020300a2020342020352020322020302020202020302020300a2020352020362020312020302020202020302020300a2020362020312020322020302020202020302020300a2020322020372020322020302020202020302020300a2020372020382020312020302020202020302020300a2020382020392020322020302020202020302020300a2020392031302020312020302020202020302020300a2031302020332020322020302020202020302020300a2020312031312020312020302020202020302020300a4d2020454e440a242424240a0a	1				f	4		7	API-3-1	\N	g	\N	\N	18bb8133763ad42880d28d267b93f23f6fa48d34516d5c966d8f28c05efe8b8458ebae6f5f1fd5f3581fdab74f1b9b443eb8869ed46b8b067eedae28cfb3245f.svg	\N	\N	0	(,)	(,)	3	{"inventory_label": null}	0	M	6	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 5, "name": "API-R1-A", "xref": "{\\"inventory_label\\": null}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a20204b657463686572203131323032343037313432442031202020312e30303030302020202020302e30303030302020202020300a0a2031312031322020302020202020302020302020202020202020202020203939392056323030300a20202020342e363530302020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832312020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d312e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a2020312020322020312020302020202020302020300a2020322020332020312020302020202020302020300a2020332020342020312020302020202020302020300a2020342020352020322020302020202020302020300a2020352020362020312020302020202020302020300a2020362020312020322020302020202020302020300a2020322020372020322020302020202020302020300a2020372020382020312020302020202020302020300a2020382020392020322020302020202020302020300a2020392031302020312020302020202020302020300a2031302020332020322020302020202020302020300a2020312031312020312020302020202020302020300a4d2020454e440a242424240a0a", "solvent": [], "user_id": null, "ancestry": "4", "location": "", "decoupled": false, "created_at": "2025-11-13T04:54:36.591863", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2025-11-13T04:54:36.591863", "description": "", "dry_solvent": false, "molecule_id": 3, "short_label": "API-3-1", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 3, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": "18bb8133763ad42880d28d267b93f23f6fa48d34516d5c966d8f28c05efe8b8458ebae6f5f1fd5f3581fdab74f1b9b443eb8869ed46b8b067eedae28cfb3245f.svg", "imported_readout": null, "inventory_sample": false, "molecule_name_id": 6, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676592}], "v": 1}
-6	API-R2-A	0	g	2025-11-13 04:54:36.786793	2025-11-13 04:54:36.786793		1	\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44	1				f	\N		7	API-4	\N	g		\N	\N	\N	\N	0	(,)	(,)	1	{}	0	M	2	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 6, "name": "API-R2-A", "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2025-11-13T04:54:36.786793", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2025-11-13T04:54:36.786793", "description": "", "dry_solvent": false, "molecule_id": 1, "short_label": "API-4", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 1, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": null, "imported_readout": "", "inventory_sample": false, "molecule_name_id": 2, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676787}], "v": 1}
+COPY public.samples (id, name, target_amount_value, target_amount_unit, created_at, updated_at, description, molecule_id, molfile, purity, deprecated_solvent, impurities, location, is_top_secret, ancestry, external_label, created_by, short_label, real_amount_value, real_amount_unit, imported_readout, deleted_at, sample_svg_file, user_id, identifier, density, melting_point, boiling_point, fingerprint_id, xref, molarity_value, molarity_unit, molecule_name_id, molfile_version, stereo, metrics, decoupled, molecular_mass, sum_formula, solvent, dry_solvent, inventory_sample, log_data, sample_type, sample_details) FROM stdin;
+5	API-R1-A	0	g	2025-11-13 04:54:36.591863	2025-11-13 04:54:36.591863		3	\\x0a20204b657463686572203131323032343037313432442031202020312e30303030302020202020302e30303030302020202020300a0a2031312031322020302020202020302020302020202020202020202020203939392056323030300a20202020342e363530302020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832312020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d312e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a2020312020322020312020302020202020302020300a2020322020332020312020302020202020302020300a2020332020342020312020302020202020302020300a2020342020352020322020302020202020302020300a2020352020362020312020302020202020302020300a2020362020312020322020302020202020302020300a2020322020372020322020302020202020302020300a2020372020382020312020302020202020302020300a2020382020392020322020302020202020302020300a2020392031302020312020302020202020302020300a2031302020332020322020302020202020302020300a2020312031312020312020302020202020302020300a4d2020454e440a242424240a0a	1				f	/4/		7	API-3-1	\N	g	\N	\N	18bb8133763ad42880d28d267b93f23f6fa48d34516d5c966d8f28c05efe8b8458ebae6f5f1fd5f3581fdab74f1b9b443eb8869ed46b8b067eedae28cfb3245f.svg	\N	\N	0	(,)	(,)	3	{"inventory_label": null}	0	M	6	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 5, "name": "API-R1-A", "xref": "{\\"inventory_label\\": null}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a20204b657463686572203131323032343037313432442031202020312e30303030302020202020302e30303030302020202020300a0a2031312031322020302020202020302020302020202020202020202020203939392056323030300a20202020342e363530302020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832312020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d312e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a2020312020322020312020302020202020302020300a2020322020332020312020302020202020302020300a2020332020342020312020302020202020302020300a2020342020352020322020302020202020302020300a2020352020362020312020302020202020302020300a2020362020312020322020302020202020302020300a2020322020372020322020302020202020302020300a2020372020382020312020302020202020302020300a2020382020392020322020302020202020302020300a2020392031302020312020302020202020302020300a2031302020332020322020302020202020302020300a2020312031312020312020302020202020302020300a4d2020454e440a242424240a0a", "solvent": [], "user_id": null, "ancestry": "4", "location": "", "decoupled": false, "created_at": "2025-11-13T04:54:36.591863", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2025-11-13T04:54:36.591863", "description": "", "dry_solvent": false, "molecule_id": 3, "short_label": "API-3-1", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 3, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": "18bb8133763ad42880d28d267b93f23f6fa48d34516d5c966d8f28c05efe8b8458ebae6f5f1fd5f3581fdab74f1b9b443eb8869ed46b8b067eedae28cfb3245f.svg", "imported_readout": null, "inventory_sample": false, "molecule_name_id": 6, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676592}, {"c": {"ancestry": "/4/"}, "v": 2, "ts": 1783014023594}], "v": 2}	Micromolecule	\N
+1	\N	0	g	2024-01-23 15:17:46.412096	2024-01-23 15:17:46.412096		1	\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44	1				f	/		2	MSU-1	\N	g	\N	\N	\N	\N	\N	0	(,)	(,)	1	{}	0	M	3	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 1, "name": null, "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2024-01-23T15:17:46.412096", "created_by": 2, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2024-01-23T15:17:46.412096", "description": "", "dry_solvent": false, "molecule_id": 1, "short_label": "MSU-1", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 1, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": null, "imported_readout": null, "inventory_sample": false, "molecule_name_id": 3, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "v": 1, "ts": 1706023066412}, {"c": {"ancestry": "/"}, "v": 2, "ts": 1783014023598}], "v": 2}	Micromolecule	\N
+2	\N	0	g	2024-11-20 06:11:55.311593	2024-11-20 06:11:55.311593		1	\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44	1				f	/		7	API-1	\N	g	\N	\N	\N	\N	\N	0	(,)	(,)	1	{}	0	M	2	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 2, "name": null, "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2024-11-20T06:11:55.311593", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2024-11-20T06:11:55.311593", "description": "", "dry_solvent": false, "molecule_id": 1, "short_label": "API-1", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 1, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": null, "imported_readout": null, "inventory_sample": false, "molecule_name_id": 2, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "v": 1, "ts": 1732083115312}, {"c": {"ancestry": "/"}, "v": 2, "ts": 1783014023598}], "v": 2}	Micromolecule	\N
+3	\N	0.022	g	2024-11-20 06:12:56.646234	2024-11-20 06:14:26.471014		2	\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e303030302042202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44	1				f	/		7	reactant	\N	g	\N	\N	\N	\N	\N	1	(,)	(,)	2	{}	0	M	4	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 3, "name": null, "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 1, "metrics": "mmm", "molfile": "\\\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e303030302042202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2024-11-20T06:12:56.646234", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2024-11-20T06:14:26.471014", "description": "", "dry_solvent": false, "molecule_id": 2, "short_label": "reactant", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 2, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": null, "imported_readout": null, "inventory_sample": false, "molecule_name_id": 4, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0.022}, "v": 1, "ts": 1732083266471}, {"c": {"ancestry": "/"}, "v": 2, "ts": 1783014023598}], "v": 2}	Micromolecule	\N
+4	API-R1-A	0	g	2024-11-20 06:14:15.809067	2024-11-20 06:14:26.498125		3	\\x0a20204b657463686572203131323032343037313432442031202020312e30303030302020202020302e30303030302020202020300a0a2031312031322020302020202020302020302020202020202020202020203939392056323030300a20202020342e363530302020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832312020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d312e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a2020312020322020312020302020202020302020300a2020322020332020312020302020202020302020300a2020332020342020312020302020202020302020300a2020342020352020322020302020202020302020300a2020352020362020312020302020202020302020300a2020362020312020322020302020202020302020300a2020322020372020322020302020202020302020300a2020372020382020312020302020202020302020300a2020382020392020322020302020202020302020300a2020392031302020312020302020202020302020300a2031302020332020322020302020202020302020300a2020312031312020312020302020202020302020300a4d2020454e440a242424240a0a	1				f	/		7	API-3	\N	g	\N	\N	18bb8133763ad42880d28d267b93f23f6fa48d34516d5c966d8f28c05efe8b8458ebae6f5f1fd5f3581fdab74f1b9b443eb8869ed46b8b067eedae28cfb3245f.svg	\N	\N	0	(,)	(,)	3	{}	0	M	6	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 4, "name": "API-R1-A", "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a20204b657463686572203131323032343037313432442031202020312e30303030302020202020302e30303030302020202020300a0a2031312031322020302020202020302020302020202020202020202020203939392056323030300a20202020342e363530302020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020352e353136302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020332e373834302020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832312020202d322e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d322e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020372e323438312020202d332e3732353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020362e333832302020202d342e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a20202020342e363530302020202d312e3232353020202020302e303030302043202020302020302020302020302020302020302020302020302020302020302020302020300a2020312020322020312020302020202020302020300a2020322020332020312020302020202020302020300a2020332020342020312020302020202020302020300a2020342020352020322020302020202020302020300a2020352020362020312020302020202020302020300a2020362020312020322020302020202020302020300a2020322020372020322020302020202020302020300a2020372020382020312020302020202020302020300a2020382020392020322020302020202020302020300a2020392031302020312020302020202020302020300a2031302020332020322020302020202020302020300a2020312031312020312020302020202020302020300a4d2020454e440a242424240a0a", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2024-11-20T06:14:15.809067", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2024-11-20T06:14:26.498125", "description": "", "dry_solvent": false, "molecule_id": 3, "short_label": "API-3", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 3, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": "18bb8133763ad42880d28d267b93f23f6fa48d34516d5c966d8f28c05efe8b8458ebae6f5f1fd5f3581fdab74f1b9b443eb8869ed46b8b067eedae28cfb3245f.svg", "imported_readout": null, "inventory_sample": false, "molecule_name_id": 6, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "v": 1, "ts": 1732083266498}, {"c": {"ancestry": "/"}, "v": 2, "ts": 1783014023598}], "v": 2}	Micromolecule	\N
+6	API-R2-A	0	g	2025-11-13 04:54:36.786793	2025-11-13 04:54:36.786793		1	\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44	1				f	/		7	API-4	\N	g		\N	\N	\N	\N	0	(,)	(,)	1	{}	0	M	2	\N	{"abs": "any", "rel": "any"}	mmm	f	0		[]	f	f	{"h": [{"c": {"id": 6, "name": "API-R2-A", "xref": "{}", "purity": 1, "stereo": "{\\"abs\\": \\"any\\", \\"rel\\": \\"any\\"}", "density": 0, "metrics": "mmm", "molfile": "\\\\x0a202020202052444b69742020202020202020202032440a0a2020312020302020302020302020302020302020302020302020302020303939392056323030300a20202020302e3030303020202020302e3030303020202020302e30303030204e202020302020302020302020302020302020302020302020302020302020302020302020300a4d2020454e44", "solvent": [], "user_id": null, "ancestry": null, "location": "", "decoupled": false, "created_at": "2025-11-13T04:54:36.786793", "created_by": 7, "deleted_at": null, "identifier": null, "impurities": "", "updated_at": "2025-11-13T04:54:36.786793", "description": "", "dry_solvent": false, "molecule_id": 1, "short_label": "API-4", "sum_formula": "", "boiling_point": "(,)", "is_top_secret": false, "melting_point": "(,)", "molarity_unit": "M", "external_label": "", "fingerprint_id": 1, "molarity_value": 0, "molecular_mass": 0, "molfile_version": null, "sample_svg_file": null, "imported_readout": "", "inventory_sample": false, "molecule_name_id": 2, "real_amount_unit": "g", "real_amount_value": null, "deprecated_solvent": "", "target_amount_unit": "g", "target_amount_value": 0}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676787}, {"c": {"ancestry": "/"}, "v": 2, "ts": 1783014023598}], "v": 2}	Micromolecule	\N
 \.
 
 
@@ -7880,6 +8698,79 @@ COPY public.schema_migrations (version) FROM stdin;
 20250526160014
 20250701134000
 20251007100040
+20240126145309
+20240418084207
+20241204174358
+20241204174359
+20241204174400
+20241204175100
+20241204180300
+20250115133334
+20250115134102
+20250115134640
+20250211171435
+20250508104326
+20250526134044
+20250610132725
+20250610150330
+20250616122740
+20250616123935
+20250701121906
+20250701121907
+20250701121908
+20250711122346
+20250730121907
+20250730121908
+20250805095133
+20250828174543
+20250929130417
+20251006134320
+20251010140714
+20251020100040
+20251029122332
+20251030130000
+20251031071709
+20251105150500
+20251113000000
+20251113082219
+20251206000000
+20251210144345
+20260108155328
+20260113100643
+20260113142650
+20260120183627
+20260220000000
+20260220000002
+20260304134252
+20260325085008
+20260417000000
+20250825064503
+20250825083741
+20250827121248
+20251014150000
+20260114100223
+20260121113000
+20260122000001
+20260127000000
+20260211000000
+20260312110500
+20260316120000
+20260417101400
+20260420075649
+20260422091000
+20260504120000
+20260521070729
+20260612000000
+20260625120000
+20260709140000
+20260709140001
+20260709150000
+20260713000000
+20260713120000
+20260806120000
+20260810120000
+20260811120000
+20260813120000
 \.
 
 
@@ -7911,9 +8802,9 @@ COPY public.screens_wellplates (id, screen_id, wellplate_id, deleted_at) FROM st
 -- Data for Name: segment_klasses; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.segment_klasses (id, element_klass_id, label, "desc", properties_template, is_active, place, created_by, created_at, updated_at, deleted_at, uuid, properties_release, released_at, identifier, sync_time, updated_by, released_by, sync_by, admin_ids, user_ids, version) FROM stdin;
-2	2	ApiTester	For api testing	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "4026724d-e042-4da4-ad7d-f149343857a8", "klass": "SegmentKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "One", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Text", "label": "Text", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	t	100	7	2024-02-16 09:49:33.570494	2024-02-16 09:50:15.230883	\N	4026724d-e042-4da4-ad7d-f149343857a8	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "4026724d-e042-4da4-ad7d-f149343857a8", "klass": "SegmentKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "One", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Text", "label": "Text", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-02-16 09:50:15.227031	\N	\N	7	7	\N	{}	{}	1.0
-1	7	TrySeg1		{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "305cfc10-6497-42c3-9395-fc662ebf7b8f", "klass": "SegmentKlass", "layers": {"main": {"wf": false, "key": "main", "cols": 1, "color": "none", "label": "Main Layer", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	t	100	2	2024-01-25 09:22:58.44907	2024-12-04 12:57:28.685524	2024-12-04 12:57:28.685518	305cfc10-6497-42c3-9395-fc662ebf7b8f	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "305cfc10-6497-42c3-9395-fc662ebf7b8f", "klass": "SegmentKlass", "layers": {"main": {"wf": false, "key": "main", "cols": 1, "color": "none", "label": "Main Layer", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-01-25 09:23:27.596462	\N	\N	2	2	\N	{}	{}	1.0
+COPY public.segment_klasses (id, element_klass_id, label, "desc", properties_template, is_active, place, created_by, created_at, updated_at, deleted_at, uuid, properties_release, released_at, identifier, sync_time, updated_by, released_by, sync_by, admin_ids, user_ids, version, metadata) FROM stdin;
+2	2	ApiTester	For api testing	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "4026724d-e042-4da4-ad7d-f149343857a8", "klass": "SegmentKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "One", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Text", "label": "Text", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	t	100	7	2024-02-16 09:49:33.570494	2024-02-16 09:50:15.230883	\N	4026724d-e042-4da4-ad7d-f149343857a8	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "4026724d-e042-4da4-ad7d-f149343857a8", "klass": "SegmentKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "One", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Text", "label": "Text", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-02-16 09:50:15.227031	\N	\N	7	7	\N	{}	{}	1.0	{}
+1	7	TrySeg1		{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "305cfc10-6497-42c3-9395-fc662ebf7b8f", "klass": "SegmentKlass", "layers": {"main": {"wf": false, "key": "main", "cols": 1, "color": "none", "label": "Main Layer", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	t	100	2	2024-01-25 09:22:58.44907	2024-12-04 12:57:28.685524	2024-12-04 12:57:28.685518	305cfc10-6497-42c3-9395-fc662ebf7b8f	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "305cfc10-6497-42c3-9395-fc662ebf7b8f", "klass": "SegmentKlass", "layers": {"main": {"wf": false, "key": "main", "cols": 1, "color": "none", "label": "Main Layer", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-01-25 09:23:27.596462	\N	\N	2	2	\N	{}	{}	1.0	{}
 \.
 
 
@@ -7921,11 +8812,11 @@ COPY public.segment_klasses (id, element_klass_id, label, "desc", properties_tem
 -- Data for Name: segment_klasses_revisions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.segment_klasses_revisions (id, segment_klass_id, uuid, properties_release, released_at, released_by, created_by, created_at, updated_at, deleted_at, version) FROM stdin;
-3	2	957d32c7-2b14-4bef-b0cb-95ecf84ff469	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.3"}, "uuid": "957d32c7-2b14-4bef-b0cb-95ecf84ff469", "klass": "SegmentKlass", "layers": {}, "select_options": {}}	2024-02-16 09:49:33.583032	7	\N	2024-02-16 09:49:33.603906	2024-02-16 09:49:33.603906	\N	\N
-4	2	4026724d-e042-4da4-ad7d-f149343857a8	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "4026724d-e042-4da4-ad7d-f149343857a8", "klass": "SegmentKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "One", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Text", "label": "Text", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-02-16 09:50:15.227031	7	\N	2024-02-16 09:50:15.237188	2024-02-16 09:50:15.237188	\N	1.0
-1	1	f79898fc-2c25-4424-a6c7-8d45da1e745d	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.1"}, "uuid": "f79898fc-2c25-4424-a6c7-8d45da1e745d", "klass": "SegmentKlass", "layers": {}, "select_options": {}}	2024-01-25 09:22:58.464231	2	\N	2024-01-25 09:22:58.515586	2024-12-04 12:57:28.684727	2024-12-04 12:57:28.684721	\N
-2	1	305cfc10-6497-42c3-9395-fc662ebf7b8f	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "305cfc10-6497-42c3-9395-fc662ebf7b8f", "klass": "SegmentKlass", "layers": {"main": {"wf": false, "key": "main", "cols": 1, "color": "none", "label": "Main Layer", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-01-25 09:23:27.596462	2	\N	2024-01-25 09:23:27.617482	2024-12-04 12:57:28.685147	2024-12-04 12:57:28.685142	1.0
+COPY public.segment_klasses_revisions (id, segment_klass_id, uuid, properties_release, released_at, released_by, created_by, created_at, updated_at, deleted_at, version, submitted, metadata) FROM stdin;
+3	2	957d32c7-2b14-4bef-b0cb-95ecf84ff469	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.3"}, "uuid": "957d32c7-2b14-4bef-b0cb-95ecf84ff469", "klass": "SegmentKlass", "layers": {}, "select_options": {}}	2024-02-16 09:49:33.583032	7	\N	2024-02-16 09:49:33.603906	2024-02-16 09:49:33.603906	\N	\N	0	{}
+4	2	4026724d-e042-4da4-ad7d-f149343857a8	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.3"}, "uuid": "4026724d-e042-4da4-ad7d-f149343857a8", "klass": "SegmentKlass", "layers": {"one": {"wf": false, "key": "one", "cols": 1, "color": "none", "label": "One", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Text", "label": "Text", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-02-16 09:50:15.227031	7	\N	2024-02-16 09:50:15.237188	2024-02-16 09:50:15.237188	\N	1.0	0	{}
+1	1	f79898fc-2c25-4424-a6c7-8d45da1e745d	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "labimotion": "1.1.1"}, "uuid": "f79898fc-2c25-4424-a6c7-8d45da1e745d", "klass": "SegmentKlass", "layers": {}, "select_options": {}}	2024-01-25 09:22:58.464231	2	\N	2024-01-25 09:22:58.515586	2024-12-04 12:57:28.684727	2024-12-04 12:57:28.684721	\N	0	{}
+2	1	305cfc10-6497-42c3-9395-fc662ebf7b8f	{"pkg": {"eln": {"version": "1.8.0", "base_revision": "7bd6a5d81", "current_revision": 0}, "name": "chem-generic-ui", "version": "1.0.11", "labimotion": "1.1.1"}, "uuid": "305cfc10-6497-42c3-9395-fc662ebf7b8f", "klass": "SegmentKlass", "layers": {"main": {"wf": false, "key": "main", "cols": 1, "color": "none", "label": "Main Layer", "style": "panel_generic_heading", "fields": [{"type": "text", "field": "Name", "label": "Name", "default": "", "position": 1, "sub_fields": [], "text_sub_fields": []}], "position": 10, "timeRecord": "", "wf_position": 0}}, "version": "1.0", "identifier": null, "select_options": {}}	2024-01-25 09:23:27.596462	2	\N	2024-01-25 09:23:27.617482	2024-12-04 12:57:28.685147	2024-12-04 12:57:28.685142	1.0	0	{}
 \.
 
 
@@ -7933,7 +8824,7 @@ COPY public.segment_klasses_revisions (id, segment_klass_id, uuid, properties_re
 -- Data for Name: segments; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.segments (id, segment_klass_id, element_type, element_id, properties, created_by, created_at, updated_at, deleted_at, uuid, klass_uuid, properties_release) FROM stdin;
+COPY public.segments (id, segment_klass_id, element_type, element_id, properties, created_by, created_at, updated_at, deleted_at, uuid, klass_uuid, properties_release, metadata) FROM stdin;
 \.
 
 
@@ -7941,7 +8832,23 @@ COPY public.segments (id, segment_klass_id, element_type, element_id, properties
 -- Data for Name: segments_revisions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.segments_revisions (id, segment_id, uuid, klass_uuid, properties, created_by, created_at, updated_at, deleted_at, properties_release) FROM stdin;
+COPY public.segments_revisions (id, segment_id, uuid, klass_uuid, properties, created_by, created_at, updated_at, deleted_at, properties_release, metadata) FROM stdin;
+\.
+
+
+--
+-- Data for Name: sequence_based_macromolecule_samples; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.sequence_based_macromolecule_samples (id, name, deleted_at, external_label, short_label, function_or_application, concentration_value, concentration_unit, molarity_value, molarity_unit, activity_per_volume_value, activity_per_volume_unit, activity_per_mass_value, activity_per_mass_unit, volume_as_used_value, volume_as_used_unit, amount_as_used_mol_value, amount_as_used_mol_unit, amount_as_used_mass_value, amount_as_used_mass_unit, activity_value, activity_unit, sequence_based_macromolecule_id, user_id, ancestry, heterologous_expression, organism, taxon_id, strain, tissue, localisation, obtained_by, supplier, formulation, purity, purity_detection, purification_method, created_at, updated_at, concentration_rt_value, concentration_rt_unit, inventory_sample) FROM stdin;
+\.
+
+
+--
+-- Data for Name: sequence_based_macromolecules; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.sequence_based_macromolecules (id, uniprot_source, parent_id, sbmm_type, sbmm_subtype, uniprot_derivation, primary_accession, accessions, ec_numbers, pdb_doi, systematic_name, short_name, molecular_weight, sequence, link_uniprot, link_pdb, protein_sequence_modification_id, heterologous_expression, organism, taxon_id, strain, tissue, localisation, protein_source_details_comments, protein_source_details_expression_system, own_identifier, other_identifier, post_translational_modification_id, deleted_at, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -7950,14 +8857,6 @@ COPY public.segments_revisions (id, segment_id, uuid, klass_uuid, properties, cr
 --
 
 COPY public.subscriptions (id, channel_id, user_id, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: sync_collections_users; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.sync_collections_users (id, user_id, collection_id, shared_by_id, permission_level, sample_detail_level, reaction_detail_level, wellplate_detail_level, screen_detail_level, fake_ancestry, researchplan_detail_level, label, created_at, updated_at, element_detail_level, celllinesample_detail_level, devicedescription_detail_level) FROM stdin;
 \.
 
 
@@ -8084,16 +8983,16 @@ COPY public.user_labels (id, user_id, title, description, color, access_level, "
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.users (id, email, encrypted_password, reset_password_token, reset_password_sent_at, remember_created_at, sign_in_count, current_sign_in_at, last_sign_in_at, current_sign_in_ip, last_sign_in_ip, created_at, updated_at, name, first_name, last_name, deleted_at, counters, name_abbreviation, type, reaction_name_prefix, confirmation_token, confirmed_at, confirmation_sent_at, unconfirmed_email, layout, selected_device_id, failed_attempts, unlock_token, locked_at, account_active, matrix, providers, is_super_device, used_space, allocated_space) FROM stdin;
-3	m.starman@live.com	$2a$10$BzLw8xKsNz4oIS9mnNw7p.VzBcoRtdNX24IC/H6YN2Nctfy.QtuAC	\N	\N	\N	1	2024-01-23 15:13:20.641783	2024-01-23 15:13:20.641783	127.0.0.1	127.0.0.1	2024-01-23 15:12:19.918834	2024-01-23 15:13:20.642011	\N	Martin	Starman	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	MAS	Admin	R	xdBHzBM8ShSXkid_Wysz	2024-01-23 15:12:19.919039	2024-01-23 15:12:19.919011	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	98784	\N	f	0	0
-2	martin.starman@kit.edu	$2a$10$Vzj0LeZcs6Ojh9g6wMIAh.oS8DPFtnrVkARiPbm8R8ujspcPMCyqW	\N	\N	\N	9	2024-02-16 08:49:52.776908	2024-01-25 08:40:05.47299	127.0.0.1	127.0.0.1	2024-01-23 15:12:02.229711	2024-02-16 08:49:52.777158	\N	Martin	Starman	\N	"try"=>"2", "samples"=>"1", "reactions"=>"0", "wellplates"=>"0"	MSU	Person	R	Ecq4xYuU-MsBRThdweV3	2024-01-23 15:12:02.230011	2024-01-23 15:12:02.229988	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	98784	\N	f	0	0
-1	eln-admin@kit.edu	$2a$10$qE0IcYGPHz2WUsN2IvOEkuek6fUc7K5h.EGpECBmp8oMbq.qL1Q8y	\N	\N	\N	2	2024-01-24 07:01:08.96201	2024-01-23 13:45:57.853152	127.0.0.1	127.0.0.1	2024-01-23 13:44:00.404024	2024-01-24 07:01:08.962315	\N	ELN	Admin	\N	"samples"=>"0", "celllines"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADM	Admin	R	\N	\N	\N	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	3	\N	\N	t	98784	\N	f	0	0
-4	m.staran@live.com	$2a$10$83ZsXImGxdzkGSvoRF1C7uCc5R8pmpWMW9Wa0Q7sZpK/wI6TJuCBG	\N	\N	\N	5	2024-09-27 09:11:14.505259	2024-02-16 08:50:01.890402	172.19.0.1	127.0.0.1	2024-01-24 07:01:45.775235	2024-09-27 09:11:14.509955	\N	Martin	Starman	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	MSA	Admin	R	ix5afEaByUe6Ccs4QWMS	2024-01-24 07:01:45.775487	2024-01-24 07:01:45.775465	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	98784	\N	f	0	0
-9	nicole.jung@kit.edu	$2a$10$M2D8zrllF9lIosSBjiDHxees6p8jbZPxFVl//34a8mKFjpt7fOtuS	\N	\N	\N	0	\N	\N	\N	\N	2024-09-27 09:11:56.592927	2024-09-27 09:11:56.592927	\N	Nicole	Jung	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	JNG	Person	R	K1TcbNdcGjZaEePsmXpc	2024-09-27 09:11:56.593003	2024-09-27 09:11:56.592979	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	98784	\N	f	0	0
-8	admin@kit.edu	$2a$10$RaQTg0SutLSH5UR0ImRpZuXmFwLgqsU/WMXMqTO7aJfpz9h4UCAgu	\N	\N	\N	1	2024-11-20 06:20:14.569775	2024-11-20 06:20:14.569775	172.19.0.1	172.19.0.1	2024-02-16 08:53:15.375483	2024-11-20 06:20:14.569893	\N	Admin	User	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADI	Admin	R	iAfqy7KWJsZTX51WtYbF	2024-02-16 08:53:15.37572	2024-02-16 08:53:15.375696	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	98784	\N	f	0	0
-5	td@kit.edu	$2a$10$H6mlnZXkBajzFg2cUabuRe.Rfinxjh8niL1XVPD5sSrXWhvAUb2cG	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:50:38.507891	2024-02-16 08:50:38.507891	\N	Test Device 1	T.D	2024-11-20 06:08:45.949671	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	TD	DeviceDeprecated	R	WZLhgByxwfLrutY8W6Zc	\N	2024-02-16 08:50:38.508079	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	98784	\N	f	0	0
-6	ad@git.edu	$2a$10$kyAy3TkHHh4qi.Iyf8eOzuRDGwy4unwo4rHk2O/BQXD5gKjCz85KW	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:51:22.295244	2024-02-16 08:51:24.672829	\N	Admin Device 2	A.Device	2024-11-20 06:08:45.949671	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	AD	DeviceDeprecated	R	Z4mD5X27fx6n7i6qfbSH	\N	2024-02-16 08:51:22.295298	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	98784	\N	t	0	0
-7	api@kit.edu	$2a$10$XJAIhBoWNwxvqOIAoXWZiO6/kcy3e2ZTrhWEbwhYn6Rs4wR7D95Ma	\N	\N	\N	4	2025-11-13 04:53:42.315766	2024-11-20 06:25:23.102417	172.23.0.1	172.19.0.1	2024-02-16 08:52:48.555419	2025-11-13 04:54:36.814753	\N	API	User	\N	"wrk"=>"3", "samples"=>"4", "reactions"=>"2", "wellplates"=>"0"	API	Person	R	4yRJG5yc33Gq6qpjr-p3	2024-02-16 08:52:48.555698	2024-02-16 08:52:48.555671	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	98784	\N	f	0	0
+COPY public.users (id, email, encrypted_password, reset_password_token, reset_password_sent_at, remember_created_at, sign_in_count, current_sign_in_at, last_sign_in_at, current_sign_in_ip, last_sign_in_ip, created_at, updated_at, name, first_name, last_name, deleted_at, counters, name_abbreviation, type, reaction_name_prefix, confirmation_token, confirmed_at, confirmation_sent_at, unconfirmed_email, layout, selected_device_id, failed_attempts, unlock_token, locked_at, account_active, matrix, providers, is_super_device, used_space, allocated_space, encrypted_otp_secret, encrypted_otp_secret_iv, encrypted_otp_secret_salt, consumed_timestep, otp_required_for_login, otp_backup_codes) FROM stdin;
+5	td@kit.edu	$2a$10$xOi1C7ptGdff4d1WpKYDR.knCqoqiTOv16IFpWKwkx9/0K/NL04WG	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:50:38.507891	2024-02-16 08:50:38.507891	\N	Test Device 1	T.D	2024-11-20 06:08:45.949671	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	TD	DeviceDeprecated	R	WZLhgByxwfLrutY8W6Zc	\N	2024-02-16 08:50:38.508079	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+6	ad@git.edu	$2a$10$/7OAM1i0gfWHl3WVRLNbUurqrBHHXrlK9eTMHZRHJKzofLptZPHUy	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:51:22.295244	2024-02-16 08:51:24.672829	\N	Admin Device 2	A.Device	2024-11-20 06:08:45.949671	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	AD	DeviceDeprecated	R	Z4mD5X27fx6n7i6qfbSH	\N	2024-02-16 08:51:22.295298	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	100832	\N	t	0	0	\N	\N	\N	\N	\N	\N
+1	eln-admin@kit.edu	$2a$10$GOB7oYza93rPyErv.Z82we0GOV4ty04CNTp6rQcej2V4NgQTQDJRO	\N	\N	\N	2	2024-01-24 07:01:08.96201	2024-01-23 13:45:57.853152	127.0.0.1	127.0.0.1	2024-01-23 13:44:00.404024	2026-08-21 08:38:12.528294	\N	ELN	Admin	\N	"samples"=>"0", "celllines"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	ADM	Admin	R	\N	\N	\N	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	3	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+2	max@mustermann.de	$2a$10$tmOhRvGd0j8sXyTi/77Q1OBZoSEwK4ZBY/sFma3qunpyqpazEiCwq	\N	\N	\N	9	2024-02-16 08:49:52.776908	2024-01-25 08:40:05.47299	127.0.0.1	127.0.0.1	2024-01-23 15:12:02.229711	2026-08-21 08:38:12.531133	\N	Max	Mustermann	\N	"try"=>"2", "samples"=>"1", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	MM	Person	R	Ecq4xYuU-MsBRThdweV3	2024-01-23 15:12:02.230011	2024-01-23 15:12:02.229988	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+3	erika@musterfrau.de	$2a$10$.UYcXUvZGBKjuSaxeJeNT.XcpVQ8b4WhMlZ/uErM8umf47n4M7Blu	\N	\N	\N	1	2024-01-23 15:13:20.641783	2024-01-23 15:13:20.641783	127.0.0.1	127.0.0.1	2024-01-23 15:12:19.918834	2026-08-21 08:38:12.533419	\N	Erika	Musterfrau	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	MAS	Admin	R	xdBHzBM8ShSXkid_Wysz	2024-01-23 15:12:19.919039	2024-01-23 15:12:19.919011	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+4	otto@normalverbraucher.de	$2a$10$aSkaE3pYacbS3tEcCbQV5uJCXvz9lJDflquJDTwH4UHcve4ZmAi5.	\N	\N	\N	5	2024-09-27 09:11:14.505259	2024-02-16 08:50:01.890402	172.19.0.1	127.0.0.1	2024-01-24 07:01:45.775235	2026-08-21 08:38:12.535345	\N	Otto	Normalverbraucher	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	MSA	Admin	R	ix5afEaByUe6Ccs4QWMS	2024-01-24 07:01:45.775487	2024-01-24 07:01:45.775465	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+7	api@kit.edu	$2a$10$NBxTQxlsxbzg9gK4bKeX1.LuFcmWyVmmy.0LRR5eqqmU5df.dTNra	\N	\N	\N	4	2025-11-13 04:53:42.315766	2024-11-20 06:25:23.102417	172.23.0.1	172.19.0.1	2024-02-16 08:52:48.555419	2026-08-21 08:38:12.537192	\N	API	User	\N	"wrk"=>"3", "samples"=>"4", "reactions"=>"2", "wellplates"=>"0", "research_plans"=>"0"	API	Person	R	4yRJG5yc33Gq6qpjr-p3	2024-02-16 08:52:48.555698	2024-02-16 08:52:48.555671	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+8	admin@kit.edu	$2a$10$jMhHb/.7V4CBehPehUmDmutb49mV5MeuFPnJVleYlZPvaUXlV2Qpa	\N	\N	\N	1	2024-11-20 06:20:14.569775	2024-11-20 06:20:14.569775	172.19.0.1	172.19.0.1	2024-02-16 08:53:15.375483	2026-08-21 08:38:12.539124	\N	Admin	User	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	ADI	Admin	R	iAfqy7KWJsZTX51WtYbF	2024-02-16 08:53:15.37572	2024-02-16 08:53:15.375696	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+9	julia@neumann.de	$2a$10$eJ8Zs3jma5ZNaPnEnuMj0.XYe6vQKLcr5Jvh3fZI5NQNbAiPoDf4S	\N	\N	\N	0	\N	\N	\N	\N	2024-09-27 09:11:56.592927	2026-08-21 08:38:12.540932	\N	Julia	Neumann	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	JNG	Person	R	K1TcbNdcGjZaEePsmXpc	2024-09-27 09:11:56.593003	2024-09-27 09:11:56.592979	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
 \.
 
 
@@ -8133,7 +9032,7 @@ COPY public.vessel_templates (id, name, details, material_details, material_type
 -- Data for Name: vessels; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.vessels (id, vessel_template_id, user_id, name, description, short_label, created_at, updated_at, deleted_at, bar_code, qr_code) FROM stdin;
+COPY public.vessels (id, vessel_template_id, user_id, name, description, short_label, created_at, updated_at, deleted_at, bar_code, qr_code, weight_amount, weight_unit) FROM stdin;
 \.
 
 
@@ -8187,6 +9086,13 @@ SELECT pg_catalog.setval('public.affiliations_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.analyses_experiments_id_seq', 1, false);
+
+
+--
+-- Name: api_tokens_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.api_tokens_id_seq', 1, false);
 
 
 --
@@ -8246,6 +9152,13 @@ SELECT pg_catalog.setval('public.chemicals_id_seq', 1, false);
 
 
 --
+-- Name: collection_shares_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.collection_shares_id_seq', 1, false);
+
+
+--
 -- Name: collections_celllines_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -8302,6 +9215,13 @@ SELECT pg_catalog.setval('public.collections_screens_id_seq', 1, false);
 
 
 --
+-- Name: collections_sequence_based_macromolecule_samples_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.collections_sequence_based_macromolecule_samples_id_seq', 1, false);
+
+
+--
 -- Name: collections_wellplates_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -8320,6 +9240,13 @@ SELECT pg_catalog.setval('public.collector_errors_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.comments_id_seq', 1, false);
+
+
+--
+-- Name: components_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.components_id_seq', 1, false);
 
 
 --
@@ -8368,7 +9295,7 @@ SELECT pg_catalog.setval('public.datasets_revisions_id_seq', 1, false);
 -- Name: delayed_jobs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.delayed_jobs_id_seq', 157, true);
+SELECT pg_catalog.setval('public.delayed_jobs_id_seq', 199, true);
 
 
 --
@@ -8393,10 +9320,24 @@ SELECT pg_catalog.setval('public.devices_id_seq', 7, true);
 
 
 --
+-- Name: dose_resp_outputs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.dose_resp_outputs_id_seq', 1, false);
+
+
+--
+-- Name: dose_resp_requests_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.dose_resp_requests_id_seq', 1, false);
+
+
+--
 -- Name: element_klasses_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.element_klasses_id_seq', 10, true);
+SELECT pg_catalog.setval('public.element_klasses_id_seq', 11, true);
 
 
 --
@@ -8411,6 +9352,13 @@ SELECT pg_catalog.setval('public.element_klasses_revisions_id_seq', 15, true);
 --
 
 SELECT pg_catalog.setval('public.element_tags_id_seq', 16, true);
+
+
+--
+-- Name: element_variations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.element_variations_id_seq', 1, false);
 
 
 --
@@ -8449,6 +9397,13 @@ SELECT pg_catalog.setval('public.elements_samples_id_seq', 1, false);
 
 
 --
+-- Name: elements_wellplates_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.elements_wellplates_id_seq', 1, false);
+
+
+--
 -- Name: experiments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -8460,6 +9415,13 @@ SELECT pg_catalog.setval('public.experiments_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.fingerprints_id_seq', 3, true);
+
+
+--
+-- Name: info_support_links_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.info_support_links_id_seq', 1, false);
 
 
 --
@@ -8603,6 +9565,13 @@ SELECT pg_catalog.setval('public.pg_search_documents_id_seq', 13, true);
 
 
 --
+-- Name: post_translational_modifications_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.post_translational_modifications_id_seq', 1, false);
+
+
+--
 -- Name: predictions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -8624,10 +9593,24 @@ SELECT pg_catalog.setval('public.profiles_id_seq', 8, true);
 
 
 --
+-- Name: protein_sequence_modifications_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.protein_sequence_modifications_id_seq', 1, false);
+
+
+--
 -- Name: reactions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
 SELECT pg_catalog.setval('public.reactions_id_seq', 2, true);
+
+
+--
+-- Name: reactions_reactant_sbmm_samples_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.reactions_reactant_sbmm_samples_id_seq', 1, false);
 
 
 --
@@ -8771,17 +9754,24 @@ SELECT pg_catalog.setval('public.segments_revisions_id_seq', 1, false);
 
 
 --
+-- Name: sequence_based_macromolecule_samples_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.sequence_based_macromolecule_samples_id_seq', 1, false);
+
+
+--
+-- Name: sequence_based_macromolecules_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.sequence_based_macromolecules_id_seq', 1, false);
+
+
+--
 -- Name: subscriptions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
 SELECT pg_catalog.setval('public.subscriptions_id_seq', 1, false);
-
-
---
--- Name: sync_collections_users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.sync_collections_users_id_seq', 1, false);
 
 
 --
@@ -8878,6 +9868,14 @@ ALTER TABLE ONLY public.analyses_experiments
 
 
 --
+-- Name: api_tokens api_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.api_tokens
+    ADD CONSTRAINT api_tokens_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: ar_internal_metadata ar_internal_metadata_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -8958,6 +9956,14 @@ ALTER TABLE ONLY public.code_logs
 
 
 --
+-- Name: collection_shares collection_shares_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.collection_shares
+    ADD CONSTRAINT collection_shares_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: collections_celllines collections_celllines_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -9022,6 +10028,14 @@ ALTER TABLE ONLY public.collections_screens
 
 
 --
+-- Name: collections_sequence_based_macromolecule_samples collections_sequence_based_macromolecule_samples_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.collections_sequence_based_macromolecule_samples
+    ADD CONSTRAINT collections_sequence_based_macromolecule_samples_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: collections_vessels collections_vessels_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -9051,6 +10065,14 @@ ALTER TABLE ONLY public.collector_errors
 
 ALTER TABLE ONLY public.comments
     ADD CONSTRAINT comments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: components components_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.components
+    ADD CONSTRAINT components_pkey PRIMARY KEY (id);
 
 
 --
@@ -9134,6 +10156,22 @@ ALTER TABLE ONLY public.devices
 
 
 --
+-- Name: dose_resp_outputs dose_resp_outputs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.dose_resp_outputs
+    ADD CONSTRAINT dose_resp_outputs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dose_resp_requests dose_resp_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.dose_resp_requests
+    ADD CONSTRAINT dose_resp_requests_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: element_klasses element_klasses_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -9155,6 +10193,14 @@ ALTER TABLE ONLY public.element_klasses_revisions
 
 ALTER TABLE ONLY public.element_tags
     ADD CONSTRAINT element_tags_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: element_variations element_variations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.element_variations
+    ADD CONSTRAINT element_variations_pkey PRIMARY KEY (id);
 
 
 --
@@ -9198,6 +10244,14 @@ ALTER TABLE ONLY public.elements_samples
 
 
 --
+-- Name: elements_wellplates elements_wellplates_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.elements_wellplates
+    ADD CONSTRAINT elements_wellplates_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: experiments experiments_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -9211,6 +10265,14 @@ ALTER TABLE ONLY public.experiments
 
 ALTER TABLE ONLY public.fingerprints
     ADD CONSTRAINT fingerprints_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: info_support_links info_support_links_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.info_support_links
+    ADD CONSTRAINT info_support_links_pkey PRIMARY KEY (id);
 
 
 --
@@ -9374,6 +10436,14 @@ ALTER TABLE ONLY public.pg_search_documents
 
 
 --
+-- Name: post_translational_modifications post_translational_modifications_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.post_translational_modifications
+    ADD CONSTRAINT post_translational_modifications_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: predictions predictions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -9398,11 +10468,27 @@ ALTER TABLE ONLY public.profiles
 
 
 --
+-- Name: protein_sequence_modifications protein_sequence_modifications_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.protein_sequence_modifications
+    ADD CONSTRAINT protein_sequence_modifications_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: reactions reactions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.reactions
     ADD CONSTRAINT reactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: reactions_reactant_sbmm_samples reactions_reactant_sbmm_samples_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.reactions_reactant_sbmm_samples
+    ADD CONSTRAINT reactions_reactant_sbmm_samples_pkey PRIMARY KEY (id);
 
 
 --
@@ -9574,19 +10660,27 @@ ALTER TABLE ONLY public.segments_revisions
 
 
 --
+-- Name: sequence_based_macromolecule_samples sequence_based_macromolecule_samples_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sequence_based_macromolecule_samples
+    ADD CONSTRAINT sequence_based_macromolecule_samples_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sequence_based_macromolecules sequence_based_macromolecules_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sequence_based_macromolecules
+    ADD CONSTRAINT sequence_based_macromolecules_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: subscriptions subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.subscriptions
     ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (id);
-
-
---
--- Name: sync_collections_users sync_collections_users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.sync_collections_users
-    ADD CONSTRAINT sync_collections_users_pkey PRIMARY KEY (id);
 
 
 --
@@ -9708,10 +10802,213 @@ CREATE INDEX container_desc_idx ON public.container_hierarchies USING btree (des
 
 
 --
+-- Name: dataset_klasses_on_ols_term_id_ukey; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX dataset_klasses_on_ols_term_id_ukey ON public.dataset_klasses USING btree (ols_term_id);
+
+
+--
 -- Name: delayed_jobs_priority; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX delayed_jobs_priority ON public.delayed_jobs USING btree (priority, run_at);
+
+
+--
+-- Name: idx_chemicals_sbmm_sample_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_chemicals_sbmm_sample_id ON public.chemicals USING btree (sequence_based_macromolecule_sample_id);
+
+
+--
+-- Name: idx_collections_sbmm_sample_collection; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_collections_sbmm_sample_collection ON public.collections_sequence_based_macromolecule_samples USING btree (collection_id);
+
+
+--
+-- Name: idx_collections_sbmm_sample_deleted_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_collections_sbmm_sample_deleted_at ON public.collections_sequence_based_macromolecule_samples USING btree (deleted_at);
+
+
+--
+-- Name: idx_collections_sbmm_sample_sample; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_collections_sbmm_sample_sample ON public.collections_sequence_based_macromolecule_samples USING btree (sequence_based_macromolecule_sample_id);
+
+
+--
+-- Name: idx_collections_sbmm_sample_unique_joins; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX idx_collections_sbmm_sample_unique_joins ON public.collections_sequence_based_macromolecule_samples USING btree (collection_id, sequence_based_macromolecule_sample_id);
+
+
+--
+-- Name: idx_rxn_reactant_sbmm_on_deleted; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_rxn_reactant_sbmm_on_deleted ON public.reactions_reactant_sbmm_samples USING btree (deleted_at);
+
+
+--
+-- Name: idx_rxn_reactant_sbmm_on_rxn_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_rxn_reactant_sbmm_on_rxn_id ON public.reactions_reactant_sbmm_samples USING btree (reaction_id);
+
+
+--
+-- Name: idx_rxn_reactant_sbmm_on_sbmm_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_rxn_reactant_sbmm_on_sbmm_id ON public.reactions_reactant_sbmm_samples USING btree (sequence_based_macromolecule_sample_id);
+
+
+--
+-- Name: idx_sbmm_accessions; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_accessions ON public.sequence_based_macromolecules USING btree (accessions);
+
+
+--
+-- Name: idx_sbmm_deleted_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_deleted_at ON public.sequence_based_macromolecules USING btree (deleted_at);
+
+
+--
+-- Name: idx_sbmm_ec_numbers; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_ec_numbers ON public.sequence_based_macromolecules USING btree (ec_numbers);
+
+
+--
+-- Name: idx_sbmm_parent; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_parent ON public.sequence_based_macromolecules USING btree (parent_id);
+
+
+--
+-- Name: idx_sbmm_pdb_doi; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_pdb_doi ON public.sequence_based_macromolecules USING btree (pdb_doi);
+
+
+--
+-- Name: idx_sbmm_primary_accession; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_primary_accession ON public.sequence_based_macromolecules USING btree (primary_accession);
+
+
+--
+-- Name: idx_sbmm_psm_deleted_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_psm_deleted_at ON public.protein_sequence_modifications USING btree (deleted_at);
+
+
+--
+-- Name: idx_sbmm_psm_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_psm_id ON public.sequence_based_macromolecules USING btree (protein_sequence_modification_id);
+
+
+--
+-- Name: idx_sbmm_ptm_deleted_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_ptm_deleted_at ON public.post_translational_modifications USING btree (deleted_at);
+
+
+--
+-- Name: idx_sbmm_ptm_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_ptm_id ON public.sequence_based_macromolecules USING btree (post_translational_modification_id);
+
+
+--
+-- Name: idx_sbmm_samples_ancestry; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_samples_ancestry ON public.sequence_based_macromolecule_samples USING btree (ancestry varchar_pattern_ops);
+
+
+--
+-- Name: idx_sbmm_samples_deleted_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_samples_deleted_at ON public.sequence_based_macromolecule_samples USING btree (deleted_at);
+
+
+--
+-- Name: idx_sbmm_samples_inventory_sample; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_samples_inventory_sample ON public.sequence_based_macromolecule_samples USING btree (inventory_sample);
+
+
+--
+-- Name: idx_sbmm_samples_sbmm; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_samples_sbmm ON public.sequence_based_macromolecule_samples USING btree (sequence_based_macromolecule_id);
+
+
+--
+-- Name: idx_sbmm_samples_user; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_samples_user ON public.sequence_based_macromolecule_samples USING btree (user_id);
+
+
+--
+-- Name: idx_sbmm_sequence; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_sequence ON public.sequence_based_macromolecules USING btree (sequence);
+
+
+--
+-- Name: idx_sbmm_short_name; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_short_name ON public.sequence_based_macromolecules USING btree (short_name);
+
+
+--
+-- Name: idx_sbmm_systematic_name; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sbmm_systematic_name ON public.sequence_based_macromolecules USING btree (systematic_name);
+
+
+--
+-- Name: index_api_tokens_on_token_digest; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX index_api_tokens_on_token_digest ON public.api_tokens USING btree (token_digest);
+
+
+--
+-- Name: index_api_tokens_on_user_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_api_tokens_on_user_id ON public.api_tokens USING btree (user_id);
 
 
 --
@@ -9726,6 +11023,13 @@ CREATE INDEX index_attachments_on_attachable_type_and_attachable_id ON public.at
 --
 
 CREATE UNIQUE INDEX index_attachments_on_identifier ON public.attachments USING btree (identifier);
+
+
+--
+-- Name: index_attachments_on_version; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_attachments_on_version ON public.attachments USING btree (version varchar_pattern_ops) WHERE (deleted_at IS NULL);
 
 
 --
@@ -9774,7 +11078,7 @@ CREATE UNIQUE INDEX index_cellline_materials_on_name_and_source ON public.cellli
 -- Name: index_cellline_samples_on_ancestry; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX index_cellline_samples_on_ancestry ON public.cellline_samples USING btree (ancestry);
+CREATE INDEX index_cellline_samples_on_ancestry ON public.cellline_samples USING btree (ancestry varchar_pattern_ops) WHERE (deleted_at IS NULL);
 
 
 --
@@ -9782,6 +11086,27 @@ CREATE INDEX index_cellline_samples_on_ancestry ON public.cellline_samples USING
 --
 
 CREATE INDEX index_code_logs_on_source_and_source_id ON public.code_logs USING btree (source, source_id);
+
+
+--
+-- Name: index_collection_shares_on_collection_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_collection_shares_on_collection_id ON public.collection_shares USING btree (collection_id);
+
+
+--
+-- Name: index_collection_shares_on_collection_id_and_shared_with_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX index_collection_shares_on_collection_id_and_shared_with_id ON public.collection_shares USING btree (collection_id, shared_with_id);
+
+
+--
+-- Name: index_collection_shares_on_shared_with_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_collection_shares_on_shared_with_id ON public.collection_shares USING btree (shared_with_id);
 
 
 --
@@ -9851,7 +11176,7 @@ CREATE UNIQUE INDEX index_collections_elements_on_element_id_and_collection_id O
 -- Name: index_collections_on_ancestry; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX index_collections_on_ancestry ON public.collections USING btree (ancestry);
+CREATE INDEX index_collections_on_ancestry ON public.collections USING btree (ancestry varchar_pattern_ops) WHERE (deleted_at IS NULL);
 
 
 --
@@ -10023,6 +11348,13 @@ CREATE INDEX index_comments_on_user ON public.comments USING btree (created_by);
 
 
 --
+-- Name: index_components_on_sample_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_components_on_sample_id ON public.components USING btree (sample_id);
+
+
+--
 -- Name: index_computed_props_on_deleted_at; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -10034,6 +11366,20 @@ CREATE INDEX index_computed_props_on_deleted_at ON public.computed_props USING b
 --
 
 CREATE INDEX index_containers_on_containable ON public.containers USING btree (containable_type, containable_id);
+
+
+--
+-- Name: index_containers_on_parent_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_containers_on_parent_id ON public.containers USING btree (parent_id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: index_dataset_klasses_on_super_class_of; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_dataset_klasses_on_super_class_of ON public.dataset_klasses USING gin (super_class_of);
 
 
 --
@@ -10054,7 +11400,7 @@ CREATE INDEX index_datasets_revisions_on_dataset_id ON public.datasets_revisions
 -- Name: index_device_descriptions_on_ancestry; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX index_device_descriptions_on_ancestry ON public.device_descriptions USING btree (ancestry);
+CREATE INDEX index_device_descriptions_on_ancestry ON public.device_descriptions USING btree (ancestry varchar_pattern_ops) WHERE (deleted_at IS NULL);
 
 
 --
@@ -10100,6 +11446,48 @@ CREATE UNIQUE INDEX index_devices_on_name_abbreviation ON public.devices USING b
 
 
 --
+-- Name: index_dose_resp_outputs_on_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_dose_resp_outputs_on_created_at ON public.dose_resp_outputs USING btree (created_at);
+
+
+--
+-- Name: index_dose_resp_outputs_on_deleted_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_dose_resp_outputs_on_deleted_at ON public.dose_resp_outputs USING btree (deleted_at);
+
+
+--
+-- Name: index_dose_resp_outputs_on_dose_resp_request_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_dose_resp_outputs_on_dose_resp_request_id ON public.dose_resp_outputs USING btree (dose_resp_request_id);
+
+
+--
+-- Name: index_dose_resp_requests_on_access_token; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX index_dose_resp_requests_on_access_token ON public.dose_resp_requests USING btree (access_token);
+
+
+--
+-- Name: index_dose_resp_requests_on_created_by; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_dose_resp_requests_on_created_by ON public.dose_resp_requests USING btree (created_by);
+
+
+--
+-- Name: index_dose_resp_requests_on_element_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_dose_resp_requests_on_element_id ON public.dose_resp_requests USING btree (element_id);
+
+
+--
 -- Name: index_element_klasses_revisions_on_element_klass_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -10111,6 +11499,20 @@ CREATE INDEX index_element_klasses_revisions_on_element_klass_id ON public.eleme
 --
 
 CREATE INDEX index_element_tags_on_taggable_id ON public.element_tags USING btree (taggable_id);
+
+
+--
+-- Name: index_element_variations_on_element_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX index_element_variations_on_element_id ON public.element_variations USING btree (element_id);
+
+
+--
+-- Name: index_element_variations_on_variations; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_element_variations_on_variations ON public.element_variations USING gin (variations);
 
 
 --
@@ -10135,6 +11537,27 @@ CREATE INDEX index_elements_elements_on_parent_id ON public.elements_elements US
 
 
 --
+-- Name: index_elements_on_ancestry; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_elements_on_ancestry ON public.elements USING btree (ancestry varchar_pattern_ops) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: index_elements_on_name_trigram; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_elements_on_name_trigram ON public.elements USING gin (name public.gin_trgm_ops);
+
+
+--
+-- Name: index_elements_on_short_label_trigram; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_elements_on_short_label_trigram ON public.elements USING gin (short_label public.gin_trgm_ops);
+
+
+--
 -- Name: index_elements_revisions_on_element_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -10153,6 +11576,20 @@ CREATE INDEX index_elements_samples_on_element_id ON public.elements_samples USI
 --
 
 CREATE INDEX index_elements_samples_on_sample_id ON public.elements_samples USING btree (sample_id);
+
+
+--
+-- Name: index_elements_wellplates_on_element_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_elements_wellplates_on_element_id ON public.elements_wellplates USING btree (element_id);
+
+
+--
+-- Name: index_elements_wellplates_on_wellplate_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_elements_wellplates_on_wellplate_id ON public.elements_wellplates USING btree (wellplate_id);
 
 
 --
@@ -10376,7 +11813,7 @@ CREATE UNIQUE INDEX index_notifications_on_message_id_and_user_id ON public.noti
 -- Name: index_ols_terms_on_ancestry; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX index_ols_terms_on_ancestry ON public.ols_terms USING btree (ancestry);
+CREATE INDEX index_ols_terms_on_ancestry ON public.ols_terms USING btree (ancestry varchar_pattern_ops);
 
 
 --
@@ -10405,6 +11842,13 @@ CREATE INDEX index_on_element_literature ON public.literals USING btree (element
 --
 
 CREATE INDEX index_on_literature ON public.literals USING btree (literature_id, element_type, element_id);
+
+
+--
+-- Name: index_personal_text_template; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX index_personal_text_template ON public.text_templates USING btree (user_id, name) WHERE ((type)::text = 'PersonalTextTemplate'::text);
 
 
 --
@@ -10510,6 +11954,13 @@ CREATE INDEX index_reactions_samples_on_reaction_id ON public.reactions_samples 
 --
 
 CREATE INDEX index_reactions_samples_on_sample_id ON public.reactions_samples USING btree (sample_id);
+
+
+--
+-- Name: index_reactions_samples_on_sample_id_type; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_reactions_samples_on_sample_id_type ON public.reactions_samples USING btree (sample_id, type);
 
 
 --
@@ -10625,6 +12076,13 @@ CREATE INDEX index_sample_tasks_on_sample_id ON public.sample_tasks USING btree 
 
 
 --
+-- Name: index_samples_on_ancestry; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_samples_on_ancestry ON public.samples USING btree (ancestry varchar_pattern_ops) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: index_samples_on_deleted_at; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -10657,6 +12115,13 @@ CREATE INDEX index_samples_on_molecule_name_id ON public.samples USING btree (mo
 --
 
 CREATE INDEX index_samples_on_sample_id ON public.samples USING btree (molecule_id);
+
+
+--
+-- Name: index_samples_on_short_label; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_samples_on_short_label ON public.samples USING btree (short_label);
 
 
 --
@@ -10720,27 +12185,6 @@ CREATE INDEX index_segments_revisions_on_segment_id ON public.segments_revisions
 --
 
 CREATE UNIQUE INDEX index_subscriptions_on_channel_id_and_user_id ON public.subscriptions USING btree (channel_id, user_id);
-
-
---
--- Name: index_sync_collections_users_on_collection_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_sync_collections_users_on_collection_id ON public.sync_collections_users USING btree (collection_id);
-
-
---
--- Name: index_sync_collections_users_on_shared_by_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_sync_collections_users_on_shared_by_id ON public.sync_collections_users USING btree (shared_by_id, user_id, fake_ancestry);
-
-
---
--- Name: index_sync_collections_users_on_user_id_and_fake_ancestry; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_sync_collections_users_on_user_id_and_fake_ancestry ON public.sync_collections_users USING btree (user_id, fake_ancestry);
 
 
 --
@@ -10842,6 +12286,13 @@ CREATE INDEX index_vessel_templates_on_deleted_at ON public.vessel_templates USI
 
 
 --
+-- Name: index_vessel_templates_on_name; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX index_vessel_templates_on_name ON public.vessel_templates USING btree (name);
+
+
+--
 -- Name: index_vessels_on_deleted_at; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -10926,6 +12377,13 @@ CREATE TRIGGER logidze_on_chemicals BEFORE INSERT OR UPDATE ON public.chemicals 
 
 
 --
+-- Name: components logidze_on_components; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER logidze_on_components BEFORE INSERT OR UPDATE ON public.components FOR EACH ROW WHEN ((COALESCE(current_setting('logidze.disabled'::text, true), ''::text) <> 'on'::text)) EXECUTE FUNCTION public.logidze_logger('null', 'updated_at');
+
+
+--
 -- Name: containers logidze_on_containers; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -10944,6 +12402,13 @@ CREATE TRIGGER logidze_on_device_descriptions BEFORE INSERT OR UPDATE ON public.
 --
 
 CREATE TRIGGER logidze_on_elemental_compositions BEFORE INSERT OR UPDATE ON public.elemental_compositions FOR EACH ROW WHEN ((COALESCE(current_setting('logidze.disabled'::text, true), ''::text) <> 'on'::text)) EXECUTE FUNCTION public.logidze_logger('null', 'updated_at');
+
+
+--
+-- Name: elements_wellplates logidze_on_elements_wellplates; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER logidze_on_elements_wellplates BEFORE INSERT OR UPDATE ON public.elements_wellplates FOR EACH ROW WHEN ((COALESCE(current_setting('logidze.disabled'::text, true), ''::text) <> 'on'::text)) EXECUTE FUNCTION public.logidze_logger('null', 'updated_at');
 
 
 --
@@ -11039,11 +12504,35 @@ ALTER TABLE ONLY public.layer_tracks
 
 
 --
+-- Name: sequence_based_macromolecule_samples fk_rails_3c0c34149a; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sequence_based_macromolecule_samples
+    ADD CONSTRAINT fk_rails_3c0c34149a FOREIGN KEY (sequence_based_macromolecule_id) REFERENCES public.sequence_based_macromolecules(id);
+
+
+--
+-- Name: components fk_rails_3cf5116742; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.components
+    ADD CONSTRAINT fk_rails_3cf5116742 FOREIGN KEY (sample_id) REFERENCES public.samples(id);
+
+
+--
 -- Name: sample_tasks fk_rails_5f034c53c2; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.sample_tasks
     ADD CONSTRAINT fk_rails_5f034c53c2 FOREIGN KEY (creator_id) REFERENCES public.users(id);
+
+
+--
+-- Name: collections_sequence_based_macromolecule_samples fk_rails_8dccd3deee; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.collections_sequence_based_macromolecule_samples
+    ADD CONSTRAINT fk_rails_8dccd3deee FOREIGN KEY (sequence_based_macromolecule_sample_id) REFERENCES public.sequence_based_macromolecule_samples(id);
 
 
 --
@@ -11055,6 +12544,30 @@ ALTER TABLE ONLY public.literals
 
 
 --
+-- Name: dose_resp_outputs fk_rails_aa53a2b169; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.dose_resp_outputs
+    ADD CONSTRAINT fk_rails_aa53a2b169 FOREIGN KEY (dose_resp_request_id) REFERENCES public.dose_resp_requests(id);
+
+
+--
+-- Name: collection_shares fk_rails_b3b4ac95d2; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.collection_shares
+    ADD CONSTRAINT fk_rails_b3b4ac95d2 FOREIGN KEY (shared_with_id) REFERENCES public.users(id);
+
+
+--
+-- Name: reactions_reactant_sbmm_samples fk_rails_b4b61c7f84; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.reactions_reactant_sbmm_samples
+    ADD CONSTRAINT fk_rails_b4b61c7f84 FOREIGN KEY (sequence_based_macromolecule_sample_id) REFERENCES public.sequence_based_macromolecule_samples(id);
+
+
+--
 -- Name: report_templates fk_rails_b549b8ae9d; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -11063,11 +12576,59 @@ ALTER TABLE ONLY public.report_templates
 
 
 --
+-- Name: collection_shares fk_rails_cd18bf012f; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.collection_shares
+    ADD CONSTRAINT fk_rails_cd18bf012f FOREIGN KEY (collection_id) REFERENCES public.collections(id);
+
+
+--
+-- Name: collections_sequence_based_macromolecule_samples fk_rails_e0276a2ca8; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.collections_sequence_based_macromolecule_samples
+    ADD CONSTRAINT fk_rails_e0276a2ca8 FOREIGN KEY (collection_id) REFERENCES public.collections(id);
+
+
+--
+-- Name: reactions_reactant_sbmm_samples fk_rails_e0d9192e24; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.reactions_reactant_sbmm_samples
+    ADD CONSTRAINT fk_rails_e0d9192e24 FOREIGN KEY (reaction_id) REFERENCES public.reactions(id);
+
+
+--
+-- Name: sequence_based_macromolecule_samples fk_rails_e8b87475ac; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sequence_based_macromolecule_samples
+    ADD CONSTRAINT fk_rails_e8b87475ac FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: collections fk_rails_f05d27b2ca; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.collections
     ADD CONSTRAINT fk_rails_f05d27b2ca FOREIGN KEY (inventory_id) REFERENCES public.inventories(id);
+
+
+--
+-- Name: api_tokens fk_rails_f16b5e0447; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.api_tokens
+    ADD CONSTRAINT fk_rails_f16b5e0447 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: chemicals fk_rails_fbaffa92df; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.chemicals
+    ADD CONSTRAINT fk_rails_fbaffa92df FOREIGN KEY (sequence_based_macromolecule_sample_id) REFERENCES public.sequence_based_macromolecule_samples(id);
 
 
 --
@@ -11089,6 +12650,4 @@ GRANT ALL ON SCHEMA public TO PUBLIC;
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict f22ngLBAWGP6AwBHkdbHHDUdnpvZi1kKTg3VqrpCoVgTuVnIOnNgVmEWJzhT6xf
 

@@ -76,8 +76,7 @@ class ElementSet(list):
         return elm
 
     def __iter__(self):
-        for x in self.iter_elements():
-            yield x
+        yield from self.iter_elements()
 
     @property
     def page(self):
@@ -117,8 +116,8 @@ class ElementSet(list):
         self._set_page(self.page - 1)
         return self
 
-    def load_elements(self, per_page: Optional[int] = None, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None, product_only: bool = False):
+    def load_elements(self, per_page: int | None = None, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None, product_only: bool = False):
         if per_page is not None:
             self._per_page = per_page
         if self._collection_id is None:
@@ -151,7 +150,7 @@ class ElementSet(list):
         res = self._session.get(self._get_url() + '.json',
                                 data=payload)
         if res.status_code != 200:
-            raise RequestException('{} -> {}'.format(res.status_code, res.text))
+            raise RequestException(f'{res.status_code} -> {res.text}')
 
         try:
             self.max_page = int(res.headers.get('X-Total-Pages', 1))

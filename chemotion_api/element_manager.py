@@ -99,7 +99,7 @@ class ElementManager:
         if not class_obj['is_generic']:
             json_path = os.path.join(resource_path(__file__), 'elements/empty_elements', type_name + '.json')
             if os.path.exists(json_path):
-                with open(json_path, 'r') as f:
+                with open(json_path) as f:
                     data = json.loads(f.read())
             if type_name == 'wellplate':
                 data['wells'] = []
@@ -149,15 +149,14 @@ class ElementManager:
         solvent_info = self.get_solvent_list().get(name)
         if solvent_info is None:
             raise KeyError(
-                'Solver: "{}" is not available. Run instance.get_solvent_list() to see all valid solver names'.format(
-                    name))
+                f'Solver: "{name}" is not available. Run instance.get_solvent_list() to see all valid solver names')
         sample_data = self.build_new('sample', collection_id)
 
         mol = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'], solvent_info['density'])
 
         sample_data['molecule'] = mol
         sample_data['density'] = solvent_info['density']
-        sample_data['external_label'] = '{}'.format(name)
+        sample_data['external_label'] = f'{name}'
         sample_data['short_label'] = 'solvent'
         sample_data['show_label'] = False
         sample_data['reference'] = False

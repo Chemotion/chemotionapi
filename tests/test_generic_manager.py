@@ -19,7 +19,7 @@ def test_write_all_schemas(instance_with_collection):
 "json_file", ['GenericElement.json']
 )
 def test_validate_generic_element(json_file):
-    with open(json_file, 'r') as file:
+    with open(json_file) as file:
         json_value = json.loads(file.read())
     validate_generic_element(json_value)
 
@@ -28,7 +28,7 @@ def test_validate_generic_element(json_file):
 "json_file", ["GenericDataset.json"]
 )
 def test_validate_generic_dataset(json_file):
-    with open(json_file, 'r') as file:
+    with open(json_file) as file:
         json_value = json.loads(file.read())
     validate_generic_dataset(json_value)
 
@@ -37,7 +37,7 @@ def test_validate_generic_dataset(json_file):
 "json_file", ["GenericSegment.json"]
 )
 def test_validate_generic_segment(json_file):
-    with open(json_file, 'r') as file:
+    with open(json_file) as file:
         json_value = json.loads(file.read())
     validate_generic_segment(json_value)
 
