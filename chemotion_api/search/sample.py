@@ -68,10 +68,10 @@ class SampleSearcher(SearchHelperBase):
     element_type_res = "samples"
     element_type = "sample"
 
-    def add_search_condition(self, match: EnumMatch, connector: EnumConnector, name: Optional[str] = None,
-                             short_label: Optional[str] = None, external_label: Optional[str] = None,
-                             inventory_label: Optional[str] = None, cas: Optional[str] = None,
-                             private_note: Optional[str] = None):
+    def add_search_condition(self, match: EnumMatch, connector: EnumConnector, name: str | None = None,
+                             short_label: str | None = None, external_label: str | None = None,
+                             inventory_label: str | None = None, cas: str | None = None,
+                             private_note: str | None = None):
         field_values = {"name": name, "short_label": short_label, "external_label": external_label,
                         "inventory_label": inventory_label, "xref": cas, "content": private_note}
         return super().add_search_condition(match, connector, **field_values)

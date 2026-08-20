@@ -12,7 +12,7 @@ class User(abc.ABC):
         if res.status_code == 401:
             raise PermissionError('Not allowed to fetch user (Login first)')
         elif res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         data = res.json()['user']
         return cls.factor_user(session, data)
 
@@ -202,7 +202,7 @@ class Device(User):
         if res.status_code == 401:
             raise PermissionError('Not allowed to delete device (Only for super devices or admins)')
         elif res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
 
 class Admin(Person):
@@ -224,7 +224,7 @@ class Admin(Person):
         if res.status_code == 401:
             raise PermissionError('Not allowed to fetch user (Login first)')
         elif res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         self.users: list[User] = []
         self.devices: list[Device] = []
@@ -298,7 +298,7 @@ class Admin(Person):
         if res.status_code == 401:
             raise PermissionError('Not allowed to fetch user (Login first)')
         elif res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         return res.json()['list']
 
@@ -313,7 +313,7 @@ class DeviceManager:
         if res.status_code == 401:
             raise PermissionError('Not allowed to fetch JWT (Only for super devices or admins)')
         elif res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         return res.json()['token']
 
@@ -329,7 +329,7 @@ class DeviceManager:
         if res.status_code == 401:
             raise PermissionError('Create device not is allowed! (Only for super devices or admins)')
         elif res.status_code != 201 or res.json().get('error') is not None:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         return Device(self._session).populate(res.json())
 

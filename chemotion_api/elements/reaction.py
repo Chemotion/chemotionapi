@@ -1,5 +1,6 @@
 from enum import Enum
-from typing import Callable, Optional, Iterator, Literal
+from typing import Optional, Literal
+from collections.abc import Callable, Iterator
 
 from requests import Response
 
@@ -24,7 +25,7 @@ class MaterialList(TypedList):
     methode.
     """
 
-    def __init__(self, reaction: 'Reaction',
+    def __init__(self, reaction: Reaction,
                  mat_type: Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'],
                  *args):
         super().__init__(Sample, *args)
@@ -148,10 +149,10 @@ class Reaction(AbstractElement):
         :return: Response with the svg as content
         """
 
-        image_url = "/images/reactions/{}".format(self._svg_file)
+        image_url = f"/images/reactions/{self._svg_file}"
         res = self._session.get(image_url)
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         return res
 
     def properties_schema(self) -> dict:
@@ -203,7 +204,7 @@ class Reaction(AbstractElement):
         return super().properties
 
     @property
-    def variations(self) -> 'Variations':
+    def variations(self) -> Variations:
         if self._variations is None:
             mat_samples = {}
             for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents']:
@@ -234,7 +235,7 @@ class Reaction(AbstractElement):
         return self.properties['purification_solvents']
 
     @property
-    def reference_sample(self) -> Optional[Sample]:
+    def reference_sample(self) -> Sample | None:
         first_sample = None
         for mat in [*self.starting_materials, *self.reactants]:
             if first_sample is None:
@@ -426,7 +427,7 @@ class Reaction(AbstractElement):
                     "dispUnit": total_unit,
                     "dispValue": f"{int(total_time)}",
                     "memUnit": total_unit,
-                    "memValue": "{:0.15f}".format(total_time)
+                    "memValue": f"{total_time:0.15f}"
                 }
                 }
 
@@ -502,7 +503,7 @@ class Variation(Reaction):
             vessel_volume *= 1000
         return vessel_volume
 
-    def update_and_clean(self, vessel_size: Optional[float] = None):
+    def update_and_clean(self, vessel_size: float | None = None):
         vessel_volume = self._get_vessel_volume(vessel_size)
         for sample_type, sample_variations in self._materials.items():
             for sample_variation in sample_variations:
@@ -551,7 +552,7 @@ class Variation(Reaction):
 
 
 class Variations(MutableSequence):
-    def __init__(self, reaction: 'Reaction'):
+    def __init__(self, reaction: Reaction):
         # Initialize the list with given items
         self._data = list()
         self._reaction = reaction
