@@ -53,8 +53,63 @@ select = ["UP"]
 [tool.mypy]
 python_version = "3.14"
 ignore_missing_imports = true
-# New/refactored modules are type-clean. The inherited upstream modules still carry pre-existing
-# type issues (tracked, not yet fixed); type-check incrementally rather than failing the whole tree.
+
+# Type checking is a ratchet. The whole tree is checked, but the modules listed below still carry
+# pre-existing type errors (471 of them across 40 modules when this gate was introduced) and are
+# exempted for now; the other 30 modules are enforced from day one and cannot regress.
+#
+# The list only ever gets shorter: when a change makes a module type-clean, delete its entry in the
+# same commit. Never add an entry — that would mean a clean module regressed, which is what this
+# gate exists to prevent.
+#
+# The exemptions are deliberately NOT being cleared up front: roughly half of the outstanding errors
+# live in modules that the ELN v4 migration rewrites (collection, elements.sample, elements.reaction,
+# elements.abstract_element), so fixing them against the current shape would be discarded work. Each
+# module gets cleaned by the change that rewrites it.
+[[tool.mypy.overrides]]
+ignore_errors = true
+module = [
+    "chemotion_api",
+    "chemotion_api.collection",
+    "chemotion_api.commands.updater",
+    "chemotion_api.connection",
+    "chemotion_api.converter",
+    "chemotion_api.element_manager",
+    "chemotion_api.elements",
+    "chemotion_api.elements.abstract_element",
+    "chemotion_api.elements.attachments",
+    "chemotion_api.elements.generic_element",
+    "chemotion_api.elements.reaction",
+    "chemotion_api.elements.research_plan",
+    "chemotion_api.elements.sample",
+    "chemotion_api.elements.schemas.research_plan",
+    "chemotion_api.elements.utils.converter",
+    "chemotion_api.elements.utils.equivalent",
+    "chemotion_api.elements.wellplate",
+    "chemotion_api.elements.workflow_interface",
+    "chemotion_api.inbox",
+    "chemotion_api.labImotion",
+    "chemotion_api.labImotion.base_generic_obj",
+    "chemotion_api.labImotion.items.condition_handler",
+    "chemotion_api.labImotion.items.fields.abstract_fields",
+    "chemotion_api.labImotion.items.fields.base",
+    "chemotion_api.labImotion.items.fields.fields",
+    "chemotion_api.labImotion.items.fields.sub_fields",
+    "chemotion_api.labImotion.items.fields.table_sub_fields",
+    "chemotion_api.labImotion.items.genericproperties",
+    "chemotion_api.labImotion.items.layer",
+    "chemotion_api.labImotion.items.validation.registry",
+    "chemotion_api.labImotion.items.validation.schemas.schema_generc_dataset",
+    "chemotion_api.labImotion.items.validation.schemas.schema_generc_element",
+    "chemotion_api.labImotion.items.validation.schemas.schema_generc_linked_element",
+    "chemotion_api.labImotion.items.validation.schemas.schema_generc_segments",
+    "chemotion_api.labImotion.structure",
+    "chemotion_api.search.reaction",
+    "chemotion_api.search.sample",
+    "chemotion_api.search.search_helper",
+    "chemotion_api.user",
+    "chemotion_api.utils",
+]
 
 [build-system]
 requires = ["hatchling"]
