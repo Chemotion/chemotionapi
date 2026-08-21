@@ -28,7 +28,7 @@ os.environ.setdefault(
 project = 'Chemotion API (Pydantic & chem-dcat-ap)'
 copyright = '2023-2026, Martin Starman <martin.starman@kit.edu> and contributors'
 author = 'Martin Starman and contributors'
-release = '211.0.1'
+release = '400.0.0'
 
 
 # -- General configuration ---------------------------------------------------

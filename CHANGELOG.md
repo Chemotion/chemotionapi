@@ -1,5 +1,66 @@
 # Changelog
 
+## 🚨 400.0.0 — Chemotion ELN v4 only
+
+**Breaking: this release supports ELN v4 exclusively.** ELN 3.x and older are not supported and
+cannot be, in any meaningful sense — v4 rewrote collections and sharing from the ground up.
+**Stay on the `312.x` line for an ELN 3.1.x server.** The version scheme tracks the server:
+`400.x.y` ↔ ELN 4.0, `312.x.y` ↔ ELN 3.1.2, `211.x.y` ↔ ELN 2.1.1.
+
+Verified against `v4.0.0-rc-260818` (LabIMotion 2.3.0.rc6), both on the shared stage instance and a
+local digest-pinned `complat/chemotion_eln_stage:next-release` stack, which report the same server
+revision.
+
+### Version gate
+
+- `Instance.test_connection()` now refuses any server whose major version is not 4, raising
+  `UnsupportedServerVersion` and naming both the detected version and the release line to use
+  instead. The check reads `/about`, which is unauthenticated, so it fires **before** credentials
+  are sent.
+- Version parsing no longer degrades silently. It previously fell back to the literal string
+  `'TEST'`, which then appeared in every built-in element's JSON-LD `@type` IRI with no error.
+- Built-in `@type` IRIs now carry `major.minor` (`chemotion:type/sample/4.0`). Deployments track
+  dated release candidates, so a patch-level segment made an unchanged element's semantic type
+  churn on every server rebuild.
+
+### Collections and sharing (the bulk of the v4 delta)
+
+- `GET /collections/roots.json` is gone — it now answers **400 `id is invalid`**, because v4 routes
+  it to `/collections/:id` whose id pattern rejects `"roots.json"`. Replaced by
+  `GET /api/v1/collections/`, which returns `{own, shared_with_me}` as flat lists; the tree is
+  rebuilt from each entry's `ancestry` materialized path.
+- `PATCH /collections` (whole tree + `deleted_ids`, now 405) is split into per-collection
+  `POST`/`DELETE` plus `PUT /collections/bulk_update_own_collections`.
+- The entire `/syncCollections` namespace is removed (a genuine 404). Collections shared with you
+  arrive in `shared_with_me` from the same listing, so no extra request is made.
+- Sharing moves to `/api/v1/collection_shares`. `user_ids` is now a flat list of integers, and the
+  per-type detail levels grew from five to nine with renamed keys (`researchplan`, `celllinesample`,
+  `sequencebasedmacromoleculesample`).
+- **`SyncPermission` is replaced by `CollectionSharePermission`, and the integers changed meaning.**
+  v4 renumbered the ladder: old `Share`/`Delete`/`ImportElements` are now `AddElements`(2),
+  `RemoveElements`(3), `ManageShares`(4). Port call sites **by name, not by number** — a raw integer
+  that was correct before v4 now grants a different permission.
+- `PUT /collections/elements` (move elements between collections) was removed server-side with no
+  replacement; the client raises a clear error pointing at add-then-remove.
+
+### LabIMotion 2.3
+
+- The bundled validation schemas accept LabIMotion 2.3 klass payloads: all 49 generic klasses on the
+  reference instance validate, where previously none did. New optional keys (`metadata`,
+  `placeholder`, `ontology`, `hasOwnRow`, `condition`, `desc`, `released_at`, `_checksum`, `is_new`),
+  `eln.current_revision` corrected from `number` to a string, and `cols: 1` accepted.
+- Layer-key and option-set-name regexes were dropped: real templates use names they rejected
+  (trailing digits, spaces). Requirements were relaxed only where the server genuinely omits a
+  field — audited against every klass rather than loosened wholesale.
+
+### Also
+
+- Element schemas no longer carry a stale `1.9.3` server version in `$schema` (which also misused
+  the keyword — it names the dialect, not the document).
+- Fixed: search wrote its payload to `./test.json` on every call; `SubBaseField.id`'s setter stored
+  the builtin `id`; `TSDragSample.value`'s setter discarded its filtered token list;
+  `AdminMenu.greate_device` is now `create_device` (old name warns and delegates).
+
 ## 📚 Recovered & modernized Sphinx docs — 2026-07-01
 
 Restored the `docs/` Sphinx suite that upstream had deleted (commit "remove docs") and brought it up to

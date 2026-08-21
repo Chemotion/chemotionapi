@@ -33,8 +33,13 @@ fully offline from a Chemotion export ZIP.
 ## Requirements & installation
 
 - Python **>= 3.14** (managed automatically by [uv](https://docs.astral.sh/uv/))
-- A Chemotion ELN server (v2.1+; tested against 2.1.1 and 3.1.2) — or none at all for the
-  offline workflow.
+- **A Chemotion ELN v4 server.** ELN 3.x and older are *not* supported: v4 rewrote collections and
+  sharing, renumbered share permission levels and removed the `/syncCollections` API, so there is
+  no meaningful overlap. Connecting to an older instance raises `UnsupportedServerVersion` at
+  `test_connection()`, before any credentials are sent.
+  **For an ELN 3.1.x server, use the `312.x` release line instead.**
+  The version scheme tracks the server: `400.x.y` ↔ ELN 4.0, `312.x.y` ↔ ELN 3.1.2.
+  No server at all is needed for the offline workflow.
 - For development: [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/)
   (plus docker for the integration test stack).
 

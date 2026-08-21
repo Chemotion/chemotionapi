@@ -1,7 +1,7 @@
 [project]
 name = "chemotion-api"
-version = "211.0.1"
-description = "A Chemotion python API"
+version = "400.0.0"
+description = "A Chemotion ELN v4 python API (Pydantic & Chem-DCAT-AP enabled)"
 authors = [{ name = "Martin Starman", email = "martin.starman@kit.edu" }]
 license = { text = "AGPL-3.0-or-later" }
 readme = "README.md"
