@@ -85,13 +85,42 @@ def nest_by_ancestry(flat: list[dict]) -> list[dict]:
     return roots
 
 
-class SyncPermission(Enum):
-    Read = 0
-    Write = 1
-    Share = 2
-    Delete = 3
-    ImportElements = 4
+class CollectionSharePermission(Enum):
+    """Permission granted when sharing a collection (see :meth:`Collection.share`).
+
+    These are ELN v4's levels, mirroring ``CollectionShare::PERMISSION_LEVELS`` server-side. Each
+    level includes the ones below it.
+
+    .. warning::
+       This replaces the pre-v4 ``SyncPermission``, and **the integers were reassigned** — v4
+       renumbered them. Levels 2, 3 and 4 in particular no longer mean what they used to
+       (``Share`` -> :attr:`AddElements`, ``Delete`` -> :attr:`RemoveElements`,
+       ``ImportElements`` -> :attr:`ManageShares`). Passing a raw integer that was correct before
+       v4 now grants a different permission, so port call sites by name, not by number.
+    """
+
+    ReadElements = 0
+    EditElements = 1
+    AddElements = 2
+    RemoveElements = 3
+    ManageShares = 4
     PassOwnership = 5
+
+
+#: Every per-element-type detail level ELN v4 accepts on a collection share. Note the spellings:
+#: ``researchplan`` and ``celllinesample`` are single words server-side, and the list grew from the
+#: five types the pre-v4 API took.
+SHARE_DETAIL_LEVEL_TYPES = (
+    'celllinesample',
+    'devicedescription',
+    'element',
+    'reaction',
+    'researchplan',
+    'sample',
+    'screen',
+    'sequencebasedmacromoleculesample',
+    'wellplate',
+)
 
 
 class AbstractCollection:
@@ -639,32 +668,32 @@ class Collection(AbstractEditableCollection):
         abs_path = _col_path_join(self.get_path(), name)
         return self.get_root().add_collection(abs_path)
 
-    def share(self, permission_level: SyncPermission, *users: Person | Group):
+    def share(self, permission_level: CollectionSharePermission, *users: Person | Group,
+              apply_to_subcollections: bool = False, detail_level: int = 10):
         """
-        To synchronize a collection with a set of users or groups
+        Shares this collection with a set of users or groups.
 
-        :param permission_level: Element from SyncPermission
-        :param users: a list of users or groups
+        :param permission_level: element of :class:`CollectionSharePermission`
+        :param users: the users and/or groups to share with
+        :param apply_to_subcollections: also share every descendant collection
+        :param detail_level: how much of each element type the recipients may see (0-10)
+
+        :raises ConnectionError: if the server rejects the share
         """
-        data = {
-            "collection_attributes": {
-                "permission_level": permission_level.value,
-                "sample_detail_level": 10,
-                "reaction_detail_level": 10,
-                "wellplate_detail_level": 10,
-                "screen_detail_level": 10,
-                "element_detail_level": 10
-            },
-            "user_ids": [
-                {'label': f'{user.name} ({user.initials} - {user.user_type})',
-                 'name': user.name,
-                 'value': user.id} for user in users if user.is_group() or user.is_person()
-            ],
-            "id": self.id
+        # ELN v4 replaced POST /syncCollections (a nested payload keyed on
+        # `collection_attributes`, with user_ids as {label, name, value} objects) with
+        # POST /collection_shares, which takes a flat body and plain integer user ids.
+        data: dict[str, Any] = {
+            'collection_id': self.id,
+            'user_ids': [user.id for user in users if user.is_group() or user.is_person()],
+            'permission_level': permission_level.value,
+            'apply_to_subcollections': apply_to_subcollections,
         }
+        for element_type in SHARE_DETAIL_LEVEL_TYPES:
+            data[f'{element_type}_detail_level'] = detail_level
 
-        res = self.get_root()._session.post('/api/v1/syncCollections/', data=data)
-        if res.status_code != 201:
+        res = self.get_root()._session.post('/api/v1/collection_shares', data=data)
+        if res.status_code not in (200, 201):
             raise ConnectionError(f"{res.status_code} -> {res.text}")
 
 

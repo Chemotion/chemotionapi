@@ -118,7 +118,7 @@ Example 2) Share a Collection
     3) Share collection
     """
 
-    from chemotion_api.collection import SyncPermission
+    from chemotion_api.collection import CollectionSharePermission
     from chemotion_api.user import Person, Group
 
     from chemotion_api import Instance
@@ -144,7 +144,7 @@ Example 2) Share a Collection
         # Add the user
         stg.add_users(*users)
         # Share collection with STG
-        instance.get_root_collection().get_collection('Main Test').share(SyncPermission.Write, stg)
+        instance.get_root_collection().get_collection('Main Test').share(CollectionSharePermission.EditElements, stg)
         # Save reaction
         reaction.save()
 
@@ -161,7 +161,7 @@ Example 3) Upload/Load Attachment
     3) Save an attachment as file
     """
 
-    from chemotion_api.collection import SyncPermission
+    from chemotion_api.collection import CollectionSharePermission
     from chemotion_api.user import Person, Group
 
     from chemotion_api import Instance
