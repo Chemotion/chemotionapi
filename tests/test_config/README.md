@@ -5,14 +5,22 @@ A local Chemotion ELN (docker compose) plus a seeded database, so the integratio
 
 ## Contents
 
-- `compose.yml` — a minimal Chemotion 3.1.2 stack, based on the
-  [ChemOrc payload compose](https://github.com/Chemotion/ChemOrc/blob/main/payload/docker-compose.yml)
-  but trimmed to the essentials: `db` (Postgres, published on host port **54320**) and `eln`
-  (published on host port **3579**, running with `CONFIG_ROLE=combine` so the one container serves
-  the web app *and* the background worker — its only startup dependency is `db`). The stock image
-  only knows the eln/worker roles, so `embed/` mounts the
+- `compose.yml` — a minimal Chemotion **ELN v4** stack, trimmed to the essentials: `db`
+  (Postgres 16 + RDKit cartridge, published on host port **54320**) and `eln` (published on host
+  port **3579**, running with `CONFIG_ROLE=combine` so the one container serves the web app *and*
+  the background worker — its only startup dependency is `db`). The stock image only knows the
+  eln/worker roles, so `embed/` mounts the
   [Push2Deploy](https://github.com/Chemotion/Push2Deploy) versions of `run.sh`/`health.sh`, which
   add the combine role.
+
+  **Both images are pinned by digest.** The v4 ELN is only published under the rolling
+  `next-release` tag (Docker Hub has no immutable v4 tag — the tags jump from `v3.1.1` straight to
+  `next-release`), so without a digest two runs a day apart can test different servers. Bumping a
+  digest is a deliberate change: record the new digest alongside the `Version:` string that
+  `/about` reports afterwards. Pinned 2026-08-21 at **v4.0.0-rc-260818**.
+
+  Volume names carry a `_v4` suffix so the old v3 stack's volumes — which survive
+  `docker compose down` — are never silently reused under a different vendor's Postgres image.
 - `../data/test.sql` — the seeded database. All users are fictional:
 
   | Login | Password | Role |
@@ -23,8 +31,9 @@ A local Chemotion ELN (docker compose) plus a seeded database, so the integratio
 
 - `../data/setup_chemotion_db.sh` — dumps the current DB to `../data/dumps/` (gitignored),
   then drops, recreates and reloads it from `test.sql` and runs pending Rails migrations (the seed
-  is dumped at the stack's own version, so this is normally a no-op — it only replays
-  migrations after a stack upgrade. The original 2.1.1-era dump lives in git history).
+  is dumped at the stack's own version, so this is normally a no-op — it only replays migrations
+  after a stack upgrade; that is the hook the v3 → v4 seed upgrade goes through. Earlier 2.1.1- and
+  3.1.2-era dumps live in git history).
 - `sample_files/` — attachment fixtures used by some tests.
 
 ## Usage
