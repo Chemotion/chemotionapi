@@ -57,6 +57,12 @@
         "updated_at": {
             "type": "string"
         },
+        "metadata": {
+            "type": [
+                "object",
+                "null"
+            ]
+        },
         "element_klass": {
             "$ref": "chemotion://generic/linked_element/draft-01"
         }
@@ -75,8 +81,6 @@
         "released_at",
         "identifier",
         "sync_time",
-        "created_by",
-        "updated_by",
         "created_at",
         "updated_at",
         "element_klass"

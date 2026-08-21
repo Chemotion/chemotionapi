@@ -101,14 +101,17 @@ def test_generic_selection_schema_success(json_to_test):
                 ]
             }
         },
+        # Was `{"aa": {...}}` — invalid only because the option-set name was too short for the
+        # old `^[a-z][a-zA-Z_]{1,10}[a-z]$` key pattern. ELN v4 does not honour that constraint
+        # (38 option-set names on the reference instance violate it, e.g. 'liste1', 'auswahl1',
+        # 'printing parameters'), so the pattern was dropped and this now checks a real error:
+        # `options` must be an array.
         {
             "aa": {
-                "options": [
-                    {
-                        "key": "a",
-                        "label": "a",
-                    }
-                ]
+                "options": {
+                    "key": "a",
+                    "label": "a",
+                }
             }
         }
     ]

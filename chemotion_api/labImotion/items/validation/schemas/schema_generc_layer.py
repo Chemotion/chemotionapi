@@ -10,9 +10,11 @@ generic_schema = {
         "wf": {
             "type": "boolean"
         },
+        # No pattern: real v4 templates use keys the old
+        # `^[a-z][a-zA-Z_]{1,20}[a-z]$` rejected — trailing digits ('general_procparamv2'),
+        # spaces ('printing parameters'). Layer key spelling is the server's business.
         "key": {
-            "type": "string",
-            "pattern": "^[a-z][a-zA-Z_]{1,20}[a-z]$"
+            "type": "string"
         },
         "cols": {
             "type": "number"
@@ -34,9 +36,10 @@ generic_schema = {
                 "$ref": "chemotion://generic/field/draft-01"
             }
         },
+        # v4 emits position 0.
         "position": {
             "type": "number",
-            "minimum": 1
+            "minimum": 0
         },
         "timeRecord": {
             "type": "string"
@@ -54,20 +57,28 @@ generic_schema = {
         "cond_operator": {
             "type": "number",
             "enum": ConditionOperator.list()
+        },
+        # ELN v4 / LabIMotion 2.3 additions.
+        "condition": {
+            "type": ["object", "string", "null"]
+        },
+        "desc": {
+            "type": ["string", "null"]
+        },
+        "layer": {
+            "type": ["string", "object", "null"]
         }
     },
     "additionalProperties": False,
+    # Dropped from required because v4 genuinely omits them on some layers (counts from the
+    # reference instance, 534 layers): color 434, style 434, wf 337, wf_position 472,
+    # timeRecord only 86. The rest are present on every layer observed.
     "required": [
-        "wf",
         "key",
         "cols",
-        "color",
-        "label",
-        "style",
         "fields",
-        "position",
-        "timeRecord",
-        "wf_position"
+        "label",
+        "position"
     ]
 }
 

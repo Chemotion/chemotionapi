@@ -8,11 +8,11 @@
             "oneOf": [
                 {
                     "type": "number",
-                    "exclusiveMinimum": 1
+                    "minimum": 1
                 },
                 {
                     "type": "string",
-                    "pattern": "^[2-9]\\d*(\\.\\d+)?$|^1\\.\\d+$"
+                    "pattern": "^[1-9]\\d*(\\.\\d+)?$"
                 }
             ]
         },
@@ -85,13 +85,24 @@
                     },
                     "col_name": {
                         "type": "string"
+                    },
+                    "_checksum": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "is_new": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     }
                 },
                 "additionalProperties": false,
                 "required": [
                     "id",
-                    "type",
-                    "value"
+                    "type"
                 ]
             }
         },
@@ -111,6 +122,18 @@
                     },
                     "separator": {
                         "type": "string"
+                    },
+                    "_checksum": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "is_new": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     }
                 },
                 "additionalProperties": false,
@@ -142,6 +165,37 @@
         },
         "value_system": {
             "type": "string"
+        },
+        "placeholder": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "ontology": {
+            "type": [
+                "object",
+                "array",
+                "string",
+                "null"
+            ]
+        },
+        "hasOwnRow": {
+            "type": [
+                "boolean",
+                "string",
+                "null"
+            ]
+        },
+        "value": {
+            "type": [
+                "string",
+                "number",
+                "boolean",
+                "object",
+                "array",
+                "null"
+            ]
         }
     },
     "additionalProperties": false,
@@ -150,8 +204,6 @@
         "field",
         "label",
         "default",
-        "position",
-        "sub_fields",
-        "text_sub_fields"
+        "position"
     ]
 }

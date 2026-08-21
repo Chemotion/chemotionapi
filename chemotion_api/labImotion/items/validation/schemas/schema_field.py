@@ -7,15 +7,17 @@ generic_schema = {
     "title": "Schema for generic field",
     "type": "object",
     "properties": {
+        # v4 emits `cols: 1` (and "1"), which the previous exclusiveMinimum/pattern pair rejected —
+        # a single-column field is perfectly legal.
         "cols": {
             "oneOf": [
                 {
                     "type": "number",
-                    "exclusiveMinimum": 1
+                    "minimum": 1
                 },
                 {
                     "type": "string",
-                    "pattern": "^[2-9]\\d*(\\.\\d+)?$|^1\\.\\d+$"
+                    "pattern": "^[1-9]\\d*(\\.\\d+)?$"
                 }
             ]
         },
@@ -70,13 +72,20 @@ generic_schema = {
                     },
                     "col_name": {
                         "type": "string"
+                    },
+                    # ELN v4 / LabIMotion 2.3 additions.
+                    "_checksum": {
+                        "type": ["string", "null"]
+                    },
+                    "is_new": {
+                        "type": ["boolean", "null"]
                     }
                 },
                 "additionalProperties": False,
+                # `value` is no longer required — v4 omits it on freshly added sub-fields.
                 "required": [
                     "id",
-                    "type",
-                    "value"
+                    "type"
                 ]
             }
         },
@@ -96,6 +105,13 @@ generic_schema = {
                     },
                     "separator": {
                         "type": "string"
+                    },
+                    # ELN v4 / LabIMotion 2.3 additions.
+                    "_checksum": {
+                        "type": ["string", "null"]
+                    },
+                    "is_new": {
+                        "type": ["boolean", "null"]
                     }
                 },
                 "additionalProperties": False,
@@ -127,17 +143,31 @@ generic_schema = {
         },
         "value_system": {
             "type": "string"
+        },
+        # ELN v4 / LabIMotion 2.3 additions.
+        "placeholder": {
+            "type": ["string", "null"]
+        },
+        "ontology": {
+            "type": ["object", "array", "string", "null"]
+        },
+        "hasOwnRow": {
+            "type": ["boolean", "string", "null"]
+        },
+        "value": {
+            "type": ["string", "number", "boolean", "object", "array", "null"]
         }
     },
     "additionalProperties": False,
+    # sub_fields / text_sub_fields dropped from required: v4 emits them only for the field types
+    # that actually have sub-fields (2609 of 2792 fields in the reference instance carry them).
+    # Everything below is present on every field observed, so it stays required.
     "required": [
         "type",
         "field",
         "label",
         "default",
-        "position",
-        "sub_fields",
-        "text_sub_fields"
+        "position"
     ]
 
 }

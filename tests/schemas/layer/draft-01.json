@@ -8,8 +8,7 @@
             "type": "boolean"
         },
         "key": {
-            "type": "string",
-            "pattern": "^[a-z][a-zA-Z_]{1,20}[a-z]$"
+            "type": "string"
         },
         "cols": {
             "type": "number"
@@ -41,7 +40,7 @@
         },
         "position": {
             "type": "number",
-            "minimum": 1
+            "minimum": 0
         },
         "timeRecord": {
             "type": "string"
@@ -63,19 +62,34 @@
                 1,
                 0
             ]
+        },
+        "condition": {
+            "type": [
+                "object",
+                "string",
+                "null"
+            ]
+        },
+        "desc": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "layer": {
+            "type": [
+                "string",
+                "object",
+                "null"
+            ]
         }
     },
     "additionalProperties": false,
     "required": [
-        "wf",
         "key",
         "cols",
-        "color",
-        "label",
-        "style",
         "fields",
-        "position",
-        "timeRecord",
-        "wf_position"
+        "label",
+        "position"
     ]
 }

@@ -57,6 +57,12 @@
         "updated_at": {
             "type": "string"
         },
+        "metadata": {
+            "type": [
+                "object",
+                "null"
+            ]
+        },
         "name": {
             "type": "string"
         },
@@ -84,8 +90,6 @@
         "released_at",
         "identifier",
         "sync_time",
-        "created_by",
-        "updated_by",
         "created_at",
         "updated_at",
         "name",
