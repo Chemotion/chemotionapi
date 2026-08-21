@@ -36,6 +36,14 @@ lint-fix:
 # ruff + mypy — the static gate, and exactly what CI enforces on every push and PR
 static: lint mypy
 
+# export a fixture .eln (no server needed) and check it against RO-Crate 1.1
+# The validator runs on 3.13 in a throwaway env: its dependencies cannot build on 3.14.
+conformance:
+    uv run python scripts/export_conformance_crate.py conformance.eln
+    uv run --python 3.13 --no-project --with roc-validator==0.5.0 --with rocrate==0.14.0 \
+        python scripts/check_crate_conformance.py conformance.eln
+    rm -f conformance.eln
+
 # static gate + the test suite. NOTE: the suite in tests/ currently needs a live Chemotion
 # server (tests/conftest.py boots one via test_config/), so this only works with a stack up —
 # use `just static` for a server-free check until the dockerized offline suite lands.

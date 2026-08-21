@@ -56,6 +56,46 @@ jobs:
       - name: Offline tests
         run: just test
 
+  # Exported .eln archives must stay RO-Crate 1.1 conformant. This is a real regression risk, not a
+  # formality: a change to the metadata graph once silently broke ontology_patch while every unit
+  # test still passed, because the tests asserted our own shape rather than the spec's.
+  #
+  # Two stages in two Pythons on purpose — roc-validator's dependencies cannot build on 3.14, and
+  # the client requires 3.14 — so the crate is exported by the project env and validated by a
+  # throwaway 3.13 env. No Chemotion server needed: the crate is built from a committed fixture
+  # through the offline ingester.
+  conformance:
+    name: .eln RO-Crate conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies (locked)
+        run: uv sync --frozen --all-groups
+
+      - name: Export a fixture crate
+        run: uv run python scripts/export_conformance_crate.py conformance.eln
+
+      # Pinned to the versions TheELNConsortium's own suite uses, so a crate passing here passes
+      # their checker too.
+      - name: Validate against RO-Crate 1.1
+        run: |
+          uv run --python 3.13 --no-project \
+            --with roc-validator==0.5.0 --with rocrate==0.14.0 \
+            python scripts/check_crate_conformance.py conformance.eln
+
+      - name: Upload the crate for inspection
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: non-conformant-crate
+          path: conformance.eln
+
   # Release artefacts only: a wheel is worth building when we are actually cutting a version,
   # not on every merge. Tag pushes only — skipped for branch pushes and pull requests.
   build:
