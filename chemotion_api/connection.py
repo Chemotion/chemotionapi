@@ -40,16 +40,45 @@ class Connection(requests.Session):
     def delete(self, url_path: str = '', **kwargs) -> requests.Response:
         return self._send_request('delete', url_path, self.get_default_session_header(), kwargs)
 
+    # Each verb takes a path relative to the instance host and applies this session's default
+    # headers, auth and timeout. Note they are documented here rather than inheriting
+    # requests.Session's docstrings: autodoc renders those with a docutils field-list warning, and
+    # the inherited text describes a different signature (absolute URL) than these accept.
+
     def get(self, url_path: str = '', **kwargs) -> requests.Response:
+        """GET ``url_path`` on this instance.
+
+        :param url_path: path relative to the instance host, e.g. ``/api/v1/samples``.
+        :param kwargs: passed through to :mod:`requests` (``params``, ``stream``, ``timeout``, …).
+        :return: the response.
+        """
         return self._send_request('get', url_path, self.get_default_session_header(), kwargs)
 
     def post(self, url_path: str = '', **kwargs) -> requests.Response:
+        """POST to ``url_path`` on this instance, with the JSON request headers.
+
+        :param url_path: path relative to the instance host.
+        :param kwargs: passed through to :mod:`requests` (``data``, ``json``, ``files``, …).
+        :return: the response.
+        """
         return self._send_request('post', url_path, self.get_json_session_header(), kwargs)
 
     def patch(self, url_path: str = '', **kwargs) -> requests.Response:
+        """PATCH ``url_path`` on this instance, with the JSON request headers.
+
+        :param url_path: path relative to the instance host.
+        :param kwargs: passed through to :mod:`requests`.
+        :return: the response.
+        """
         return self._send_request('patch', url_path, self.get_json_session_header(), kwargs)
 
     def put(self, url_path: str = '', **kwargs) -> requests.Response:
+        """PUT ``url_path`` on this instance, with the JSON request headers.
+
+        :param url_path: path relative to the instance host.
+        :param kwargs: passed through to :mod:`requests`.
+        :return: the response.
+        """
         return self._send_request('put', url_path, self.get_json_session_header(), kwargs)
 
     def _send_request(self, method: str, url_path: str, default_header: dict, kwargs: dict) -> requests.Response:

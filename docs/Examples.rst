@@ -147,7 +147,8 @@ Example 2) Share a Collection
         # Add the user
         stg.add_users(*users)
         # Share collection with STG
-        instance.get_root_collection().get_collection('Main Test').share(SyncPermission.Write, stg)
+        instance.get_root_collection().get_collection('Main Test').share(
+            CollectionSharePermission.EditElements, stg)
 
 Example 3) Upload/Load Attachment
 **************************************************
@@ -238,7 +239,7 @@ THE CLI tool is only for development & test usages. For Productive Instances ple
     # Create a new Instance
     > chemotion_api new
     Your name [./docker-compose.yml]:
-    Specify a version [latest]: 1.9.3
+    Specify a version [latest]: 4.0.0
     Public ELN url [http://localhost:<ELN_PORT>]:
     Port on which the ELN can be reached [4000]:
     Port on which the PostgreSQL can be reached [5432]:
