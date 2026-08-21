@@ -44,7 +44,7 @@ class Attachment(dict):
         """
         res = self._con.get(f"/api/v1/attachments/{self['id']}")
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         return res.content
 
@@ -60,7 +60,7 @@ class Attachment(dict):
             raise NotADirectoryError(f"{directory} is not a directory")
         res = self._con.get(f"/api/v1/attachments/{self['id']}")
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         file_path = os.path.join(directory, self['filename'])
         with open(file_path, 'wb+') as f:
             f.write(res.content)

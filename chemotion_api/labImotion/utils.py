@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Type
 
 
-def all_instances_of(lst: list, cls: Type):
+def all_instances_of(lst: list, cls: type):
     return isinstance(lst, list) and all(isinstance(item, cls) for item in lst)
 
 class ChemotionSerializable(ABC):

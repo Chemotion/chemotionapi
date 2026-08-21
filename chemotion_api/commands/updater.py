@@ -1,7 +1,7 @@
 import yaml
 
 def read_docker_compose(file_path: str) -> dict[str:dict|str]:
-    with open(file_path, 'r') as file:
+    with open(file_path) as file:
         return yaml.safe_load(file)
 
 

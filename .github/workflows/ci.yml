@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+
+jobs:
+  static:
+    name: ruff + mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      # --frozen: fail rather than silently re-resolve if uv.lock and pyproject.toml disagree.
+      - name: Install dependencies (locked)
+        run: uv sync --frozen --all-groups
+
+      - name: Lint (ruff)
+        run: just lint
+
+      # Whole-tree check. Modules with pre-existing errors are exempted via
+      # [[tool.mypy.overrides]] in pyproject.toml; that list only ever shrinks.
+      - name: Type check (mypy)
+        run: just mypy
+
+  # Release artefacts only: a wheel is worth building when we are actually cutting a version,
+  # not on every merge. Tag pushes only — skipped for branch pushes and pull requests.
+  build:
+    name: build sdist + wheel
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build
+        run: uv build
+
+      - name: Import the built package
+        run: |
+          uv run --no-project --with dist/*.whl python -c \
+            "import chemotion_api; print('import OK')"
+
+# NOTE: no test job yet. The suite currently in tests/ needs a live Chemotion server
+# (tests/conftest.py boots one via test_config/), so it cannot run on a clean runner. The
+# offline suite and its dockerized integration environment arrive with the test-environment
+# change, which adds the test job here.

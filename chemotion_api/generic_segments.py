@@ -12,7 +12,7 @@ class GenericSegments:
             get_url = "/api/v1/segments/klasses.json"
             res = self._session.get(get_url)
             if res.status_code != 200:
-                raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+                raise ConnectionError(f'{res.status_code} -> {res.text}')
             self._segments = res.json().get('klass', [])
 
         return self._segments

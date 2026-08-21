@@ -7,7 +7,7 @@ from chemotion_api.utils import resource_path
 
 def init_container():
     json_path = os.path.join(resource_path(__file__), 'container.json')
-    f = open(json_path, 'r')
+    f = open(json_path)
     data = json.loads(f.read())
     root = data.copy()
     root['container_type'] = 'root'
