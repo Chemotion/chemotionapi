@@ -323,6 +323,28 @@ def flatten_crate_graph(metadata_dict: dict) -> int:
         if isinstance(title, str) and title:
             node["name"] = title
 
+    # Drop properties whose value is empty or whitespace-only. A key with no content says nothing
+    # a missing key does not, and the .eln conformance suite reports such nodes as
+    # "contains empty values in the key-value pairs".
+    dropped: dict[str, int] = {}
+    for node in graph:
+        if not isinstance(node, dict):
+            continue
+        for key in [k for k, v in node.items()
+                    if k not in ("@id", "@type") and not isinstance(v, (dict, list))
+                    and not str(v).strip()]:
+            del node[key]
+            dropped[key] = dropped.get(key, 0) + 1
+    if dropped:
+        # One summary line per export, not one per field: this is routine (Chemotion stores unset
+        # optional fields as empty strings), so it should inform without becoming noise.
+        summary = ", ".join(f"{key} ({count})" for key, count in sorted(dropped.items()))
+        logger.warning(
+            "export_eln: omitted %d empty field(s) from the crate metadata — a key with no value "
+            "carries no more meaning than an absent one: %s",
+            sum(dropped.values()), summary,
+        )
+
     return len(renames)
 
 

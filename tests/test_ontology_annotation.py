@@ -91,4 +91,30 @@ def test_export_emits_placeholder_offline(tmp_path, monkeypatch):
     node = wp_nodes[0]
     assert node["@type"] == "Dataset"  # structural type only, no bogus "Wellplate" type
     pv = _resolve(node["variableMeasured"])[0]
-    assert pv["value"] == "wellplate" and pv["identifier"] == ""  # ready to patch later
+    assert pv["value"] == "wellplate"
+    # The placeholder's identifier is omitted rather than written as "": an empty key says no more
+    # than an absent one, and the conformance suite flags empty values. ontology_patch assigns the
+    # key when the term is decided, so it does not need to pre-exist.
+    assert "identifier" not in pv
+
+    # --- ontology_patch must work on the crate as actually exported ------------------------------
+    # Regression: the placeholder lives in `variableMeasured`, which RO-Crate requires to hold
+    # {"@id": ...} references rather than inline objects. patch_metadata_dict originally read the
+    # entries inline, so against a real crate it matched nothing and silently patched zero nodes.
+    # The unit test for it used hand-built inline data and could not catch that.
+    from chemotion_api.ontology_patch import patch_eln_ontology
+
+    iri = "http://purl.obolibrary.org/obo/OBI_0400081"
+    assert patch_eln_ontology(str(out), {"wellplate": iri}) == 1, "patched no nodes"
+
+    with zipfile.ZipFile(out, "r") as z:
+        patched = json.loads(z.read(next(n for n in z.namelist()
+                                         if n.endswith("ro-crate-metadata.json"))))
+    by_id = {n["@id"]: n for n in patched["@graph"] if isinstance(n.get("@id"), str)}
+    pvs = [by_id.get(v["@id"], v) if isinstance(v, dict) and "@id" in v else v
+           for n in patched["@graph"] if isinstance(n.get("variableMeasured"), list)
+           for v in n["variableMeasured"]]
+    assert any(pv.get("identifier") == iri for pv in pvs), "identifier not filled in"
+    typed = [n for n in patched["@graph"]
+             if iri in (n["@type"] if isinstance(n.get("@type"), list) else [n.get("@type")])]
+    assert typed, "the ontology IRI was not added as an additional @type"

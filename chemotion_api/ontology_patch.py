@@ -34,11 +34,24 @@ def patch_metadata_dict(metadata: dict, mapping: dict[str, str]) -> int:
     :return: number of nodes patched.
     """
     patched = 0
-    for node in metadata.get("@graph", []):
+    graph = metadata.get("@graph", [])
+    # RO-Crate requires a flattened graph, so `variableMeasured` holds {"@id": …} references
+    # rather than inline PropertyValue objects. Resolve them, otherwise there is nothing with a
+    # `propertyID` to match and this silently patches nothing.
+    by_id = {n["@id"]: n for n in graph
+             if isinstance(n, dict) and isinstance(n.get("@id"), str)}
+
+    def _deref(value):
+        if isinstance(value, dict) and set(value) == {"@id"}:
+            return by_id.get(value["@id"], value)
+        return value
+
+    for node in graph:
         var = node.get("variableMeasured")
         if not isinstance(var, list):
             continue
-        for pv in var:
+        for entry in var:
+            pv = _deref(entry)
             if not isinstance(pv, dict) or pv.get("propertyID") != ELEMENT_TYPE_PROPERTY_ID:
                 continue
             kind = pv.get("value")
