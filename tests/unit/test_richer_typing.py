@@ -94,6 +94,11 @@ def test_untyped_element_node_enriched_in_export(tmp_path):
     assert plan_nodes, "research-plan Dataset node missing"
     node = plan_nodes[0]
     assert node["description"] == "Rich plan body."
-    names = [pv.get("name") for pv in node.get("variableMeasured", [])]
+    # variableMeasured entries are references, not inline objects: RO-Crate requires a flattened
+    # graph, so the exporter hoists every entity to top level. Resolve them to read their content.
+    by_id = {n["@id"]: n for n in graph if isinstance(n.get("@id"), str)}
+    measured = [by_id.get(pv["@id"], pv) if isinstance(pv, dict) and "@id" in pv else pv
+                for pv in node.get("variableMeasured", [])]
+    names = [pv.get("name") for pv in measured]
     assert "goal" in names                       # our structured content
     assert "chemotion element type" in names     # ontology placeholder preserved

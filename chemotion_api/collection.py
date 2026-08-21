@@ -230,9 +230,47 @@ def flatten_crate_graph(metadata_dict: dict) -> int:
         metadata_dict["@graph"] = _rewrite(graph)
         graph = metadata_dict["@graph"]
 
+    # RO-Crate JSON-LD is a *restricted* profile of JSON-LD, not the full language: every property
+    # value must be a literal or a {"@id": …} reference, and every entity must be a top-level
+    # member of @graph. Two shapes that are perfectly legal JSON-LD violate it, and both appear in
+    # what chem-dcat-ap's RDF serialises to:
+    #
+    #   1. typed literals — {"@type": "xsd:float", "@value": "0.0"}
+    #   2. anonymous entities — a nested object with no @id at all (an implicit blank node),
+    #      e.g. the PropertyValue entries this exporter puts in `variableMeasured`
+    #
+    # Collapse the first to a plain literal (the xsd datatype is dropped; RO-Crate has nowhere to
+    # put it), and give the second a minted @id so it can be hoisted like any other entity.
+    def _collapse_value_objects(obj):
+        if isinstance(obj, dict):
+            if "@value" in obj and set(obj) <= {"@value", "@type", "@language"}:
+                return obj["@value"]
+            return {k: _collapse_value_objects(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_collapse_value_objects(v) for v in obj]
+        return obj
+
+    graph = [_collapse_value_objects(node) for node in graph]
+    metadata_dict["@graph"] = graph
+
     # "Fully flattened" means every entity is a *top-level* member of @graph: giving a nested
     # object an @id is not enough, it has to be hoisted out and replaced by a reference. Repeat
     # until nothing moves, since hoisted entities can themselves contain nested entities.
+    minted = 0
+
+    def _mint_id(entity: dict) -> str:
+        nonlocal minted
+        minted += 1
+        for key in ("propertyID", "name", "@type"):
+            raw = entity.get(key)
+            if isinstance(raw, list):
+                raw = raw[0] if raw else None
+            if isinstance(raw, str) and raw:
+                slug = re.sub(r"[^A-Za-z0-9]+", "-", raw.rsplit("/", 1)[-1]).strip("-").lower()
+                if slug:
+                    return f"#{slug}-{minted}"
+        return f"#entity-{minted}"
+
     while True:
         hoisted: list[dict] = []
 
@@ -243,7 +281,9 @@ def flatten_crate_graph(metadata_dict: dict) -> int:
                 return obj
             inner = {k: _hoist(v) for k, v in obj.items()}
             # A bare {"@id": ...} is already a reference; anything richer is an entity definition.
-            if not top and isinstance(inner.get("@id"), str) and len(inner) > 1:
+            if not top and len(inner) > 1:
+                if not isinstance(inner.get("@id"), str):
+                    inner["@id"] = _mint_id(inner)
                 hoisted.append(inner)
                 return {"@id": inner["@id"]}
             return inner

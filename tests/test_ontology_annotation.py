@@ -75,11 +75,20 @@ def test_export_emits_placeholder_offline(tmp_path, monkeypatch):
         meta_name = next(n for n in z.namelist() if n.endswith("ro-crate-metadata.json"))
         meta = json.loads(z.read(meta_name))
 
+    # variableMeasured holds references, not inline objects: RO-Crate requires a flattened graph,
+    # so every entity is hoisted to top level. Resolve through @id to read the values.
+    by_id = {n["@id"]: n for n in meta["@graph"] if isinstance(n.get("@id"), str)}
+
+    def _resolve(values):
+        return [by_id.get(v["@id"], v) if isinstance(v, dict) and "@id" in v else v
+                for v in values]
+
     wp_nodes = [n for n in meta["@graph"]
                 if isinstance(n.get("variableMeasured"), list)
-                and any(pv.get("propertyID") == ELEMENT_TYPE_PROPERTY_ID for pv in n["variableMeasured"])]
+                and any(pv.get("propertyID") == ELEMENT_TYPE_PROPERTY_ID
+                        for pv in _resolve(n["variableMeasured"]))]
     assert len(wp_nodes) == 1
     node = wp_nodes[0]
     assert node["@type"] == "Dataset"  # structural type only, no bogus "Wellplate" type
-    pv = node["variableMeasured"][0]
+    pv = _resolve(node["variableMeasured"])[0]
     assert pv["value"] == "wellplate" and pv["identifier"] == ""  # ready to patch later
