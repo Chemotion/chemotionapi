@@ -1,5 +1,15 @@
-DOCKER_CWD="${DOCKER_CWD:-../../test_config}"
-DOCKER_FILE="${DOCKER_FILE:-docker-compose.yml}"
+#!/bin/bash
+# Reset the integration-test database from the committed seed (tests/data/test.sql),
+# run pending migrations, and restart the ELN — fully self-contained: everything runs
+# against the docker stack in test_config/ (started here if not already up). Host
+# Postgres client tools are used when available; otherwise all DB commands go through
+# `docker compose exec db`, so docker is the only hard requirement.
+#
+# Invoked by tests/conftest.py (NO_SETUP=0) with CWD tests/data; prints **SUCCESS**
+# on the last line when the seeded instance is ready — the conftest waits for that marker.
+
+DOCKER_CWD="${DOCKER_CWD:-../test_config}"
+DOCKER_FILE="${DOCKER_FILE:-compose.yml}"
 DOCKER_COMPOSE_SERVICE="${DOCKER_COMPOSE_SERVICE:-eln}"
 PG_PASSWORD="${PG_PASSWORD:-postgres}"
 PG_HOST="${PG_HOST:-localhost}"
@@ -8,68 +18,74 @@ PG_USER="${PG_USER:-postgres}"
 PG_DB="${PG_DB:-chemotion}"
 ELN_PORT="${ELN_PORT:-3579}"
 
+BASEDIR="$(cd "$(dirname "$0")"; pwd)"
+SEED="${BASEDIR}/test.sql"
 
-echo "PG_PASSWORD $PG_PASSWORD"
-echo "PG_HOST $PG_HOST"
-echo "PG_PORT $PG_PORT"
-echo "PG_USER $PG_USER"
-echo "PG_DB $PG_DB"
-echo "ELN_PORT $ELN_PORT"
-
-echo "Relative path to docker-compose.yml directory (DOCKER_CWD): ${DOCKER_CWD}"
-DOCKER_CWD="$(cd "$(dirname "${DOCKER_CWD}")"; pwd)/$(basename "${DOCKER_CWD}")"
-echo "Absolute path to docker-compose.yml directory (DOCKER_CWD): ${DOCKER_CWD}"
-
-
-cd ${DOCKER_CWD}
-
-
-if [ "$( PGPASSWORD=$PG_PASSWORD psql -h $PG_HOST -p $PG_PORT -U $PG_USER -XtAc "SELECT 1 FROM pg_database WHERE datname='$PG_DB'" )" = '1' ]
-then
-    echo "Database available exists"
-else
-    echo "Make sure you have executed 'docker compose up' once in ${DOCKER_CWD}"
-    docker compose start
-    sleep 2
-    echo "Database not available please Check"
+echo "PG_HOST=$PG_HOST PG_PORT=$PG_PORT PG_USER=$PG_USER PG_DB=$PG_DB ELN_PORT=$ELN_PORT"
+DOCKER_CWD="$(cd "${DOCKER_CWD}" 2>/dev/null && pwd)"
+if [ -z "${DOCKER_CWD}" ]; then
+    echo "ERROR: DOCKER_CWD does not exist"
     exit 1
 fi
+echo "Compose directory: ${DOCKER_CWD}"
+cd "${DOCKER_CWD}" || exit 1
 
-PORT_NUMBER=$ELN_PORT
+compose() {
+    docker compose -f "${DOCKER_FILE}" "$@"
+}
 
+# Ensure the stack is up (no-op if already running).
+compose up -d || { echo "ERROR: docker compose up failed"; exit 1; }
 
-
-BASEDIR=$(dirname $0)
-timestamp=$(date +%Y_%m_%d_%H_%M_%S_%N)
-mkdir -p dumps
-
-PGPASSWORD=$PG_PASSWORD pg_dump -h $PG_HOST -p $PG_PORT -U $PG_USER $PG_DB > $PWD/dumps/$timestamp.sql
-rm $PWD/dumps/latest.sql
-ln -s $PWD/dumps/$timestamp.sql $PWD/dumps/latest.sql
-
-echo "Backup (DB dump): $PWD/dumps/$timestamp.json"
-
-PGPASSWORD=postgres dropdb -h $PG_HOST -p $PG_PORT -U $PG_USER $PG_DB -f --if-exists
-echo "DB dropped: chemotion"
-PGPASSWORD=postgres createdb -h $PG_HOST -p $PG_PORT -U $PG_USER $PG_DB
-echo "DB created: chemotion"
-PGPASSWORD=postgres psql -o /dev/null -h $PG_HOST -p $PG_PORT -U $PG_USER -d $PG_DB -f $BASEDIR/test.sql --quiet
-
-echo "DB loaded: $BASEDIR/test.sql"
-
-# Sende eine GET-Anfrage und speichere die Cookies
-# HTTP-Statuscode abrufen
-STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://0.0.0.0:${ELN_PORT}/mydb")
-echo "Status code: $STATUS_CODE"
-if [ "$STATUS_CODE" -ne 404 ]; then
-    echo "Chemotion is running on port ${PORT_NUMBER}"
-    cd ${DOCKER_CWD}
-    echo "RUN: docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c 'bundle exec rake db:migrate'"
-    docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c "bundle exec rake db:migrate"
-    echo "**SUCCESS**"
-    exit 0
+# Route psql/pg_dump through host tools when present, else through the db container.
+if command -v psql >/dev/null 2>&1; then
+    echo "Using host Postgres client tools (${PG_HOST}:${PG_PORT})"
+    run_psql()  { PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" "$@"; }
+    run_dump()  { PGPASSWORD="$PG_PASSWORD" pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" "$PG_DB"; }
+else
+    echo "Host psql not found; using 'docker compose exec db' instead"
+    run_psql()  { compose exec -T db psql -U "$PG_USER" "$@"; }
+    run_dump()  { compose exec -T db pg_dump -U "$PG_USER" "$PG_DB"; }
 fi
 
-echo "SHIT"
+# Wait for Postgres to accept connections.
+for i in $(seq 1 60); do
+    run_psql -XtAc "SELECT 1" >/dev/null 2>&1 && break
+    [ "$i" = "60" ] && { echo "ERROR: Postgres did not become ready"; exit 1; }
+    sleep 2
+done
+echo "Postgres is ready"
 
-exit 3
+# Backup the current DB (if it exists) before dropping it.
+mkdir -p "${BASEDIR}/dumps"
+if [ "$(run_psql -XtAc "SELECT 1 FROM pg_database WHERE datname='$PG_DB'")" = "1" ]; then
+    timestamp=$(date +%Y_%m_%d_%H_%M_%S_%N)
+    run_dump > "${BASEDIR}/dumps/${timestamp}.sql"
+    rm -f "${BASEDIR}/dumps/latest.sql"
+    ln -s "${BASEDIR}/dumps/${timestamp}.sql" "${BASEDIR}/dumps/latest.sql"
+    echo "Backup written: ${BASEDIR}/dumps/${timestamp}.sql"
+fi
+
+# Drop, recreate, and load the seed.
+run_psql -c "DROP DATABASE IF EXISTS $PG_DB WITH (FORCE);" || exit 1
+run_psql -c "CREATE DATABASE $PG_DB;" || exit 1
+run_psql -q -o /dev/null -d "$PG_DB" < "$SEED" || { echo "ERROR: seed load failed"; exit 1; }
+echo "DB reset from seed: ${SEED}"
+
+# Bring the schema up to the running server version (normally a no-op: the committed seed is
+# already dumped at the current stack version; this covers stack upgrades).
+compose exec -T "${DOCKER_COMPOSE_SERVICE}" bash -c "cd /chemotion/app && bundle exec rake db:migrate" \
+    || { echo "ERROR: rake db:migrate failed"; exit 1; }
+echo "Migrations completed"
+
+# Restart the ELN so it reconnects to the fresh database, then wait for it.
+compose restart "${DOCKER_COMPOSE_SERVICE}" || exit 1
+for i in $(seq 1 120); do
+    code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${ELN_PORT}/about" 2>/dev/null)
+    [ "$code" = "200" ] && break
+    [ "$i" = "120" ] && { echo "ERROR: ELN did not come up on port ${ELN_PORT}"; exit 1; }
+    sleep 5
+done
+echo "Chemotion is running on port ${ELN_PORT}"
+echo "**SUCCESS**"
+exit 0

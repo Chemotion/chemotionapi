@@ -11,33 +11,35 @@ from chemotion_api.labImotion.items.options import SaveActionType, FieldType, Su
 from chemotion_api.labImotion.items.validation import validate_generic_element, validate_generic_dataset, validate_generic_segment
 from chemotion_api.labImotion.items.validation.schemas.schema_select_options import generic_schema
 
+HERE = os.path.dirname(os.path.abspath(__file__))  # resolve fixtures relative to this file, not the CWD
+
 def test_write_all_schemas(instance_with_collection):
     instance_with_collection['instance'].generic_manager().write_all_validation_schemas()
     assert True
 
 @pytest.mark.parametrize(
-"json_file", ['GenericElement.json']
+"json_file", ['fixtures/GenericElement.json']
 )
 def test_validate_generic_element(json_file):
-    with open(json_file) as file:
+    with open(os.path.join(HERE, json_file)) as file:
         json_value = json.loads(file.read())
     validate_generic_element(json_value)
 
 
 @pytest.mark.parametrize(
-"json_file", ["GenericDataset.json"]
+"json_file", ["fixtures/GenericDataset.json"]
 )
 def test_validate_generic_dataset(json_file):
-    with open(json_file) as file:
+    with open(os.path.join(HERE, json_file)) as file:
         json_value = json.loads(file.read())
     validate_generic_dataset(json_value)
 
 
 @pytest.mark.parametrize(
-"json_file", ["GenericSegment.json"]
+"json_file", ["fixtures/GenericSegment.json"]
 )
 def test_validate_generic_segment(json_file):
-    with open(json_file) as file:
+    with open(os.path.join(HERE, json_file)) as file:
         json_value = json.loads(file.read())
     validate_generic_segment(json_value)
 
@@ -125,7 +127,9 @@ def test_read_generic_elements(instance_with_collection):
     except ValidationError as e:
         assert False
 
-    assert len(all_gs) == 9
+    # The number of built-in klasses grows with the server release (9 on 2.1.1, 10 on 3.1.2);
+    # what the seed guarantees is the two generic klasses (wrk, try).
+    assert len(all_gs) >= 9
     all_gs = [x for x in all_gs if x.is_generic]
     assert len(all_gs) == 2
     all_gs[0].label += '_TEST'
@@ -160,13 +164,13 @@ def test_read_generic_datasets(instance_with_collection):
 
 def test_upload_generic_element(instance_with_collection):
     all_old_gs = instance_with_collection['instance'].generic_manager().load_all_elements()
-    element_fp = os.path.join(os.path.dirname(__file__), 'GenericElement.json')
+    element_fp = os.path.join(os.path.dirname(__file__), 'fixtures/GenericElement.json')
     all_gs = instance_with_collection['instance'].generic_manager().upload_elements_json(element_fp)
     assert len(all_old_gs) + 1 == len(all_gs)
 
 def test_upload_generic_segment(instance_with_collection):
     all_old_gs = instance_with_collection['instance'].generic_manager().load_all_segments()
-    element_fp = os.path.join(os.path.dirname(__file__), 'GenericSegment.json')
+    element_fp = os.path.join(os.path.dirname(__file__), 'fixtures/GenericSegment.json')
     all_gs = instance_with_collection['instance'].generic_manager().upload_segment_json(element_fp)
     assert len(all_old_gs) + 1 == len(all_gs)
 
