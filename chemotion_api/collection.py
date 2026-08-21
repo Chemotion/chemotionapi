@@ -33,6 +33,58 @@ def _col_path_join(path_part: str, *path_parts: str) -> str:
     return f'{path_part}/{path_parts_str}'.replace('//', '/').replace('//', '/')
 
 
+def nest_by_ancestry(flat: list[dict]) -> list[dict]:
+    """Rebuild a nested ``children`` tree from ELN v4's flat collection list.
+
+    Up to ELN 3.x the server returned collections already nested. v4 returns a flat list where
+    each entry carries an ``ancestry`` materialized path instead; this restores the nested shape
+    the rest of this module (``_set_children`` / ``Collection.set_json``) expects.
+
+    ``ancestry`` is a slash-delimited list of ancestor ids with leading and trailing slashes —
+    ``'/'`` at the top level, ``'/9/'`` for a child of 9, ``'/9/12/'`` for its grandchild. (Not
+    guesswork: the server's own migrations build it as ``'/' || c.id || '/'``.)
+
+    Entries are attached to their **nearest ancestor present in** ``flat``, not strictly to their
+    immediate parent, so a collection whose parent is filtered out (the 'All' collection) or simply
+    not visible to this user still surfaces rather than vanishing. Anything with no visible ancestor
+    becomes a top-level entry.
+
+    :param flat: collection dicts as returned by ``GET /api/v1/collections/``.
+    :return: top-level dicts, each with a ``children`` list (recursively).
+    """
+    nodes: dict[int, dict] = {}
+    for col in flat:
+        node = dict(col)
+        node['children'] = []
+        nodes[col['id']] = node
+
+    # Sort by depth first so a parent is always processed before its descendants, then by the
+    # server's own ordering, so sibling order is stable across reloads.
+    def _sort_key(col: dict) -> tuple:
+        ancestry = col.get('ancestry') or '/'
+        depth = len([p for p in ancestry.split('/') if p])
+        return depth, col.get('position') or 0, col['id']
+
+    roots: list[dict] = []
+    for col in sorted(flat, key=_sort_key):
+        node = nodes[col['id']]
+        ancestor_ids = [p for p in (col.get('ancestry') or '').split('/') if p]
+        parent = None
+        for raw_id in reversed(ancestor_ids):
+            try:
+                candidate = int(raw_id)
+            except ValueError:
+                continue
+            if candidate in nodes and candidate != col['id']:
+                parent = nodes[candidate]
+                break
+        if parent is None:
+            roots.append(node)
+        else:
+            parent['children'].append(node)
+    return roots
+
+
 class SyncPermission(Enum):
     Read = 0
     Write = 1
@@ -670,6 +722,7 @@ class RootCollection(AbstractCollection):
         super().__init__()
         self._sync_root: RootSyncCollection | None = None
         self._all: dict | None = None
+        self._collections_payload: dict | None = None
         self._element_manager: ElementManager
         self._session = session
         self.label = 'root'
@@ -721,6 +774,23 @@ class RootCollection(AbstractCollection):
 
         self._element_manager = element_manager
 
+    def _fetch_collections(self) -> dict:
+        """Fetch the v4 collection listing: ``{'own': [...], 'shared_with_me': [...]}``.
+
+        ELN v4 replaced ``/collections/roots.json`` (a ready-made nested tree of owned
+        collections) with this flat, two-part listing. The old path is not merely missing — v4
+        routes it to ``/collections/:id``, whose id pattern (``All|all|\\d+``) rejects
+        ``"roots.json"``, so it answers **400 'id is invalid'** rather than 404.
+
+        The response is cached on the instance so ``load_collection`` and
+        ``load_sync_collection`` share one request.
+        """
+        res = self._session.get('/api/v1/collections/')
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        self._collections_payload = json.loads(res.content)
+        return self._collections_payload
+
     def load_collection(self) -> dict[str,dict]:
         """
         Load collection information
@@ -728,17 +798,13 @@ class RootCollection(AbstractCollection):
         :return: A collection off all collection information
         """
 
-        collection_url = '/api/v1/collections/roots.json'
-
-        res = self._session.get(collection_url)
-
-        if res.status_code != 200:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
-
-        collections = json.loads(res.content)
+        collections = self._fetch_collections()
         self._all = self._load_all_collection()['collection']
         self._id = self._all['id']
-        self._set_children(collections['collections'])
+        # 'All' is exposed as the root collection itself (its id is this object's id), so it must
+        # not also appear as one of its own children — the pre-v4 tree endpoint likewise excluded it.
+        owned = [col for col in (collections.get('own') or []) if col.get('id') != self._id]
+        self._set_children(nest_by_ancestry(owned))
         return self._all
 
     def load_sync_collection(self) -> RootSyncCollection:
@@ -748,29 +814,81 @@ class RootCollection(AbstractCollection):
         :return: instance of RootSyncCollection
         """
 
-        collection_url = '/api/v1/syncCollections/sync_remote_roots'
-
-        res = self._session.get(collection_url)
-
-        if res.status_code != 200:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
-        collections = json.loads(res.content)
+        # ELN v4 deleted the whole /syncCollections namespace (that path is a genuine 404 now).
+        # Collections other people share with you arrive in the `shared_with_me` half of the same
+        # listing that load_collection() reads, so reuse that response instead of a second request.
+        payload = self._collections_payload or self._fetch_collections()
         self._sync_root = RootSyncCollection(self._session, self._element_manager)
-        self._sync_root._set_children(collections['syncCollections'])
+        self._sync_root._set_children(nest_by_ancestry(payload.get('shared_with_me') or []))
         return self._sync_root
+
+    @staticmethod
+    def _is_unsaved(col: AbstractCollection) -> bool:
+        """True for a collection created locally that the server has never seen.
+
+        :meth:`Collection._get_new_json` marks these with ``isNew`` and a placeholder float id.
+        """
+        json_data = getattr(col, 'collection_json', None) or {}
+        return bool(json_data.get('isNew')) or not isinstance(col.id, int)
+
+    def _create_unsaved(self, node: AbstractCollection, parent_id: int | None) -> None:
+        """Depth-first: create every locally-added collection under ``node``, parents first.
+
+        Children are created only after their parent has a real server id, since v4 takes the
+        parent by id rather than accepting a whole tree.
+        """
+        for child in node.children:
+            if self._is_unsaved(child):
+                # parent_id is `requires ... allow_blank: true` server-side; '' means top level.
+                payload = {'parent_id': '' if parent_id is None else parent_id,
+                           'label': child.label}
+                res = self._session.post('/api/v1/collections/', data=payload)
+                if res.status_code not in (200, 201):
+                    raise ConnectionError(f'{res.status_code} -> {res.text}')
+                created = json.loads(res.content)['collection']
+                child.id = created['id']
+                if isinstance(getattr(child, 'collection_json', None), dict):
+                    child.collection_json.pop('isNew', None)
+            self._create_unsaved(child, child.id)
+
+    def _bulk_update_tree(self, node: AbstractCollection) -> list[dict]:
+        """Build the ``{id, label, children}`` tree that v4's bulk tree update expects.
+
+        Locked collections ('All', 'chemotion-repository.net') are skipped along with their
+        subtrees: the server answers 403 for any attempt to modify one.
+        """
+        out: list[dict] = []
+        for child in node.children:
+            if self._is_unsaved(child) or getattr(child, 'is_locked', False):
+                continue
+            out.append({'id': child.id,
+                        'label': child.label,
+                        'children': self._bulk_update_tree(child)})
+        return out
 
     def save(self):
         """
         Saves ALL updates of done to owned (not synced) collection.
         """
 
-        collection_url = '/api/v1/collections'
-        payload = self.to_json()
-        payload['deleted_ids'] = self._deleted_ids
-        res = self._session.patch(collection_url,
-                                  data=payload)
-        if res.status_code != 200:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        # ELN v4 split the old single `PATCH /api/v1/collections` (whole tree + deleted_ids, which
+        # now answers 405) into three separate operations, applied here in an order that keeps the
+        # server consistent: remove first, then create, then re-describe what remains.
+        for collection_id in list(self._deleted_ids):
+            res = self._session.delete(f'/api/v1/collections/{collection_id}')
+            if res.status_code not in (200, 204):
+                raise ConnectionError(f'{res.status_code} -> {res.text}')
+        self._deleted_ids = []
+
+        self._create_unsaved(self, None)
+
+        tree = self._bulk_update_tree(self)
+        if tree:
+            res = self._session.put('/api/v1/collections/bulk_update_own_collections',
+                                    data={'collections': tree})
+            if res.status_code != 200:
+                raise ConnectionError(f'{res.status_code} -> {res.text}')
+
         self.load_collection()
 
     def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> AbstractCollection:
