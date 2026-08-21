@@ -14,6 +14,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
+from chemotion_api.authors import Author as Author, AuthorAffiliation as AuthorAffiliation
 
 TInstance = TypeVar("TInstance", bound="Instance")
 

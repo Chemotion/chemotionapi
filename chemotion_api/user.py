@@ -1,7 +1,55 @@
 import abc
 import json
 import re
+from dataclasses import dataclass, field
 from chemotion_api.connection import Connection
+
+
+@dataclass
+class Affiliation:
+    """A user affiliation as exposed by Grape (`/api/v1/affiliations`)."""
+    id: int | None = None
+    organization: str | None = None
+    department: str | None = None
+    group: str | None = None
+    country: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None
+    raw: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_json(cls, data: dict) -> Affiliation:
+        """Build an :class:`Affiliation` from a raw Grape affiliation payload.
+
+        :param data: the affiliation ``dict`` as returned by the API.
+        :return: the parsed :class:`Affiliation` (the raw payload is kept in ``raw``).
+        """
+        return cls(
+            id=data.get('id'),
+            organization=data.get('organization'),
+            department=data.get('department'),
+            group=data.get('group'),
+            country=data.get('country'),
+            from_date=data.get('from'),
+            to_date=data.get('to'),
+            raw=data,
+        )
+
+    @property
+    def name(self) -> str:
+        """Human-readable affiliation name (organization, finer units appended)."""
+        parts = [p for p in (self.organization, self.department, self.group) if p]
+        return ", ".join(parts) if parts else (self.organization or "")
+
+    def to_dict(self) -> dict:
+        """Return this affiliation as a Grape-compatible ``dict`` (``from``/``to`` date keys).
+
+        :return: the affiliation serialized for sending back to the API.
+        """
+        return {
+            'id': self.id, 'organization': self.organization, 'department': self.department,
+            'group': self.group, 'country': self.country, 'from': self.from_date, 'to': self.to_date,
+        }
 
 
 class User(abc.ABC):
