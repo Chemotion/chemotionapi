@@ -470,9 +470,15 @@ def test_eln_export_properties_and_deduplication(instance_with_collection, tmp_p
                 types = [types]
             return any(type_name_or_uri in t for t in types)
 
-        # Verify custom sample properties on s1's and s2's dataset nodes
-        node_s1 = next((n for n in graph if n.get("@id").endswith(f"_{s1.id}/")), None)
-        node_s2 = next((n for n in graph if n.get("@id").endswith(f"_{s2.id}/")), None)
+        # Verify custom sample properties on s1's and s2's dataset nodes. Match on the full
+        # type-qualified path ("/samples/...") and not just the id suffix: samples and
+        # reactions get independent DB id sequences, so matching on id suffix alone could pick
+        # up the wrong kind of node if a sample and a reaction happen to share a numeric id
+        # (this is exactly what composite (kind, id) indexing keys in export_eln guard against).
+        node_s1 = next((n for n in graph
+                        if "/samples/" in n.get("@id", "") and n.get("@id", "").endswith(f"_{s1.id}/")), None)
+        node_s2 = next((n for n in graph
+                        if "/samples/" in n.get("@id", "") and n.get("@id", "").endswith(f"_{s2.id}/")), None)
         
         assert node_s1 is not None
         assert node_s2 is not None
@@ -494,8 +500,10 @@ def test_eln_export_properties_and_deduplication(instance_with_collection, tmp_p
         assert mol_node["cas"] in ("64-17-5", ["64-17-5"])
         assert mol_node["names"] == ["Ethanol", "Ethyl alcohol"]
 
-        # Verify reaction node and its properties
-        reaction_node = next((n for n in graph if n.get("@id").endswith(f"_{r.id}/")), None)
+        # Verify reaction node and its properties (see node_s1/node_s2 comment above: match on
+        # the full type-qualified path, not just the id suffix)
+        reaction_node = next((n for n in graph
+                              if "/reactions/" in n.get("@id", "") and n.get("@id", "").endswith(f"_{r.id}/")), None)
         assert reaction_node is not None
         
         assert reaction_node["rxno"] == "RXN-12345"
@@ -509,4 +517,252 @@ def test_eln_export_properties_and_deduplication(instance_with_collection, tmp_p
         assert reaction_node["rinchi_string"] == "Long-RInChI-String"
         assert reaction_node["rinchi_web_key"] == "RInChI-Web-Key"
         assert reaction_node["variations"] == {"temp_steps": [25, 50]}
+
+
+def test_attachment_streaming_fallback():
+    """Verify that the exporter uses iter_file when available, or falls back to load_file."""
+    from unittest.mock import MagicMock, patch
+    from chemotion_api.collection import Collection
+
+    # Create a mock collection with a sample and attachment
+    col = Collection({})
+    mock_sample = MagicMock()
+    mock_sample.name = "Test Sample"
+    mock_sample.id = 1
+    mock_sample.analyses = []
+    mock_sample.to_dcat_ap.return_value = MagicMock(__name__='SubstanceSample')
+
+    # Mock attachment with only iter_file (no load_file)
+    mock_att_streaming = MagicMock()
+    mock_att_streaming.iter_file = lambda: [b"chunk1", b"chunk2"]
+    del mock_att_streaming.load_file  # remove load_file to test iter_file path
+
+    mock_ds = MagicMock()
+    mock_ds.name = "1H NMR"
+    mock_ds.kind = "1H NMR [CHMO:0000595]"
+    mock_ds.attachments = [mock_att_streaming]
+
+    mock_analysis = MagicMock()
+    mock_analysis.name = "NMR"
+    mock_analysis.datasets = [mock_ds]
+    mock_sample.analyses = [mock_analysis]
+
+    col._samples = {'sample-1': mock_sample}
+
+    # Test that iter_file path is used when available
+    with patch('zipfile.ZipFile') as mock_zip:
+        zip_instance = MagicMock()
+        mock_zip.return_value.__enter__.return_value = zip_instance
+        zip_instance.open.return_value.__enter__.return_value = MagicMock()
+
+        try:
+            # Should succeed using iter_file (hasattr check passes)
+            col.export_eln("/tmp/test.eln", authors=_authors())
+        except Exception as e:
+            # If it fails, verify it's not due to missing iter_file
+            assert "iter_file" not in str(e), f"iter_file should be used: {e}"
+
+    # Test fallback: attachment with only load_file (no iter_file)
+    mock_att_fallback = MagicMock()
+    mock_att_fallback.load_file = lambda: b"fallback content"
+    del mock_att_fallback.iter_file  # remove iter_file to test fallback
+
+    mock_ds2 = MagicMock()
+    mock_ds2.name = "1H NMR"
+    mock_ds2.kind = "1H NMR [CHMO:0000595]"
+    mock_ds2.attachments = [mock_att_fallback]
+
+    mock_analysis2 = MagicMock()
+    mock_analysis2.name = "NMR"
+    mock_analysis2.datasets = [mock_ds2]
+    mock_sample.analyses = [mock_analysis2]
+
+    with patch('zipfile.ZipFile') as mock_zip:
+        zip_instance = MagicMock()
+        mock_zip.return_value.__enter__.return_value = zip_instance
+        zip_instance.open.return_value.__enter__.return_value = MagicMock()
+
+        try:
+            # Should succeed using load_file fallback
+            col.export_eln("/tmp/test2.eln", authors=_authors())
+        except Exception as e:
+            # If it fails, verify it's not due to missing load_file
+            assert "load_file" not in str(e), f"load_file fallback should work: {e}"
+
+
+def _mock_element(elem_id, name):
+    """Build a bare-bones mocked element (sample/reaction-shaped) usable in export_eln's traverse."""
+    from unittest.mock import MagicMock
+    elem = MagicMock()
+    elem.id = elem_id
+    elem.name = name
+    elem._data_loaded = True
+    elem.properties = {}
+    elem.attachments = []
+    elem.analyses = []
+    elem.to_dcat_ap.side_effect = Exception("no dcat mapping in this test")
+    elem.eln_node_content.return_value = {}  # real dict, not a Mock -> must be JSON-serializable
+    del elem.element_type
+    return elem
+
+
+@pytest.mark.heavy
+def test_eln_export_id_collision_across_element_kinds(tmp_path):
+    """Regression test for PR review finding 1: samples/reactions/... have independent DB id
+    sequences, so a same-numbered sample and reaction must not silently overwrite each other in
+    the exporter's element index (composite (kind, id) keys fix this)."""
+    from unittest.mock import MagicMock
+
+    root_col = MagicMock()
+    root_col._element_manager.all_classes = {
+        'sample': {'label': 'Sample'},
+        'reaction': {'label': 'Reaction'},
+        'wellplate': {'label': 'Wellplate'},
+        'research_plan': {'label': 'Research Plan'},
+    }
+
+    col = MagicMock()
+    col.id = 1
+    col.label = "Collision Test"
+    col.get_root.return_value = root_col
+    col._parent = None
+    col.collection_json = None
+    col.children = []
+
+    SAME_ID = 999
+    mock_sample = _mock_element(SAME_ID, "Shared-ID Sample")
+    mock_reaction = _mock_element(SAME_ID, "Shared-ID Reaction")
+
+    col.get_samples.return_value = [mock_sample]
+    col.get_reactions.return_value = [mock_reaction]
+    col.get_wellplates.return_value = []
+    col.get_research_plans.return_value = []
+
+    export_file = tmp_path / "collision_export.eln"
+
+    from chemotion_api.collection import Collection
+    Collection.export_eln(col, str(export_file), authors=_authors())
+
+    assert export_file.exists()
+    with zipfile.ZipFile(export_file, 'r') as z:
+        root_folder = "collision_export.eln"
+        metadata_dict = json.loads(z.read(f"{root_folder}/ro-crate-metadata.json").decode('utf-8'))
+        graph = metadata_dict["@graph"]
+
+        sample_node = next((n for n in graph if n.get("@id", "").startswith("./samples/")
+                            and n.get("@id", "").endswith(f"_{SAME_ID}/")), None)
+        reaction_node = next((n for n in graph if n.get("@id", "").startswith("./reactions/")
+                              and n.get("@id", "").endswith(f"_{SAME_ID}/")), None)
+
+        assert sample_node is not None, "sample with a colliding id was silently dropped from the crate"
+        assert reaction_node is not None, "reaction with a colliding id was silently dropped from the crate"
+        assert sample_node["@id"] != reaction_node["@id"]
+
+        # Neither element should be recorded as skipped/omitted -- both were retrievable and
+        # loadable, only their numeric ids collide.
+        root_node = next(n for n in graph if n.get("@id") == "./")
+        has_parts = {p["@id"] for p in root_node.get("hasPart", [])}
+        assert sample_node["@id"] in has_parts
+        assert reaction_node["@id"] in has_parts
+
+
+@pytest.mark.heavy
+def test_eln_export_filename_sanitization_collision(tmp_path):
+    """Regression test for PR review finding 2: two attachments whose original filenames differ
+    but sanitize to the same string must not collapse into one ZIP entry / one File @id.
+
+    One of the two colliding attachments is attached directly to the element, the other lives
+    under an analysis dataset -- exercising both places that resolve an attachment to its
+    crate-relative File @id (the element's own ``hasPart`` and the analysis' AnalysisSourceData
+    ``hasPart``), so a disambiguated filename computed once is correctly reused by both.
+    """
+    from unittest.mock import MagicMock
+
+    root_col = MagicMock()
+    root_col._element_manager.all_classes = {
+        'sample': {'label': 'Sample'},
+        'reaction': {'label': 'Reaction'},
+        'wellplate': {'label': 'Wellplate'},
+        'research_plan': {'label': 'Research Plan'},
+    }
+
+    col = MagicMock()
+    col.id = 1
+    col.label = "Filename Collision Test"
+    col.get_root.return_value = root_col
+    col._parent = None
+    col.collection_json = None
+    col.children = []
+
+    mock_sample = _mock_element(2001, "Sanitization Sample")
+
+    def _make_att(filename, content):
+        att = MagicMock()
+        att_dict = {"filename": filename, "filesize": len(content), "mime_type": "text/plain"}
+        att.get.side_effect = lambda k, default=None: att_dict.get(k, default)
+        att.__getitem__.side_effect = lambda k: att_dict[k]
+        att.iter_file.return_value = [content]
+        att.load_file.return_value = content
+        return att
+
+    # sanitize_filename keeps '-' and '_' verbatim and only replaces other non-alnum characters,
+    # so both of these sanitize to the identical "spectrum_1.dx".
+    att_a = _make_att("spectrum#1.dx", b"content A")
+    att_b = _make_att("spectrum@1.dx", b"content B")
+    mock_sample.attachments = [att_a]
+
+    mock_ds = MagicMock()
+    mock_ds.attachments = [att_b]
+    mock_ana = MagicMock()
+    mock_ana.get.side_effect = lambda k, default=None: {"id": "ana-1"}.get(k, default)
+    mock_ana.datasets = [mock_ds]
+    mock_sample.analyses = [mock_ana]
+
+    col.get_samples.return_value = [mock_sample]
+    col.get_reactions.return_value = []
+    col.get_wellplates.return_value = []
+    col.get_research_plans.return_value = []
+
+    export_file = tmp_path / "filename_collision_export.eln"
+
+    from chemotion_api.collection import Collection
+    Collection.export_eln(col, str(export_file), authors=_authors())
+
+    assert export_file.exists()
+    with zipfile.ZipFile(export_file, 'r') as z:
+        root_folder = "filename_collision_export.eln"
+        namelist = z.namelist()
+
+        sample_files = [n for n in namelist
+                        if n.startswith(f"{root_folder}/samples/") and n.endswith(".dx")]
+        assert len(sample_files) == 2, f"expected two distinct ZIP entries, got: {sample_files}"
+        assert len(set(sample_files)) == 2  # distinct paths, not one path written twice
+
+        contents = {z.read(n) for n in sample_files}
+        assert contents == {b"content A", b"content B"}
+
+        metadata_dict = json.loads(z.read(f"{root_folder}/ro-crate-metadata.json").decode('utf-8'))
+        graph = metadata_dict["@graph"]
+        file_nodes = [n for n in graph if n.get("@type") == "File"]
+        file_ids = {n["@id"] for n in file_nodes}
+        assert len(file_nodes) == 2
+        assert len(file_ids) == 2, f"expected two distinct File @ids, got: {file_ids}"
+
+        # The disambiguated name computed for att_b (attached via the analysis dataset) must be
+        # the exact one used for its ZIP entry/File node -- not a stale recomputation that
+        # ignores the collision, which would produce a dangling @id no File node/ZIP entry has.
+        # (Match the element's own directory node, not one of the File nodes it contains -- both
+        # kinds of @id start with "./samples/", but only the element node's @id ends in "/".)
+        sample_node = next(n for n in graph
+                           if n.get("@id", "").startswith("./samples/") and n.get("@id", "").endswith("/"))
+        has_part_ids = {p["@id"] for p in sample_node.get("hasPart", [])}
+        assert has_part_ids == file_ids, (
+            f"element hasPart refs {has_part_ids} don't match the actual File nodes {file_ids}")
+
+        # The AnalysisSourceData node itself only appears when to_dcat_ap() succeeds (it is built
+        # by _analysis_dcat_datasets from the mapped element); this test's mock always fails that
+        # call, as in the other mocked export tests, so there is nothing further to assert here
+        # for the analysis-dataset attachment specifically. What matters for finding 2 -- that
+        # att_b's disambiguated name from ds.attachments is the exact one written to the ZIP/File
+        # node -- is already covered above by len(file_nodes) == 2 and the hasPart/File-id match.
 

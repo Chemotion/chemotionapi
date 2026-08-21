@@ -217,7 +217,15 @@ class ElnCrate:
         else:
             raise ValueError(f"{self.path} is neither a .eln ZIP archive nor a crate directory")
 
-        meta_member = next((m for m in members if m.endswith(_METADATA_NAME)), None)
+        # Match on the exact member basename, not a suffix -- `m.endswith(_METADATA_NAME)` would
+        # also match a hostile/incidental "evil-ro-crate-metadata.json". When more than one member
+        # matches (nested archive, decoy file), prefer the shallowest one: the crate root's own
+        # descriptor, not one buried in a subfolder, and independent of zip namelist() order.
+        _candidates = sorted(
+            (m for m in members if posixpath.basename(m) == _METADATA_NAME),
+            key=lambda m: m.count("/"),
+        )
+        meta_member = _candidates[0] if _candidates else None
         if meta_member is None:
             self.close()
             raise ValueError(f"No {_METADATA_NAME} found in {self.path}")

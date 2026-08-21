@@ -79,11 +79,21 @@ class OfflineConnection:
         return _OfflineResponse(None, None)
 
     # Mutating verbs must never be reached during export; fail loudly if they are.
-    def post(self, *a: Any, **k: Any):  # pragma: no cover - defensive
+    def _refuse(self, verb: str, *a: Any, **k: Any):  # pragma: no cover - defensive
         """Always raise: mutating verbs must never be reached during offline export."""
-        raise RuntimeError("OfflineConnection is read-only; POST attempted during offline export")
+        raise RuntimeError(f"OfflineConnection is read-only; {verb} attempted during offline export")
 
-    put = delete = post
+    def post(self, *a: Any, **k: Any):  # pragma: no cover - defensive
+        return self._refuse("POST", *a, **k)
+
+    def put(self, *a: Any, **k: Any):  # pragma: no cover - defensive
+        return self._refuse("PUT", *a, **k)
+
+    def patch(self, *a: Any, **k: Any):  # pragma: no cover - defensive
+        return self._refuse("PATCH", *a, **k)
+
+    def delete(self, *a: Any, **k: Any):  # pragma: no cover - defensive
+        return self._refuse("DELETE", *a, **k)
 
 
 class _OfflineGenericSegments:

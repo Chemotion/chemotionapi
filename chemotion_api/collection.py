@@ -85,13 +85,21 @@ def _make_progress_bar(total: int, desc: str, unit: str):
 
 
 def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem_files: dict,
-                     elem_paths: dict, sanitize_filename: Callable[[str], str],
+                     elem_paths: dict,
                      skipped: list[dict],
-                     progress: Callable[[str], None] | None = None) -> None:
+                     progress: Callable[[str], None] | None = None,
+                     strict: bool = False) -> None:
     """Write the RO-Crate ZIP: ro-crate-metadata.json + each element's attachment files.
-    Attachment download failures are logged and recorded in ``skipped`` (not fatal).
+
+    ``elem_files`` maps each element key to a list of ``(attachment, safe_filename)`` pairs —
+    the sanitized/disambiguated filename is precomputed once by the caller and reused verbatim
+    here (see the exporter's file-collision fix), rather than recomputed from the original name.
+
+    Attachment download failures are logged and recorded in ``skipped`` (not fatal), unless
+    ``strict`` is True, in which case the failure is raised immediately: writing happens into a
+    temp file that is discarded (not renamed to ``file_path``) whenever this function raises, so
+    a strict-mode failure never leaves a partial/complete crate at ``file_path``.
     ``progress`` (if given) is called with the filename after each attachment is written."""
-    import json, os, zipfile
 
     def _json_default(o):
         # PropertyDict/UnitDict and similar wrappers expose .to_dict(); fall back to str.
@@ -104,16 +112,34 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
                 return d
         return str(o)
 
+    # Write to a temp file next to the target and rename at the end, so a failure
+    # mid-export cannot leave a truncated zip clobbering a previous good export.
+    tmp_path = f"{file_path}.part"
+    try:
+        _write_crate_zip_inner(tmp_path, root_folder, metadata_dict, elem_files, elem_paths,
+                               skipped, progress, _json_default, strict)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+    os.replace(tmp_path, file_path)
+
+
+def _write_crate_zip_inner(file_path: str, root_folder: str, metadata_dict: dict, elem_files: dict,
+                           elem_paths: dict,
+                           skipped: list[dict],
+                           progress: Callable[[str], None] | None,
+                           _json_default, strict: bool = False) -> None:
+    import zipfile
+
     with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         metadata_json = json.dumps(metadata_dict, indent=2, ensure_ascii=False, default=_json_default)
         zip_file.writestr(f"{root_folder}/ro-crate-metadata.json", metadata_json)
 
         for elem_id, files in elem_files.items():
             rel_path = elem_paths[elem_id]
-            for att in files:
+            for att, safe_filename in files:
                 orig_filename = att['filename']
-                name_part, ext_part = os.path.splitext(os.path.basename(orig_filename))
-                safe_filename = sanitize_filename(name_part) + ext_part
                 zip_entry_path = f"{root_folder}/{rel_path.lstrip('./')}{safe_filename}"
                 try:
                     if hasattr(att, "iter_file"):
@@ -124,12 +150,16 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
                                 dest.write(chunk)
                     else:  # fallback for objects exposing only load_file()
                         zip_file.writestr(zip_entry_path, att.load_file())
+                    if progress is not None:
+                        progress(orig_filename)
                 except Exception as e:
                     logger.warning("Failed to download attachment %s: %s", orig_filename, e)
                     skipped.append({"kind": "attachment", "stage": "download",
                                     "filename": orig_filename, "error": str(e)})
-                if progress is not None:
-                    progress(orig_filename)
+                    if strict:
+                        raise RuntimeError(
+                            f"export_eln strict mode: failed to download attachment "
+                            f"{orig_filename}: {e}") from e
 
 
 def _build_author_nodes(metadata_dict: dict, graph_nodes: dict,
@@ -847,8 +877,8 @@ class AbstractCollection:
         import re
         import json
         import os
-        from datetime import UTC, datetime
-        from rdflib import Graph, URIRef, Literal, RDF
+        from datetime import datetime, UTC
+        from rdflib import Graph, URIRef
         from linkml_runtime.dumpers import RDFLibDumper
         from linkml_runtime.utils.schemaview import SchemaView
         import chem_dcat_ap.datamodel as dm
@@ -867,11 +897,6 @@ class AbstractCollection:
                 return "unnamed"
             return re.sub(r'[^a-zA-Z0-9_\-]', '_', name)
 
-        col_paths = {}
-        elem_paths = {}
-        collections_by_id = {}
-        elements_by_id = {}
-        elem_to_col = {}
         # Manifest of items omitted from the crate so export never silently loses data.
         skipped: list[dict] = []
 
@@ -905,50 +930,13 @@ class AbstractCollection:
                         "@id": term.iri, "@type": "DefinedTerm", "name": term.label,
                     })
 
-        def _index(col_id, parent_path, getter, plural, default_name, kind):
-            """List one element kind for a collection, load each, and register its crate path.
-            Failures are recorded in ``skipped`` instead of being silently dropped."""
-            try:
-                items = list(getter())
-            except Exception as e:
-                logger.warning("Could not retrieve %s for collection %s: %s", kind, col_id, e)
-                skipped.append({"kind": kind, "stage": "retrieve", "collection": col_id, "error": str(e)})
-                return
-            for it in items:
-                if not it._data_loaded:
-                    try:
-                        it.load()
-                    except Exception as e:
-                        logger.warning("Could not load %s %s: %s", kind, getattr(it, "id", "?"), e)
-                        skipped.append({"kind": kind, "stage": "load", "id": getattr(it, "id", None), "error": str(e)})
-                name_part = sanitize_filename(it.properties.get('short_label') or it.name or default_name)
-                elem_paths[it.id] = f"{parent_path}{plural}/{name_part}_{it.id}/"
-                elements_by_id[it.id] = it
-                elem_to_col[it.id] = col_id
+        from chemotion_api.export.indexing import build_element_index, build_uri_mapping
 
-        def traverse(col, parent_path):
-            col_id = col.id or id(col)
-            col_paths[col_id] = parent_path
-            collections_by_id[col_id] = col
-
-            _index(col_id, parent_path, lambda: col.get_samples(per_page=100), "samples", "sample", "sample")
-            _index(col_id, parent_path, lambda: col.get_reactions(per_page=100), "reactions", "reaction", "reaction")
-            _index(col_id, parent_path, lambda: col.get_wellplates(per_page=100), "wellplates", "wellplate", "wellplate")
-            _index(col_id, parent_path, lambda: col.get_research_plans(per_page=100), "research_plans", "research_plan", "research_plan")
-
-            root_col = col.get_root()
-            if hasattr(root_col, "_element_manager") and root_col._element_manager:
-                for type_name in root_col._element_manager.all_classes.keys():
-                    if type_name not in ('sample', 'reaction', 'wellplate', 'research_plan'):
-                        _index(col_id, parent_path,
-                               lambda tn=type_name: col.get_generics_by_name(tn, per_page=100),
-                               "generics", "generic", type_name)
-
-            for child in col.children:
-                child_name = sanitize_filename(child.label or "subcollection")
-                traverse(child, f"{parent_path}{child_name}_{child.id}/")
-
-        traverse(self, "./")
+        index = build_element_index(self, sanitize_filename, skipped)
+        col_paths = index.col_paths
+        collections_by_id = index.collections_by_id
+        elem_paths = index.elem_paths
+        elements_by_id = index.elements_by_id
 
         # Offline collections may hold entity kinds their ingestion cannot reconstruct yet
         # (wellplates, screens, research plans, generic elements). Record them in the skipped
@@ -961,16 +949,9 @@ class AbstractCollection:
                 skipped.append({"kind": _kind, "stage": "offline_reconstruction", "count": _count,
                                 "error": "offline ingestion does not reconstruct this element type"})
 
-        uri_mapping = {}
-        for elem_id, relative_path in elem_paths.items():
-            elem = elements_by_id[elem_id]
-            if hasattr(elem, "to_dcat_ap"):
-                try:
-                    dcat_obj = elem.to_dcat_ap()
-                    abs_url = str(dcat_obj.id)
-                    uri_mapping[abs_url] = relative_path
-                except Exception as e:
-                    logger.debug("Failed to map URI for element %s to DCAT-AP: %s", elem_id, e)
+        # uri_mapping powers map_term() below; dcat_cache lets the main mapping loop further down
+        # reuse each element's to_dcat_ap() result instead of calling it a second time.
+        uri_mapping, dcat_cache = build_uri_mapping(elements_by_id, elem_paths)
 
         def map_term(term):
             if isinstance(term, URIRef):
@@ -978,11 +959,22 @@ class AbstractCollection:
                 if val.startswith("chemotion://molecule/"):
                     mol_db_id = val[len("chemotion://molecule/"):]
                     return URIRef(f"#molecule_{mol_db_id}")
-                for abs_url, relative_path in uri_mapping.items():
-                    if val == abs_url:
-                        return URIRef(relative_path)
-                    elif val.startswith(abs_url + "#"):
-                        return URIRef(relative_path + val[len(abs_url):])
+                relative_path = uri_mapping.get(val)
+                if relative_path is not None:
+                    return URIRef(relative_path)
+                base, sep, fragment = val.partition("#")
+                if sep:
+                    relative_path = uri_mapping.get(base)
+                    if relative_path is not None:
+                        return URIRef(f"{relative_path}#{fragment}")
+                # Embedded sub-entities (e.g. reaction materials that are not exported as
+                # standalone elements) still carry absolute API URLs; rewrite them to crate
+                # fragments so the crate-relative identifier policy holds for every record.
+                api_match = re.match(r'https?://[^/]+/api/v1/(.+)$', val)
+                if api_match:
+                    frag = re.sub(r'[^A-Za-z0-9_-]+', '_',
+                                   api_match.group(1).replace('.json', '')).strip('_')
+                    return URIRef(f"#{frag}")
             return term
 
         graph = Graph()
@@ -1013,14 +1005,18 @@ class AbstractCollection:
                 progress_callback(i, total, name)
 
         try:
-            for _i, elem in enumerate(elements_by_id.values(), start=1):
+            for _i, (elem_key, elem) in enumerate(elements_by_id.items(), start=1):
                 try:
                     _report(_i, _total, getattr(elem, "name", None) or getattr(elem, "id", None))
                 except Exception as e:  # a faulty callback/bar must never abort the export
                     logger.debug("progress reporting raised: %s", e)
                 if hasattr(elem, "to_dcat_ap"):
                     try:
-                        dcat_obj = elem.to_dcat_ap()
+                        # Reuse the to_dcat_ap() call already made while building uri_mapping
+                        # (build_uri_mapping) instead of calling it again for every element.
+                        # Elements absent from the cache (that first call failed) get one more
+                        # attempt here so the failure is still recorded below, unchanged.
+                        dcat_obj = dcat_cache[elem_key] if elem_key in dcat_cache else elem.to_dcat_ap()
                         class_name = dcat_obj.__class__.__name__
                         linkml_cls = getattr(dm, class_name)
                         l_obj = linkml_cls(**dcat_obj.model_dump(exclude_none=True))
@@ -1061,38 +1057,62 @@ class AbstractCollection:
                 "@graph": [node]
             }
 
-        elem_files = {}
-        for elem_id, rel_path in elem_paths.items():
+        # elem_files[elem_id] is a list of (attachment, safe_filename) pairs. The sanitized (and,
+        # on collision, disambiguated) filename is computed exactly once here and reused verbatim
+        # by every downstream consumer (ZIP entry path, File @id, hasPart refs) instead of each
+        # one redoing the splitext+sanitize dance independently (which is what let the ZIP entry
+        # path and the File @id disagree whenever two different original names sanitized to the
+        # same string, producing duplicate ZIP entries / duplicate @ids for what looked like two
+        # distinct files).
+        elem_files: dict = {}
+        for elem_id in elem_paths:
             elem = elements_by_id[elem_id]
-            files_list = []
-            seen_filenames = set()
+            files_list: list = []
+            # sanitized_name -> original filename that first claimed it (to tell a genuine
+            # re-attachment of the same file apart from two different files colliding after
+            # sanitization).
+            claimed: dict[str, str] = {}
+
+            def _add_attachment(att, _files_list=files_list, _claimed=claimed):
+                orig_filename = att['filename']
+                name_part, ext_part = os.path.splitext(os.path.basename(orig_filename))
+                safe_name = sanitize_filename(name_part) + ext_part
+                prior_original = _claimed.get(safe_name)
+                if prior_original is None:
+                    _claimed[safe_name] = orig_filename
+                    _files_list.append((att, safe_name))
+                    return
+                if prior_original == orig_filename:
+                    # Same original filename already included -> genuine duplicate, drop it.
+                    return
+                # Different original filenames sanitize to the same string -> disambiguate with
+                # a numeric suffix instead of silently colliding on one ZIP entry / @id.
+                base_name, ext = os.path.splitext(safe_name)
+                n = 2
+                while True:
+                    candidate = f"{base_name}_{n}{ext}"
+                    if candidate not in _claimed:
+                        _claimed[candidate] = orig_filename
+                        _files_list.append((att, candidate))
+                        return
+                    n += 1
+
             if elem.attachments:
                 for att in elem.attachments:
-                    filename = att['filename']
-                    if filename not in seen_filenames:
-                        seen_filenames.add(filename)
-                        files_list.append(att)
+                    _add_attachment(att)
             if hasattr(elem, "analyses") and elem.analyses:
                 for ana in elem.analyses:
                     if hasattr(ana, "datasets") and ana.datasets:
                         for ds in ana.datasets:
                             if ds.attachments:
                                 for att in ds.attachments:
-                                    filename = att['filename']
-                                    if filename not in seen_filenames:
-                                        seen_filenames.add(filename)
-                                        files_list.append(att)
+                                    _add_attachment(att)
             elem_files[elem_id] = files_list
 
         file_nodes = []
         for elem_id, files in elem_files.items():
             rel_path = elem_paths[elem_id]
-            for att in files:
-                orig_filename = att['filename']
-                safe_filename = os.path.basename(orig_filename)
-                name_part, ext_part = os.path.splitext(safe_filename)
-                safe_filename = sanitize_filename(name_part) + ext_part
-                
+            for att, safe_filename in files:
                 file_id = f"{rel_path}{safe_filename}"
                 size = str(att.get('filesize') or att.get('contentSize') or "")
                 mime = att.get('mime_type') or att.get('content_type') or "application/octet-stream"
@@ -1176,28 +1196,62 @@ class AbstractCollection:
                     node['xref'] = clean_json_value(elem.properties.get('xref'))
             elif isinstance(elem, Reaction) and hasattr(elem, "properties") and elem.properties:
                 for prop_name in ['rxno', 'conditions', 'purification', 'tlc_solvents', 'rf_value', 'volume', 'use_reaction_volume', 'weight_percentage', 'rinchi_string', 'rinchi_web_key', 'variations']:
-                    if elem.properties.get(prop_name) is not None:
-                        value = clean_json_value(elem.properties.get(prop_name))
+                    prop_val = elem.properties.get(prop_name)
+                    # skip empty values ('' / [] / {}) — they add noise keys to the crate node
+                    if prop_val not in (None, '', [], {}):
+                        value = clean_json_value(prop_val)
                         # Raw Chemotion payloads (notably `variations`) are arbitrary nested JSON
-                        # using plain `id` keys. Embedding them as objects in a JSON-LD graph makes
-                        # the crate unparseable — py-rocrate rejects it with
-                        # "ValueError: no @id in {...}" — so opaque structures are carried as a JSON
-                        # string. The data is preserved; it just is not pretending to be linked data.
+                        # keyed on plain `id`. Embedding them as objects makes the crate
+                        # unparseable — py-rocrate rejects it with "ValueError: no @id in {...}" —
+                        # so opaque structures are carried as a JSON string. The data is preserved;
+                        # it just stops pretending to be linked data.
                         if isinstance(value, (dict, list)):
-                            value = json.dumps(value, ensure_ascii=False,
-                                               default=lambda o: str(o))
+                            value = json.dumps(value, ensure_ascii=False, default=lambda o: str(o))
                         node[prop_name] = value
 
             files = elem_files[elem_id]
+            # Look up each attachment's precomputed sanitized/disambiguated filename by object
+            # identity (not by original filename -- two different attachments can share an
+            # original filename's sanitized form) so every reference below reuses the exact same
+            # name that ended up in the ZIP entry path and the File node's @id. This relies on
+            # elem.attachments / Analysis.datasets / Dataset.attachments handing back the *same*
+            # Attachment objects on repeated access within one export_eln call (true today:
+            # Dataset.attachments and the top-level attachments property both cache into
+            # self._attachments on first access, and Analysis.datasets is a plain list built once
+            # -- see chemotion_api.elements.abstract_element). If a future refactor makes any of
+            # those rebuild fresh wrapper objects per access, this lookup would miss and fall back
+            # to the safe (if non-deduplicated) recompute below.
+            _safe_name_by_attachment = {id(att): safe_name for att, safe_name in files}
+
+            def _safe_file_id(att, _rel_path=rel_path, _table=_safe_name_by_attachment):
+                safe_name = _table.get(id(att))
+                if safe_name is None:
+                    # Not part of this element's deduped file list (e.g. a genuine duplicate that
+                    # was dropped) -- recompute so a reference still resolves to a stable id.
+                    name_part, ext_part = os.path.splitext(os.path.basename(att['filename']))
+                    safe_name = sanitize_filename(name_part) + ext_part
+                return f"{_rel_path}{safe_name}"
+
             if files:
-                has_parts_list = []
-                for att in files:
-                    orig_filename = att['filename']
-                    safe_filename = os.path.basename(orig_filename)
-                    name_part, ext_part = os.path.splitext(safe_filename)
-                    safe_filename = sanitize_filename(name_part) + ext_part
-                    has_parts_list.append({"@id": f"{rel_path}{safe_filename}"})
-                node["hasPart"] = has_parts_list
+                node["hasPart"] = [{"@id": _safe_file_id(att)} for att, _safe_name in files]
+
+            # Link each analysis' data files to its AnalysisSourceData node, so the
+            # provenance chain reaches the actual spectra:
+            # AnalysisDataset → DataAnalysis → AnalysisSourceData → files.
+            if hasattr(elem, "analyses") and elem.analyses:
+                for _ana_idx, ana in enumerate(elem.analyses):
+                    _ana_get = ana.get if hasattr(ana, "get") else (lambda _k, _d=None: _d)
+                    src_node = graph_nodes.get(
+                        f"{rel_path}#analysis_{_ana_get('id') or _ana_idx}_source_data")
+                    if src_node is None:
+                        continue
+                    parts = []
+                    if hasattr(ana, "datasets") and ana.datasets:
+                        for ds in ana.datasets:
+                            for att in (ds.attachments or []):
+                                parts.append({"@id": _safe_file_id(att)})
+                    if parts:
+                        src_node["hasPart"] = parts
 
         for node in metadata_dict.get("@graph", []):
             node_id = node.get("@id", "")
@@ -1311,7 +1365,6 @@ class AbstractCollection:
             "@type": "CreativeWork",
             "about": {"@id": "./"},
             "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
-            # UTC: a naive local timestamp is ambiguous in an archive that travels between systems.
             "dateCreated": datetime.now(UTC).isoformat(),
             # TheELNFileFormat's metadata check requires `version` on the descriptor.
             "version": "1.0",
@@ -1353,9 +1406,21 @@ class AbstractCollection:
             except Exception as e:
                 logger.debug("progress reporting raised: %s", e)
 
+        # Strict mode must fail *before* any bytes are written to file_path (a previous version
+        # wrote the crate first and raised afterwards, leaving a "failed" export sitting at the
+        # requested path). Every skip stage except attachment "download" is already fully known
+        # at this point (retrieve/load during indexing, dcat_mapping during the loop above,
+        # offline_reconstruction before that); download failures can only happen during the write
+        # itself, so _write_crate_zip is also told about ``strict`` and raises immediately on the
+        # first one, before its temp file is renamed into place.
+        if strict and skipped:
+            logger.warning("export_eln: %d issue(s) during export (strict mode; aborting before writing %s). "
+                           "See export manifest.", len(skipped), file_path)
+            raise RuntimeError(f"export_eln strict mode: {len(skipped)} issue(s) during export: {skipped}")
+
         try:
             _write_crate_zip(file_path, root_folder, metadata_dict, elem_files, elem_paths,
-                             sanitize_filename, skipped, progress=_tick_file)
+                             skipped, progress=_tick_file, strict=strict)
         finally:
             if _bar2 is not None:
                 _bar2.close()
@@ -1365,12 +1430,11 @@ class AbstractCollection:
                     len(elem_paths), len(col_paths), file_path)
         if skipped:
             # Note: dcat_mapping entries are still exported as generic Dataset nodes (not lost);
-            # retrieve/load entries ARE omitted from the crate.
+            # retrieve/load entries ARE omitted from the crate. (strict mode already raised above
+            # if this branch is reached with strict=True, so this is the non-strict summary log.)
             omitted = [s for s in skipped if s["stage"] != "to_dcat_ap"]
             logger.warning("export_eln: %d issue(s) during export (%d element(s) omitted, %d mapped generically). "
                            "See export manifest.", len(skipped), len(omitted), len(skipped) - len(omitted))
-            if strict:
-                raise RuntimeError(f"export_eln strict mode: {len(skipped)} issue(s) during export: {skipped}")
         return file_path
 
     def set_authors(self, authors: list) -> None:

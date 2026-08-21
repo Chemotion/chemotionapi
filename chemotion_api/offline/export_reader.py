@@ -25,6 +25,12 @@ from collections.abc import Iterable, Iterator
 
 logger = logging.getLogger(__name__)
 
+# Export archives are untrusted input (the maintainer's own PR review flagged this): a member
+# claiming an implausibly large uncompressed size (a corrupt file, or a deliberately crafted
+# "zip bomb" style entry) must not be read fully into memory. Chosen generously above any
+# legitimate single attachment/relational dump this library expects to handle.
+MAX_ZIP_MEMBER_SIZE = 500 * 1024 * 1024  # 500 MiB
+
 # The five reaction-material join tables, in canonical order, mapped to the
 # json_data list keys the Reaction parser expects.
 _MATERIAL_JOINS: dict[str, str] = {
@@ -94,11 +100,23 @@ class ExportArchive:
                 self._attachment_members[stem] = member
 
     # -- internal readers ---------------------------------------------------
+    def _check_member_size(self, member: str) -> None:
+        """Raise ``ValueError`` if ``member``'s (uncompressed) size exceeds :data:`MAX_ZIP_MEMBER_SIZE`.
+
+        Guards against fully reading an oversized member from an untrusted archive into memory.
+        """
+        assert self._zip is not None
+        size = self._zip.getinfo(member).file_size
+        if size > MAX_ZIP_MEMBER_SIZE:
+            raise ValueError(
+                f"{member} is {size} bytes, exceeding the {MAX_ZIP_MEMBER_SIZE}-byte member size limit")
+
     def _read_json_zip(self, name: str) -> dict:
         """Load and parse the first ZIP member whose path ends in ``name``."""
         member = next((m for m in self._members if m.endswith(name)), None)
         if member is None:
             raise FileNotFoundError(f"{name} not found in {self.path}")
+        self._check_member_size(member)
         with self._zip.open(member) as fh:  # type: ignore[union-attr]
             return json.load(fh)
 
@@ -124,12 +142,17 @@ class ExportArchive:
         return identifier in self._attachment_members
 
     def read_attachment(self, identifier: str) -> bytes:
-        """Return the payload bytes for an attachment identifier, or ``b""`` if absent."""
+        """Return the payload bytes for an attachment identifier, or ``b""`` if absent.
+
+        :raises ValueError: if the (ZIP-archived) member exceeds :data:`MAX_ZIP_MEMBER_SIZE` --
+            use :meth:`iter_attachment` to stream an oversized attachment instead.
+        """
         member = self._attachment_members.get(identifier)
         if member is None:
             logger.warning("Attachment payload %s not present in archive", identifier)
             return b""
         if self._zip is not None:
+            self._check_member_size(member)
             return self._zip.read(member)
         return (self.path / member).read_bytes()
 
