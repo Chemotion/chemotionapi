@@ -42,6 +42,33 @@ def main(eln_path: str) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         crate_dir = _extract(crate, Path(tmp))
 
+        # Two project-specific invariants, asked for in review of PR #1. Neither is an RO-Crate
+        # rule, so the validator will not catch a regression in either.
+        import json
+        metadata = json.loads((crate_dir / "ro-crate-metadata.json").read_text())
+        graph = metadata.get("@graph", [])
+
+        # (a) Identifiers stay crate-relative: a leaked server URL makes the archive meaningless
+        #     off that server, which defeats the point of exporting it.
+        leaked = sorted({
+            n["@id"] for n in graph
+            if isinstance(n, dict) and isinstance(n.get("@id"), str)
+            and "/api/v1/" in n["@id"]
+        })
+        if leaked:
+            print(f"FAIL  absolute API IRIs leaked into the crate: {leaked[:5]}")
+            failures.append("crate-relative ids")
+        else:
+            print("PASS  no absolute API IRIs (identifiers are crate-relative)")
+
+        # (b) Authorship is mandatory for these exports, so the root must actually carry it.
+        root = next((n for n in graph if isinstance(n, dict) and n.get("@id") == "./"), {})
+        if root.get("author"):
+            print("PASS  root dataset declares an author")
+        else:
+            print("FAIL  root dataset has no author")
+            failures.append("authors present")
+
         from rocrate.rocrate import ROCrate
         try:
             ROCrate(crate_dir)
