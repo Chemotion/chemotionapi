@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['*']
   pull_request:
 
 jobs:
@@ -32,8 +33,11 @@ jobs:
       - name: Type check (mypy)
         run: just mypy
 
+  # Release artefacts only: a wheel is worth building when we are actually cutting a version,
+  # not on every merge. Tag pushes only — skipped for branch pushes and pull requests.
   build:
     name: build sdist + wheel
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
