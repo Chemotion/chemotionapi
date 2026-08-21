@@ -261,3 +261,30 @@ def test_extended_reaction_amount(instance_with_test_reaction: dict):
     assert [mat.properties['equivalent'] for mat in
             [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [0.5, 1,
                                                                                          0.07568895110857066]
+
+
+def test_reaction_yield_properties(instance_with_test_reaction: dict):
+    logged_in_instance = instance_with_test_reaction['instance']
+    col = instance_with_test_reaction['main_collection']
+    reaction = col.new_reaction()
+    st_mt = col.new_sample_smiles("[H][H]")
+    st_mt.save()
+    product = col.new_sample_smiles("O")
+    product.save()
+    reaction.starting_materials.append(st_mt)
+    reaction.products.append(product)
+
+    reaction.properties.yield_value = 92.5
+    reaction.save()
+
+    # Reload from backend
+    reloaded_reaction = logged_in_instance.get_reaction(reaction.id)
+    assert reloaded_reaction.properties.get('yield_value') == 92.5
+    assert reloaded_reaction.properties.get('yield') == 92.5
+
+    # Test setting via dictionary item access
+    reloaded_reaction.properties['yield'] = 85.0
+    assert reloaded_reaction.properties.yield_value == 85.0
+    assert reloaded_reaction.properties.get('yield') == 85.0
+
+
