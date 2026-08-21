@@ -13,6 +13,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection
+from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
 
@@ -91,14 +92,22 @@ class Instance:
         This test_connection methode simply test if the connection to a chemotion instance can be established.
         The instance does not need to be logged in to use this methode.
 
+        It also verifies that the instance runs a supported ELN major version. Both checks are
+        unauthenticated, so an incompatible server is reported before any credentials are sent.
+
         :return: the instance self
 
         :raises ConnectionError: if the connection cannot be established.
+        :raises UnsupportedServerVersion: if the instance is not a supported ELN version.
         """
         ping_url = "/api/v1/public/ping"
         res = self._con.get(url_path=ping_url)
         if res.status_code != 204:
             raise ConnectionError(f'Could not ping the Chemotion instance: {self.host_url}')
+        # Accessing schema_manager fetches /about and applies the version gate. Doing it here means
+        # a v3 server fails with a clear message instead of surfacing later as a confusing 400 from
+        # an endpoint v4 moved.
+        self._con.schema_manager  # noqa: B018  (property access performs the check)
         return self
 
     def get_all_types(self) -> list[str]:
