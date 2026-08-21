@@ -10,10 +10,11 @@ where available so it does not depend on remote schema fetches.
 """
 
 import json
+import re
 import os
 import typing
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 from urllib.parse import urlparse
 from enum import Enum
 from random import random
@@ -176,6 +177,113 @@ def _build_author_nodes(metadata_dict: dict, graph_nodes: dict,
         author_refs.append({"@id": person_id})
 
     return author_refs, publisher_ref
+
+
+#: Licence assigned to an exported crate when the collection does not specify one. RO-Crate 1.1
+#: §8.3 makes `license` mandatory on the Root Data Entity, so something has to be stated.
+_CRATE_DEFAULT_LICENSE = "https://creativecommons.org/licenses/by/4.0/"
+
+
+def flatten_crate_graph(metadata_dict: dict) -> int:
+    """Make an RO-Crate metadata graph spec-conformant in place.
+
+    Two fixes, both required by RO-Crate 1.1 and both flagged by TheELNConsortium's conformance
+    suite on crates this exporter used to produce:
+
+    * **No blank nodes** (§2.2, "fully flattened"). chem-dcat-ap emits nested value objects — the
+      CHEMINF identifier entities for InChI, SMILES, IUPAC name and so on — and serialising that
+      RDF to JSON-LD turns them into blank nodes (``_:Nabc…``). Each one is given a stable
+      fragment id instead, and every reference to it is rewritten.
+    * **Datasets need `name`** (schema.org). chem-dcat-ap titles land in ``dct:title``, which
+      RO-Crate consumers do not read; mirror it into ``name`` where absent.
+
+    :param metadata_dict: the parsed ``ro-crate-metadata.json``, modified in place.
+    :return: the number of blank nodes renamed.
+    """
+    graph = metadata_dict.get("@graph")
+    if not isinstance(graph, list):
+        return 0
+
+    # Blank-node labels are only unique within one document, so a positional counter is a stable
+    # enough basis for the replacement id; the type suffix keeps it readable.
+    renames: dict[str, str] = {}
+    for node in graph:
+        if not isinstance(node, dict):
+            continue
+        node_id = node.get("@id")
+        if isinstance(node_id, str) and node_id.startswith("_:"):
+            node_type = node.get("@type") or "entity"
+            if isinstance(node_type, list):
+                node_type = node_type[0] if node_type else "entity"
+            slug = re.sub(r"[^A-Za-z0-9]+", "_", str(node_type).rsplit("/", 1)[-1]).strip("_")
+            renames[node_id] = f"#{slug.lower() or 'entity'}-{len(renames) + 1}"
+
+    def _rewrite(obj):
+        if isinstance(obj, dict):
+            return {k: (renames.get(v, v) if k == "@id" and isinstance(v, str) else _rewrite(v))
+                    for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_rewrite(v) for v in obj]
+        return obj
+
+    if renames:
+        metadata_dict["@graph"] = _rewrite(graph)
+        graph = metadata_dict["@graph"]
+
+    # "Fully flattened" means every entity is a *top-level* member of @graph: giving a nested
+    # object an @id is not enough, it has to be hoisted out and replaced by a reference. Repeat
+    # until nothing moves, since hoisted entities can themselves contain nested entities.
+    while True:
+        hoisted: list[dict] = []
+
+        def _hoist(obj, top=False):
+            if isinstance(obj, list):
+                return [_hoist(v) for v in obj]
+            if not isinstance(obj, dict):
+                return obj
+            inner = {k: _hoist(v) for k, v in obj.items()}
+            # A bare {"@id": ...} is already a reference; anything richer is an entity definition.
+            if not top and isinstance(inner.get("@id"), str) and len(inner) > 1:
+                hoisted.append(inner)
+                return {"@id": inner["@id"]}
+            return inner
+
+        graph = [_hoist(node, top=True) for node in graph]
+        # Always publish the rebuilt list: _hoist returns new dicts every pass, so leaving the old
+        # generation in metadata_dict would silently discard this pass's work (including anything
+        # a later step mutates on these nodes).
+        metadata_dict["@graph"] = graph
+        if not hoisted:
+            break
+        by_id = {n["@id"]: n for n in graph if isinstance(n, dict) and isinstance(n.get("@id"), str)}
+        for entity in hoisted:
+            existing = by_id.get(entity["@id"])
+            if existing is None:
+                graph.append(entity)
+                by_id[entity["@id"]] = entity
+            else:
+                # Same entity nested in two places: merge rather than duplicate the @id, which
+                # would itself be a spec violation.
+                for key, value in entity.items():
+                    existing.setdefault(key, value)
+        metadata_dict["@graph"] = graph
+
+    for node in graph:
+        if not isinstance(node, dict) or "name" in node:
+            continue
+        node_type = node.get("@type")
+        types = node_type if isinstance(node_type, list) else [node_type]
+        if "Dataset" not in types:
+            continue
+        title = node.get("dct:title") or node.get("title")
+        if isinstance(title, list):
+            title = title[0] if title else None
+        if isinstance(title, dict):
+            title = title.get("@value")
+        if isinstance(title, str) and title:
+            node["name"] = title
+
+    return len(renames)
 
 
 def nest_by_ancestry(flat: list[dict]) -> list[dict]:
@@ -677,7 +785,7 @@ class AbstractCollection:
         import re
         import json
         import os
-        from datetime import datetime
+        from datetime import UTC, datetime
         from rdflib import Graph, URIRef, Literal, RDF
         from linkml_runtime.dumpers import RDFLibDumper
         from linkml_runtime.utils.schemaview import SchemaView
@@ -1007,7 +1115,16 @@ class AbstractCollection:
             elif isinstance(elem, Reaction) and hasattr(elem, "properties") and elem.properties:
                 for prop_name in ['rxno', 'conditions', 'purification', 'tlc_solvents', 'rf_value', 'volume', 'use_reaction_volume', 'weight_percentage', 'rinchi_string', 'rinchi_web_key', 'variations']:
                     if elem.properties.get(prop_name) is not None:
-                        node[prop_name] = clean_json_value(elem.properties.get(prop_name))
+                        value = clean_json_value(elem.properties.get(prop_name))
+                        # Raw Chemotion payloads (notably `variations`) are arbitrary nested JSON
+                        # using plain `id` keys. Embedding them as objects in a JSON-LD graph makes
+                        # the crate unparseable — py-rocrate rejects it with
+                        # "ValueError: no @id in {...}" — so opaque structures are carried as a JSON
+                        # string. The data is preserved; it just is not pretending to be linked data.
+                        if isinstance(value, (dict, list)):
+                            value = json.dumps(value, ensure_ascii=False,
+                                               default=lambda o: str(o))
+                        node[prop_name] = value
 
             files = elem_files[elem_id]
             if files:
@@ -1065,6 +1182,29 @@ class AbstractCollection:
             metadata_dict["@graph"].append(root_node)
             graph_nodes["./"] = root_node
 
+        # RO-Crate 1.1 §8.2/§8.3: the Root Data Entity MUST carry `description` and `license`.
+        # (Both are flagged as REQUIRED failures by the TheELNConsortium conformance suite.)
+        root_node.setdefault(
+            "description",
+            (self.collection_json or {}).get("description")
+            or f"Chemotion ELN collection '{self.label or 'Collection'}' "
+               "exported as an RO-Crate by chemotion-api.",
+        )
+        # §8.4: `datePublished` MUST be a valid ISO 8601 date.
+        root_node.setdefault("datePublished", datetime.now(UTC).date().isoformat())
+        root_node.setdefault("license", {"@id": _CRATE_DEFAULT_LICENSE})
+        if not any(n.get("@id") == _CRATE_DEFAULT_LICENSE
+                   for n in metadata_dict["@graph"] if isinstance(n, dict)):
+            license_node = {
+                "@id": _CRATE_DEFAULT_LICENSE,
+                "@type": "CreativeWork",
+                "name": "Creative Commons Attribution 4.0 International",
+                "description": "Default export licence. Set a different one on the crate if the "
+                               "data is under other terms.",
+            }
+            metadata_dict["@graph"].append(license_node)
+            graph_nodes[_CRATE_DEFAULT_LICENSE] = license_node
+
         root_has_part = []
         for other_id, node in graph_nodes.items():
             if other_id != "./" and other_id != "ro-crate-metadata.json":
@@ -1109,10 +1249,20 @@ class AbstractCollection:
             "@type": "CreativeWork",
             "about": {"@id": "./"},
             "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
-            "dateCreated": datetime.now().isoformat(),
+            # UTC: a naive local timestamp is ambiguous in an archive that travels between systems.
+            "dateCreated": datetime.now(UTC).isoformat(),
+            # TheELNFileFormat's metadata check requires `version` on the descriptor.
+            "version": "1.0",
             "sdPublisher": {"@id": software_node["@id"]},
         }
         metadata_dict["@graph"].append(meta_descriptor)
+
+        # Final spec pass: drop blank nodes (RO-Crate requires a fully flattened graph) and mirror
+        # chem-dcat-ap's dct:title into schema.org name on Dataset nodes. Runs last so it sees
+        # every node, including the ones added just above.
+        renamed = flatten_crate_graph(metadata_dict)
+        if renamed:
+            logger.debug("Flattened %d blank node(s) into addressable crate entities", renamed)
 
         base_name = os.path.basename(file_path)
         if base_name.lower().endswith(".eln"):
