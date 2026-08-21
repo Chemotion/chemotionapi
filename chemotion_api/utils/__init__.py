@@ -55,6 +55,41 @@ class PropertyDict(MutableMapping):
     def to_dict(self):
         return self.data
 
+    @property
+    def __dict__(self):
+        return self.to_dict()
+
+    def to_dict(self):
+        """:return: The underlying plain ``dict`` backing this mapping."""
+        return self.data
+
+    def _attr_error(self, name):
+        import difflib
+        keys = [k for k in self.data.keys() if isinstance(k, str)]
+        hint = difflib.get_close_matches(name, keys, n=3)
+        suffix = f" Did you mean: {', '.join(hint)}?" if hint else (
+            f" Available keys: {', '.join(sorted(keys))}" if keys else "")
+        return AttributeError(f"'PropertyDict' object has no property '{name}'.{suffix}")
+
+    def __getattr__(self, name):
+        if name.startswith('_') or name in ('data', 'on_change', 'to_dict'):
+            raise AttributeError(f"'PropertyDict' object has no attribute '{name}'")
+        try:
+            return self[name]
+        except KeyError:
+            raise self._attr_error(name) from None
+
+    def __setattr__(self, name, value):
+        if name.startswith('_') or name in ('data', 'on_change'):
+            super().__setattr__(name, value)
+        elif hasattr(self.__class__, name) and isinstance(getattr(self.__class__, name), property):
+            super().__setattr__(name, value)
+        else:
+            try:
+                self[name] = value
+            except KeyError:
+                raise AttributeError(f"'PropertyDict' object has no attribute '{name}'") from None
+
 
 def resource_path(file_path):
     """Get the absolute path to the resource, works for development and PyInstaller build."""

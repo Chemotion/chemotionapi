@@ -81,7 +81,9 @@ class TSDragSample(TableSubBaseField):
             text_display.append("external_label;")
         if 'molecular_weight' in value_split:
             text_display.append("molecular_weight;")
-        self._value = ''.join(value)
+        # Built the filtered token list and then threw it away: ''.join(value) just rebuilds the
+        # raw input string, so unrecognised tokens survived and terminators were never normalised.
+        self._value = ''.join(text_display)
 
     def set_sample_display(self, name: bool, external_label: bool, molecular_weight: bool):
         text_display = []
