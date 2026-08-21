@@ -9,6 +9,13 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-06-30 — Self-contained seeded integration environment
+
+- `tests/test_config/compose.yml` boots a live ELN + Postgres on port 3579.
+- Pre-seeded DB (`tests/data/test.sql`): API/ADM/MM users plus sample data.
+- `conftest.py` runs `tests/data/setup_chemotion_db.sh` when `NO_SETUP=0`: boots the stack, resets the DB from the seed, waits for the `**SUCCESS**` marker.
+- Replaces the old root `test_config/` (manual `.env`, no committed seed), which is deleted.
+
 ## 2026-06-02 — Migrate to uv + just, target Python 3.14
 
 - `pyproject.toml`: uv-managed deps, Python ≥ 3.14.

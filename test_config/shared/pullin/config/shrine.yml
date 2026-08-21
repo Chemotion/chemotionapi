@@ -1,4 +1,0 @@
-production:
-  :maximum_size: 500
-  :cache: ./uploads/cache
-  :store: ./uploads
