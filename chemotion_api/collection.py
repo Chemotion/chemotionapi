@@ -214,6 +214,24 @@ def _build_author_nodes(metadata_dict: dict, graph_nodes: dict,
 _CRATE_DEFAULT_LICENSE = "https://creativecommons.org/licenses/by/4.0/"
 
 
+def _is_opaque_payload(value) -> bool:
+    """Whether a property value is a nested structure RO-Crate cannot represent as-is.
+
+    RO-Crate allows literals, `{"@id": …}` references, and arrays of those. What it cannot hold is
+    an arbitrary **nested object** — so a dict, or a list containing one, has to be carried as a
+    JSON string instead. A flat list of scalars is a normal multi-valued property and must be left
+    alone.
+
+    :param value: a candidate property value.
+    :return: True if it must be serialised to a string.
+    """
+    if isinstance(value, dict):
+        return True
+    if isinstance(value, list):
+        return any(isinstance(item, (dict, list)) for item in value)
+    return False
+
+
 def flatten_crate_graph(metadata_dict: dict) -> int:
     """Make an RO-Crate metadata graph spec-conformant in place.
 
@@ -1205,7 +1223,12 @@ class AbstractCollection:
                         # unparseable — py-rocrate rejects it with "ValueError: no @id in {...}" —
                         # so opaque structures are carried as a JSON string. The data is preserved;
                         # it just stops pretending to be linked data.
-                        if isinstance(value, (dict, list)):
+                        #
+                        # Only *nested* values qualify. A flat list of literals (e.g.
+                        # purification == ["Extraction", "Filtration"]) is a perfectly good
+                        # multi-valued property in RO-Crate, and stringifying it would destroy a
+                        # legitimate value to solve a problem it does not have.
+                        if _is_opaque_payload(value):
                             value = json.dumps(value, ensure_ascii=False, default=lambda o: str(o))
                         node[prop_name] = value
 

@@ -516,7 +516,12 @@ def test_eln_export_properties_and_deduplication(instance_with_collection, tmp_p
         assert reaction_node["weight_percentage"] is True
         assert reaction_node["rinchi_string"] == "Long-RInChI-String"
         assert reaction_node["rinchi_web_key"] == "RInChI-Web-Key"
-        assert reaction_node["variations"] == {"temp_steps": [25, 50]}
+        # `variations` is an opaque Chemotion payload — arbitrary nested JSON keyed on plain `id`,
+        # not `@id`. Embedded as an object it makes the whole crate unparseable (py-rocrate raises
+        # "ValueError: no @id in {...}"), so the exporter carries it as a JSON string instead: the
+        # data survives, it just stops claiming to be linked data. Flat lists of literals like
+        # `purification` above are unaffected — those are valid multi-valued properties.
+        assert json.loads(reaction_node["variations"]) == {"temp_steps": [25, 50]}
 
 
 def test_attachment_streaming_fallback():
