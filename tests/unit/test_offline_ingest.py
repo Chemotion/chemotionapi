@@ -204,3 +204,102 @@ def test_unreconstructed_elements_are_reported_not_silently_dropped(tmp_path, ca
     with pytest.raises(RuntimeError, match="offline_reconstruction"):
         col.export_eln(str(tmp_path / "strict.eln"), ontology_lookup=False,
                        authors=_authors(), strict=True)
+
+
+@pytest.mark.heavy
+def test_present_attachment_payload_lands_in_crate(tmp_path):
+    """Regression: streaming an archived attachment into the crate must succeed (the offline
+    response shim needs the full requests.Response streaming surface, incl. close())."""
+    from chemotion_api.offline import import_export_zip
+
+    d = _mini_dir(tmp_path)
+    (d / "attachments").mkdir()
+    (d / "attachments" / "att-1-uuid.jdx").write_bytes(b"##TITLE=1H\n##END=\n")
+    out = str(tmp_path / "with_payload.eln")
+    import_export_zip(d).export_eln(out, ontology_lookup=False, authors=_authors())
+    with zipfile.ZipFile(out) as z:
+        member = next(n for n in z.namelist() if n.endswith("product_1H.jdx"))
+        assert z.read(member) == b"##TITLE=1H\n##END=\n"
+
+
+# --- collection trees (bundles of collections in one export) ------------------------------------
+
+def _bundle_data(second_root=False):
+    """Mini fixture extended with membership joins, a child collection holding an extra
+    standalone sample, and (optionally) a second top-level collection."""
+    data = json.loads(open(MINI).read())
+    data["Collection"]["col-2"] = {"label": "Child Col", "ancestry": "col-1"}
+    data["Sample"]["smp-extra"] = dict(data["Sample"]["smp-sm"], name="Extra")
+    data["CollectionsSample"] = {
+        "cs-1": {"collection_id": "col-1", "sample_id": "smp-sm"},
+        "cs-2": {"collection_id": "col-1", "sample_id": "smp-prod"},
+        "cs-3": {"collection_id": "col-2", "sample_id": "smp-extra"},
+    }
+    data["CollectionsReaction"] = {
+        "cr-1": {"collection_id": "col-1", "reaction_id": "rxn-1"},
+    }
+    if second_root:
+        data["Collection"]["col-3"] = {"label": "Other Root", "ancestry": ""}
+        data["CollectionsSample"]["cs-4"] = {"collection_id": "col-3", "sample_id": "smp-extra"}
+    return data
+
+
+def _import(tmp_path, data):
+    from chemotion_api.offline import import_export_zip
+    f = tmp_path / "export.json"
+    f.write_text(json.dumps(data), encoding="utf-8")
+    return import_export_zip(f)
+
+
+def test_collection_tree_is_rebuilt_with_scoped_elements(tmp_path):
+    root = _import(tmp_path, _bundle_data())
+    assert root.label == "Mini Test Collection"
+    (child,) = root.children
+    assert child.label == "Child Col"
+    assert child._parent is root and child.get_root() is root
+    assert root.id != child.id
+    # elements are scoped per collection
+    assert [r.properties for r in root.get_reactions()] is not None
+    assert len(root.get_reactions()) == 1 and len(child.get_reactions()) == 0
+    assert [s.name for s in child.get_samples()] == ["Extra"]
+    # smp-sm / smp-prod are reaction materials, not standalone samples of col-1
+    assert root.get_samples() == []
+
+
+def test_bundle_of_top_level_collections_gets_wrapper_root(tmp_path):
+    root = _import(tmp_path, _bundle_data(second_root=True))
+    assert root.label == "Exported Collections"
+    assert sorted(c.label for c in root.children) == ["Mini Test Collection", "Other Root"]
+    # the wrapper holds no elements of its own
+    assert root.get_samples() == [] and root.get_reactions() == []
+    other = next(c for c in root.children if c.label == "Other Root")
+    assert [s.name for s in other.get_samples()] == ["Extra"]   # shared sample appears there too
+
+
+def test_dump_without_membership_tables_falls_back_flat(tmp_path, caplog):
+    import logging
+
+    data = json.loads(open(MINI).read())
+    data["Collection"]["col-2"] = {"label": "Child Col", "ancestry": "col-1"}
+    with caplog.at_level(logging.WARNING, logger="chemotion_api.offline.offline_collection"):
+        root = _import(tmp_path, data)
+    assert root.children == []
+    assert len(root.get_reactions()) == 1                        # everything in one collection
+    assert any("no membership join tables" in r.message for r in caplog.records)
+
+
+@pytest.mark.heavy
+def test_export_eln_preserves_collection_tree(tmp_path):
+    """Exporting a rebuilt tree writes the child collection as a nested crate folder."""
+    root = _import(tmp_path, _bundle_data())
+    out = str(tmp_path / "tree.eln")
+    root.export_eln(out, ontology_lookup=False, authors=_authors())
+    with zipfile.ZipFile(out) as z:
+        meta = next(n for n in z.namelist() if n.endswith("ro-crate-metadata.json"))
+        graph = json.loads(z.read(meta))["@graph"]
+    import re
+    nodes = {n["@id"]: n for n in graph if "@id" in n}
+    child_id = next(i for i in nodes if re.fullmatch(r"\./Child_Col_\d+/", i))
+    assert nodes[child_id]["isPartOf"] == {"@id": "./"}
+    # the child's standalone sample lives under the child's folder
+    assert any(i.startswith(child_id + "samples/") for i in nodes)

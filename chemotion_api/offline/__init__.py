@@ -12,6 +12,10 @@ the live REST API returns**, instantiates the regular :class:`~chemotion_api.ele
 :meth:`~chemotion_api.collection.Collection.export_eln` runs with **no live server**.
 
 Entry point: :func:`chemotion_api.offline.import_export_zip`.
+
+The reverse direction — reading an existing ``.eln`` RO-Crate back into navigable Python
+objects — lives in :mod:`chemotion_api.offline.eln_reader`; entry point
+:func:`chemotion_api.offline.import_eln`.
 """
 from __future__ import annotations
 
@@ -21,6 +25,12 @@ from chemotion_api.offline.offline_collection import (
     OfflineConnection,
     import_export_zip,
 )
+from chemotion_api.offline.eln_reader import (
+    ElnCrate,
+    ElnDataset,
+    ElnFile,
+    import_eln,
+)
 
 __all__ = [
     "ExportArchive",
@@ -29,4 +39,8 @@ __all__ = [
     "OfflineCollection",
     "OfflineConnection",
     "import_export_zip",
+    "ElnCrate",
+    "ElnDataset",
+    "ElnFile",
+    "import_eln",
 ]

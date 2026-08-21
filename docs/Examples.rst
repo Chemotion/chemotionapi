@@ -10,6 +10,9 @@ The package has been published on PyPi, it can be install using pip.
 
     pip install chemotion-api
 
+The FAIR ``.eln`` export additionally needs the semantic stack (``pydantic``, ``rdflib``,
+``linkml-runtime``, ``chem_dcat_ap``, ``dcat_ap_plus``); these come in as dependencies of the package.
+
 ``imagemagick`` & ``PostgreSQL`` must also be installed.
 For instructions about how to install, as well as the full documentation of, ``imagemagick`` please refer `here <https://imagemagick.org/index.php>`__.
 For instructions about how to install, as well as the full documentation of, ``PostgreSQL`` please refer `here <https://www.postgresql.org/>`__.
@@ -60,10 +63,10 @@ Example 1) Create a new Reacton
 
     if __name__ == '__main__':
         # Initialize a new Instance connection
-        instance = Instance('http://localhost:3354')
+        instance = Instance('https://chemotion.dept.uni.de')
         try:
             # Test if the host is available and login using your username and password
-            instance.test_connection().login('MSU', '1234qweR!')
+            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
         except ConnectionError:
             # Exit if connection fails
             exit(1)
@@ -125,10 +128,10 @@ Example 2) Share a Collection
 
     if __name__ == '__main__':
         # Initialize a new Instance connection
-        instance = Instance('http://localhost:3354')
+        instance = Instance('https://chemotion.dept.uni.de')
         try:
             # Test if the host is available and login using your username and password
-            instance.test_connection().login('MSU', '1234qweR!')
+            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
         except ConnectionError:
             # Exit if connection fails
             exit(1)
@@ -144,9 +147,7 @@ Example 2) Share a Collection
         # Add the user
         stg.add_users(*users)
         # Share collection with STG
-        instance.get_root_collection().get_collection('Main Test').share(CollectionSharePermission.EditElements, stg)
-        # Save reaction
-        reaction.save()
+        instance.get_root_collection().get_collection('Main Test').share(SyncPermission.Write, stg)
 
 Example 3) Upload/Load Attachment
 **************************************************
@@ -168,10 +169,10 @@ Example 3) Upload/Load Attachment
 
     if __name__ == '__main__':
         # Initialize a new Instance connection
-        instance = Instance('http://localhost:3354')
+        instance = Instance('https://chemotion.dept.uni.de')
         try:
             # Test if the host is available and login using your username and password
-            instance.test_connection().login('MSU', '1234qweR!')
+            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
         except ConnectionError:
             # Exit if connection fails
             exit(1)
@@ -254,4 +255,53 @@ THE CLI tool is only for development & test usages. For Productive Instances ple
     # Restore a DB backup
     > chemotion_api chemotion_api restore
     Your tar dump file: test_dump.tar
+
+
+Example 5) Export a Collection to a ``.eln`` (RO-Crate)
+******************************************************************
+
+.. code-block:: python
+
+    """
+    Export a collection as a FAIR RO-Crate 1.1 .eln archive (chem-dcat-ap metadata).
+
+    Authorship is mandatory and explicit: each author needs an ORCID iD and at least one
+    ROR-identified affiliation. See :doc:`FairExport`.
+    """
+    from chemotion_api import Instance, Author, AuthorAffiliation
+
+    with Instance('https://chemotion.dept.uni.de',
+                  username='YOUR_USERNAME', password='YOUR_PASSWORD') as instance:
+        col = instance.get_or_create_collection('My Synthesis Project')
+
+        # Authors must be set manually (no logged-in-user default)
+        col.set_authors([
+            Author(name='Ada Lovelace', orcid='0000-0002-1825-0097',
+                   affiliations=[AuthorAffiliation(name='Example University',
+                                                   ror='https://ror.org/05dxps055')]),
+        ])
+
+        # Analyses are annotated with measurement-technique ontology terms (embedded CHMO code -> OLS)
+        col.export_eln('my_project.eln')
+
+
+Example 6) Offline export from an ``export collection`` ZIP
+******************************************************************
+
+.. code-block:: python
+
+    """
+    Convert Chemotion's native "export collection" ZIP into a .eln with NO live server.
+    Samples and reactions are reconstructed offline. See :doc:`OfflineIngestion`.
+    """
+    from chemotion_api import Author, AuthorAffiliation
+    from chemotion_api.offline import import_export_zip
+
+    col = import_export_zip('my_export_collection.zip', label='My Project')
+    col.export_eln(
+        'my_project.eln',
+        authors=[Author(name='Ada Lovelace', orcid='0000-0002-1825-0097',
+                        affiliations=[AuthorAffiliation(name='Example University',
+                                                        ror='https://ror.org/05dxps055')])],
+    )
 

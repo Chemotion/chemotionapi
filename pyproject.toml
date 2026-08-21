@@ -45,6 +45,15 @@ docs = [
     "enum-tools[sphinx]>=0.12",
 ]
 
+[tool.coverage.run]
+source = ["chemotion_api"]
+
+[tool.coverage.report]
+# Offline-suite floor (the REST layer is exercised by the integration suite, which is
+# not counted here). Measured 55.1% on 2026-07-03 — raise the floor as coverage grows.
+fail_under = 54
+precision = 1
+
 [tool.ruff]
 target-version = "py314"
 
