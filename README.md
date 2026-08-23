@@ -213,4 +213,4 @@ just test-integration
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+GNU Affero General Public License v3 — see [LICENSE](./LICENSE).

@@ -263,11 +263,6 @@ def test_extended_reaction_amount(instance_with_test_reaction: dict):
                                                                                          0.07568895110857066]
 
 
-@pytest.mark.skip(
-    reason="`yield_value` is not implemented in this client yet. This test arrived with the "
-           "test-environment change, ahead of the reaction-properties work that adds the feature; "
-           "unskip in the change that introduces Reaction.properties.yield_value."
-)
 def test_reaction_yield_properties(instance_with_test_reaction: dict):
     logged_in_instance = instance_with_test_reaction['instance']
     col = instance_with_test_reaction['main_collection']
