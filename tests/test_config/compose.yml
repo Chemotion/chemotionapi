@@ -30,7 +30,7 @@ services:
       - chemotion
 
   eln:
-    image: complat/chemotion_eln_stage:next-release@sha256:d0b29690012eeda9f8bbdb30d8f37b9a51b2bd4a798f4019509e57271d39cddd
+    image: complat/chemotion_eln_stage:next-release@sha256:3520ac2cf46301f53eddf68b58971ca74ca8a2dd331c96765cad02c13b021343
     restart: unless-stopped
     environment:
       - CONFIG_ROLE=combine
