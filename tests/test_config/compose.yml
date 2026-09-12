@@ -1,0 +1,71 @@
+# Minimal Chemotion ELN v4 test stack: the eln workhorse and its db, nothing else.
+# - eln runs with CONFIG_ROLE=combine (web + background worker in one container), so its only
+#   startup dependency is the db container.
+# - db is published on host port 54320 (used by tests/data/setup_chemotion_db.sh),
+#   eln on host port 3579 (ELN_URL/ELN_PORT in tests/conftest.py).
+#
+# IMAGES ARE PINNED BY DIGEST ON PURPOSE. `next-release` is a rolling tag — it is rebuilt
+# whenever the v4 branch moves, and there is no immutable v4 tag published (Docker Hub tags jump
+# from v3.1.1 straight to next-release). Without the digest, two runs a day apart can test
+# different servers. Bumping these digests is a deliberate, reviewed change: record the new digest
+# together with the `Version:` string that /about then reports.
+#
+# Pinned 2026-08-21:
+#   eln  next-release            -> v4.0.0-rc-260818
+#   db   postgres16-rdkit        -> Postgres 16 + RDKit cartridge, the image the ELN's own CI uses
+#                                   (.github/workflows/ci-rb.yml, docker-compose.dev.yml upstream)
+services:
+  db:
+    image: complat/dev:postgres16-rdkit@sha256:326d2ef0ee96cc7a8da7569a1637b1527abaa9cd0c1c680b7320223febfd254c
+    restart: unless-stopped
+    hostname: db
+    ports:
+      - 54320:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - chemotion_db:/var/lib/postgresql/data/
+    networks:
+      - chemotion
+
+  eln:
+    image: complat/chemotion_eln_stage:next-release@sha256:d0b29690012eeda9f8bbdb30d8f37b9a51b2bd4a798f4019509e57271d39cddd
+    restart: unless-stopped
+    environment:
+      - CONFIG_ROLE=combine
+      - SECRET_KEY_BASE=pleasechangeme
+      - RUBYOPT=-W0
+      - OTP_SECRET_KEY=1pleasechangeme2pleasechangeme3
+      - PUBLIC_URL=http://0.0.0.0:3579
+    depends_on:
+      - db
+    volumes:
+      # The stock image knows CONFIG_ROLE eln/worker; the Push2Deploy versions of these scripts
+      # add the 'combine' role (web + worker in one container). See embed/.
+      # NOTE: these must exist as FILES before `docker compose up`. If they are missing, Docker
+      # helpfully creates *directories* at these paths — owned by root, so a later checkout of the
+      # real files fails with EACCES. That has already happened once in this repo.
+      - ./embed/run.sh:/embed/run.sh:ro
+      - ./embed/health.sh:/embed/health.sh:ro
+      - chemotion_data:/chemotion/data/
+      - chemotion:/chemotion/app
+    ports:
+      - 3579:4000
+    networks:
+      - chemotion
+
+# Volume names are v4-specific: the v3 stack's volumes (chemotion_app / chemotion_data /
+# chemotion_db) survive `docker compose down`, and silently reusing a v3 data directory under a
+# different vendor's Postgres image is a good way to waste an afternoon. Keeping them separate also
+# means a developer can still boot the old v3 stack if they need to.
+volumes:
+  chemotion:
+    name: chemotion_app_v4
+  chemotion_data:
+    name: chemotion_data_v4
+  chemotion_db:
+    name: chemotion_db_v4
+
+networks:
+  chemotion:
