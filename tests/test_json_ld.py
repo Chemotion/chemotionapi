@@ -33,7 +33,7 @@ def test_new_generics(instance_with_test_samples):
     per_page = 3
     idx = 4
     s4 = rc.get_samples(per_page)[idx]
-    assert 'chemotion:type/sample/2.1.1' == s4.json_ld['@type']
+    assert 'chemotion:type/sample/3.1.2' == s4.json_ld['@type']
     assert f'{CONFIG["ELN_URL"]}api/v1/samples/{s4.id}.json' == s4.json_ld['@id']
     for i, s in enumerate(rc.get_elements_of_iri(s4.json_ld['@type'])):
         if i == idx:

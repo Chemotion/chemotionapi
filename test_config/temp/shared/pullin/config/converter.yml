@@ -1,0 +1,17 @@
+production:
+  :url: 'http://converter:4000/'
+  :profile: eln
+  :secret_key: eln
+  :timeout: 300
+  :ext:
+    - '.zip'
+    - '.cif'
+    - '.cfx_LANA'
+    - '.xy'
+    - '.xls'
+    - '.xlsx'
+    - '.txt'
+    - '.brml'
+    - '.dta'
+    - '.pssession'
+    - '.log'

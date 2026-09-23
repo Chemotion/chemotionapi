@@ -65,7 +65,21 @@ if [ "$STATUS_CODE" -ne 404 ]; then
     echo "Chemotion is running on port ${PORT_NUMBER}"
     cd ${DOCKER_CWD}
     echo "RUN: docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c 'bundle exec rake db:migrate'"
-    docker compose -f $DOCKER_FILE exec $DOCKER_COMPOSE_SERVICE bash -c "bundle exec rake db:migrate"
+    if ! docker compose -f $DOCKER_FILE exec -T $DOCKER_COMPOSE_SERVICE bash -c "bundle exec rake db:migrate" 2>&1; then
+        echo "db:migrate failed in service '$DOCKER_COMPOSE_SERVICE'"
+        exit 4
+    fi
+    # Rails caches the schema, so restart the server to pick up the migrations
+    echo "RUN: docker compose -f $DOCKER_FILE restart $DOCKER_COMPOSE_SERVICE"
+    docker compose -f $DOCKER_FILE restart $DOCKER_COMPOSE_SERVICE 2>&1
+    for i in $(seq 1 120); do
+        STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://0.0.0.0:${ELN_PORT}/mydb")
+        if [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "302" ]; then
+            break
+        fi
+        sleep 2
+    done
+    echo "Chemotion restarted (status $STATUS_CODE)"
     echo "**SUCCESS**"
     exit 0
 fi

@@ -1,0 +1,107 @@
+services:
+
+  dbupgrade:
+    image: ptrxyz/chemotion:dbupgrade-2.2.0
+    volumes:
+      - chemotion_db:/var/lib/postgresql/data/
+    restart: "no"
+  db:
+    image: ptrxyz/chemotion:db-2.2.0
+    restart: unless-stopped
+    hostname: db
+    ports:
+    - 54320:5432
+    depends_on:
+      dbupgrade:
+        condition: service_completed_successfully
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+    - chemotion_db:/var/lib/postgresql/data/
+    networks:
+    - chemotion
+  msconvert:
+    image: ptrxyz/chemotion:msconvert-2.2.0
+    restart: unless-stopped
+    hostname: msconvert
+    volumes:
+    - spectra:/shared:rw
+    networks:
+    - chemotion
+  spectra:
+    image: complat/dev:spectra-1.3.2
+    restart: unless-stopped
+    hostname: spectra
+    volumes:
+    - spectra:/shared:rw
+    depends_on:
+    - msconvert
+    networks:
+    - chemotion
+  worker:
+    image: complat/chemotion_eln_stage:next-release
+    restart: unless-stopped
+    environment:
+    - CONFIG_ROLE=worker
+    - SECRET_KEY_BASE=3b4576cc0m927897n56v
+    - PUBLIC_URL=https://chemotion.knmf.kit.edu
+    depends_on:
+    - db
+    - eln
+    - spectra
+    volumes:
+    - chemotion_data:/chemotion/data/
+    - chemotion_app:/chemotion/app
+    networks:
+    - chemotion
+  eln:
+    image: complat/chemotion_eln_stage:next-release
+    restart: unless-stopped
+    env_file: .env
+    environment:
+    - CONFIG_ROLE=eln
+    - SECRET_KEY_BASE=3b4576cc0m927897n56v
+    - PUBLIC_URL=http://0.0.0.0:3579
+    depends_on:
+    - db
+    - spectra
+    volumes:
+    - ./shared/pullin:/shared
+    - ./shared/backup:/backup
+    - chemotion_data:/chemotion/data/
+    - chemotion_app:/chemotion/app
+    ports:
+    - 3579:4000
+    networks:
+    - chemotion
+  ketchersvc:
+    image: ptrxyz/chemotion:ketchersvc-2.2.0
+    restart: unless-stopped
+    init: true
+    environment:
+    - STARTUPDELAY=30
+    - CONFIG_KETCHER_URL=http://eln:4000/ketcher/
+    depends_on:
+      eln:
+        condition: service_healthy
+    networks:
+    - chemotion
+  converter:
+    image: complat/dev:converter-v1.7.0
+    restart: unless-stopped
+    environment:
+    - SECRET_KEY=3b4576cc0m927897n56v
+    volumes:
+    - ./services/converter/profiles:/srv/chemotion/profiles
+    - ./services/converter/datasets:/srv/chemotion/datasets
+    - ./services/converter/htpasswd:/srv/chemotion/htpasswd
+    networks:
+    - chemotion
+volumes:
+  chemotion_app:
+  chemotion_data:
+  chemotion_db:
+  spectra:
+networks:
+  chemotion: null

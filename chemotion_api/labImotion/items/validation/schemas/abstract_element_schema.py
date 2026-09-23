@@ -36,6 +36,9 @@ generic_element_schema = {
             "type": ["string", "null"]
         },
         "sync_time": {},
+        "metadata": {
+            "type": ["object", "null"]
+        },
         "created_by": {
             "type": "number"
         },
@@ -63,8 +66,6 @@ generic_element_schema = {
         "released_at",
         "identifier",
         "sync_time",
-        "created_by",
-        "updated_by",
         "created_at",
         "updated_at",
     ]

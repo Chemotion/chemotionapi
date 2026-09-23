@@ -69,8 +69,9 @@ def pytest_sessionstart(session):
 
         CHEMOTION_PROCESS = subprocess.Popen(path, shell=True, executable='/bin/bash', cwd=path_dir,
                                              env=dict(os.environ, **CONFIG),
+                                             stdin=subprocess.DEVNULL,
                                              stdout=subprocess.PIPE,
-                                             stderr=subprocess.PIPE)
+                                             stderr=subprocess.STDOUT)
 
         while True:
             line = CHEMOTION_PROCESS.stdout.readline().decode("utf-8")
@@ -82,7 +83,7 @@ def pytest_sessionstart(session):
                 Thread(target=write_proces_logs, args=()).start()
                 break
 
-        if CONFIG["WAIT_FOR_MANUAL_RESTART"] != 0:
+        if CONFIG["WAIT_FOR_MANUAL_RESTART"] != '0':
             print("Waiting for manual restart of the Chemotion Server...")
             input("Press Enter to continue...")
 
