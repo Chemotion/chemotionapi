@@ -2,11 +2,17 @@ from enum import Enum
 
 
 class EnumConnector(Enum):
+    """
+    Connects a search condition with the conditions before it
+    """
     AND = 'AND'
     OR = 'OR'
 
 
 class EnumMatch(Enum):
+    """
+    How a field is compared with the search value. LIKE and NOT_LIKE are case insensitive.
+    """
     LIKE = 'ILIKE'
     NOT_LIKE = 'NOT ILIKE'
     LESS_THAN = '<'

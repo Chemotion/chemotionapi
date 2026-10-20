@@ -38,10 +38,12 @@ CHEMOTION_PROCESS: subprocess.Popen | None = None
 def set_config():
     global CONFIG, DEFAULT_CONFIG
 
-    file = "config.json"
-
-    with open(file, "r") as jsonfile:
-        data = json.load(jsonfile)
+    # config.json is local (gitignored); without it the defaults and environment variables are used
+    file = os.path.join(os.path.dirname(__file__), "config.json")
+    data = {}
+    if os.path.isfile(file):
+        with open(file, "r") as jsonfile:
+            data = json.load(jsonfile)
 
     for key, val in DEFAULT_CONFIG.items():
         CONFIG[key] = str(os.getenv(key, data.get(key, val)))

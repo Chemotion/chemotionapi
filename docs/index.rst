@@ -6,7 +6,7 @@
 Welcome to ChemotionAPI's documentation!
 ========================================
 
-This is a python api for [Chemotion](https://chemotion.net/). Chemotion is a Electronic Laboratory Notebook (ELN) it is developed at
+This is a python api for `Chemotion <https://chemotion.net/>`_. Chemotion is an Electronic Laboratory Notebook (ELN) developed at
 the KIT. Chemotion is a web-based platform designed to help researchers manage and organize their experimental data in a secure and
 efficient manner.
 
@@ -28,8 +28,10 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    ReactionDetails
    WellplateDetails
    GenericElementsDetails
+   Segments
    Attachments
    Analyses
+   Search
 
 
 Indices and tables

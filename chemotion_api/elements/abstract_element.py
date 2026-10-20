@@ -61,6 +61,9 @@ class Dataset(dict):
 
     @property
     def json_data(self) -> dict:
+        """
+        The raw data of the dataset as sent by the server
+        """
         return self._json_data
 
     @property
@@ -81,8 +84,8 @@ class Dataset(dict):
         """
         Writes the BagIT zip file.
 
-        :param destination: Director where the BagIT should be saved to
-        :return: Abs filepath of the BagIT zip
+        :param destination: Directory or file path where the BagIT should be saved to
+        :return: filepath of the BagIT zip
         """
         image_url = "/api/v1/attachments/zip/{}".format(self.id)
         res = self._session.get(image_url)
@@ -102,8 +105,8 @@ class Dataset(dict):
         """
         Writes the metadata set as xlsx.
 
-        :param destination: Director where the BagIT should be saved to.
-        :return: Abs filepath of the BagIT zip.
+        :param destination: Directory or file path where the xlsx file should be saved to.
+        :return: filepath of the xlsx file.
         """
         image_url = "/api/v1/export_ds/dataset/{}".format(self.id)
         res = self._session.get(image_url)
@@ -121,7 +124,7 @@ class Dataset(dict):
 
     def to_clean_json(self):
         """
-        Cleans the data as perpetration to be saved
+        Writes the edited metadata back into the raw data as preparation to be saved
         """
         ds = self._json_data.get('dataset')
         if ds is not None:
@@ -129,6 +132,9 @@ class Dataset(dict):
             ds['changed'] = True
 
     def save_attachments(self):
+        """
+        Do not use this method! It is automatically used before the element is saved!
+        """
         self.attachments.save()
         self.json_data['attachments'] = [x for x in self.attachments]
 
@@ -136,7 +142,10 @@ class Dataset(dict):
 class Analyses(dict):
     """
     An analysis consists of a list of metadata schemas and associated data files.
-    The schemas can be edited. And the files can be read and saved to your local device
+    The schemas can be edited. And the files can be read and saved to your local device.
+
+    The analysis is a dict with the keys ``name``, ``description`` and, if set, ``report``, ``status``,
+    ``kind`` and ``content``. Its datasets are in the list ``datasets``.
     """
 
     def __init__(self, data: dict, session: Connection):
@@ -165,8 +174,8 @@ class Analyses(dict):
 
     def add_dataset(self, file_path: str) -> Dataset:
         """
-        Loads a datafile up  and creates a new dataset.
-        The Chemotion Instance will convert the date file and create a metadate set accordingly.
+        Uploads a datafile and creates a new dataset. The file is uploaded when the element is saved.
+        The Chemotion Instance will convert the data file and create a metadata set accordingly.
         However, this process only works if a Converter profile has been created
 
         :param file_path: the path on your local device to the datafile
@@ -185,6 +194,8 @@ class Analyses(dict):
 
         :param name: Name of the dataset
         :return: A Dataset object
+
+        :raises StopIteration: if no dataset has this name
         """
         return next(x for x in self.datasets if x.name == name)
 
@@ -239,7 +250,7 @@ class Analyses(dict):
 
     def save_attachments(self):
         """
-        Do not use this methode! It is automatically used before the element is saved!
+        Do not use this method! It is automatically used before the element is saved!
         """
 
         for i, d in enumerate(self.datasets):
@@ -247,7 +258,7 @@ class Analyses(dict):
 
     def clean_up_after_save(self):
         """
-        Do not use this methode! It is automatically used after the element is saved!
+        Do not use this method! It is automatically used after the element is saved!
         """
 
         self._data['is_new'] = False
@@ -273,7 +284,7 @@ class AnalysesList(list):
     >>> # Download of all analysis files of data set 'V2024_08_23' from 'Analyses MT 1'
     >>> analyses = s.analyses.by_name('Analyses MT 1')
     >>> dataset = analyses.dataset_by_name('V2024_08_23')
-    >>> os.makedirs('./TO_DEL', exist_ok=True)
+    >>> os.makedirs('./dataset_files', exist_ok=True)
     >>> for atta in dataset.attachments:
     >>>     atta.save_file('./dataset_files')
     >>> # Change value in the metadate set
@@ -289,22 +300,50 @@ class AnalysesList(list):
         self.conn = conn
 
     def by_name(self, name: str) -> Analyses:
+        """
+        Find an analysis by its name.
+
+        :param name: Name of the analysis
+        :return: the first analysis with this name
+
+        :raises StopIteration: if no analysis has this name
+        """
         return next(x for x in self if x['name'] == name)
 
     def by_id(self, id: str | int) -> Analyses:
+        """
+        Find an analysis by its database id.
+
+        :param id: ID of the analysis
+        :return: the analysis
+
+        :raises StopIteration: if no analysis has this id
+        """
         return next(x for x in self if str(x.id) == str(id))
 
     def add_analyses(self, name: str = 'New') -> Analyses:
+        """
+        Adds a new, empty analysis. It is created when the element is saved.
+
+        :param name: Name of the analysis
+        :return: the new analysis
+        """
         new_a = Analyses(AnalysesManager.build_new_analyses(), self.conn)
         self.append(new_a)
         new_a['name'] = name
         return new_a
 
     def save_attachments(self):
+        """
+        Do not use this method! It is automatically used before the element is saved!
+        """
         for ana in self:
             ana.save_attachments()
 
     def clean_up_after_save(self):
+        """
+        Do not use this method! It is automatically used after the element is saved!
+        """
         for ana in self:
             ana.clean_up_after_save()
 
@@ -316,6 +355,20 @@ class Segment(dict):
     Select fields hold the option key (the label is accepted as well), system-defined fields hold
     ``{'value': ..., 'unit': ...}``. Changed values are checked against the segment template on save.
     Use :meth:`field_type`, :meth:`options` and :meth:`units` to look up what a field accepts.
+
+    Every generic segment available for the element type is a key. A segment the element does not
+    have yet has the value None; :meth:`get` adds it with the default values of the template.
+
+    Usage::
+
+    >>> s = instance.get_sample(1)
+    >>> # Adds the segment 'Electrochemistry' if the sample does not have it yet
+    >>> cell = s.segments.get('Electrochemistry')['Cell']
+    >>> # [{'key': 'traditional', 'label': 'disk'}, {'key': 'mesh', 'label': 'mesh'}]
+    >>> s.segments.options('Electrochemistry', 'Cell', 'Electrode type')
+    >>> cell['Electrode type'] = 'disk'  # stored as the key 'traditional'
+    >>> cell['Temperature'] = {'value': 25, 'unit': 'C'}
+    >>> s.save()
     """
 
     def __init__(self, generic_segments: GenericSegments, element_type: str, on_add, *args,
@@ -332,6 +385,15 @@ class Segment(dict):
             self[seg.get('label')] = super().get(seg.get('label'))
 
     def get(self, key):
+        """
+        Returns the values of a segment. If the element does not have the segment yet, it is added
+        with the default values of the template.
+
+        :param key: segment name
+        :return: the segment values ``{layer: {field: value}}``
+
+        :raises TypeError: if there is no segment of this name for the element type
+        """
         val = super().get(key)
         if val is None:
             seg = next((x for x in self._all_seg_classes if x.get('label') == key), None)
@@ -344,10 +406,14 @@ class Segment(dict):
 
     def field(self, segment: str, layer: str, field: str) -> SegmentField:
         """
+        Looks up the template of a segment field.
+
         :param segment: segment name as used as key in this dict
         :param layer: layer name as used in the segment
         :param field: field name as used in the layer
         :return: the template field
+
+        :raises KeyError: if the segment, layer or field does not exist
         """
         if self._field_lookup is None:
             raise TypeError('Field lookup is not available for these segments.')
@@ -355,19 +421,29 @@ class Segment(dict):
 
     def field_type(self, segment: str, layer: str, field: str) -> str:
         """
+        Parameters as in :meth:`field`.
+
         :return: type of the field, e.g. 'text', 'select', 'integer' or 'system-defined'
         """
         return self.field(segment, layer, field).type
 
     def options(self, segment: str, layer: str, field: str) -> list[dict[str, str]]:
         """
+        Parameters as in :meth:`field`.
+
         :return: options of a select field as ``[{'key': ..., 'label': ...}]``
+
+        :raises TypeError: if the field is not a select field
         """
         return self.field(segment, layer, field).options()
 
     def units(self, segment: str, layer: str, field: str) -> list[str]:
         """
+        Parameters as in :meth:`field`.
+
         :return: units of a system-defined field
+
+        :raises TypeError: if the field is not a system-defined field
         """
         return self.field(segment, layer, field).units()
 
@@ -375,7 +451,14 @@ class Segment(dict):
 class AbstractElement:
     """
     This abstract element is the basis for all chemotion-api elements. It provides all the necessary functions and properties to work with these elements.
-    It contains. For more details check the Element classes out.
+    For more details check the Element classes out.
+
+    Attributes:
+
+    * ``json_data``: the raw data of the element as sent by the server
+    * ``json_ld``: JSON-LD description of the element. It contains ``@id`` and ``@type``
+    * ``last_update``: time of the last update on the server
+    * ``is_new``: True if the element has not been saved yet
     """
 
     def __init__(self, generic_segments: GenericSegments, session: Connection, json_data: dict = None, id: int = None,
@@ -412,6 +495,9 @@ class AbstractElement:
 
     @property
     def name(self) -> str:
+        """
+        The name of the element
+        """
         return self._name
 
 
@@ -424,9 +510,9 @@ class AbstractElement:
     @property
     def short_label(self) -> str | None:
         """
-        The short label of en element if available
+        The short label of an element if available
 
-        :return: short label of en element
+        :return: short label of an element
         """
         return self._short_label
 
@@ -451,8 +537,9 @@ class AbstractElement:
     @property
     def segments(self) -> Segment:
         """
-        Contains all segments (tabs) of elements in Chemotion.
-        It contains generic elements as well as the proerties and the analyses segment
+        Contains all segments (tabs) of elements in Chemotion: ``{segment: {layer: {field: value}}}``.
+        It contains the generic segments as well as the 'Properties' and the 'Analyses' segment.
+        A generic segment the element does not have yet is None; use ``segments.get(name)`` to add it.
 
         :return: Segment object
         """
@@ -461,7 +548,7 @@ class AbstractElement:
     @property
     def attachments(self) -> Attachments | None:
         """
-        Attachment container of the element. This s None if the element has no Attachments
+        Attachment container of the element. This is None if the element has no Attachments
 
         :return: Attachments container
         """
@@ -474,7 +561,7 @@ class AbstractElement:
     @property
     def id(self) -> int:
         """
-        Database ID of the element
+        Database ID of the element. A new (not yet saved) element has a UUID string instead.
 
         :return: Database ID of the element
         """
@@ -504,7 +591,7 @@ class AbstractElement:
     @property
     def element_type(self) -> str:
         """
-        Element type: is either 'sample', 'sample', 'reaction', 'wellplate', 'research_plan' or if the element is a generic one it is only 'element'
+        Element type: is either 'sample', 'reaction', 'wellplate', 'research_plan' or, if the element is a generic one, the name of its generic element type
 
         :return: The element type
         """
@@ -513,7 +600,7 @@ class AbstractElement:
     @element_type.setter
     def element_type(self, element_type_val: str):
         """
-        Element type: is either 'sample', 'sample', 'reaction', 'wellplate', 'research_plan' or if the element is a generic one it is only 'element'
+        Element type: is either 'sample', 'reaction', 'wellplate', 'research_plan' or, if the element is a generic one, the name of its generic element type
         Has to be set if json data is not available at the moment of creation
         """
         self._element_type = element_type_val
@@ -610,9 +697,13 @@ class AbstractElement:
         """
         Saves or creates an object according to the set properties. It overwrites the
         json_data entries by the values set in the segments object.
+        New attachments and datasets are uploaded as well.
 
+        :param load_after_save: If true, the element is reloaded from the server after saving
+
+        :raises ValueError: If a changed segment value does not fit its field
         :raises RequestException: If request was not successful
-        :raises jsonschema.exceptions.ValidationError: If the properties ar not valid
+        :raises jsonschema.exceptions.ValidationError: If the properties are not valid
         """
         if not self._data_loaded and not self.is_new:
             _attachment_data, json_data = self._load_data_from_server()
@@ -650,7 +741,7 @@ class AbstractElement:
         Takes the values from the segments object and attachment object
         and overwrites the json_data values accordingly.
 
-        :raises jsonschema.exceptions.ValidationError: If the properties ar not valid
+        :raises jsonschema.exceptions.ValidationError: If the properties are not valid
 
         :return: cleaned data
         """
@@ -776,7 +867,7 @@ class AbstractElement:
 
         :param name: The name of the element type
 
-        :return: 
+        :return: the key of the element in the server response
         """
         if name == 'sample':
             return 'sample'

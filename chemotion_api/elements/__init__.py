@@ -16,6 +16,14 @@ class ElementSet(list):
     """
     The ElementSet class allows you to access all elements of a type in a collection.
     You can iterate over them or filter them using an IRI filter.
+
+    The elements are loaded page by page (``per_page`` elements per request). Iterating over the set
+    loads all pages one after another. Indexing (``elements[12]``) loads the page containing the
+    element and fully loads the element. Slicing (``elements[:5]``) returns a list. Negative indices are
+    not supported. If an IRI filter is set, the set can only be iterated.
+
+    Elements loaded as part of a list may not contain all information. Call
+    :meth:`chemotion_api.elements.abstract_element.AbstractElement.load` to load the full element.
     """
 
     def __init__(self, session: Connection, element_type: dict,
@@ -33,6 +41,11 @@ class ElementSet(list):
         self._fixed_length = fixed_length
 
     def set_iri_filter(self, iri):
+        """
+        Only elements of this JSON-LD type are returned when iterating.
+
+        :param iri: JSON-LD type (``element.json_ld['@type']``)
+        """
         self._iri_filter = iri
 
     def __len__(self):
@@ -80,7 +93,10 @@ class ElementSet(list):
             yield x
 
     @property
-    def page(self):
+    def page(self) -> int:
+        """
+        The currently loaded page (starting at 1). Setting it loads the page.
+        """
         return self._page
 
     @page.setter
@@ -98,6 +114,11 @@ class ElementSet(list):
         return False
 
     def iter_elements(self, start_page=1):
+        """
+        Iterates over all elements, starting at a page.
+
+        :param start_page: first page to be loaded
+        """
         self._page = start_page - 1
         while self._set_page(self.page + 1):
             for elem in super().__iter__():
@@ -105,20 +126,44 @@ class ElementSet(list):
                     yield elem
 
     def iter_pages(self):
+        """
+        Iterates over all pages. Each step loads the next page and yields the set itself.
+        """
         self._page = 0
         while self._set_page(self.page + 1):
             yield self
 
     def next_page(self):
+        """
+        Loads the next page if there is one.
+
+        :return: the set itself
+        """
         self._set_page(self.page + 1)
         return self
 
     def prev_page(self):
+        """
+        Loads the previous page if there is one.
+
+        :return: the set itself
+        """
         self._set_page(self.page - 1)
         return self
 
     def load_elements(self, per_page: Optional[int] = None, updated_to_date: Optional[datetime] = None,
                       updated_from_date: Optional[datetime] = None, product_only: bool = False):
+        """
+        Loads the current page of elements from the server.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+        :param product_only: If True only samples which are products in a reaction are returned
+
+        :raises ValueError: if the set does not belong to a collection
+        :raises RequestException: if the request was not successful
+        """
         if per_page is not None:
             self._per_page = per_page
         if self._collection_id is None:
@@ -164,6 +209,12 @@ class ElementSet(list):
             self.append(self._get_element_class()(segments, self._session, json_data=json_data))
 
     def load_element(self, id: int) -> AbstractElement:
+        """
+        Loads one element by its database id and adds it to the set.
+
+        :param id: Database ID of the element
+        :return: the element
+        """
         segments = GenericSegments(self._session)
         s = self._get_element_class()(segments, self._session, id=id,
                                       element_type=self._element_type['name'])
@@ -171,6 +222,12 @@ class ElementSet(list):
         return s
 
     def new_element(self, json_data: dict, **kwargs) -> AbstractElement:
+        """
+        Creates an element from JSON data and adds it to the set. The element is not saved.
+
+        :param json_data: JSON data of the element as sent by the server
+        :return: the element
+        """
         segments = GenericSegments(self._session)
         s = self._get_element_class()(segments, self._session, json_data=json_data, **kwargs)
         self.append(s)

@@ -33,6 +33,10 @@ def _col_path_join(path_part: str, *path_parts: str) -> str:
 
 
 class SyncPermission(Enum):
+    """
+    Permission level used to share (synchronize) a collection with other users or groups.
+    Each level includes the rights of the levels above it.
+    """
     Read = 0
     Write = 1
     Share = 2
@@ -95,7 +99,7 @@ class AbstractCollection:
         """
         Prepares the label of a collection
 
-        :param case_insensitive: If true it returns teh lower case label
+        :param case_insensitive: If true it returns the lower case label
 
         :return: The collection's label
         """
@@ -148,10 +152,11 @@ class AbstractCollection:
 
     def find(self, label: str | None = None, **kwargs) -> list[typing.Union['AbstractCollection', 'Collection']]:
         """
-        Finds a collection by its label or other properties. Path is not needed.
+        Finds collections by label or other properties in this collection and all of its
+        descendants. A path is not needed.
 
-        :param label: String or None.
-        :param kwargs: Other properties used to search Collections
+        :param label: label of the collection or None.
+        :param kwargs: Other properties (attribute name = value) used to search Collections, e.g. ``id=12``
 
         :return: All found Collections
         """
@@ -171,9 +176,9 @@ class AbstractCollection:
 
     def get_path(self) -> str:
         """
-        Generates the absolut path of collection
+        Generates the absolute path of the collection, e.g. ``'/Projects/Team One'``
 
-        :return: Absolut path of a collection
+        :return: Absolute path of a collection
         """
 
         abs_path = []
@@ -199,12 +204,16 @@ class AbstractCollection:
 
     def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> 'AbstractCollection':
         """
-        Gets a collection a path points to.
+        Gets a collection a path points to. Relative paths (e.g. ``'P 123'``) start
+        at this collection, absolute paths (e.g. ``'/Projects/P 123'``) at the root collection.
+        ``.`` and ``..`` are not supported.
 
         :param col_path: is either a string based on a unix path or a list
-        :param case_insensitive: If true the cases of path are taken into account
+        :param case_insensitive: If true, the path is matched ignoring upper and lower case
 
         :return: Collection the path points to
+
+        :raises ModuleNotFoundError: if the collection does not exist
         """
 
         abs_path = self.get_path()
@@ -216,10 +225,10 @@ class AbstractCollection:
                                  case_insensitive: bool = False) -> TAbstractCollection:
         """
         Gets or creates a collection the col_path path points to. If the collection needs to be created
-        the collection is saved right away.
+        the collection is saved right away. Missing parent collections are not created.
 
         :param col_path: is either a string based on a unix path or a list
-        :param case_insensitive: If true the cases of path are taken into account
+        :param case_insensitive: If true, the path is matched ignoring upper and lower case
 
         :return: Collection the path points to
         """
@@ -252,9 +261,11 @@ class AbstractCollection:
     def get_elements_of_iri(self, element_type: str, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
                       updated_from_date: Optional[datetime] = None) -> ElementSet:
         """
-        Gets all elements of given IRI type.
+        Gets all elements of given IRI type (``element.json_ld['@type']``).
+        Since the filter is applied on the client side, the returned set has no length and cannot be indexed;
+        iterate over it instead.
 
-        :param element_type: IRI string chemotion:xxx/xxx/xxx
+        :param element_type: IRI string chemotion:xxx/xxx/xxx (see :meth:`chemotion_api.Instance.get_all_types`)
         :param per_page: How many Elements per page
         :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
         :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
@@ -401,6 +412,7 @@ class AbstractEditableCollection(AbstractCollection):
         """
         Creates a new sample with a molecule generated with a smiles code in this collection.
 
+        :param smiles_code: SMILES code of the molecule
         :return: New (unsaved) Sample
         """
         sample = self._create_new_element('sample')
@@ -412,6 +424,7 @@ class AbstractEditableCollection(AbstractCollection):
         """
         Creates a new solvent in this collection.
 
+        :param name: Name of a predefined solvent (see :meth:`chemotion_api.Instance.get_solvent_list`)
         :return: New (unsaved) solvent as Sample
         """
         root = self.get_root()
@@ -472,7 +485,7 @@ class AbstractEditableCollection(AbstractCollection):
 
     def new_element_by_iri(self, element_type: str) -> AbstractElement:
         """
-        Creates a new element of given IRI type. However, if the type is generic the generated element is of the newest type.
+        Creates a new element of given IRI type. However, if the type is generic the generated element is of the newest version.
 
         :param element_type: IRI string chemotion:xxx/xxx/xxx
 
@@ -495,7 +508,9 @@ class AbstractEditableCollection(AbstractCollection):
 
 class Collection(AbstractEditableCollection):
     """
-    The collection object represents the standard collection owned by the current user
+    The collection object represents the standard collection owned by the current user.
+    Changes to the collection tree (add, move, delete) are only sent to the server when
+    :meth:`chemotion_api.collection.RootCollection.save` is called.
     """
 
     def __init__(self, collection_json: dict = None):
@@ -555,12 +570,11 @@ class Collection(AbstractEditableCollection):
 
     def move(self, dest: str | list[str], case_insensitive: bool = False):
         """
-        Moves this collection to a dest path.
+        Moves this collection into the collection at the dest path.
+        Relative paths start at the parent of this collection. The move is not saved.
 
         :param dest: is either a string based on a unix path or a list
-        :param case_insensitive: If true the cases of path are taken into account
-
-        :return: Collection the path points to
+        :param case_insensitive: If true, the path is matched ignoring upper and lower case
         """
 
         abs_path = self.get_path()
@@ -569,7 +583,7 @@ class Collection(AbstractEditableCollection):
 
     def delete(self):
         """
-        Deletes this collection.
+        Deletes this collection. The deletion is not saved.
         """
         abs_path = self.get_path()
         self.get_root().delete(abs_path)
@@ -588,10 +602,12 @@ class Collection(AbstractEditableCollection):
 
     def share(self, permission_level: SyncPermission, *users: Person | Group):
         """
-        To synchronize a collection with a set of users or groups
+        Shares (synchronizes) a collection with a set of users or groups. The request is sent right away.
 
         :param permission_level: Element from SyncPermission
-        :param users: a list of users or groups
+        :param users: users or groups
+
+        :raises ConnectionError: if the collection could not be shared
         """
         data = {
             "collection_attributes": {
@@ -617,7 +633,7 @@ class Collection(AbstractEditableCollection):
 
 class RootSyncCollection(AbstractCollection):
     """
-    This can be used amost like the root collection object.
+    This can be used almost like the root collection object. It contains all collections shared with you.
     However, you cannot move, delete or create its child collections
     """
 
@@ -657,10 +673,11 @@ class RootCollection(AbstractCollection):
     >>> rc = instance.get_root_collection(True)
     >>> # Navigate to collection 'Team One' in 'Projects'
     >>> col = rc.get_collection('/Projects/Team One')
-    >>> # Create collection 'P 123' in '/Project/Team One'
-    >>> col.get_or_create_collection('./P 123')
-    >>> # Move collection P 122 into collection '/Done Projects'
-    >>> col.get_collection('./P 122').move('/Done Projects')
+    >>> # Create collection 'P 123' in '/Projects/Team One'
+    >>> col.get_or_create_collection('P 123')
+    >>> # Move collection P 122 into collection '/Done Projects' and save the change
+    >>> col.get_collection('P 122').move('/Done Projects')
+    >>> rc.save()
     >>> for sample in col.get_samples():
     >>>     pass # Do something
     """
@@ -680,7 +697,7 @@ class RootCollection(AbstractCollection):
         """
         The 'All' collection ID
 
-        :return: Ihe ID of the 'All' collection
+        :return: The ID of the 'All' collection
         """
 
         if self._id is None:
@@ -722,9 +739,9 @@ class RootCollection(AbstractCollection):
 
     def load_collection(self) -> dict[str,dict]:
         """
-        Load collection information
+        Loads the collection tree from the server. Unsaved changes are lost.
 
-        :return: A collection off all collection information
+        :return: information of the 'All' collection
         """
 
         collection_url = '/api/v1/collections/roots.json'
@@ -760,7 +777,7 @@ class RootCollection(AbstractCollection):
 
     def save(self):
         """
-        Saves ALL updates of done to owned (not synced) collection.
+        Saves ALL updates done to owned (not synced) collections and reloads the collection tree.
         """
 
         collection_url = '/api/v1/collections'
@@ -777,7 +794,7 @@ class RootCollection(AbstractCollection):
         Gets a collection a path points to.
 
         :param col_path: is either a string based on a unix path or a list
-        :param case_insensitive: If true the cases of path are taken into account
+        :param case_insensitive: If true, the path is matched ignoring upper and lower case
 
         :return: Collection the path points to
         """
@@ -793,13 +810,11 @@ class RootCollection(AbstractCollection):
 
     def move(self, src: str | list[str], dest: str | list[str], case_insensitive: bool = False):
         """
-        Moves a collection from a src path to a dest path.
+        Moves a collection from a src path into the collection at the dest path. The move is not saved.
 
         :param src: is either a string based on a unix path or a list
         :param dest: is either a string based on a unix path or a list
-        :param case_insensitive: If true the cases of path are taken into account
-
-        :return: Collection the path points to
+        :param case_insensitive: If true, the path is matched ignoring upper and lower case
         """
 
         prepared_src = self._prepare_path(src, case_insensitive)
@@ -815,10 +830,10 @@ class RootCollection(AbstractCollection):
 
     def delete(self, src: str | list[str], case_insensitive: bool = False):
         """
-        Deletes a collection at the src path.
+        Deletes a collection at the src path. The deletion is not saved.
 
         :param src: is either a string based on a unix path or a list
-        :param case_insensitive: If true the cases of path are taken into account
+        :param case_insensitive: If true, the path is matched ignoring upper and lower case
         """
 
         prepared_src = self._prepare_path(src, case_insensitive)

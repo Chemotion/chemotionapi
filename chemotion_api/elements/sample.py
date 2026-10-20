@@ -19,6 +19,11 @@ from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quanti
 
 
 class GasPhaseObj(FixedDict):
+    """
+    Gas phase data of a gas product in a gas-phase reaction. Only the predefined keys can be set:
+    ``time``, ``temperature`` and ``turnover_frequency`` (dicts with ``value`` and ``unit``),
+    ``turnover_number`` and ``part_per_million``.
+    """
     default_val = {
         "time": {
             "unit": "h",
@@ -49,6 +54,7 @@ class GasPhaseObj(FixedDict):
 
     @property
     def ppm(self) -> float:
+        """Gas concentration in parts per million"""
         return self.data['part_per_million']
 
     @ppm.setter
@@ -57,6 +63,7 @@ class GasPhaseObj(FixedDict):
 
     @property
     def time_in_h(self) -> float:
+        """Reaction time in hours"""
         return convert_value_to_default(**self.data['time'])
 
     @time_in_h.setter
@@ -65,6 +72,7 @@ class GasPhaseObj(FixedDict):
 
     @property
     def temperature_in_k(self) -> float:
+        """Temperature in Kelvin"""
         return convert_value_to_default(**self.data['temperature'])
 
     @temperature_in_k.setter
@@ -100,7 +108,8 @@ class SampleVariationType(Enum):
 
 class SolventList(list):
     """
-    In generale it contains a list of molecules. It allows to add molecules from the solvents list.
+    A list of the solvents of a sample. Each entry is a dict with ``label``, ``smiles``, ``inchikey`` and ``ratio``.
+    It allows to add molecules from the predefined solvent list or by SMILES code.
     """
 
     def __init__(self, session: Connection, *args):
@@ -128,7 +137,9 @@ class SolventList(list):
         """
         Add a solvent from the solvent list by name
 
-        :param name: Solvent Name
+        :param name: Solvent Name (see :meth:`chemotion_api.Instance.get_solvent_list`)
+
+        :raises KeyError: if the name is not in the solvent list
         """
 
         solvent_info = get_solvent_list().get(name)
@@ -148,15 +159,19 @@ class SolventList(list):
 
 class Molecule(MutableMapping):
     """
-    Contains the Molecule information. This class extents MutableMapping and can be used as normal dict object.
-    However, it ensures that the following keys are set and used if the sample which contains the molecule is saved.
+    Contains the Molecule information. This class extends MutableMapping and can be used as normal dict object.
+    It contains all data sent by the server and ensures that the following keys are set:
+    ``boiling_point``, ``molecular_weight``, ``exact_molecular_weight``, ``cano_smiles``, ``density``,
+    ``inchikey``, ``inchistring``, ``melting_point`` and ``sum_formular``.
 
-    :key: "boiling_point" {float}
-    :key: "cano_smiles" {str}
-    :key: "density" {float}
-    :key: "inchikey" {str}
-    :key: "inchistring" {str}
-    :key: "melting_point" {float}
+    When the sample containing the molecule is saved, only these keys are sent:
+
+    :key boiling_point: {float}
+    :key cano_smiles: {str}
+    :key density: {float}
+    :key inchikey: {str}
+    :key inchistring: {str}
+    :key melting_point: {float}
     """
 
     def __init__(self, data):
@@ -187,6 +202,9 @@ class Molecule(MutableMapping):
         return key
 
     def clean(self) -> dict:
+        """
+        :return: the molecule data sent to the server when the sample is saved
+        """
         return {
             "density": self.all_store.get("density"),
             "melting_point": self.all_store.get("melting_point"),
@@ -199,7 +217,7 @@ class Molecule(MutableMapping):
 
 class MoleculeManager:
     """
-    The MoleculeManager can be used to load and crate molecules in teh Chemotion Instance
+    The MoleculeManager can be used to load and create molecules in the Chemotion Instance
     """
 
     def __init__(self, session: Connection):
@@ -207,10 +225,14 @@ class MoleculeManager:
 
     def create_molecule_by_smiles(self, smiles_code: str, density: float = 0.0) -> Molecule:
         """
-        Creates a new molecule for a given smiles code
+        Creates a new molecule for a given smiles code. If the molecule already exists on the server,
+        the existing molecule is returned.
 
-        :param smiles_code: Simles code of te sample
+        :param smiles_code: SMILES code of the molecule
+        :param density: density of the molecule
         :return: Molecule obj
+
+        :raises ConnectionError: if the molecule cannot be created
         """
         smiles_url = "/api/v1/molecules/smiles"
         payload = {
@@ -253,7 +275,7 @@ class Sample(AbstractElement):
     >>> s.properties["boiling_point_upperbound"] = 50
     >>> # Set the external label to "Sample_X334D"
     >>> s.properties["external_label"] = "Sample_X334D"
-    >>> # Save the structure Image
+    >>> # Save the structure image
     >>> with open("./sample_structure.svg", "wb+") as f:
     >>>     f.write(s.load_image().content)
     >>> # Save the sample
@@ -279,6 +301,9 @@ class Sample(AbstractElement):
 
     @property
     def reaction(self):
+        """
+        The reaction the sample is part of, or None. It is loaded from the server if needed.
+        """
         if self._reaction is None:
             try:
                 self._reaction = self.reload_reaction()
@@ -292,15 +317,28 @@ class Sample(AbstractElement):
         self._reaction = reaction
 
     def reload_reaction(self):
+        """
+        Loads the reaction the sample is part of from the server.
+
+        :raises KeyError: if the sample is not part of a reaction
+        """
         from chemotion_api import Instance
         try:
-            return Instance(self._session).get_reaction(self.json_data['tag']['taggable_data']['reaction_id'])
-        except (KeyError, IndexError):
+            # A new sample has no tag (None)
+            reaction_id = self.json_data['tag']['taggable_data']['reaction_id']
+        except (KeyError, IndexError, TypeError):
+            reaction_id = None
+        if reaction_id is None:
             raise KeyError(f'Could not find Reaction of Sample: {self}')
+        return Instance(self._session).get_reaction(reaction_id)
 
     @property
     def role_in_reaction(self) -> Literal[
         'starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
+        """
+        The material list of the reaction the sample is in: 'starting_materials', 'reactants', 'products',
+        'solvents' or 'purification_solvents'. None if the sample is not part of a reaction.
+        """
         if self._role_in_reaction is None:
             self._role_in_reaction = self.reload_role_in_reaction()
         return self._role_in_reaction
@@ -333,33 +371,41 @@ class Sample(AbstractElement):
         through the chemotion api from the main tab of the sample.
 
 
-        :key solvent: {:class:`chemotion_api.elements.abstract_element.SolventList`}
+        :key solvent: {:class:`chemotion_api.elements.sample.SolventList`}
         :key description: {str}
         :key external_label: {str}
-        :key boiling_point_lowerbound: {float}
-        :key boiling_point_upperbound: {float}
-        :key melting_point_lowerbound: {float}
-        :key melting_point_upperbound: {float}
-        :key target_amount: {dict} has a unit {str} ('l', 'g' or 'mol') and an amount {float}. The amount of the sample used as starting material or reactant.
+        :key boiling_point_lowerbound: {int}
+        :key boiling_point_upperbound: {int}
+        :key melting_point_lowerbound: {int}
+        :key melting_point_upperbound: {int}
+        :key target_amount: {dict} has a unit {str} ('l', 'g' or 'mol') and a value {float}. The amount of the sample used as starting material or reactant.
         :key molarity: {dict} with value: float and unit: str
-        :key real_amount: {dict} has a unit {str} ('l', 'g' or 'mol') and an amount {float}. The amount of sample obtained from a reaction.
-        :key stereo: {str}
+        :key real_amount: {dict} has a unit {str} ('l', 'g' or 'mol') and a value {float}. The amount of sample obtained from a reaction.
+        :key stereo: {dict}
         :key location: {str}
         :key is_top_secret: {bool}
         :key is_restricted: {bool}
-        :key purity: {float}
+        :key purity: {float} between 0 (exclusive) and 1
         :key density: {float}
         :key user_labels: {list}
         :key decoupled: {bool}
         :key waste: {bool}
+        :key reference: {bool} True if the sample is the reference material of its reaction
         :key metrics: {str}
         :key sum_formula: {str}
-        :key equivalent: {str}
-        :key coefficient: {str}
+        :key equivalent: {float}
+        :key coefficient: {int} must be > 0
         :key reaction_description: {str}
-        :key gas_type {:class:`chemotion_api.elements.sample.GasType`}
+        :key molecular_mass: {float}
+        :key gas_type: {:class:`chemotion_api.elements.utils.GasType`}
         :key inventory_sample: {bool}
-        :key gas_phase_data: {dict}
+        :key gas_phase_data: {:class:`chemotion_api.elements.sample.GasPhaseObj`} only for gas products
+        :key position: {int} position in the material list of the reaction
+        :key show_label: {bool}
+
+        Setting the amount (``target_amount``, or ``real_amount`` for products), ``equivalent``, ``purity``,
+        ``coefficient``, ``reference`` or ``gas_type`` of a sample in a reaction updates the dependent values of the
+        reaction materials. Amounts can also be set with :meth:`set_amount`.
 
         Readonly properties:
 
@@ -389,20 +435,33 @@ class Sample(AbstractElement):
 
     @property
     def vessel_size(self):
+        """
+        The vessel size of the reaction the sample is part of, or None
+        """
         if self.reaction is None:
             return None
         return self.reaction.properties['vessel_size']
 
     @property
-    def gram(self):
+    def gram(self) -> float:
+        """
+        The amount of the sample in gram. For products the real amount is used, otherwise the target amount.
+        """
         return self._get_converted_amount(QuantityUnit.Gram)
 
     @property
-    def mol(self):
+    def mol(self) -> float:
+        """
+        The amount of the sample in mol. For products the real amount is used, otherwise the target amount.
+        """
         return self._get_converted_amount(QuantityUnit.Mole)
 
     @property
-    def liter(self):
+    def liter(self) -> float:
+        """
+        The amount of the sample in liter. For products the real amount is used, otherwise the target amount.
+        Needs a density or molarity unless the amount is given in liter.
+        """
         return self._get_converted_amount(QuantityUnit.Liter)
 
     def _get_converted_amount(self, output_unit):
@@ -428,6 +487,9 @@ class Sample(AbstractElement):
 
     @property
     def equivalent(self) -> float:
+        """
+        The equivalent of the sample relative to the reference material of its reaction
+        """
         return self.properties['equivalent']
 
     @equivalent.setter
@@ -445,6 +507,10 @@ class Sample(AbstractElement):
 
     @property
     def gas_type(self) -> GasType:
+        """
+        The gas type of the sample. Can only be set if the sample is part of a gas-phase reaction
+        (``reaction.gas_schema``). See :meth:`set_gas_type`.
+        """
         gt = self._properties.get('gas_type', GasType.OFF)
         if self.reaction is None and gt is not GasType.OFF:
             self.set_gas_type(GasType.OFF)
@@ -453,6 +519,9 @@ class Sample(AbstractElement):
 
     @property
     def reference(self) -> bool:
+        """
+        True if the sample is the reference material of its reaction
+        """
         return self.properties['reference']
 
     @reference.setter
@@ -464,6 +533,16 @@ class Sample(AbstractElement):
         self.set_gas_type(gas_type)
 
     def set_gas_type(self, gas_type: GasType | str, reaction_update: bool = True):
+        """
+        Sets the gas type of the sample. Feedstock and catalyst can only be set for starting materials and
+        reactants, gas only for products. A reaction has at most one feedstock and one catalyst; setting a
+        new one resets the old one.
+
+        :param gas_type: the gas type
+        :param reaction_update: if true, the amounts of the reaction materials are updated
+
+        :raises ValueError: if the gas type is not allowed for this sample
+        """
         if isinstance(gas_type, str):
             gas_type = GasType(gas_type)
 
@@ -502,7 +581,7 @@ class Sample(AbstractElement):
 
     def split(self):
         """
-        Splits the sample.
+        Splits the sample. The sample is saved first. The split is not saved.
 
         :return: A new sample object
         :rtype: :class:`chemotion_api.elements.sample.Sample`
@@ -527,7 +606,8 @@ class Sample(AbstractElement):
 
     def copy(self):
         """
-        Splits the sample.
+        Copies the sample. The sample is saved first. The copy gets the next short label of the user
+        and is not saved.
 
         :return: A new sample object
         :rtype: :class:`chemotion_api.elements.sample.Sample`
@@ -548,7 +628,7 @@ class Sample(AbstractElement):
         return Sample(generic_segments=self._generic_segments, session=self._session, json_data=split_sample)
 
     def toggle_decoupled(self):
-        """Decoupls the sample from the molecule"""
+        """Toggles whether the sample is decoupled from its molecule"""
         self.properties['decoupled'] = not self.properties['decoupled']
 
     def clean_data(self, *args, **kwargs):
@@ -692,7 +772,10 @@ class Sample(AbstractElement):
         if value != '____NOT_EXISTING____':
             serialize_data[key] = value
 
-    def allowed_gas_types(self):
+    def allowed_gas_types(self) -> list[GasType]:
+        """
+        :return: the gas types this sample can have, depending on its role in the reaction
+        """
         if self.reaction is None:
             return [GasType.OFF]
         if self.role_in_reaction in ['starting_materials', 'reactants']:
@@ -705,7 +788,11 @@ class Sample(AbstractElement):
             return [GasType.OFF, GasType.GAS]
         return [GasType.OFF]
 
-    def allowed_quantity_units(self):
+    def allowed_quantity_units(self) -> list[QuantityUnit]:
+        """
+        :return: the units the amount of this sample can be set in, depending on its role in the
+            reaction, gas type, density and molarity
+        """
         return self._allowed_quantity_units()
 
     def _allowed_quantity_units(self):
@@ -771,10 +858,27 @@ class Sample(AbstractElement):
             self._properties['reference'] = is_ref
 
     def get_amount(self):
-        key = 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
-        return self._properties[key]
+        """
+        :return: the real amount for products, otherwise the target amount, as dict with ``value`` and ``unit``
+        """
+        return self._properties[self._amount_key()]
+
+    def _amount_key(self) -> str:
+        return 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
 
     def set_amount(self, value: float, unit: Optional[QuantityUnit | str] = None):
+        """
+        Sets the amount of the sample: the real amount for products, otherwise the target amount.
+        The equivalents of the reaction materials are updated.
+
+        :param value: the amount, must be >= 0
+        :param unit: unit of the amount, see :meth:`allowed_quantity_units`. If None, the current unit is kept.
+            With :attr:`QuantityUnit.Equivalent <chemotion_api.elements.utils.QuantityUnit>` the amount is
+            computed from the reference material.
+
+        :raises ValueError: if the unit is not allowed or the value is negative
+        :raises KeyError: if the unit is Yield
+        """
         if isinstance(unit, str):
             unit_str = unit
             unit = QuantityUnit.from_string(unit_str)
@@ -804,14 +908,20 @@ class Sample(AbstractElement):
                 pass
 
     def on_properties_change(self, dict_obj, name, value):
-        try:
-            if name in ['target_amount', 'real_amount']:
-                if len(name) > 1:
-                    dict_copy = {**dict_obj[-1], name[-1]: value[-1]}
-                    self.set_amount(**dict_copy)
-                return False
-        except ValueError:
-            pass
+        if name[0] in ['target_amount', 'real_amount']:
+            amount = {**dict_obj[-1], name[-1]: value[-1]} if len(name) > 1 else dict(value[-1])
+            # In a reaction, the amount of the sample's role goes through set_amount to update the equivalents
+            if self.reaction is not None and name[0] == self._amount_key():
+                try:
+                    self.set_amount(amount.get('value'), amount.get('unit'))
+                    return False
+                except ValueError:
+                    # Unit not (yet) allowed for this sample: store the value as it is
+                    pass
+            if len(name) > 1:
+                return True
+            self._properties[name[0]] = UnitDict(unit=amount.get('unit'), value=amount.get('value'))
+            return False
         if name[-1] == 'vessel_size':
             self._properties[name[-1]] = value[-1]
             return False
@@ -825,19 +935,21 @@ class Sample(AbstractElement):
 
         if name[-1] == 'purity':
             if value[-1] <= 0 or value[-1] > 1:
-                raise ValueError('The purity must be >= 0 and <= 1')
+                raise ValueError('The purity must be > 0 and <= 1')
             else:
                 self._properties[name[-1]] = float(value[-1])
-                self.reaction.update_equivalent()
+                if self.reaction is not None:
+                    self.reaction.update_equivalent()
                 return False
         if name[-1] == 'coefficient':
             if value[-1] <= 0:
                 raise ValueError('The coefficient must be > 0')
             else:
                 self._properties[name[-1]] = int(value[-1])
-                self.reaction.update_equivalent()
+                if self.reaction is not None:
+                    self.reaction.update_equivalent()
                 return False
-        if name[-1] == 'reference':
+        if name[-1] == 'reference' and self.reaction is not None:
             if value[-1]:
                 self.reaction.reference_sample = self
             else:

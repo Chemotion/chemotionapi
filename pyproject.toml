@@ -34,7 +34,7 @@ dev = [
     "ruff>=0.14",
 ]
 docs = [
-    # The runtime/scientific stack is mocked in docs/conf.py, so the docs build without it.
+    # autodoc imports the package, so the docs are built in the project environment (`just docs`).
     # Sphinx pinned <9: enum_tools.autoenum is not yet compatible with Sphinx 9.
     "sphinx>=7,<9",
     "sphinx-rtd-theme>=2",

@@ -8,7 +8,11 @@ class GenericElement(AbstractElement, WorkflowInterface):
     """
     By default Chemotion ELN contains five elements: samples,
     reactions, wellplates, screens, and research plans. Optionally,
-    generic elements can be added by the administration.
+    generic elements can be added by the administration (LabIMotion).
+
+    The properties of a generic element are its layers and fields:
+    ``properties[layer][field] = value``. Layers can be added to the element
+    using its workflow (:meth:`wf_next`) or directly (:meth:`wf_add_layer`).
 
     Usage::
 
@@ -21,6 +25,8 @@ class GenericElement(AbstractElement, WorkflowInterface):
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
     >>> # Get the Element 'plan' with ID 1
     >>> elem = instance.get_generic_by_name('plan', 1)
+    >>> # Set field 'Title' of layer 'General'
+    >>> elem.properties['General']['Title'] = 'My plan'
     >>> elem.save()
 
 
@@ -47,6 +53,9 @@ class GenericElement(AbstractElement, WorkflowInterface):
         return self.json_data
 
     def wf_tree(self) -> dict[str,list]:
+        """
+        :return: the workflow defined by the template as tree of layer labels
+        """
         wf_tree = self.workflow.wf_tree
 
         def reg_wf_tree(wf_tree):
@@ -58,6 +67,9 @@ class GenericElement(AbstractElement, WorkflowInterface):
         return res
 
     def wf_current_workflow(self) -> list[list[str]]:
+        """
+        :return: the workflows of the element, each as list of the labels of its layers
+        """
         current_wf = self.workflow.workflows
         wfs = []
         for wf in current_wf:
@@ -65,9 +77,23 @@ class GenericElement(AbstractElement, WorkflowInterface):
         return wfs
 
     def wf_next_options(self, flat: bool = True) -> list:
+        """
+        :param flat: if true, the options of all workflows are returned in one list
+        :return: the layers which can be added as next step of the workflows. Each option contains the
+            ``layer_id`` and ``wf_id`` to be passed to :meth:`wf_next`
+        """
         return self.workflow.next_options(flat)
 
     def wf_next(self, layer_id: None | str = None, wf_idx: int = 0, wf_id: str = None, **kwargs):
+        """
+        Adds the next layer of a workflow to the element (see :meth:`wf_next_options`).
+
+        :param layer_id: id of the next layer. If None, the first option is used
+        :param wf_idx: index of the workflow, used if wf_id is None
+        :param wf_id: id of the workflow
+
+        :raises ValueError: if no next step is found
+        """
         key, layer = self.workflow.next(
             json_data=self.json_data,
             layer_id=layer_id,
@@ -81,6 +107,14 @@ class GenericElement(AbstractElement, WorkflowInterface):
         parse_generic_object_layer_json(key, layer, self.properties, self._properties_mapping)
 
     def wf_add_layer(self, layer_label: str, pos: int | None = None):
+        """
+        Adds a layer of the template to the element, independent of the workflow.
+
+        :param layer_label: label of the layer
+        :param pos: position of the layer
+
+        :raises ValueError: if the layer is not found
+        """
         key, layer = self.workflow.add_layer(
             json_data=self.json_data,
             layer_label=layer_label,
