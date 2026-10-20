@@ -56,7 +56,7 @@ class MaterialList(TypedList):
         try:
 
             element.set_amount(**element.get_amount())
-        except ValueError or KeyError:
+        except (ValueError, KeyError):
             element.set_amount(0, element.allowed_quantity_units()[0])
 
     def append_no_split(self, element: Sample):
@@ -129,15 +129,20 @@ class SampleVariation:
         if self.is_ref:
             raise ValueError("Sample type must not be the reference material.")
         self._values['amount']['value'] = self._get_ref_amount() * value
-        self._values['equivalent']['value'] = self._get_ref_amount() * value
+        self._values['equivalent']['value'] = value
 
     def set_yield(self, value):
+        """
+        Sets the yield of a product.
+
+        :param value: yield in percent (e.g. 85 for 85 %)
+        """
         if self._sample_type != SampleVariationType.PRODUCT:
             raise ValueError("Sample type must be PRODUCT.")
         if self.is_ref:
             raise ValueError("Sample type must not be the reference material.")
-        self._values['amount']['value'] = self._get_ref_amount() * value
-        self._values['amount']['yield'] = value
+        self._values['amount']['value'] = self._get_ref_amount() * value / 100
+        self._values['yield']['value'] = value
 
     def _update_equivalent(self):
         if 'mass' in self._values:
@@ -145,9 +150,9 @@ class SampleVariation:
         if 'volume' in self._values:
             self._values['volume']['value'] = self.get_volume()
         if 'yield' in self._values:
-            self._values['yield']['value'] = value = self.get_equivalent_or_yield()
+            self._values['yield']['value'] = self.get_equivalent_or_yield() * 100
         if 'equivalent' in self._values:
-            self._values['equivalent']['value'] = value = self.get_equivalent_or_yield()
+            self._values['equivalent']['value'] = self.get_equivalent_or_yield()
 
     def _set_quantity_from_sample(self):
         value = self._sample.get_amount()
@@ -175,7 +180,7 @@ class SampleVariation:
         elif unit == QuantityUnit.Mole.value:
             self._values['amount']['value'] = value
         elif unit == QuantityUnit.Liter.value and self._values['aux']['molarity'] != 0:
-            self._values['amount']['value'] = (value / self._values['aux']['molarity'])
+            self._values['amount']['value'] = value * self._values['aux']['molarity']
         else:
             raise ValueError(f"{self._sample_type.value} can't be quantified as {unit}.")
         self._update_equivalent()
@@ -195,13 +200,16 @@ class SampleVariation:
         if self._values['volume']['value']:
             return self._values['volume']['value']
         elif self._values['aux']['molarity']:
-            return self.get_amount() * self._values['aux']['molarity']
+            return self.get_amount() / self._values['aux']['molarity']
         elif self._values['aux']['density']:
             return self.get_mass() / (self._values['aux']['density'] * 1000)
         return 0
 
     def get_mass(self):
-        return self.get_amount() * self._values['aux']['purity'] / self._molecular_weight()
+        purity = self._values['aux']['purity']
+        if not purity:
+            return 0
+        return self.get_amount() * self._molecular_weight() / purity
 
     def _molecular_weight(self):
         if not self._values['aux']['molecularWeight']:
@@ -777,7 +785,7 @@ class Reaction(AbstractElement):
         else:
             serialize_data['status'] = self.json_data.get('status')
 
-        if self.properties.get('purification') is list:
+        if isinstance(self.properties.get('purification'), list):
             serialize_data['purification'] = [x for x in self.properties.get('purification') if
                                               x in PURIFICATION_OPTIONS]
         else:
