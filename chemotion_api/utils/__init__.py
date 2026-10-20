@@ -5,7 +5,9 @@ import uuid
 from abc import ABC
 from collections.abc import MutableMapping, MutableSequence
 from collections import OrderedDict
-from typing import Optional
+from typing import Any, Optional
+
+from chemotion_api.utils.segment_fields import SegmentField
 
 
 class PropertyDict(MutableMapping):
@@ -169,8 +171,11 @@ def parse_generic_object_layer_json(key, layer, values, obj_mapping):
     obj_mapping[key] = temp_layer.get('obj_mapping')
 
 
-def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str = None) -> dict[str, any]:
+def clean_generic_field(field_obj: dict, values: Any, field_mapping: dict | str | None = None,
+                        select_options: dict | None = None) -> dict[str, Any]:
     sub_fields = field_obj.get('sub_fields')
+    if field_obj.get('type') in ('select', 'system-defined', 'integer'):
+        values = _check_generic_field_value(field_obj, values, select_options)
     if type(sub_fields) is list and len(sub_fields) > 0:
         if field_obj.get('type') == 'input-group':
             for (idx, val) in enumerate(values):
@@ -205,9 +210,30 @@ def clean_generic_object_json(segment_json_data: dict, values: dict, mapping: di
                 field_key = field_mapping
             elif type(field_mapping) is dict:
                 field_key = field_mapping.get('__field')
-            fields = segment_json_data.get('properties').get('layers').get(layer_key).get('fields')
+            properties: dict = segment_json_data['properties']
+            fields = properties.get('layers').get(layer_key).get('fields')
             field_obj = next((x for x in fields if x.get('field') == field_key), None)
-            clean_generic_field(field_obj, value_ob, field_mapping)
+            clean_generic_field(field_obj, value_ob, field_mapping, properties.get('select_options'))
+
+
+def _check_generic_field_value(field_obj: dict, values: Any, select_options: dict | None) -> Any:
+    """
+    Checks a changed value of a select, system-defined or integer field against the template and
+    returns it in the stored format. Unchanged values are returned as they are, so data loaded from
+    the server can always be saved again.
+    """
+    current: Any
+    if field_obj.get('type') == 'system-defined':
+        current = {'value': field_obj.get('value'), 'unit': field_obj.get('value_system')}
+    else:
+        current = field_obj.get('value')
+    if values == current:
+        return values
+    field = SegmentField(field_obj, '', select_options)
+    try:
+        return field.clean_value(values)
+    except ValueError as e:
+        raise ValueError(f'Invalid value for field "{field.label}": {e}') from None
 
 
 def merge_dicts(*args) -> dict:

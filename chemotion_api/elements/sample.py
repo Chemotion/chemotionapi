@@ -435,6 +435,15 @@ class Sample(AbstractElement):
         self.properties['equivalent'] = equivalent
 
     @property
+    def is_mixture(self) -> bool:
+        """
+        True if the sample is a mixture. Mixtures are only partially supported: their components are
+        passed through unchanged, and they can't be quantified in reaction variations.
+        """
+        sample_type = self.properties.get('sample_type', (self.json_data or {}).get('sample_type'))
+        return sample_type == SampleType.SAMPLE_TYPE_MIXTURE.value
+
+    @property
     def gas_type(self) -> GasType:
         gt = self._properties.get('gas_type', GasType.OFF)
         if self.reaction is None and gt is not GasType.OFF:

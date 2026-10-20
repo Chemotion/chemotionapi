@@ -10,6 +10,7 @@ from chemotion_api.elements.sample import Sample, SampleVariationType
 from chemotion_api.elements.utils import QuantityUnit, GasType
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict
+from chemotion_api.utils.segment_fields import SegmentField, VARIATION_FIELD_TYPES, iter_fields
 from collections.abc import MutableSequence
 
 
@@ -161,6 +162,8 @@ class SampleVariation:
     def set_quantity(self, value: float, unit: str | QuantityUnit | None):
         # TODO: Gas Type not None elements!!!
         # ToDo: How are Gas Types calculated (Volume ????)
+        if self._sample.is_mixture:
+            raise NotImplementedError("Quantities of mixtures in variations are not supported yet.")
         if value is None:
             value = 0.0
         if isinstance(unit, QuantityUnit):
@@ -282,6 +285,72 @@ class SampleVariation:
         raise ValueError(f'Sample type: {self._sample_type.value} is not supported.')
 
 
+class VariationSegments(dict):
+    """
+    Segment values of one reaction variation: ``{segment: {layer: {field: value}}}``, named like
+    ``reaction.segments``. Only text, integer, select and system-defined fields can be varied.
+
+    Select fields take the option key or label, system-defined fields take ``{'value': ..., 'unit': ...}``
+    or a number in the field's default unit. Accessing a segment the variation does not have adds it with
+    default values. On save, every variation of the reaction gets the same segments.
+    """
+
+    def __init__(self, raw: dict, segment_klasses: Callable[[], dict[str, dict]]):
+        super().__init__()
+        self._segment_klasses = segment_klasses
+        # Segments without an active template are passed through unchanged
+        self._unknown = {}
+        for label, entries in raw.items():
+            klass = segment_klasses().get(label)
+            if klass is None:
+                self._unknown[label] = entries
+                continue
+            super().__setitem__(label, {
+                layer: {name: field.from_variation_entry(entries[field.variation_key])
+                        if field.variation_key in entries else field.default_variation_value()
+                        for name, field in fields.items()}
+                for layer, fields in self._fields(klass).items()})
+
+    def __missing__(self, label: str) -> dict:
+        klass = self._segment_klasses().get(label)
+        if klass is None:
+            raise KeyError(f'"{label}" is not an active reaction segment.')
+        values = {layer: {name: field.default_variation_value() for name, field in fields.items()}
+                  for layer, fields in self._fields(klass).items()}
+        super().__setitem__(label, values)
+        return values
+
+    @staticmethod
+    def _fields(klass: dict) -> dict[str, dict[str, SegmentField]]:
+        fields: dict[str, dict[str, SegmentField]] = {}
+        for layer, name, field in iter_fields(klass.get('properties_release', {})):
+            if field.type in VARIATION_FIELD_TYPES:
+                fields.setdefault(layer, {})[name] = field
+        return fields
+
+    def clean(self) -> dict:
+        """
+        :return: segments in the format of the Chemotion frontend, with an entry for every field
+        :raises ValueError: if a value does not fit its field
+        """
+        cleaned = dict(self._unknown)
+        for label, values in self.items():
+            entries = {}
+            for layer, fields in self._fields(self._segment_klasses()[label]).items():
+                layer_values = values.get(layer, {})
+                unknown = set(layer_values) - set(fields)
+                if unknown:
+                    raise KeyError(f'Segment "{label}", layer "{layer}" has no variable field(s) {sorted(unknown)}.')
+                for name, field in fields.items():
+                    value = layer_values.get(name, field.default_variation_value())
+                    try:
+                        entries[field.variation_key] = field.to_variation_entry(value)
+                    except ValueError as e:
+                        raise ValueError(f'Variation segment "{label}": {e}') from None
+            cleaned[label] = entries
+        return cleaned
+
+
 class Variation:
     def __init__(self):
         self.id = -1
@@ -291,6 +360,7 @@ class Variation:
         self._ref_mat = None
         self._materials = {}
         self._analyses = None
+        self._segments = None
 
     def get_ref_amount(self):
         if self._ref_mat is None:
@@ -301,12 +371,14 @@ class Variation:
 
     def populate(self, json_data: dict, analyses: AnalysesList, starting_materials: MaterialList,
                  reactants: MaterialList,
-                 products: MaterialList, solvents: MaterialList, vessel_size: dict):
+                 products: MaterialList, solvents: MaterialList, vessel_size: dict,
+                 segment_klasses: Callable[[], dict[str, dict]]):
         self._json_data = json_data
         self.id = self._json_data['id']
         self._properties = json_data['properties']
         self.notes = json_data['metadata']['notes']
         self._analyses = analyses
+        self._segments = VariationSegments(json_data.get('segments', {}), segment_klasses)
         self._materials = {
             SampleVariationType.STARTING_MATERIAL: [
                 self.sample_variation_factory(x, SampleVariationType.STARTING_MATERIAL, vessel_size) for x in
@@ -350,6 +422,7 @@ class Variation:
     def clean(self):
         self._json_data['properties'] = self._properties
         self._json_data['metadata']['notes'] = self.notes
+        self._json_data['segments'] = self._segments.clean()
         for sample_type, sample_variations in self._materials.items():
             self._json_data[sample_type.value] = {}
             for sample_variation in sample_variations:
@@ -372,6 +445,13 @@ class Variation:
         return self._properties
 
     @property
+    def segments(self) -> VariationSegments:
+        """
+        Segment values of this variation: ``{segment: {layer: {field: value}}}``.
+        """
+        return self._segments
+
+    @property
     def starting_materials(self) -> list[SampleVariation]:
         return self._materials[SampleVariationType.STARTING_MATERIAL]
 
@@ -391,9 +471,11 @@ class Variation:
 class Variations(MutableSequence):
     def __init__(self, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList,
                  products: MaterialList,
-                 solvents: MaterialList, vessel_size: Callable[[], dict]):
+                 solvents: MaterialList, vessel_size: Callable[[], dict],
+                 segment_klasses: Callable[[], dict[str, dict]] = dict):
         # Initialize the list with given items
         self._data = list()
+        self._segment_klasses = segment_klasses
         self._materials = {'starting_materials': starting_materials, 'reactants': reactants, 'products': products,
                            'solvents': solvents}
         self._highest_id = 0
@@ -403,7 +485,8 @@ class Variations(MutableSequence):
     def populate(self, json_data: dict):
         for variation in json_data:
             v = Variation()
-            v.populate(variation, self._analyses, **self._materials, vessel_size=self._get_vessel_size())
+            v.populate(variation, self._analyses, **self._materials, vessel_size=self._get_vessel_size(),
+                       segment_klasses=self._segment_klasses)
             self.append(v)
             self._highest_id = max(self._highest_id, variation['id'])
 
@@ -419,7 +502,8 @@ class Variations(MutableSequence):
         self._highest_id += 1
         variation = self.empty_variation(self._highest_id)
         v = Variation()
-        v.populate(variation, self._analyses, **self._materials, vessel_size=self._get_vessel_size())
+        v.populate(variation, self._analyses, **self._materials, vessel_size=self._get_vessel_size(),
+                   segment_klasses=self._segment_klasses)
         self.append(v)
         return v
 
@@ -441,6 +525,7 @@ class Variations(MutableSequence):
                 "notes": "",
                 "analyses": []
             },
+            "segments": {},
             "reactants": {},
             "products": {},
             "solvents": {},
@@ -451,6 +536,11 @@ class Variations(MutableSequence):
         self._data = sorted(self._data, key=lambda v: v.id)
 
     def clean(self):
+        # The frontend builds its columns from the first variation, so all variations need the same segments
+        segment_labels = {label for variation in self._data for label in variation.segments}
+        for variation in self._data:
+            for label in segment_labels:
+                variation.segments[label]
         return [variation.update_and_clean(self._get_vessel_size()) for variation in self._data]
 
     def _prepare_variation(self, json_data: dict):
@@ -624,7 +714,8 @@ class Reaction(AbstractElement):
             for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents']:
                 mat_samples[reaction_elm_names] = self.properties[reaction_elm_names]
             self._variations = Variations(self.analyses, **mat_samples,
-                                          vessel_size=lambda: self.properties.get('vessel_size'))
+                                          vessel_size=lambda: self.properties.get('vessel_size'),
+                                          segment_klasses=self._variation_segment_klasses)
             self._variations.populate(self.json_data['variations'])
 
         return self._variations
@@ -855,6 +946,10 @@ class Reaction(AbstractElement):
             self.update_amount()
             return False
         return True
+
+    def _variation_segment_klasses(self) -> dict[str, dict]:
+        return {klass.get('label'): klass for klass in self._generic_segments.all_classes
+                if klass.get('element_klass', {}).get('name') == 'reaction' and klass.get('is_active', True)}
 
     def _clean_variations(self) -> dict:
         cleand_data = self.variations.clean()

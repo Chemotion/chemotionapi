@@ -4,6 +4,7 @@ import re
 import uuid
 from datetime import datetime
 from operator import truediv
+from collections.abc import Callable
 from typing import Optional, Self
 
 import dateutil.parser
@@ -15,6 +16,7 @@ from chemotion_api.connection import Connection
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
 
 from chemotion_api.generic_segments import GenericSegments
+from chemotion_api.utils.segment_fields import SegmentField, iter_fields
 from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
     clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer, PropertyDict
 
@@ -308,8 +310,18 @@ class AnalysesList(list):
 
 
 class Segment(dict):
-    def __init__(self, generic_segments: GenericSegments, element_type: str, on_add, *args, **kwargs):
+    """
+    All segments (tabs) of an element: ``{segment: {layer: {field: value}}}``.
+
+    Select fields hold the option key (the label is accepted as well), system-defined fields hold
+    ``{'value': ..., 'unit': ...}``. Changed values are checked against the segment template on save.
+    Use :meth:`field_type`, :meth:`options` and :meth:`units` to look up what a field accepts.
+    """
+
+    def __init__(self, generic_segments: GenericSegments, element_type: str, on_add, *args,
+                 field_lookup: Callable[[str, str, str], SegmentField] | None = None, **kwargs):
         super().__init__(*args, **kwargs)
+        self._field_lookup = field_lookup
         self._generic_segments = generic_segments
         self._all_seg_classes = [seg for seg in generic_segments.all_classes if
                                  seg.get('element_klass').get('name') == element_type]
@@ -329,6 +341,35 @@ class Segment(dict):
             key = add_to_dict(self, key, None)
             val = self[key] = self._on_add(key, new_seq_obj)
         return val
+
+    def field(self, segment: str, layer: str, field: str) -> SegmentField:
+        """
+        :param segment: segment name as used as key in this dict
+        :param layer: layer name as used in the segment
+        :param field: field name as used in the layer
+        :return: the template field
+        """
+        if self._field_lookup is None:
+            raise TypeError('Field lookup is not available for these segments.')
+        return self._field_lookup(segment, layer, field)
+
+    def field_type(self, segment: str, layer: str, field: str) -> str:
+        """
+        :return: type of the field, e.g. 'text', 'select', 'integer' or 'system-defined'
+        """
+        return self.field(segment, layer, field).type
+
+    def options(self, segment: str, layer: str, field: str) -> list[dict[str, str]]:
+        """
+        :return: options of a select field as ``[{'key': ..., 'label': ...}]``
+        """
+        return self.field(segment, layer, field).options()
+
+    def units(self, segment: str, layer: str, field: str) -> list[str]:
+        """
+        :return: units of a system-defined field
+        """
+        return self.field(segment, layer, field).units()
 
 
 class AbstractElement:
@@ -553,7 +594,8 @@ class AbstractElement:
         self._segments = Segment(self._generic_segments,
                                  json_data.get('type'),
                                  self._on_add_segment,
-                                 segment_temp.get('values'))
+                                 segment_temp.get('values'),
+                                 field_lookup=self._segment_field)
         add_to_dict(self.segments, 'Properties', self.properties)
         add_to_dict(self.segments, 'Analyses', self.analyses)
 
@@ -698,6 +740,23 @@ class AbstractElement:
             key = add_to_dict(results, a[0].get('label', 'no_label'), temp_segment.get('values'))
             results_mapping[key] = temp_segment.get('obj_mapping')
         return {'values': results, 'obj_mapping': results_mapping}
+
+    def _segment_field(self, segment: str, layer: str, field: str) -> SegmentField:
+        mapping = self._segments_mapping.get(segment)
+        if mapping is not None:
+            segment_json = next(x for x in (self.json_data or {}).get('segments', []) if x.get('id') == mapping['__id'])
+            properties = segment_json.get('properties', {})
+        else:
+            # A segment the element does not have yet: look the field up in the template
+            klass = next((x for x in self._generic_segments.all_classes if x.get('label') == segment
+                          and x.get('element_klass', {}).get('name') == self.element_type), None)
+            if klass is None:
+                raise KeyError(f'"{segment}" is not a generic segment of {self.element_type}.')
+            properties = klass.get('properties_release', {})
+        for layer_name, field_name, segment_field in iter_fields(properties):
+            if layer_name == layer and field_name == field:
+                return segment_field
+        raise KeyError(f'Segment "{segment}" has no field "{field}" in layer "{layer}".')
 
     def _clean_segments_data(self) -> dict:
         res_list = self.json_data.get('segments', [])

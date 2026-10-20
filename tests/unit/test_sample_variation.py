@@ -16,6 +16,7 @@ def _sample(mw=100.0, purity=0.5, molarity=0.0, density=0.0):
                     'amount': {'value': 0, 'unit': 'mol'}},
         molecule={'molecular_weight': mw, 'sum_formular': 'X'},
         get_amount=lambda: {'value': 0, 'unit': 'mol'},
+        is_mixture=False,
     )
 
 
@@ -60,3 +61,10 @@ def test_new_segment_does_not_share_template():
     seg['properties']['layers']['l']['fields'][0]['value'] = 'changed'
     assert template['properties_release']['layers']['l']['fields'][0]['value'] == ''
     assert seg['properties_release']['layers']['l']['fields'][0]['value'] == ''
+
+
+def test_mixture_quantity_not_supported():
+    sv = _variation()
+    sv._sample.is_mixture = True
+    with pytest.raises(NotImplementedError):
+        sv.set_quantity(1, QuantityUnit.Mole)
