@@ -76,7 +76,7 @@ The following nonsensical code snippet introduces the workflow:
 
 Elements can also be found with the advanced search, see :doc:`Search`.
 
-Please note that not all information may be loaded when loading listed elements (through the collection). To reload all information, the *load()* method of the corresponding element can be used.
+Elements in a list are only partially loaded. An element is loaded completely (one request per element) the first time its properties, segments, analyses or attachments are read or changed, so neither reading nor saving uses incomplete data. ``id``, ``name``, ``short_label`` and ``json_data`` are available without loading.
 Elements accessed by index (``col.get_samples()[3]``) are loaded completely.
 
 How to create Elements

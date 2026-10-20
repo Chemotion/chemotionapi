@@ -45,6 +45,10 @@ class Dataset(dict):
     >>> # Write BagIT zip and metadata set as xlsx file
     >>> d1.write_data_set_xlsx('./CWD')
     >>> d1.write_zip('./CWD')
+
+    The dict itself holds only the metadata set: ``{layer: {field: value}}``. It is empty if no metadata
+    has been generated. The dataset's ``id``, ``name`` and ``description`` are attributes
+    (``dataset.name``, not ``dataset['name']``); the raw data is in :attr:`json_data`.
     """
 
     def __init__(self, session: Connection, json_data: dict, attachments: MutableAttachments = None):
@@ -146,7 +150,8 @@ class Analyses(dict):
     The schemas can be edited. And the files can be read and saved to your local device.
 
     The analysis is a dict with the keys ``name``, ``description`` and, if set, ``report``, ``status``,
-    ``kind`` and ``content``. Its datasets are in the list ``datasets``.
+    ``kind`` and ``content``. Its datasets are in the attribute ``datasets`` (``analysis.datasets``, a list of
+    :class:`Dataset`), not in the dict. ``id`` and ``type`` are attributes as well.
     """
 
     def __init__(self, data: dict, session: Connection):
@@ -464,6 +469,8 @@ class AbstractElement:
 
     def __init__(self, generic_segments: GenericSegments, session: Connection, json_data: dict = None, id: int = None,
                  element_type: str = None, avoid_load:bool = False):
+        # Elements from a listing or search are only partially loaded; they load fully on first data access
+        self._is_partial = False
         self._attachments: Attachments | None = None
         self._generic_segments = generic_segments
         self._session = session
@@ -527,12 +534,22 @@ class AbstractElement:
         return PropertyDict(self.on_properties_change, self._properties)
 
     @property
+    def _properties(self) -> dict:
+        self._load_if_partial()
+        return self._properties_data
+
+    @_properties.setter
+    def _properties(self, properties: dict | None):
+        self._properties_data = properties
+
+    @property
     def analyses(self) -> AnalysesList:
         """
         With the analyses object one can read and write all information from the analysis Tab in Chemotion.
 
         :return: Analyses object
         """
+        self._load_if_partial()
         return self._analyses
 
     @property
@@ -544,6 +561,7 @@ class AbstractElement:
 
         :return: Segment object
         """
+        self._load_if_partial()
         return self._segments
 
     @property
@@ -553,6 +571,7 @@ class AbstractElement:
 
         :return: Attachments container
         """
+        self._load_if_partial()
         if self._attachments is None:
             attachments_data = self.json_data.get('attachments')
             if attachments_data is not None:
@@ -634,11 +653,24 @@ class AbstractElement:
         """
 
         self._data_loaded = True
+        self._is_partial = False
 
         attachments_data, json_data = self._load_data_from_server()
         if attachments_data is not None:
             self._attachments = Attachments(self._session, attachments_data)
         self._set_json_data(json_data)
+
+    def mark_partial(self):
+        """
+        Marks the element as partially loaded (e.g. from a listing): it is loaded completely the first time
+        its properties, segments, analyses or attachments are accessed, so neither reading nor saving
+        uses the incomplete data. Used by :class:`chemotion_api.elements.ElementSet`.
+        """
+        self._is_partial = not self.is_new
+
+    def _load_if_partial(self):
+        if self._is_partial:
+            self.load()
 
     def _load_data_from_server(self):
 
@@ -675,7 +707,7 @@ class AbstractElement:
         self.element_type = json_data.get('type')
         self.id = json_data.get('id', self._id)
 
-        self._properties: dict = self._parse_properties()
+        self._properties = self._parse_properties()
         self._analyses: AnalysesList = self._parse_analyses()
         segment_temp = self._parse_segments()
         self._segments_mapping = segment_temp.get('obj_mapping')
@@ -706,6 +738,7 @@ class AbstractElement:
         :raises RequestException: If request was not successful
         :raises jsonschema.exceptions.ValidationError: If the properties are not valid
         """
+        self._load_if_partial()
         if not self._data_loaded and not self.is_new:
             _attachment_data, json_data = self._load_data_from_server()
             self.json_data = json_data

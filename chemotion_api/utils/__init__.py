@@ -26,7 +26,8 @@ class PropertyDict(MutableMapping):
 
     def __getitem__(self, name):
         ret_val = self.data.__getitem__(name)
-        if isinstance(ret_val, dict):
+        # Dict subclasses with their own methods (e.g. Temperature) are returned as they are
+        if type(ret_val) is dict:
             ret_val = PropertyDict(None, ret_val)
         if isinstance(ret_val, PropertyDict):
             def inner_on_change(inner_dict_obj, inner_name, inner_value):

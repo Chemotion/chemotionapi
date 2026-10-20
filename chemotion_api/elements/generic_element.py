@@ -41,9 +41,17 @@ class GenericElement(AbstractElement, WorkflowInterface):
             return "/api/v1/generic_elements/{}".format(self.id)
         return "/api/v1/generic_elements"
 
+    @property
+    def workflow(self) -> Workflow:
+        """
+        The workflow of the element's layers
+        """
+        self._load_if_partial()
+        return self._workflow
+
     def _parse_properties(self) -> dict:
-        self.workflow = Workflow(self.json_data['properties_release'])
-        self.workflow.init_wf(self.json_data)
+        self._workflow = Workflow(self.json_data['properties_release'])
+        self._workflow.init_wf(self.json_data)
         data = parse_generic_object_json(self.json_data)
         self._properties_mapping = data['obj_mapping']
         return data['values']

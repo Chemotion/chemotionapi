@@ -86,3 +86,48 @@ def test_reference_without_materials():
 def test_unit_from_string():
     assert QuantityUnit.from_string('G') is QuantityUnit.Gram
     assert QuantityUnit.from_string(None) is None
+
+
+def test_set_amount_without_stored_unit():
+    # Issue: samples without a persisted amount crashed with AttributeError
+    sample = _sample(target_amount_unit=None, target_amount_value=None)
+    sample.set_amount(None)
+    assert sample.properties['target_amount'].to_dict() == {'value': 0.0, 'unit': 'g'}
+
+
+def test_append_material_without_amount():
+    ref = _sample(1, reference=True)
+    product = _sample(2, real_amount_unit=None, real_amount_value=None)
+    reaction = _reaction([ref])
+    product.reaction = reaction
+    product.role_in_reaction = 'products'
+    reaction.properties['products'].after_append(product)
+    assert product.properties['real_amount']['unit'] == 'g'
+
+
+def test_unknown_unit_message():
+    with pytest.raises(ValueError, match='Allowed units'):
+        _sample().set_amount(1, QuantityUnit.Equivalent)
+
+
+def test_temperature_profile_of_new_reaction():
+    reaction = _reaction([])
+    reaction.properties['temperature'].add_time_point(1, 2, 3, 100)
+    assert reaction.properties['temperature']['data'] == [{'time': '01:02:03', 'value': '100'}]
+
+
+def test_partial_element_loads_before_access(monkeypatch):
+    # Issue: listing elements were saved with their incomplete listing data
+    listing = _sample_json(3, description=None, target_amount_unit=None, target_amount_value=None)
+    full = _sample_json(3, description='Stored cold', target_amount_value=2.0)
+    sample = Sample(SEGMENTS, SESSION, json_data=listing)
+    sample.mark_partial()
+    loads = []
+    monkeypatch.setattr(sample, '_load_data_from_server', lambda: loads.append(1) or (None, full))
+    assert sample.short_label == 'S-3' and loads == []
+    sample.set_amount(1.5, QuantityUnit.Gram)
+    assert loads == [1]
+    assert sample.properties['description'] == 'Stored cold'
+    assert sample.properties['target_amount']['value'] == 1.5
+    sample.properties['description'] = 'x'
+    assert loads == [1]

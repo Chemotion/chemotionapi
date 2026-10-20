@@ -93,7 +93,7 @@ class SearchHelperBase(ABC):
                        False, True)
 
         for val in self._send_request():
-            e.new_element(val)
+            e.new_element(val).mark_partial()
 
         return e
 

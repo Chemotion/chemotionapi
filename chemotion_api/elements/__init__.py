@@ -22,8 +22,9 @@ class ElementSet(list):
     element and fully loads the element. Slicing (``elements[:5]``) returns a list. Negative indices are
     not supported. If an IRI filter is set, the set can only be iterated.
 
-    Elements loaded as part of a list may not contain all information. Call
-    :meth:`chemotion_api.elements.abstract_element.AbstractElement.load` to load the full element.
+    The listing contains only part of the data of each element. An element is loaded completely
+    (one request) the first time its properties, segments, analyses or attachments are accessed.
+    ``id``, ``name``, ``short_label`` and ``json_data`` do not trigger loading.
     """
 
     def __init__(self, session: Connection, element_type: dict,
@@ -206,7 +207,10 @@ class ElementSet(list):
         self.clear()
         elements = res.json().get(self._get_result_key() + 's', [])
         for json_data in elements:
-            self.append(self._get_element_class()(segments, self._session, json_data=json_data))
+            element = self._get_element_class()(segments, self._session, json_data=json_data)
+            # The listing contains only part of the data (e.g. no amounts)
+            element.mark_partial()
+            self.append(element)
 
     def load_element(self, id: int) -> AbstractElement:
         """

@@ -421,6 +421,7 @@ class Sample(AbstractElement):
         """
         The molecule of the sample
         """
+        self._load_if_partial()
         if self._molecule is None:
             return Molecule({})
         return self._molecule
@@ -872,7 +873,8 @@ class Sample(AbstractElement):
         The equivalents of the reaction materials are updated.
 
         :param value: the amount, must be >= 0
-        :param unit: unit of the amount, see :meth:`allowed_quantity_units`. If None, the current unit is kept.
+        :param unit: unit of the amount, see :meth:`allowed_quantity_units`. If None, the current unit is kept,
+            or the first allowed unit is used if the sample has no unit yet.
             With :attr:`QuantityUnit.Equivalent <chemotion_api.elements.utils.QuantityUnit>` the amount is
             computed from the reference material.
 
@@ -889,8 +891,13 @@ class Sample(AbstractElement):
         if unit is None:
             unit = QuantityUnit.from_string(self.properties[key]['unit'])
 
-        if unit not in self.allowed_quantity_units():
-            raise ValueError(f'This sample can set the {unit.value}')
+        allowed_units = self.allowed_quantity_units()
+        if unit is None:
+            # No unit stored yet (e.g. a new sample or a product without real amount): use the default unit
+            unit = allowed_units[0]
+        if unit not in allowed_units:
+            raise ValueError(f'The amount of this sample cannot be set in {unit.value}. '
+                             f'Allowed units: {", ".join(u.value for u in allowed_units)}')
         if value is None:
             value = 0.0
         if value < 0:
