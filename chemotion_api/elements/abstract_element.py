@@ -2,6 +2,7 @@ import json
 import os.path
 import re
 import uuid
+import webbrowser
 from datetime import datetime
 from operator import truediv
 from collections.abc import Callable
@@ -778,6 +779,47 @@ class AbstractElement:
         if not self.is_new:
             return "/api/v1/{}s/{}".format(self.json_data.get('type'), self.id)
         return "/api/v1/{}s/".format(self.json_data.get('type'))
+
+    def url(self, collection_id: int | str | None = None) -> str:
+        """
+        The URL of the element in the Chemotion web client.
+
+        :param collection_id: ID of the collection the element is shown in. If None, a collection of the
+            element is used, or the 'All' collection if none is known.
+        :return: URL of the element
+
+        :raises ValueError: if the element has not been saved yet
+        """
+        if self.is_new:
+            raise ValueError('The element has not been saved yet. Save it before opening it.')
+        if collection_id is None:
+            collection_id = self._web_collection_id()
+        return f"{self._session.host_url}/mydb/collection/{collection_id}/{self.element_type}/{self.id}"
+
+    def open(self, collection_id: int | str | None = None) -> str:
+        """
+        Opens the element in a new tab of the default web browser.
+        You need to be logged in to Chemotion in this browser.
+
+        :param collection_id: ID of the collection the element is shown in, see :meth:`url`
+        :return: URL of the element
+
+        :raises ValueError: if the element has not been saved yet
+        """
+        element_url = self.url(collection_id)
+        webbrowser.open_new_tab(element_url)
+        return element_url
+
+    def _web_collection_id(self) -> int | str:
+        if (self.json_data or {}).get('collection_id') is not None:
+            return self.json_data['collection_id']
+        try:
+            labels = self.json_data['tag']['taggable_data']['collection_labels'] or []
+        except (KeyError, TypeError):
+            labels = []
+        # Shared and synchronized collections have different URLs in the web client
+        owned = next((x for x in labels if not x.get('is_shared') and not x.get('is_synchronized')), None)
+        return owned['id'] if owned is not None else 'all'
 
     def on_properties_change(self, dict_obj, name, value):
         return True

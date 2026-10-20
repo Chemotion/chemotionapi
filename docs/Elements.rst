@@ -129,12 +129,15 @@ All Objects have a set of common properties and methods:
 * ``analyses``: the analyses tab, see :doc:`Analyses`.
 * ``attachments``: the attached files, see :doc:`Attachments`.
 * ``save()`` / ``load()``: writes the element to / reads it from the server.
+* ``open()``: opens the saved element in a new tab of your web browser; ``url()`` returns its URL.
 
 .. code-block:: python
 
     sample = instance.get_sample(3)
     sample.properties['description'] = 'Stored in the fridge'
     sample.save()
+    # Check the result in the Chemotion web client (you need to be logged in in the browser)
+    sample.open()
 
 .. autoclass:: chemotion_api.elements.abstract_element.AbstractElement
     :members:
