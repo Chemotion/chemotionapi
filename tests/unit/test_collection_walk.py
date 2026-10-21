@@ -24,3 +24,8 @@ def test_walk_include_self_and_max_depth():
     assert [c.label for c in root.walk(max_depth=1)] == ['A', 'B']
     assert [c.label for c in root.walk(include_self=True, max_depth=0)] == ['root']
     assert [c.label for c in root.get_collection('/A').walk(include_self=True)] == ['A', 'A1', 'A1a', 'A2']
+
+
+def test_label_aliases():
+    col = _tree().get_collection('/A/A1')
+    assert col.name == col.get_label() == col.get_name() == col.label == 'A1'

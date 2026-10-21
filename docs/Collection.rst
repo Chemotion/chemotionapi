@@ -7,6 +7,7 @@ In the Python API, collections are separated in different classes. The root coll
 is the basic element to work with collections.
 
 Collections are addressed by unix-like paths built from their labels, e.g. ``'/Projects/Team One'``.
+The label can also be read with the aliases ``name``, ``get_label()`` and ``get_name()``.
 Paths starting with ``/`` are absolute, all other paths are relative to the collection the method is called on.
 Changes to the collection tree (add, move, delete) are only sent to the server when
 :meth:`chemotion_api.collection.RootCollection.save` is called;

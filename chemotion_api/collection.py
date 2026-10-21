@@ -95,6 +95,31 @@ class AbstractCollection:
         """
         self._label = label
 
+    @property
+    def name(self) -> str | None:
+        """
+        Alias of :attr:`label` (read only)
+
+        :return: The collection label
+        """
+        return self.label
+
+    def get_label(self) -> str | None:
+        """
+        Alias of :attr:`label`
+
+        :return: The collection label
+        """
+        return self.label
+
+    def get_name(self) -> str | None:
+        """
+        Alias of :attr:`label`
+
+        :return: The collection label
+        """
+        return self.label
+
     def prepare_label(self, case_insensitive: bool) -> str:
         """
         Prepares the label of a collection

@@ -58,6 +58,7 @@ method is called on. `.` and `..` are not supported. `case_insensitive=True` ign
 ```
 AbstractCollection (RootCollection, Collection, RootSyncCollection)
   .id / .label / .children
+  .name / .get_label() / .get_name()                  # read-only aliases of .label
   .get_path() -> str
   .get_root() -> RootCollection
   .find(label=None, **attrs) -> list                  # searches this collection and descendants

@@ -30,7 +30,8 @@ col = root.get_collection('/Projects/Team One')  # raises ModuleNotFoundError if
 col = root.get_or_create_collection('/Projects/Team One/P 123')  # creates + saves the last level only
 sub = col.get_collection('P 123')                # relative to col; './' and '..' do NOT work
 for c in root.walk():                            # every collection in the tree, parent before children
-    print(c.get_path())                          # root.sync_root.walk() for shared ones; max_depth=1 = children only
+    print(c.label, c.get_path())                 # root.sync_root.walk() for shared ones; max_depth=1 = children only
+# c.name, c.get_name() and c.get_label() are read-only aliases of c.label
 
 sample = instance.get_sample(12)                 # also get_reaction / get_wellplate / get_research_plan
 elem = instance.get_generic_by_label('Device', 3)   # generic element by label (or get_generic_by_name)
