@@ -736,7 +736,7 @@ class Temperature(dict):
         :param hour: since the reaction has started
         :param minute: since the reaction has started
         :param second: since the reaction has started
-        :param temperature: temperature in the unit given by 'valueUnit' (default °C)
+        :param temperature: temperature in the unit given by 'valueUnit' (default °C), may be negative
         """
         data = self.get('data')
         if data is None:
