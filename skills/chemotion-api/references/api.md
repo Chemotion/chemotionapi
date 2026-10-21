@@ -61,6 +61,7 @@ AbstractCollection (RootCollection, Collection, RootSyncCollection)
   .get_path() -> str
   .get_root() -> RootCollection
   .find(label=None, **attrs) -> list                  # searches this collection and descendants
+  .walk(include_self=False, max_depth=None) -> Generator   # all descendants, depth-first, parent before children
   .get_collection(path, case_insensitive=False)       # ModuleNotFoundError if missing
   .get_or_create_collection(path, case_insensitive=False)   # saves immediately; parents must exist
   .get_samples(per_page=10, updated_to_date=None, updated_from_date=None, product_only=False) -> ElementSet

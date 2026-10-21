@@ -20,6 +20,20 @@ Changes to the collection tree (add, move, delete) are only sent to the server w
     col.get_collection('P 122').move('/Done Projects')
     root.save()
 
+To iterate over the whole collection tree (or a subtree) use
+:meth:`chemotion_api.collection.RootCollection.walk`. It walks depth-first and yields a parent
+before its children:
+
+.. code-block:: python
+
+    root = instance.get_root_collection()
+    for col in root.walk():                      # every owned collection
+        print(col.get_path(), len(col.get_samples()))
+    for col in root.sync_root.walk():            # every collection shared with you
+        print(col.get_path())
+    sub = root.get_collection('/Projects')
+    list(sub.walk(include_self=True, max_depth=1))   # '/Projects' and its direct children
+
 
 .. autoclass:: chemotion_api.collection.RootCollection
     :members:

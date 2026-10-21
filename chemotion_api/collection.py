@@ -174,6 +174,30 @@ class AbstractCollection:
             results += x.find(**kwargs)
         return results
 
+    def walk(self, include_self: bool = False, max_depth: int | None = None) -> Generator[Self, None, None]:
+        """
+        Walks through the collection tree below this collection (depth-first, pre-order:
+        a parent is yielded before its children).
+
+        Usage::
+
+        >>> for col in instance.get_root_collection().walk():
+        >>>     print(col.get_path())
+
+        :param include_self: If true, this collection is yielded first
+        :param max_depth: Maximum depth below this collection (1 = only direct children). None means no limit
+
+        :return: Generator yielding the collections
+        """
+
+        if include_self:
+            yield self
+        if max_depth is not None and max_depth < 1:
+            return
+        next_depth = None if max_depth is None else max_depth - 1
+        for child in list(self._children):
+            yield from child.walk(include_self=True, max_depth=next_depth)
+
     def get_path(self) -> str:
         """
         Generates the absolute path of the collection, e.g. ``'/Projects/Team One'``
