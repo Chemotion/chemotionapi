@@ -216,6 +216,14 @@ users = instance.find_user_by_name('Smith')        # top 3 matches
 col.share(SyncPermission.Read, *users)              # sent immediately
 ```
 
+Moving elements between collections is sent immediately (no `root.save()`):
+
+```python
+src.move_elements(dest, sample, reaction)   # not from root ('All'): use assign_elements there
+root.assign_elements(dest, sample)          # sample is now in both; same element, not a copy
+dest.remove_elements(sample)                # stays in 'All'; nothing is deleted
+```
+
 ## Show the user
 
 `element.open()` opens the saved element in the browser (the user must be logged in there);

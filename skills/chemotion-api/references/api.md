@@ -69,6 +69,10 @@ AbstractCollection (RootCollection, Collection, RootSyncCollection)
   .get_reactions(...) / .get_research_plans(...) / .get_wellplates(...)
   .get_generics_by_name(name, ...) / .get_generics_by_label(label, ...)
   .get_elements_of_iri(element_type_iri, ...)          # iterate only, no len()/index
+  .move_elements(dest, *elements)     # sent immediately; not from the root ('All') collection
+  .assign_elements(dest, *elements)   # sent immediately; adds to dest too (same element, no duplicate)
+  .remove_elements(*elements)         # sent immediately; element stays in 'All'
+                                      # elements not in this collection are silently ignored
 
 Collection (owned) additionally
   .new_sample() / .new_sample_smiles(smiles) / .new_solvent(name)
@@ -115,6 +119,7 @@ data is accessed (see SKILL.md).
 .save(load_after_save=False)   # Wellplate.save() takes no argument
 .url(collection_id=None) -> str
 .open(collection_id=None) -> str   # opens a browser tab
+.move_to(dest, source) / .assign_to(dest, source=root of dest) / .remove_from(collection)
 ```
 
 ## 5. Sample (`chemotion_api.elements.sample`)

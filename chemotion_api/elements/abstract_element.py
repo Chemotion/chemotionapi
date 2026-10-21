@@ -843,6 +843,36 @@ class AbstractElement:
         webbrowser.open_new_tab(element_url)
         return element_url
 
+    def move_to(self, dest, source):
+        """
+        Moves this element from the source collection into the dest collection. The request is sent right away.
+        See :meth:`chemotion_api.collection.AbstractCollection.move_elements`
+
+        :param dest: Destination collection
+        :param source: Collection the element is currently in (not the root collection)
+        """
+        source.move_elements(dest, self)
+
+    def assign_to(self, dest, source=None):
+        """
+        Adds this element to the dest collection as well. The request is sent right away.
+        See :meth:`chemotion_api.collection.AbstractCollection.assign_elements`
+
+        :param dest: Destination collection
+        :param source: Collection the element is currently in. Defaults to the root ('All') collection of dest,
+            which only works if dest is an owned collection.
+        """
+        (source or dest.get_root()).assign_elements(dest, self)
+
+    def remove_from(self, collection):
+        """
+        Removes this element from the collection. The element is not deleted. The request is sent right away.
+        See :meth:`chemotion_api.collection.AbstractCollection.remove_elements`
+
+        :param collection: Collection the element is currently in (not the root collection)
+        """
+        collection.remove_elements(self)
+
     def _web_collection_id(self) -> int | str:
         if (self.json_data or {}).get('collection_id') is not None:
             return self.json_data['collection_id']

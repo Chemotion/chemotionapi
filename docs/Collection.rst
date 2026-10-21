@@ -35,6 +35,23 @@ before its children:
     sub = root.get_collection('/Projects')
     list(sub.walk(include_self=True, max_depth=1))   # '/Projects' and its direct children
 
+Elements are moved between collections with
+:meth:`chemotion_api.collection.AbstractCollection.move_elements`,
+:meth:`chemotion_api.collection.AbstractCollection.assign_elements` and
+:meth:`chemotion_api.collection.AbstractCollection.remove_elements`
+(or the element methods ``move_to``, ``assign_to`` and ``remove_from``). These requests are sent right away.
+Assigning adds the same element to a second collection, it does not duplicate it.
+Elements cannot be moved or removed from the root ('All') collection:
+
+.. code-block:: python
+
+    src = root.get_collection('/Projects/Team One')
+    dest = root.get_collection('/Done Projects')
+    sample = src.get_samples()[0]
+    src.move_elements(dest, sample)       # or sample.move_to(dest, src)
+    root.assign_elements(src, sample)     # or sample.assign_to(src)
+    src.remove_elements(sample)           # or sample.remove_from(src)
+
 
 .. autoclass:: chemotion_api.collection.RootCollection
     :members:

@@ -307,6 +307,62 @@ class AbstractCollection:
             raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
+    def move_elements(self, dest: 'AbstractCollection', *elements: AbstractElement):
+        """
+        Moves elements from this collection into the dest collection. The request is sent right away.
+        Elements cannot be moved out of the root ('All') collection, use :meth:`assign_elements` instead.
+
+        :param dest: Destination collection (owned or synced with write permission)
+        :param elements: Saved elements contained in this collection. Elements not in this collection are ignored by the server.
+
+        :raises ConnectionError: if the elements could not be moved
+        """
+        self._send_elements_request('put', elements, dest)
+
+    def assign_elements(self, dest: 'AbstractCollection', *elements: AbstractElement):
+        """
+        Adds elements of this collection to the dest collection as well (copy without duplicating the elements).
+        The request is sent right away.
+
+        :param dest: Destination collection (owned or synced with write permission)
+        :param elements: Saved elements contained in this collection. Elements not in this collection are ignored by the server.
+
+        :raises ConnectionError: if the elements could not be assigned
+        """
+        self._send_elements_request('post', elements, dest)
+
+    def remove_elements(self, *elements: AbstractElement):
+        """
+        Removes elements from this collection. The elements are not deleted and stay in the root ('All') collection.
+        The request is sent right away. Elements cannot be removed from the root ('All') collection.
+
+        :param elements: Saved elements contained in this collection
+
+        :raises ConnectionError: if the elements could not be removed
+        """
+        self._send_elements_request('delete', elements)
+
+    def _send_elements_request(self, method: str, elements: tuple[AbstractElement, ...],
+                               dest: Optional['AbstractCollection'] = None):
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        ui_state: dict[str, Any] = {'currentCollection': {'id': self.id, 'is_sync_to_me': self.is_sync}}
+        for element in elements:
+            if element.is_new:
+                raise ValueError('The element has not been saved yet. Save it first.')
+            ui_state.setdefault(element.element_type, {'checkedAll': False, 'checkedIds': []})['checkedIds'].append(element.id)
+        data: dict[str, Any] = {'ui_state': ui_state}
+        if dest is not None:
+            if dest.id is None:
+                raise ValueError(f'Collection "{dest.label}" cannot hold elements')
+            data |= {'collection_id': dest.id, 'is_sync_to_me': dest.is_sync}
+        session = self.get_root()._session
+        # DELETE is not sent as JSON by default
+        res = getattr(session, method)('/api/v1/collections/elements', data=data,
+                                       headers=session.get_json_session_header())
+        if res.status_code != 204:
+            raise ConnectionError(f"{res.status_code} -> {res.text}")
+
     def get_elements_of_iri(self, element_type: str, per_page: Optional[int] = 10, updated_to_date: Optional[datetime] = None,
                       updated_from_date: Optional[datetime] = None) -> ElementSet:
         """
