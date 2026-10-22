@@ -914,7 +914,7 @@ class RootCollection(AbstractCollection):
 
         col_path = self._prepare_path(col_path)
         current_pos = self
-        for col_label in self._prepare_path(col_path):
+        for col_label in self._prepare_path(col_path, case_insensitive):
             current_pos = next((x for x in current_pos.children if
                                 x.prepare_label(case_insensitive) == col_label), None)
             if current_pos is None:
@@ -950,8 +950,9 @@ class RootCollection(AbstractCollection):
         """
 
         prepared_src = self._prepare_path(src, case_insensitive)
-        src_col = self.get_collection(prepared_src)
-        idx = next((i for (i, x) in enumerate(src_col._parent.children) if x.label == prepared_src[-1]), None)
+        src_col = self.get_collection(prepared_src, case_insensitive)
+        idx = next((i for (i, x) in enumerate(src_col._parent.children) if
+                    x.prepare_label(case_insensitive) == prepared_src[-1]), None)
 
         src_col._parent.children.pop(idx)
         src_col._parent = None
@@ -988,8 +989,8 @@ class RootCollection(AbstractCollection):
         if type(col_path) == str:
             if not col_path.startswith('/'): col_path = '/' + col_path
             col_path = [x for x in col_path.strip('/').split('/') if x != '']
-            if case_insensitive:
-                col_path = [x.lower() for x in col_path]
+        if case_insensitive:
+            col_path = [x.lower() for x in col_path]
 
         return col_path
 
