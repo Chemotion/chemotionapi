@@ -2,15 +2,18 @@ import json
 import os
 import re
 import string
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from chemotion_api.labImotion.icons import all_icons
-from chemotion_api.labImotion.items.options import ElementType
+from chemotion_api.labImotion.items.options import ElementType, SaveActionType
 from chemotion_api.labImotion.items.validation import validate_generic_element, validate_generic_dataset, \
     validate_generic_segment, SchemaRegistry
 from chemotion_api.labImotion.base_generic_obj import GenericObj
 from chemotion_api.connection import Connection
 from urllib.parse import urlparse, unquote
+
+if TYPE_CHECKING:
+    from chemotion_api.element_manager import ElementManager
 
 
 class GenericElementKlass(GenericObj):
@@ -46,9 +49,23 @@ class GenericElementKlass(GenericObj):
         super().to_dict()
         self._json_data |= {
             'icon_name': self._icon_name,
-            'name': self.name
+            'name': self.name,
+            'klass_prefix': self.klass_prefix
         }
         return self._json_data
+
+    @property
+    def klass_prefix(self) -> str:
+        """
+        The prefix of the elements' short labels (``<initials>-<prefix><counter>``)
+        """
+        return self._json_data.get('klass_prefix', '')
+
+    @klass_prefix.setter
+    def klass_prefix(self, value: str):
+        if not isinstance(value, str) or value == '':
+            raise TypeError("klass_prefix must be a non-empty string")
+        self._json_data['klass_prefix'] = value
 
     @property
     def icon_name(self) -> str:
@@ -135,8 +152,9 @@ class GenericDataset(GenericObj):
 
 
 class GenericManager():
-    def __init__(self, connection: Connection):
+    def __init__(self, connection: Connection, element_manager: ElementManager | None = None):
         self._connection = connection
+        self._element_manager = element_manager
 
     def load_all_elements(self) -> list[GenericElementKlass]:
         return GenericElementKlass.load_all(self._connection)
@@ -229,19 +247,29 @@ class GenericManager():
     def upload_segment_json(self, file_path: str) -> list[GenericSegment]:
         return GenericSegment.upload(self._connection, file_path)
 
-    def create_new_element(self, label: str, icon_name: str, description: str = '', prefix: str = '', name: str = '') -> \
-            list[GenericElementKlass]:
+    def create_new_element(self, label: str, icon_name: str, description: str = '', prefix: str = '', name: str = '',
+                           release: bool = True, activate: bool = True) -> GenericElementKlass:
         """
-        Creates a new element template.
+        Creates a new element template. By default, an (empty) version 0.1 is released and the template is
+        activated, so elements can be created from it right away. After adding layers and fields, release the
+        template again with ``klass.save(SaveActionType.MINOR)``; new elements always use the latest release.
+
+        >>> klass = gm.create_new_element('Micro Biology', 'bug', prefix='MB')
+        >>> layer = klass.properties.add_new_layer('General')
+        >>> layer.add_field(FieldType.TEXT, 'Strain')
+        >>> klass.save(SaveActionType.MINOR)
 
         :param label: the label shown in Chemotion, e.g. 'Workflow'
         :param icon_name: a Font Awesome 4 icon name, e.g. 'fa-flask'
-        :param description: the description of the template
+        :param description: the description of the template (stored as ``desc``)
         :param prefix: the prefix of the elements' short labels (``<initials>-<prefix><counter>``). If empty, the
             first four letters of the label in capitals are used ('Workflow' -> 'WORK')
         :param name: the internal name. If empty, the first four lowercase letters of the label are used, with
             a letter appended if the name is taken
-        :return: all element templates
+        :param release: if True, the template is released (version 0.1). Unreleased templates are not available
+            for creating elements
+        :param activate: if True, the template is activated. Inactive templates are hidden from users
+        :return: the new template
         """
         all_elements = self.load_all_elements()
         all_names = [x.name for x in all_elements]
@@ -254,9 +282,18 @@ class GenericManager():
         if prefix == '':
             prefix = re.sub(r'[^A-Z]', '', label.upper())[:4]
         icon_name = GenericElementKlass.preprocess_icon_name(icon_name)
-        return GenericElementKlass.create_new(self._connection, klass_prefix=prefix, label=label, icon_name=icon_name,
-                                         name=name,
-                                         desc=description)
+        GenericElementKlass.create_new(self._connection, klass_prefix=prefix, label=label, icon_name=icon_name,
+                                       name=name, desc=description)
+        klass = self.get_element(name)
+        if release:
+            klass.save_template(SaveActionType.MINOR)
+        if activate:
+            klass.is_active = True
+        if release or activate:
+            klass = self.get_element(name)
+        if self._element_manager is not None:
+            self._element_manager.reload()
+        return klass
 
     def create_new_segment(self, label: str, description: str, element: GenericElementKlass) -> list[GenericSegment]:
         all_elements = self.load_all_elements()

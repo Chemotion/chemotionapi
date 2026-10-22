@@ -235,9 +235,15 @@ def clean_generic_field(field_obj: dict, values: Any, field_mapping: dict | str 
 
 
 def clean_generic_object_json(segment_json_data: dict, values: dict, mapping: dict):
+    properties: dict = segment_json_data['properties']
     for (k, v) in values.items():
         layer_mapping = mapping.get(k, {})
         layer_key = layer_mapping.get('__key')
+        layer = properties.get('layers').get(layer_key)
+        if layer is None:
+            available = [name for name in mapping if not name.startswith('__')]
+            raise ValueError(f'Unknown layer "{k}". Available: {", ".join(available)}')
+        fields = layer.get('fields')
         for (value_name, value_ob) in v.items():
             field_mapping = layer_mapping.get(value_name)
             field_key = ''
@@ -245,9 +251,11 @@ def clean_generic_object_json(segment_json_data: dict, values: dict, mapping: di
                 field_key = field_mapping
             elif type(field_mapping) is dict:
                 field_key = field_mapping.get('__field')
-            properties: dict = segment_json_data['properties']
-            fields = properties.get('layers').get(layer_key).get('fields')
             field_obj = next((x for x in fields if x.get('field') == field_key), None)
+            if field_obj is None:
+                available = [name for name in layer_mapping if not name.startswith('__')]
+                raise ValueError(f'Unknown field "{value_name}" in layer "{k}". Fields are named as in the template '
+                                 f'version the element uses. Available: {", ".join(available)}')
             clean_generic_field(field_obj, value_ob, field_mapping, properties.get('select_options'))
 
 

@@ -175,10 +175,15 @@ def test_upload_generic_segment(instance_with_collection):
 def test_new_element(instance_with_collection):
     gm: GenericManager = instance_with_collection['instance'].generic_manager()
     all_gs = gm.load_all_elements()
-    new_all_gs = gm.create_new_element('T TEST', 'american-sign-language-interpreting')
-    assert len(all_gs) == len(new_all_gs) - 1
-    new_all_gs = gm.create_new_element('T TEST', 'american-sign-language-interpreting')
-    assert len(all_gs) == len(new_all_gs) - 2
+    # 'ttes' stays unreleased and inactive; the following tests release it themselves
+    klass = gm.create_new_element('T TEST', 'american-sign-language-interpreting', release=False, activate=False)
+    assert len(all_gs) == len(gm.load_all_elements()) - 1
+    assert klass.name == 'ttes' and not klass.is_active and klass.version is None
+    other = gm.create_new_element('T TEST', 'american-sign-language-interpreting')
+    assert len(all_gs) == len(gm.load_all_elements()) - 2
+    assert other.name == 'ttesa' and other.is_active and other.version == '0.1'
+    # test_new_segment expects the last template to be inactive (and activates it)
+    other.is_active = False
 
 
 

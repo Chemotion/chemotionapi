@@ -40,8 +40,48 @@ workflow (``wf_idx``, ``wf_id``) and template layer (``layer_key``, ``layer_labe
 :meth:`~GenericElement.wf_workflows` lists the layers of each workflow with their ``properties`` key, and
 :meth:`~GenericElement.wf_layer` returns a layer by workflow and label or key: ``elem.wf_layer(1, 'Nr 3')``.
 
+Creating a template
+-------------------
+
+:meth:`~chemotion_api.labImotion.GenericManager.create_new_element` creates a template and returns it. By
+default it releases an empty version 0.1 and activates the template; only released and active templates can
+be used for new elements. Layers and fields are added to ``klass.properties``, and a new release makes them
+available::
+
+    from chemotion_api.labImotion.items.fields import FieldType
+    from chemotion_api.labImotion.items.options import SaveActionType
+
+    gm = instance.generic_manager()
+    klass = gm.create_new_element('Micro Biology', 'bug', description='...', prefix='MB')
+    general = klass.properties.add_new_layer('General')
+    general.add_field(FieldType.TEXT, 'Strain')
+    general.add_field(FieldType.SELECT, 'Growth medium', options=['LB', 'TB'])
+    klass.properties.add_new_layer('Cultivation').add_field(FieldType.INTEGER, 'Temperature (°C)')
+    klass.save(SaveActionType.MINOR)   # release; SaveActionType.DRAFT only stores the template
+
+    elem = collection.new_generic_by_label('Micro Biology')
+    elem.properties['General']['Strain'] = 'E. coli K12'
+    elem.save()
+
+Notes:
+
+* Layer and field keys are generated from the labels (``'Temperature (°C)'`` -> ``temperature_c``) unless
+  given with ``key=`` / ``field=``. Keys must be unique.
+* A SELECT field uses a select option list of the template. ``options=[...]`` creates one for the field;
+  shared lists are created with ``klass.properties.add_select_option(key, values)`` and linked by
+  ``field.option_layers = key``.
+* ``field.required`` and ``field.default`` are stored in the template.
+* Elements address their fields by the labels of the template version they were created with. After a
+  label change, existing elements keep the old names; unknown names raise a ``ValueError`` on save.
+* The ``description`` is stored as ``desc``; the short label prefix is ``klass.klass_prefix``.
+* ``load_all_elements()`` skips templates that do not validate (with a warning); pass ``strict=True`` to
+  :meth:`GenericElementKlass.load_all` to get the error instead.
+* Element types are cached by the instance. :meth:`~chemotion_api.collection.Collection.new_generic_by_label`
+  reloads them if a label is unknown; ``instance.element_manager.reload()`` does it explicitly.
+
 .. autoclass:: chemotion_api.labImotion.GenericManager
-    :members: get_element, get_segment, get_dataset, load_all_elements, load_all_segments, load_all_datasets
+    :members: get_element, get_segment, get_dataset, load_all_elements, load_all_segments, load_all_datasets,
+        create_new_element
 
 .. autoclass:: chemotion_api.elements.generic_element.GenericElement
     :members:

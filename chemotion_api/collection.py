@@ -583,10 +583,16 @@ class AbstractEditableCollection(AbstractCollection):
         :return: GenericElement
         """
 
-        for (elem_name, elem) in self.get_root()._element_manager.all_classes.items():
-            if elem['label'] == label:
-                return typing.cast(GenericElement, self._create_new_element(elem_name))
-        raise ValueError(f'Could not find a generic element with the label: "{label}"')
+        element_manager: ElementManager = self.get_root()._element_manager
+        for reload in (False, True):
+            if reload:
+                # The type may have been created, released or activated after the types were loaded
+                element_manager.reload()
+            for (elem_name, elem) in element_manager.all_classes.items():
+                if elem['label'] == label:
+                    return typing.cast(GenericElement, self._create_new_element(elem_name))
+        raise ValueError(f'Could not find a generic element with the label: "{label}". Only released and '
+                         f'active templates are available')
 
     def new_element_by_iri(self, element_type: str) -> AbstractElement:
         """
@@ -604,6 +610,8 @@ class AbstractEditableCollection(AbstractCollection):
 
     def _create_new_element(self, type_name) -> AbstractElement:
         root = self.get_root()
+        if type_name not in root._element_manager.all_classes:
+            root._element_manager.reload()
         new_json = root._element_manager.build_new(type_name, self.id)
 
         e = ElementSet(root._session, root._element_manager.all_classes.get(type_name), self.id,

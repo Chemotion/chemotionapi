@@ -30,6 +30,14 @@ class ElementManager:
             self.is_loaded = True
         return self._all_classes
 
+    def reload(self):
+        """
+        Clears the cached element types, e.g. after a generic element template was created, released or
+        (de)activated. They are loaded again from the server on the next access.
+        """
+        self._all_classes = None
+        self._all_types = None
+        self.is_loaded = False
 
     @property
     def all_types(self) -> list[str]:

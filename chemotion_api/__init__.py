@@ -446,4 +446,4 @@ class Instance:
 
         :return: a GenericManager
         """
-        return GenericManager(self._con)
+        return GenericManager(self._con, self.element_manager)

@@ -36,7 +36,7 @@ generic_schema = {
         },
         "position": {
             "type": "number",
-            "minimum": 1
+            "minimum": 0
         },
         "timeRecord": {
             "type": "string"

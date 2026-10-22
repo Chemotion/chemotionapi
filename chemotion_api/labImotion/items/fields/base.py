@@ -23,6 +23,7 @@ class BaseField(ChemotionSerializable, ConditionHandler):
         self._label = None
         self._json_data = json_data
         self._default = ""
+        self._required = False
         self._position = 1
         self._sr = sr
         self._layer_key = layer_key
@@ -79,7 +80,9 @@ class BaseField(ChemotionSerializable, ConditionHandler):
 
     @default.setter
     def default(self, value: str):
-        pass
+        if not isinstance(value, str):
+            raise TypeError(f"default {type(value)} not supported")
+        self._default = value
 
     @property
     def field(self) -> str | None:
@@ -116,11 +119,13 @@ class BaseField(ChemotionSerializable, ConditionHandler):
 
     @property
     def required(self) -> bool:
-        return False
+        return self._required
 
     @required.setter
     def required(self, value: bool):
-        pass
+        if not isinstance(value, bool):
+            raise TypeError(f"required {type(value)} not supported")
+        self._required = value
 
     @property
     def sub_fields(self) -> list:

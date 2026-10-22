@@ -14,6 +14,8 @@ def test_all_types(instance_with_collection):
                                                'chemotion:type/cell_line/3.1.2',
                                                'chemotion:generic_type/wrk/2.0',
                                                'chemotion:generic_type/wrk/1.0',
+                                               # released by test_generic_manager.py::test_new_element
+                                               'chemotion:generic_type/ttesa/0.1',
                                                'chemotion:generic_type/try/1.0']
 
 

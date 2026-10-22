@@ -265,6 +265,24 @@ Templates (`instance.generic_manager()`): `get_element(name=None, *, label=None,
 KeyError lists the matches/available templates. The template class is `labImotion.GenericElementKlass`
 (old name `labImotion.GenericElement` still works), not the element class `elements.GenericElement`.
 
+Authoring a template (admin; `FieldType` from `labImotion.items.fields`, `SaveActionType` from `labImotion.items.options`):
+
+```
+k = gm.create_new_element(label, icon_name, description='', prefix='', name='', release=True, activate=True)
+    # -> the new GenericElementKlass; release/activate make it usable right away (empty v0.1)
+layer = k.properties.add_new_layer(label, key='', idx=-1)          # key generated from label; ValueError if taken
+layer.add_field(FieldType.X, label, field='', idx=-1, options=None) # options=[...] only for SELECT
+k.properties.add_select_option(key, values) -> key                 # shared list; link via field.option_layers = key
+field.label / .required / .default                                 # stored in the template
+k.klass_prefix / k.desc / k.label / k.icon_name
+k.save(SaveActionType.MINOR)   # release (new elements use the latest release); DRAFT only stores
+k.is_active = True / False
+instance.element_manager.reload()   # drop cached types (new_generic_by_label also reloads on a miss)
+```
+
+Elements address fields by the labels of *their* template version; unknown layer/field names raise
+ValueError on save. `load_all_elements()` skips invalid templates with a warning (`load_all(con, strict=True)`).
+
 ## 11. Segments (`element.segments`)
 
 ```

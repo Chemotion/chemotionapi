@@ -170,6 +170,8 @@ g.save()
 A layer used twice gets a suffix from its layer key (`three.1` -> `properties['Nr 3.1']`), stable across
 reloads; `g.wf_workflows()` lists each workflow's layers with `key`, `label` and `properties_key`.
 Templates: `instance.generic_manager().get_element('dev', version='1.0')` (also `label=`; reloads every call).
+New type: `gm.create_new_element('Micro Biology', 'bug', prefix='MB')` returns a released, active klass; add
+`k.properties.add_new_layer(...).add_field(FieldType.TEXT, 'Strain')`, then `k.save(SaveActionType.MINOR)` (see api.md §10).
 
 ## Segments (extra tabs, all element types)
 
