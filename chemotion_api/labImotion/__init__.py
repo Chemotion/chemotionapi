@@ -2,7 +2,7 @@ import json
 import os
 import re
 import string
-from typing import Callable, TYPE_CHECKING
+from typing import Callable
 
 from chemotion_api.labImotion.icons import all_icons
 from chemotion_api.labImotion.items.options import ElementType, SaveActionType
@@ -10,10 +10,8 @@ from chemotion_api.labImotion.items.validation import validate_generic_element, 
     validate_generic_segment, SchemaRegistry
 from chemotion_api.labImotion.base_generic_obj import GenericObj
 from chemotion_api.connection import Connection
+from chemotion_api.element_manager import ElementManager
 from urllib.parse import urlparse, unquote
-
-if TYPE_CHECKING:
-    from chemotion_api.element_manager import ElementManager
 
 
 class GenericElementKlass(GenericObj):
