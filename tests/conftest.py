@@ -62,6 +62,18 @@ def write_proces_logs():
             f.write(line.strip() + '\n')
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "integration: needs the test ELN (all tests outside tests/unit)")
+
+
+def pytest_collection_modifyitems(config, items):
+    # Everything outside tests/unit talks to the test ELN
+    unit_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'unit')
+    for item in items:
+        if os.path.commonpath([str(item.path), unit_dir]) != unit_dir:
+            item.add_marker(pytest.mark.integration)
+
+
 def pytest_sessionstart(session):
     global DEFAULT_CONFIG, CONFIG, CHEMOTION_PROCESS
     set_config()

@@ -59,6 +59,8 @@ hits = (instance.search_sample()
 ## Create things
 
 All `new_*` methods return an unsaved object; nothing exists on the server until `save()`.
+Elements cannot be created in the root collection ('All'): `root` has no `new_*` methods
+(AttributeError). Create them in a real collection, e.g. `root.get_or_create_collection('My data')`.
 
 ```python
 s = col.new_sample_smiles('CCO')         # molecule from SMILES (server-side lookup)

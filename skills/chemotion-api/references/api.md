@@ -83,7 +83,7 @@ Collection (owned) additionally
   .delete()                        # local until root.save()
   .share(SyncPermission, *users_or_groups)   # sent immediately; ConnectionError on failure
 
-RootCollection
+RootCollection                     # no new_* methods: elements cannot be created in 'All'
   .save()                          # sends all tree changes and reloads
   .load_collection()               # reload; drops unsaved tree changes
   .sync_root -> RootSyncCollection # collections shared with me (read-only tree)
