@@ -6,7 +6,7 @@ import pytest
 
 import chemotion_api.elements.empty_elements as empty_elements
 from chemotion_api.elements.reaction import Reaction
-from chemotion_api.elements.sample import Sample
+from chemotion_api.elements.sample import Molecule, Sample
 from chemotion_api.elements.utils import QuantityUnit
 
 SESSION = SimpleNamespace(_host_url='http://localhost',
@@ -131,3 +131,34 @@ def test_partial_element_loads_before_access(monkeypatch):
     assert sample.properties['target_amount']['value'] == 1.5
     sample.properties['description'] = 'x'
     assert loads == [1]
+
+
+def test_molecule_density_is_copied_to_sample_without_density_or_molarity():
+    sample = _sample()
+    sample.molecule = Molecule({'id': 2, 'molecular_weight': 46.07, 'density': 0.789})
+    assert sample.properties['density'] == 0.789
+    assert QuantityUnit.Liter in sample.allowed_quantity_units()
+
+
+def test_molecule_molarity_is_copied_to_sample():
+    sample = _sample()
+    sample.molecule = Molecule({'id': 2, 'molecular_weight': 46.07, 'density': 0, 'molarity': 2.5})
+    assert (sample.properties['density'], sample.properties['molarity'].to_dict()) == (0, {'value': 2.5, 'unit': 'M'})
+    sample = _sample()
+    sample.molecule = Molecule({'id': 2, 'molecular_weight': 46.07, 'molarity': {'value': 0.1, 'unit': 'mM'}})
+    assert sample.properties['molarity'].to_dict() == {'value': 0.1, 'unit': 'mM'}
+
+
+def test_molecule_does_not_overwrite_sample_density_or_molarity():
+    sample = _sample(density=1.2)
+    sample.molecule = Molecule({'id': 2, 'molecular_weight': 46.07, 'density': 0.789, 'molarity': 2.5})
+    assert (sample.properties['density'], sample.properties['molarity']['value']) == (1.2, 0)
+    sample = _sample(molarity_value=0.5)
+    sample.molecule = Molecule({'id': 2, 'molecular_weight': 46.07, 'density': 0.789})
+    assert (sample.properties['density'], sample.properties['molarity']['value']) == (0, 0.5)
+
+
+def test_molecule_without_density_or_molarity_changes_nothing():
+    sample = _sample()
+    sample.molecule = Molecule({'id': 2, 'molecular_weight': 46.07, 'density': 0.0})
+    assert (sample.properties['density'], sample.properties['molarity']['value']) == (0, 0)

@@ -223,13 +223,13 @@ class MoleculeManager:
     def __init__(self, session: Connection):
         self._session = session
 
-    def create_molecule_by_smiles(self, smiles_code: str, density: float = 0.0) -> Molecule:
+    def create_molecule_by_smiles(self, smiles_code: str, density: float | None = None) -> Molecule:
         """
         Creates a new molecule for a given smiles code. If the molecule already exists on the server,
         the existing molecule is returned.
 
         :param smiles_code: SMILES code of the molecule
-        :param density: density of the molecule
+        :param density: density of the molecule. If None, the density stored on the server is kept
         :return: Molecule obj
 
         :raises ConnectionError: if the molecule cannot be created
@@ -244,7 +244,8 @@ class MoleculeManager:
         if res.status_code != 201:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         res_json = res.json()
-        res_json['density'] = density
+        if density is not None:
+            res_json['density'] = density
         return Molecule(res_json)
 
     def create_molecule_by_cls(self, host_url, session, inchikey) -> Molecule:
@@ -429,10 +430,28 @@ class Sample(AbstractElement):
     @molecule.setter
     def molecule(self, molecule: Molecule):
         """
-        The molecule of the sample
+        The molecule of the sample. Its density (or molarity) is copied to the sample if the sample has
+        neither a density nor a molarity yet.
         """
 
         self._molecule = molecule
+        self._apply_molecule_density_or_molarity()
+
+    def _apply_molecule_density_or_molarity(self):
+        if self._molecule is None:
+            return
+        properties = self.properties
+        if properties.get('density') or properties['molarity'].get('value'):
+            return
+        density = self._molecule.get('density')
+        # The server does not send a molarity for molecules, but it can be set on the Molecule object
+        molarity = self._molecule.get('molarity')
+        if density:
+            properties['density'] = density
+        elif isinstance(molarity, dict) and molarity.get('value'):
+            properties['molarity'] = {'value': molarity['value'], 'unit': molarity.get('unit') or 'M'}
+        elif isinstance(molarity, (int, float)) and molarity:
+            properties['molarity'] = {'value': molarity, 'unit': 'M'}
 
     @property
     def vessel_size(self):
