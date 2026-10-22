@@ -158,14 +158,23 @@ re-saving wellplates in bulk until that is fixed.
 ```python
 g = instance.get_generic_by_label('Device', 3)
 g.properties['General']['Serial number'] = 'X-12'   # properties[layer label][field label]
-g.wf_next_options()            # next workflow layers; g.wf_next(layer_id=...) adds one
-g.wf_add_layer('Calibration')  # add a template layer directly
+g.label, g.klass_name, g.klass_version          # 'Device', 'dev', '1.0' (the template)
+opt = next(o for o in g.wf_next_options() if o['wf_idx'] == 0 and o['layer_label'] == 'Calibration')
+key = g.wf_next(**opt)                          # returns the new layer's key in g.properties
+g.properties[key]['Result'] = 'ok'
+g.wf_layer(0, 'Calibration')['Result'] = 'ok'   # same layer, addressed by workflow and label/key
+g.wf_add_layer('Calibration')  # add a template layer directly (returns its properties key)
 g.save()
 ```
+
+A layer used twice gets a suffix from its layer key (`three.1` -> `properties['Nr 3.1']`), stable across
+reloads; `g.wf_workflows()` lists each workflow's layers with `key`, `label` and `properties_key`.
+Templates: `instance.generic_manager().get_element('dev', version='1.0')` (also `label=`; reloads every call).
 
 ## Segments (extra tabs, all element types)
 
 `element.segments[segment][layer][field]` using the labels shown in Chemotion (duplicates get `.1`, `.2`).
+`element.segments.available()` lists the generic segments of the element type.
 
 ```python
 cell = s.segments.get('Electrochemistry')['Cell']   # .get() ADDS a missing segment;
@@ -192,6 +201,7 @@ s.save()
 for ana in s.analyses:
     for ds in ana.datasets:                     # ATTRIBUTE, not ana['datasets']
         print(ds.name, ds.id)                   # dataset dict = metadata only; name/id are attributes
+# Analyses and Attachment keys work as attributes too: ana.name == ana['name'], att.filename
         for att in ds.attachments or []:
             att.save_file('./out')
 

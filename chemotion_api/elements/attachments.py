@@ -9,12 +9,14 @@ import requests
 
 from chemotion_api.connection import Connection
 from chemotion_api.elements.analyses_manager import AnalysesManager
+from chemotion_api.utils import AttrAccessMixin
 
 
-class Attachment(dict):
+class Attachment(AttrAccessMixin, dict):
     """
     An Attachment is a dict object to read one attachment of an element.
-    It allows to load Attachments as bytes or save it to a file.
+    It allows to load Attachments as bytes or save it to a file. Its keys (e.g. ``id``, ``filename``) can be
+    read as attributes as well: ``att.filename`` is ``att['filename']``.
 
     Usage::
 

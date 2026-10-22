@@ -18,7 +18,7 @@ from chemotion_api.elements.attachments import Attachments, MutableAttachments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils.segment_fields import SegmentField, iter_fields
-from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
+from chemotion_api.utils import add_to_dict, parse_generic_object_json, AttrAccessMixin, \
     clean_generic_object_json, merge_dicts, snake_to_camel_case, fixeddict_serializer, PropertyDict
 
 from requests.exceptions import RequestException
@@ -144,14 +144,15 @@ class Dataset(dict):
         self.json_data['attachments'] = [x for x in self.attachments]
 
 
-class Analyses(dict):
+class Analyses(AttrAccessMixin, dict):
     """
     An analysis consists of a list of metadata schemas and associated data files.
     The schemas can be edited. And the files can be read and saved to your local device.
 
     The analysis is a dict with the keys ``name``, ``description`` and, if set, ``report``, ``status``,
-    ``kind`` and ``content``. Its datasets are in the attribute ``datasets`` (``analysis.datasets``, a list of
-    :class:`Dataset`), not in the dict. ``id`` and ``type`` are attributes as well.
+    ``kind`` and ``content``. The keys can be used as attributes as well (``analysis.name`` is
+    ``analysis['name']``). Its datasets are in the attribute ``datasets`` (``analysis.datasets``, a list of
+    :class:`Dataset`), not in the dict. ``id`` and ``type`` are attributes only.
     """
 
     def __init__(self, data: dict, session: Connection):
@@ -409,6 +410,13 @@ class Segment(dict):
             key = add_to_dict(self, key, None)
             val = self[key] = self._on_add(key, new_seq_obj)
         return val
+
+    def available(self) -> list[str]:
+        """
+        :return: the labels of all generic segments available for the element type, whether the element has
+            them yet or not (the keys that are None in this dict are not added yet)
+        """
+        return [seg.get('label') for seg in self._all_seg_classes]
 
     def field(self, segment: str, layer: str, field: str) -> SegmentField:
         """

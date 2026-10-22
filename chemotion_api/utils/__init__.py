@@ -1,5 +1,6 @@
 import copy
 import os
+import re
 import sys
 import uuid
 from abc import ABC
@@ -101,6 +102,28 @@ class UnitDict(FixedDict):
         self.__setitem__('unit', unit)
 
 
+class AttrAccessMixin:
+    """
+    Makes the keys of a dict readable and writable as attributes: ``obj.name`` is ``obj['name']``.
+    Real attributes take precedence over keys.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        if not name.startswith('_'):
+            try:
+                return self[name]
+            except KeyError:
+                pass
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name: str, value: Any):
+        if not name.startswith('_') and name in self and name not in self.__dict__ and \
+                not hasattr(type(self), name):
+            self[name] = value
+        else:
+            super().__setattr__(name, value)
+
+
 def add_to_dict(obj: dict, key: str, val: any) -> str:
     origen_key = key
     idx = 1
@@ -159,17 +182,28 @@ def parse_generic_object_json(segment_json_data: dict) -> dict:
     temp_segment = {}
     temp_id_segment = {'__id': segment_json_data.get('id')}
     layers = OrderedDict(
-        sorted(segment_json_data.get('properties', {}).get('layers', {}).items(), key=lambda x: x[1].get('position')))
+        sorted(segment_json_data.get('properties', {}).get('layers', {}).items(),
+               key=lambda x: (x[1].get('position'), x[1].get('wf_position') or 0)))
     for key, layer in layers.items():
         parse_generic_object_layer_json(key, layer, temp_segment, temp_id_segment)
     return {'values': temp_segment, 'obj_mapping': temp_id_segment}
 
 
-def parse_generic_object_layer_json(key, layer, values, obj_mapping):
+def parse_generic_object_layer_json(key, layer, values, obj_mapping) -> str:
+    """
+    Adds a layer to the values as ``values[name] = {field: value}`` and returns the name. The name is the layer
+    label; a duplicated layer (key ``three.1``) gets the suffix of its key (``Nr 3.1``), so the name does not
+    depend on the order the layers are read in.
+    """
     temp_layer = parse_generic_layer(key, layer)
     layer_name = layer.get('label') if len(layer.get('label')) > 0 else layer.get('key')
+    suffix = re.fullmatch(r'.+\.(\d+)', key or '')
+    if suffix is not None and not layer_name.endswith(f".{suffix.group(1)}") and \
+            f"{layer_name}.{suffix.group(1)}" not in values:
+        layer_name = f"{layer_name}.{suffix.group(1)}"
     key = add_to_dict(values, layer_name, temp_layer.get('values'))
     obj_mapping[key] = temp_layer.get('obj_mapping')
+    return key
 
 
 def clean_generic_field(field_obj: dict, values: Any, field_mapping: dict | str | None = None,

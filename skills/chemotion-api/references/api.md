@@ -248,16 +248,28 @@ a split. `wp.properties`: name, description. `wp.save()` saves and reloads.
 ## 10. Generic elements
 
 ```
-properties[layer label][field label] = value
+properties[layer label][field label] = value   # a layer used twice: 'Nr 3.1' (suffix of its key three.1)
+.label / .klass_name / .klass_version / .klass_prefix   # of the template: 'Workflow', 'wrk', '2.0', 'WRK'
+.short_label                                     # set by the server on first save: '<initials>-<prefix><n>'
+.layers_without_fields() -> [properties keys]    # e.g. ['Fixed'] - such layers are {} in properties
 .wf_tree() / .wf_current_workflow() / .wf_next_options(flat=True)
-.wf_next(layer_id=None, wf_idx=0, wf_id=None)   # options from wf_next_options give layer_id/wf_id
-.wf_add_layer(layer_label, pos=None)
+  # option: layer_id, wf_id, wf_idx, layer_key, layer_label, source_key (+ source_layer when flat)
+.wf_next(layer_id=None, wf_idx=0, wf_id=None) -> properties key   # ValueError on unknown wf / wrong layer
+.wf_add_layer(layer_label, pos=None) -> properties key
+.wf_workflows() -> [{'wf_id', 'wf_idx', 'layers': [{'key', 'label', 'properties_key'}]}]
+.wf_layer(wf_idx | wf_id, label | key) -> the layer's fields (same object as in properties)
 ```
+
+Templates (`instance.generic_manager()`): `get_element(name=None, *, label=None, version=None, **attrs)`,
+`get_segment(label=None, *, version=None, **attrs)`, `get_dataset(...)` - loaded from the server on every call;
+KeyError lists the matches/available templates. The template class is `labImotion.GenericElementKlass`
+(old name `labImotion.GenericElement` still works), not the element class `elements.GenericElement`.
 
 ## 11. Segments (`element.segments`)
 
 ```
 segments[name]             # None if the element doesn't have it
+segments.available()       # labels of all generic segments for this element type
 segments.get(name)         # adds it with template defaults
 segments.field(seg, layer, field) -> SegmentField   # .type, .options(), .units(), .default_unit
 segments.field_type(seg, layer, field) / .options(...) / .units(...)
@@ -273,7 +285,7 @@ default unit), integer = whole number, text/others as is. Changed values are val
 AnalysesList (element.analyses)
   .by_name(name) / .by_id(id)          # StopIteration if missing
   .add_analyses(name='New') -> Analyses
-Analyses (dict: name, description, report, status, kind, content)
+Analyses (dict: name, description, report, status, kind, content; keys readable/writable as attributes)
   .id / .type / .datasets (list attribute) / .is_new
   .add_dataset(file_path) -> Dataset   # uploaded on save
   .dataset_by_name(name) / .preview_image() -> bytes | None
@@ -283,7 +295,7 @@ Dataset (dict = metadata set {layer: {field: value}})
 Attachments (element.attachments; iterable, indexable)
   .add_file(path) -> dict              # uploaded on save
   .load_attachment(id=None, identifier=None, filename=None) -> Attachment   # saved files only
-Attachment (dict: id, identifier, filename, ...)
+Attachment (dict: id, identifier, filename, ...; keys readable as attributes, att.filename)
   .load_file() -> bytes / .save_file(directory='.') -> path
 ```
 
