@@ -279,6 +279,21 @@ def test_condition(instance_with_collection):
 
     ttes.save()
 
+def test_field_ontology(instance_with_collection):
+    term = {'id': 'chmo:class:http://purl.obolibrary.org/obo/CHMO_0000593',
+            'iri': 'http://purl.obolibrary.org/obo/CHMO_0000593', 'label': '1H nuclear magnetic resonance spectroscopy',
+            'short_form': 'CHMO_0000593', 'obo_id': 'CHMO:0000593', 'ontology_name': 'chmo',
+            'ontology_prefix': 'CHMO', 'description': ['Spectroscopy ...'], 'type': 'class'}
+    gm: GenericManager = instance_with_collection['instance'].generic_manager()
+    ttes = gm.get_element(name='ttes')
+    ttes.properties.add_new_layer('Ontology Layer').add_field(FieldType.TEXT, 'NMR method', ontology=term)
+    ttes.save()
+    field = gm.get_element(name='ttes').properties.get_layer_by_key('ontology_layer').fields[0]
+    assert field.ontology == term
+    field.ontology = None
+    assert 'ontology' not in field.to_dict()
+
+
 def test_segment_new_layer(instance_with_collection):
     gm: GenericManager = instance_with_collection['instance'].generic_manager()
     ttes = gm.get_segment(label = 'T TEST')

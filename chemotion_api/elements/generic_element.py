@@ -2,6 +2,7 @@ from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.workflow_interface import WorkflowInterface
 from chemotion_api.elements.workflow_manager import Workflow
 from chemotion_api.utils import parse_generic_object_json, clean_generic_object_json, parse_generic_object_layer_json
+from chemotion_api.utils.segment_fields import SegmentField
 
 
 class GenericElement(AbstractElement, WorkflowInterface):
@@ -102,6 +103,31 @@ class GenericElement(AbstractElement, WorkflowInterface):
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         clean_generic_object_json(self.json_data, self.properties, self._properties_mapping)
         return self.json_data
+
+    def field(self, layer: str, field: str) -> SegmentField:
+        """
+        Looks up the template of a field, e.g. its ontology term: ``elem.field('General', 'Strain').ontology``
+
+        :param layer: layer name as used in ``properties``
+        :param field: field name as used in the layer
+        :return: the template field
+
+        :raises KeyError: if the layer or field does not exist
+        """
+        self._load_if_partial()
+        layer_mapping = self._properties_mapping.get(layer)
+        if layer_mapping is None:
+            raise KeyError(f'Unknown layer "{layer}". Available: '
+                           f'{", ".join(x for x in self._properties_mapping if not x.startswith("__"))}')
+        field_mapping = layer_mapping.get(field)
+        field_key = field_mapping.get('__field') if isinstance(field_mapping, dict) else field_mapping
+        properties = self.json_data['properties']
+        layer_key = layer_mapping['__key']
+        field_obj = next((x for x in properties['layers'][layer_key]['fields'] if x.get('field') == field_key), None)
+        if field_mapping is None or field_obj is None:
+            raise KeyError(f'Unknown field "{field}" in layer "{layer}". Available: '
+                           f'{", ".join(x for x in layer_mapping if not x.startswith("__"))}')
+        return SegmentField(field_obj, layer_key, properties.get('select_options'))
 
     def wf_tree(self) -> dict[str,list]:
         """

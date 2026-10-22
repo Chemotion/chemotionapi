@@ -258,6 +258,7 @@ properties[layer label][field label] = value   # a layer used twice: 'Nr 3.1' (s
 .wf_add_layer(layer_label, pos=None) -> properties key
 .wf_workflows() -> [{'wf_id', 'wf_idx', 'layers': [{'key', 'label', 'properties_key'}]}]
 .wf_layer(wf_idx | wf_id, label | key) -> the layer's fields (same object as in properties)
+.field(layer, field) -> SegmentField   # template of a field: .type, .ontology, .options(), ...
 ```
 
 Templates (`instance.generic_manager()`): `get_element(name=None, *, label=None, version=None, **attrs)`,
@@ -274,6 +275,11 @@ layer = k.properties.add_new_layer(label, key='', idx=-1)          # key generat
 layer.add_field(FieldType.X, label, field='', idx=-1, options=None) # options=[...] only for SELECT
 k.properties.add_select_option(key, values) -> key                 # shared list; link via field.option_layers = key
 field.label / .required / .default                                 # stored in the template
+field.ontology = 'CHMO:0000593' | term_dict | None                 # ontology term; ID looked up online (TIB TS)
+layer.add_field(FieldType.TEXT, 'NMR method', ontology='CHMO:0000593')
+gm.search_ontology_terms('nmr', rows=30) -> [term]                 # same search as the template designer
+gm.get_ontology_term(obo_id | short_form | iri) -> term            # KeyError if unknown
+    # term: {'iri', 'label', 'obo_id', 'short_form', 'ontology_prefix', 'ontology_name', 'description', 'id', 'type'}
 k.klass_prefix / k.desc / k.label / k.icon_name
 k.save(SaveActionType.MINOR)   # release (new elements use the latest release); DRAFT only stores
 k.is_active = True / False
@@ -289,7 +295,7 @@ ValueError on save. `load_all_elements()` skips invalid templates with a warning
 segments[name]             # None if the element doesn't have it
 segments.available()       # labels of all generic segments for this element type
 segments.get(name)         # adds it with template defaults
-segments.field(seg, layer, field) -> SegmentField   # .type, .options(), .units(), .default_unit
+segments.field(seg, layer, field) -> SegmentField   # .type, .ontology, .options(), .units(), .default_unit
 segments.field_type(seg, layer, field) / .options(...) / .units(...)
 ```
 

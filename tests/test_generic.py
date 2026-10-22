@@ -26,6 +26,15 @@ def test_new_generics(instance_with_collection):
     test = instance.get_json_ld_id(a1.json_ld['@id'])
     assert test.json_ld == a1.json_ld
 
+def test_generic_field_template(instance_with_collection):
+    col = instance_with_collection['main_collection']
+    a = col.new_generic('try')
+    field = a.field('Nr. 1', 'Group')
+    assert field.type == 'input-group' and field.ontology is None
+    with pytest.raises(KeyError, match='Unknown field'):
+        a.field('Nr. 1', 'No field')
+
+
 def test_table_generics(instance_with_collection):
     instance: Instance = instance_with_collection['instance']
     col = instance_with_collection['main_collection']

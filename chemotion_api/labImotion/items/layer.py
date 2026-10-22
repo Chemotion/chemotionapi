@@ -47,12 +47,13 @@ class Layer(ChemotionSerializable, ConditionHandler):
                 setattr(self, key, value)
 
     def add_field(self, field_type: FieldType, label: str, field: str = "", idx: int = -1,
-                  options: list[str] | None = None) -> BaseField:
+                  options: list[str] | None = None, ontology: dict | str | None = None) -> BaseField:
         """
         Adds a new field to the layer.
 
         >>> layer.add_field(FieldType.TEXT, 'Strain')
         >>> layer.add_field(FieldType.SELECT, 'Medium', options=['LB', 'TB'])
+        >>> layer.add_field(FieldType.TEXT, 'NMR method', ontology='CHMO:0000593')
 
         :param field_type: the type of the field
         :param label: the label shown in Chemotion
@@ -60,6 +61,7 @@ class Layer(ChemotionSerializable, ConditionHandler):
         :param idx: the position in the layer. Negative values append the field
         :param options: only for SELECT fields: creates a new select option list (option layer) with these
             entries and links the field to it
+        :param ontology: an ontology term (dict or term ID) linked to the field, see :attr:`BaseField.ontology`
         :return: the new field
 
         :raises ValueError: if the key is already used in this layer
@@ -73,6 +75,7 @@ class Layer(ChemotionSerializable, ConditionHandler):
             raise ValueError('options are only supported for SELECT fields')
 
         new_field = create_field(self._sr, self.key, field_type, label, idx, field)
+        new_field.ontology = ontology
         if isinstance(new_field, SelectField) and options is not None:
             properties = self._sr.get_properties()
             if properties is None:

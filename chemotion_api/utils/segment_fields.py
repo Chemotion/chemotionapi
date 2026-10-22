@@ -47,6 +47,11 @@ class SegmentField:
         return self._field['type']
 
     @property
+    def ontology(self) -> dict | None:
+        """The ontology term linked to the field in the template, or None."""
+        return self._field.get('ontology') or None
+
+    @property
     def quantity(self) -> str | None:
         """Unit quantity of a system-defined field (e.g. 'current'), or the option set of a select field."""
         return self._field.get('option_layers') or None

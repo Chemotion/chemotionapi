@@ -8,12 +8,13 @@ from chemotion_api.elements.abstract_element import Analyses
 from chemotion_api.elements.attachments import Attachment
 from chemotion_api import labImotion
 from chemotion_api.element_manager import ElementManager
-from chemotion_api.labImotion import GenericManager, GenericElementKlass
+from chemotion_api.labImotion import GenericManager, GenericElementKlass, ontology
 from chemotion_api.labImotion.items import genericproperties
 from chemotion_api.labImotion.items.fields import FieldType
 from chemotion_api.labImotion.items.genericproperties import GenericProperties
 from chemotion_api.labImotion.items.options import ElementType
 from chemotion_api.utils import clean_generic_object_json
+from chemotion_api.utils.segment_fields import SegmentField
 
 
 def _klass(id, name, label, version):
@@ -167,3 +168,65 @@ def test_element_manager_reload_clears_cache():
     manager._all_classes, manager._all_types, manager.is_loaded = {'a': {}}, ['x'], True
     manager.reload()
     assert (manager._all_classes, manager._all_types, manager.is_loaded) == (None, None, False)
+
+
+NMR_TERM = {'id': 'chmo:class:http://purl.obolibrary.org/obo/CHMO_0000593',
+            'iri': 'http://purl.obolibrary.org/obo/CHMO_0000593', 'label': '1H nuclear magnetic resonance spectroscopy',
+            'short_form': 'CHMO_0000593', 'obo_id': 'CHMO:0000593', 'ontology_name': 'chmo', 'ontology_prefix': 'CHMO',
+            'description': ['Spectroscopy where ...'], 'type': 'class'}
+
+
+@pytest.fixture
+def terminology_service(monkeypatch):
+    docs = [NMR_TERM | {'id': 'msio:class:...', 'ontology_name': 'msio', 'ontology_prefix': 'MSIO'}, NMR_TERM,
+            {'iri': 'http://purl.obolibrary.org/obo/BAO_0000593', 'label': 'protein-RNA interaction assay',
+             'obo_id': 'BAO:0000593', 'short_form': 'BAO_0000593', 'ontology_prefix': 'BAO'}]
+    requests_made = []
+
+    def get(url, params, timeout):
+        requests_made.append((url, params))
+        return SimpleNamespace(status_code=200, json=lambda: {'response': {'docs': docs}})
+
+    monkeypatch.setattr(ontology.requests, 'get', get)
+    return requests_made
+
+
+def test_ontology_term_lookup_prefers_the_terms_own_ontology(terminology_service):
+    assert ontology.get_term('CHMO:0000593') == NMR_TERM
+    assert ontology.get_term('chmo_0000593')['ontology_name'] == 'chmo'
+    assert ontology.get_term('http://purl.obolibrary.org/obo/BAO_0000593')['label'] == 'protein-RNA interaction assay'
+    assert terminology_service[-1][0] == 'https://api.terminology.tib.eu/api/select'
+    assert ('q', 'BAO_0000593') in terminology_service[-1][1] and ('caller', 'NFDI4CHEM') in terminology_service[-1][1]
+    with pytest.raises(KeyError, match='No ontology term'):
+        ontology.get_term('CHMO:9999999')
+    with pytest.raises(ValueError):
+        ontology.search_terms('x')
+
+
+def test_field_ontology_is_set_validated_and_saved(terminology_service):
+    klass = GenericElementKlass(_klass_json(), None)
+    layer = klass.properties.add_new_layer('Measurement')
+    by_id = layer.add_field(FieldType.TEXT, 'NMR method', ontology='CHMO:0000593')
+    assert by_id.ontology == NMR_TERM
+    by_dict = layer.add_field(FieldType.TEXT, 'Other')
+    by_dict.ontology = NMR_TERM | {'extra': 'dropped'}
+    assert by_dict.ontology == NMR_TERM and by_dict.to_dict()['ontology'] == NMR_TERM
+    with pytest.raises(TypeError, match='iri'):
+        by_dict.ontology = {'label': 'no iri'}
+    by_dict.ontology = None
+    assert 'ontology' not in by_dict.to_dict()
+    template = klass.to_dict()['properties_template']
+    klass.properties.validate(template)
+
+    # Terms set in the Chemotion UI (or trimmed to the IRI by an export) are loaded and kept
+    reloaded = GenericElementKlass(_klass_json(properties_template=template), None)
+    fields = reloaded.properties.get_layer_by_key('measurement').fields
+    assert fields[0].ontology == NMR_TERM and fields[1].ontology is None
+    template['layers']['measurement']['fields'][1]['ontology'] = {'iri': NMR_TERM['iri']}
+    reloaded = GenericElementKlass(_klass_json(properties_template=template), None)
+    assert reloaded.properties.get_layer_by_key('measurement').fields[1].ontology == {'iri': NMR_TERM['iri']}
+
+
+def test_segment_field_exposes_ontology():
+    assert SegmentField({'field': 'f', 'type': 'text', 'ontology': NMR_TERM}, 'l').ontology == NMR_TERM
+    assert SegmentField({'field': 'f', 'type': 'text'}, 'l').ontology is None

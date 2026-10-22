@@ -4,6 +4,7 @@ import re
 import string
 from typing import Callable
 
+from chemotion_api.labImotion import ontology
 from chemotion_api.labImotion.icons import all_icons
 from chemotion_api.labImotion.items.options import ElementType, SaveActionType
 from chemotion_api.labImotion.items.validation import validate_generic_element, validate_generic_dataset, \
@@ -212,6 +213,27 @@ class GenericManager():
         """
         return self._get_single_generic_entry(GenericDataset.load_all(self._connection),
                                               **self._filters(label=label, version=version), **filters)
+
+    @staticmethod
+    def search_ontology_terms(query: str, rows: int = 30) -> list[dict]:
+        """
+        Searches ontology terms for template fields (TIB Terminology Service, NFDI4Chem collection), like the
+        term selection of the Chemotion template designer. See :attr:`BaseField.ontology`.
+
+        :param query: search text or term ID
+        :param rows: maximum number of results
+        :return: the terms
+        """
+        return ontology.search_terms(query, rows)
+
+    @staticmethod
+    def get_ontology_term(term_id: str) -> dict:
+        """
+        Looks up an ontology term by its OBO ID ('CHMO:0000593'), short form or IRI.
+
+        :raises KeyError: if no term has this ID
+        """
+        return ontology.get_term(term_id)
 
     @staticmethod
     def _filters(**filters) -> dict:

@@ -177,6 +177,8 @@ reloads; `g.wf_workflows()` lists each workflow's layers with `key`, `label` and
 Templates: `instance.generic_manager().get_element('dev', version='1.0')` (also `label=`; reloads every call).
 New type: `gm.create_new_element('Micro Biology', 'bug', prefix='MB')` returns a released, active klass; add
 `k.properties.add_new_layer(...).add_field(FieldType.TEXT, 'Strain')`, then `k.save(SaveActionType.MINOR)` (see api.md §10).
+Ontology terms on fields: `field.ontology = 'CHMO:0000593'` (or `add_field(..., ontology=...)`); search with
+`gm.search_ontology_terms('nmr')`; read on elements with `g.field(layer, field).ontology`.
 
 ## Segments (extra tabs, all element types)
 
