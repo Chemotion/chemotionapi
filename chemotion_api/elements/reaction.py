@@ -12,6 +12,7 @@ from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict
 from chemotion_api.utils.segment_fields import SegmentField, VARIATION_FIELD_TYPES, iter_fields
 from collections.abc import MutableSequence
+from copy import deepcopy
 
 
 class MaterialList(TypedList):
@@ -461,8 +462,8 @@ class Variation:
         """
         self._json_data = json_data
         self.id = self._json_data['id']
-        self._properties = json_data['properties']
-        self.notes = json_data['metadata']['notes']
+        self._properties = json_data.setdefault('properties', {})
+        self.notes = json_data.setdefault('metadata', {}).get('notes', '')
         self._analyses = analyses
         self._segments = VariationSegments(json_data.get('segments', {}), segment_klasses)
         self._materials = {
@@ -675,12 +676,22 @@ class Variations(MutableSequence):
         """
         :return: all variations in the format of the Chemotion frontend
         """
-        # The frontend builds its columns from the first variation, so all variations need the same segments
+        # The frontend builds its columns from the first variation, so all variations need the same segments,
+        # metadata and properties
         segment_labels = {label for variation in self._data for label in variation.segments}
         for variation in self._data:
             for label in segment_labels:
                 variation.segments[label]
-        return [variation.update_and_clean(self._get_vessel_size()) for variation in self._data]
+        cleaned = [variation.update_and_clean(self._get_vessel_size()) for variation in self._data]
+        defaults = self.empty_variation(0)
+        defaults['metadata']['group'] = {'group': 1, 'subgroup': 1}
+        for section in ('metadata', 'properties'):
+            keys = {key for variation in cleaned for key in variation.get(section, {})}
+            for variation in cleaned:
+                values = variation.setdefault(section, {})
+                for key in keys - values.keys():
+                    values[key] = deepcopy(defaults[section].get(key))
+        return cleaned
 
     def _prepare_variation(self, json_data: dict):
         empty_variation = self.empty_variation(self._highest_id)
