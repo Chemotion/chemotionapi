@@ -70,6 +70,9 @@ g = col.new_generic_by_label('Device')   # or new_generic(type_name)
 s.save()                                 # s.id is an int afterwards (a UUID string before)
 ```
 
+Setting a molecule (`new_sample_smiles`, `s.molecule = ...`) copies its density (or a `molarity` set on the
+`Molecule`) to the sample if the sample has neither a density nor a molarity yet.
+
 ## Edit and save
 
 `element.properties` is the main tab. Assign keys; then `save()`. `save(load_after_save=True)` reloads
