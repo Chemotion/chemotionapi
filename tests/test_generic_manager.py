@@ -125,7 +125,7 @@ def test_read_generic_elements(instance_with_collection):
     except ValidationError as e:
         assert False
 
-    assert len(all_gs) == 9
+    assert len(all_gs) == 10
     all_gs = [x for x in all_gs if x.is_generic]
     assert len(all_gs) == 2
     all_gs[0].label += '_TEST'
@@ -175,10 +175,15 @@ def test_upload_generic_segment(instance_with_collection):
 def test_new_element(instance_with_collection):
     gm: GenericManager = instance_with_collection['instance'].generic_manager()
     all_gs = gm.load_all_elements()
-    new_all_gs = gm.create_new_element('T TEST', 'american-sign-language-interpreting')
-    assert len(all_gs) == len(new_all_gs) - 1
-    new_all_gs = gm.create_new_element('T TEST', 'american-sign-language-interpreting')
-    assert len(all_gs) == len(new_all_gs) - 2
+    # 'ttes' stays unreleased and inactive; the following tests release it themselves
+    klass = gm.create_new_element('T TEST', 'american-sign-language-interpreting', release=False, activate=False)
+    assert len(all_gs) == len(gm.load_all_elements()) - 1
+    assert klass.name == 'ttes' and not klass.is_active and klass.version is None
+    other = gm.create_new_element('T TEST', 'american-sign-language-interpreting')
+    assert len(all_gs) == len(gm.load_all_elements()) - 2
+    assert other.name == 'ttesa' and other.is_active and other.version == '0.1'
+    # test_new_segment expects the last template to be inactive (and activates it)
+    other.is_active = False
 
 
 
@@ -273,6 +278,21 @@ def test_condition(instance_with_collection):
             layer_trg.add_condition(f, "True")
 
     ttes.save()
+
+def test_field_ontology(instance_with_collection):
+    term = {'id': 'chmo:class:http://purl.obolibrary.org/obo/CHMO_0000593',
+            'iri': 'http://purl.obolibrary.org/obo/CHMO_0000593', 'label': '1H nuclear magnetic resonance spectroscopy',
+            'short_form': 'CHMO_0000593', 'obo_id': 'CHMO:0000593', 'ontology_name': 'chmo',
+            'ontology_prefix': 'CHMO', 'description': ['Spectroscopy ...'], 'type': 'class'}
+    gm: GenericManager = instance_with_collection['instance'].generic_manager()
+    ttes = gm.get_element(name='ttes')
+    ttes.properties.add_new_layer('Ontology Layer').add_field(FieldType.TEXT, 'NMR method', ontology=term)
+    ttes.save()
+    field = gm.get_element(name='ttes').properties.get_layer_by_key('ontology_layer').fields[0]
+    assert field.ontology == term
+    field.ontology = None
+    assert 'ontology' not in field.to_dict()
+
 
 def test_segment_new_layer(instance_with_collection):
     gm: GenericManager = instance_with_collection['instance'].generic_manager()

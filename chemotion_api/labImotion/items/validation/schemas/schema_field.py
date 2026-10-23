@@ -127,6 +127,9 @@ generic_schema = {
         },
         "value_system": {
             "type": "string"
+        },
+        "ontology": {
+            "type": "object"
         }
     },
     "additionalProperties": False,

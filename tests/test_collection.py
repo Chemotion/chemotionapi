@@ -77,3 +77,26 @@ def test_sync(prepare_manipulation):
         sync_root.add_collection('A')
 
 
+
+
+def test_move_assign_remove_elements(instance_with_collection):
+    root = instance_with_collection['instance'].get_root_collection()
+    main = root.get_collection(instance_with_collection['name'])
+    a = main.get_or_create_collection('A')
+    b = main.get_or_create_collection('B')
+    sample = a.new_sample_smiles('CCO')
+    sample.save()
+    reaction = a.new_reaction()
+    reaction.save()
+
+    def ids(col):
+        return {e.id for e in col.get_samples()} | {e.id for e in col.get_reactions()}
+
+    a.move_elements(b, sample, reaction)
+    assert ids(a) == set() and ids(b) == {sample.id, reaction.id}
+    sample.assign_to(a)
+    assert ids(a) == {sample.id} and ids(b) == {sample.id, reaction.id}
+    b.remove_elements(sample)
+    assert ids(b) == {reaction.id}
+    with pytest.raises(ConnectionError):
+        root.remove_elements(sample)

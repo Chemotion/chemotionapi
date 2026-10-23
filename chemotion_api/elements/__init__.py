@@ -8,7 +8,7 @@ from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
 from chemotion_api.elements.research_plan import ResearchPlan
 from chemotion_api.generic_segments import GenericSegments
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
 
 
@@ -16,6 +16,17 @@ class ElementSet(list):
     """
     The ElementSet class allows you to access all elements of a type in a collection.
     You can iterate over them or filter them using an IRI filter.
+
+    The elements are loaded page by page (``per_page`` elements per request). Iterating over the set
+    loads all pages one after another. Indexing (``elements[12]``) loads the page containing the
+    element and fully loads the element. Slicing (``elements[:5]``) returns a list. Negative indices are
+    not supported. If an IRI filter is set, the set can only be iterated.
+    ``len()`` returns the total number of elements on the server, not the size of the loaded page.
+    The server limits ``per_page`` (100 in Chemotion 3.x).
+
+    The listing contains only part of the data of each element. An element is loaded completely
+    (one request) the first time its properties, segments, analyses or attachments are accessed.
+    ``id``, ``name``, ``short_label`` and ``json_data`` do not trigger loading.
     """
 
     def __init__(self, session: Connection, element_type: dict,
@@ -31,15 +42,26 @@ class ElementSet(list):
         self._per_page = 10
         self._iri_filter = None
         self._fixed_length = fixed_length
+        # Total number of elements on the server (X-Total header), None until a page is loaded
+        self._length = None
 
     def set_iri_filter(self, iri):
+        """
+        Only elements of this JSON-LD type are returned when iterating.
+
+        :param iri: JSON-LD type (``element.json_ld['@type']``)
+        """
         self._iri_filter = iri
 
     def __len__(self):
-        if self._iri_filter is None or self._fixed_length:
+        """
+        :return: the total number of elements on the server, not only the ones of the loaded page
+        """
+        if self._fixed_length or self._length is None:
             return super().__len__()
-        else:
-            raise TypeError("Length cannot be predicted if you use IRI typs")
+        if self._iri_filter is None:
+            return self._length
+        raise TypeError("Length cannot be predicted if you use IRI typs")
 
     def __getitem__(self, item):
         if isinstance(item, slice):
@@ -80,7 +102,10 @@ class ElementSet(list):
             yield x
 
     @property
-    def page(self):
+    def page(self) -> int:
+        """
+        The currently loaded page (starting at 1). Setting it loads the page.
+        """
         return self._page
 
     @page.setter
@@ -98,6 +123,11 @@ class ElementSet(list):
         return False
 
     def iter_elements(self, start_page=1):
+        """
+        Iterates over all elements, starting at a page.
+
+        :param start_page: first page to be loaded
+        """
         self._page = start_page - 1
         while self._set_page(self.page + 1):
             for elem in super().__iter__():
@@ -105,20 +135,45 @@ class ElementSet(list):
                     yield elem
 
     def iter_pages(self):
+        """
+        Iterates over all pages. Each step loads the next page and yields the set itself.
+        """
         self._page = 0
         while self._set_page(self.page + 1):
             yield self
 
     def next_page(self):
+        """
+        Loads the next page if there is one.
+
+        :return: the set itself
+        """
         self._set_page(self.page + 1)
         return self
 
     def prev_page(self):
+        """
+        Loads the previous page if there is one.
+
+        :return: the set itself
+        """
         self._set_page(self.page - 1)
         return self
 
     def load_elements(self, per_page: Optional[int] = None, updated_to_date: Optional[datetime] = None,
                       updated_from_date: Optional[datetime] = None, product_only: bool = False):
+        """
+        Loads the current page of elements from the server.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+        :param product_only: If True only samples which are products in a reaction are returned
+
+        :raises ValueError: if the set does not belong to a collection
+        :raises RequestException: if the request was not successful
+            (:class:`chemotion_api.connection.ChemotionRequestError`)
+        """
         if per_page is not None:
             self._per_page = per_page
         if self._collection_id is None:
@@ -151,19 +206,29 @@ class ElementSet(list):
         res = self._session.get(self._get_url() + '.json',
                                 data=payload)
         if res.status_code != 200:
-            raise RequestException('{} -> {}'.format(res.status_code, res.text))
+            raise request_error(res, f'listing {self._element_type["name"]} of collection {self._collection_id}')
 
         try:
             self.max_page = int(res.headers.get('X-Total-Pages', 1))
-            self._length = int(res.headers.get('X-Total', 0))
+            total = res.headers.get('X-Total')
+            self._length = int(total) if total is not None else None
         except:
             pass
         self.clear()
         elements = res.json().get(self._get_result_key() + 's', [])
         for json_data in elements:
-            self.append(self._get_element_class()(segments, self._session, json_data=json_data))
+            element = self._get_element_class()(segments, self._session, json_data=json_data)
+            # The listing contains only part of the data (e.g. no amounts)
+            element.mark_partial()
+            self.append(element)
 
     def load_element(self, id: int) -> AbstractElement:
+        """
+        Loads one element by its database id and adds it to the set.
+
+        :param id: Database ID of the element
+        :return: the element
+        """
         segments = GenericSegments(self._session)
         s = self._get_element_class()(segments, self._session, id=id,
                                       element_type=self._element_type['name'])
@@ -171,6 +236,12 @@ class ElementSet(list):
         return s
 
     def new_element(self, json_data: dict, **kwargs) -> AbstractElement:
+        """
+        Creates an element from JSON data and adds it to the set. The element is not saved.
+
+        :param json_data: JSON data of the element as sent by the server
+        :return: the element
+        """
         segments = GenericSegments(self._session)
         s = self._get_element_class()(segments, self._session, json_data=json_data, **kwargs)
         self.append(s)

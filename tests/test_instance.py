@@ -4,15 +4,18 @@ from chemotion_api import Instance
 
 def test_all_types(instance_with_collection):
     instance: Instance = instance_with_collection['instance']
-    assert list(instance.get_all_types()) == ['chemotion:type/wellplate/2.1.1',
-                                               'chemotion:type/screen/2.1.1',
-                                               'chemotion:type/sample/2.1.1',
-                                               'chemotion:type/research_plan/2.1.1',
-                                               'chemotion:type/reaction/2.1.1',
-                                               'chemotion:type/device_description/2.1.1',
-                                               'chemotion:type/cell_line/2.1.1',
+    assert list(instance.get_all_types()) == ['chemotion:type/wellplate/3.1.2',
+                                               'chemotion:type/sequence_based_macromolecule_sample/3.1.2',
+                                               'chemotion:type/screen/3.1.2',
+                                               'chemotion:type/sample/3.1.2',
+                                               'chemotion:type/research_plan/3.1.2',
+                                               'chemotion:type/reaction/3.1.2',
+                                               'chemotion:type/device_description/3.1.2',
+                                               'chemotion:type/cell_line/3.1.2',
                                                'chemotion:generic_type/wrk/2.0',
                                                'chemotion:generic_type/wrk/1.0',
+                                               # released by test_generic_manager.py::test_new_element
+                                               'chemotion:generic_type/ttesa/0.1',
                                                'chemotion:generic_type/try/1.0']
 
 

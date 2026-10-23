@@ -12,7 +12,7 @@ from chemotion_api.elements.empty_elements import init_container
 from requests.exceptions import RequestException
 
 from chemotion_api.utils import resource_path
-from chemotion_api.utils.solvent_manager import get_solvent_list
+from chemotion_api.utils.solvent_manager import get_solvent_list, get_solvent_info
 
 
 class ElementManager:
@@ -30,6 +30,14 @@ class ElementManager:
             self.is_loaded = True
         return self._all_classes
 
+    def reload(self):
+        """
+        Clears the cached element types, e.g. after a generic element template was created, released or
+        (de)activated. They are loaded again from the server on the next access.
+        """
+        self._all_classes = None
+        self._all_types = None
+        self.is_loaded = False
 
     @property
     def all_types(self) -> list[str]:
@@ -146,11 +154,7 @@ class ElementManager:
         return data
 
     def build_solvent_sample(self, name, collection_id):
-        solvent_info = self.get_solvent_list().get(name)
-        if solvent_info is None:
-            raise KeyError(
-                'Solver: "{}" is not available. Run instance.get_solvent_list() to see all valid solver names'.format(
-                    name))
+        solvent_info = get_solvent_info(name)
         sample_data = self.build_new('sample', collection_id)
 
         mol = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'], solvent_info['density'])

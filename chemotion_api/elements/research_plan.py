@@ -11,6 +11,9 @@ from chemotion_api.elements.abstract_element import AbstractElement
 
 
 class BodyElements(Enum):
+    """
+    Types of the entries in the body of a research plan
+    """
     richtext = 'richtext'
     ketcher = 'ketcher'
     table = 'table'
@@ -32,11 +35,11 @@ class Table(dict):
     >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
-    >>> # Get the reaction with ID 1
+    >>> # Get the research plan with ID 1
     >>> plan = instance.get_research_plan(1)
     >>> # Add a new Table
     >>> table = plan.add_table()
-    >>> # Add a new column Name, age
+    >>> # Add the new columns Name and Age
     >>> name_col_id, age_col_id = table.add_columns("Name", "Age")
     >>> table.add_columns("Is Developer")
     >>> table.add_row('Mr. X', False, **{age_col_id: 40}).add_row('Mr. Y')
@@ -45,7 +48,7 @@ class Table(dict):
     >>> print(f'Average age {age_average}')
     >>> plan.save()
     >>> plan_test = instance.get_research_plan(plan.id)
-    >>> table = plan_test.body[0]['value']
+    >>> table = plan_test.body[-1]
     >>> age_average = sum(table.get_column(age_col_id)) / len(table)
     >>> assert age_average == 35
     >>> assert table.get_column(name_col_id) == ['Mr. X', 'Mr. Y']
@@ -60,6 +63,7 @@ class Table(dict):
 
     @property
     def id(self) -> str:
+        """ID of the body entry"""
         return self['id']
 
     def _get_col_id(self):
@@ -69,21 +73,23 @@ class Table(dict):
 
     def column_id_by_label(self, label: str) -> str:
         """
-        Finds a column ID of a column with a give label
+        Finds a column ID of a column with a given label
 
         :param label: Label of the column
 
         :return: Column id
+
+        :raises StopIteration: if no column has this label
         """
         return next(self.column_ids_by_labels(label))
 
     def column_ids_by_labels(self, *labels: str) -> Generator[str, None, None]:
         """
-        Finds all column IDs of columns with a given labels
+        Finds all column IDs of columns with the given labels
 
-        :param labels: Labels of the column
+        :param labels: Labels of the columns
 
-        :return: Column id
+        :return: Column ids in the order of the labels
         """
 
         for l in labels:
@@ -91,8 +97,8 @@ class Table(dict):
 
     def add_columns(self, *labels: str) -> list[str]:
         """
-        Adds one or more  columns to the table. It adds a column for
-        each label give as an argument
+        Adds one or more columns to the table. It adds a column for
+        each label given as an argument. Column IDs are single letters ('a' to 'z').
 
         :param labels: labels of columns to be added
         :return: list of the column IDs
@@ -142,11 +148,11 @@ class Table(dict):
         """
         Sets an entry to the table
 
-        :param row: rwo idx starts with 0
+        :param row: row idx starts with 0
         :param column_id: the column ID
         :param value: of the Entry
 
-        :return self
+        :return: self
         """
 
         self['value']['rows'][row][column_id] = value
@@ -154,7 +160,7 @@ class Table(dict):
 
     def get_column(self, column_id: str) -> list:
         """
-        Adds an entry to the table
+        Returns all values of a column
 
         :param column_id: the column ID
         :return: a list of all values of one column
@@ -170,6 +176,11 @@ class Table(dict):
 
 
 class RichText(dict):
+    """
+    A text entry in the body of a research plan. The text is stored in the Quill.js delta format
+    (https://quilljs.com/docs/delta).
+    """
+
     class HeaderType(Enum):
         H1 = 1
         H2 = 2
@@ -188,10 +199,12 @@ class RichText(dict):
 
     @property
     def id(self) -> str:
+        """ID of the body entry"""
         return self['id']
 
     @property
     def value(self) -> list[dict]:
+        """The Quill.js operations of the text"""
         return self['value']['ops']
 
     def add_text(self, text: str,
@@ -200,6 +213,18 @@ class RichText(dict):
                  italic: Optional[bool] = None,
                  list: Optional[Literal['bullet', 'ordered']] = None,
                  header: Optional[HeaderType] = None) -> Self:
+        """
+        Appends text. Lists and headers apply to the line, so end the text with a line break (``\\n``).
+
+        :param text: text to be added
+        :param bold: bold text
+        :param underline: underlined text
+        :param italic: italic text
+        :param list: 'bullet' or 'ordered' list
+        :param header: header level
+
+        :return: self
+        """
         attributes = {}
         if bold is not None:
             attributes['bold'] = bold
@@ -235,7 +260,7 @@ class ResearchPlan(AbstractElement):
     >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
-    >>> # Get the reaction with ID 1
+    >>> # Get the research plan with ID 1
     >>> plan = instance.get_research_plan(1)
     >>> # Add a table
     >>> table: Table = plan.add_table()
@@ -260,9 +285,12 @@ class ResearchPlan(AbstractElement):
     @property
     def body(self) -> list[dict]:
         """
-        Body is list which contains the same values as the Properties.
-        Each entry has a type and a value filed.
-        The type can be one of:  richtext, ketcher, table, image, sample or reaction
+        Body is a list which contains the same values as ``properties['body']``.
+        Each entry has an id, a type and a value field.
+        The type can be one of: richtext, ketcher, table, image, sample or reaction.
+        Text entries are :class:`RichText` and table entries are :class:`Table` objects.
+        The value of a sample or reaction entry is a Sample or Reaction object, the value of an
+        image entry is its attachment.
 
         :return: List of body entries
         """
@@ -341,8 +369,9 @@ class ResearchPlan(AbstractElement):
         Adds a text block to the Research plan
 
         :param text: to be added
+        :param at_idx: position in the body. If None, the text is appended
 
-        :return: body container
+        :return: the new text entry
         """
         body_obj: RichText = self._add_new_element(BodyElements.richtext, at_idx)
         if text is not None:
@@ -351,11 +380,14 @@ class ResearchPlan(AbstractElement):
 
     def add_image(self, image_path: str, at_idx: Optional[int] = None) -> dict:
         """
-        Adds an image to the Research plan
+        Adds an image to the Research plan. The image is uploaded as attachment when the plan is saved.
 
-        :param image_path: file path to image
+        :param image_path: file path to image (png, jpg, jpeg, tiff, bmp or gif)
+        :param at_idx: position in the body. If None, the image is appended
 
         :return: body container
+
+        :raises ValueError: if the file is not an image
         """
 
         if not image_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
@@ -371,6 +403,8 @@ class ResearchPlan(AbstractElement):
     def add_table(self, at_idx: Optional[int] = None) -> Table:
         """
         Adds a new table to the Research plan
+
+        :param at_idx: position in the body. If None, the table is appended
 
         :return: Table object
         """

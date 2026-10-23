@@ -66,7 +66,7 @@ schema = {
                             },
                             "value": {
                                 "type": "string",
-                                "pattern": r"^[\d\.]+$",
+                                "pattern": r"^-?(\d+\.?\d*|\.\d+)$",
                             }
                         },
                         "required": ["value", "time"]

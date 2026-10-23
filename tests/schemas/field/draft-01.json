@@ -142,6 +142,9 @@
         },
         "value_system": {
             "type": "string"
+        },
+        "ontology": {
+            "type": "object"
         }
     },
     "additionalProperties": false,

@@ -59,11 +59,11 @@ schema = {
                         "properties": {
                             "time": {
                                 "type": "string",
-                                "pattern": "^\d{2}:\d{2}:\d{2}$",
+                                "pattern": r"^\d{2}:\d{2}:\d{2}$",
                             },
                             "value": {
                                 "type": "string",
-                                "pattern": "^[\d\.]+$",
+                                "pattern": r"^-?(\d+\.?\d*|\.\d+)$",
                             }
                         },
                         "required": ["value", "time"]

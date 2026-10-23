@@ -38,10 +38,12 @@ CHEMOTION_PROCESS: subprocess.Popen | None = None
 def set_config():
     global CONFIG, DEFAULT_CONFIG
 
-    file = "config.json"
-
-    with open(file, "r") as jsonfile:
-        data = json.load(jsonfile)
+    # config.json is local (gitignored); without it the defaults and environment variables are used
+    file = os.path.join(os.path.dirname(__file__), "config.json")
+    data = {}
+    if os.path.isfile(file):
+        with open(file, "r") as jsonfile:
+            data = json.load(jsonfile)
 
     for key, val in DEFAULT_CONFIG.items():
         CONFIG[key] = str(os.getenv(key, data.get(key, val)))
@@ -60,6 +62,18 @@ def write_proces_logs():
             f.write(line.strip() + '\n')
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "integration: needs the test ELN (all tests outside tests/unit)")
+
+
+def pytest_collection_modifyitems(config, items):
+    # Everything outside tests/unit talks to the test ELN
+    unit_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'unit')
+    for item in items:
+        if os.path.commonpath([str(item.path), unit_dir]) != unit_dir:
+            item.add_marker(pytest.mark.integration)
+
+
 def pytest_sessionstart(session):
     global DEFAULT_CONFIG, CONFIG, CHEMOTION_PROCESS
     set_config()
@@ -69,8 +83,9 @@ def pytest_sessionstart(session):
 
         CHEMOTION_PROCESS = subprocess.Popen(path, shell=True, executable='/bin/bash', cwd=path_dir,
                                              env=dict(os.environ, **CONFIG),
+                                             stdin=subprocess.DEVNULL,
                                              stdout=subprocess.PIPE,
-                                             stderr=subprocess.PIPE)
+                                             stderr=subprocess.STDOUT)
 
         while True:
             line = CHEMOTION_PROCESS.stdout.readline().decode("utf-8")
@@ -82,7 +97,7 @@ def pytest_sessionstart(session):
                 Thread(target=write_proces_logs, args=()).start()
                 break
 
-        if CONFIG["WAIT_FOR_MANUAL_RESTART"] != 0:
+        if CONFIG["WAIT_FOR_MANUAL_RESTART"] != '0':
             print("Waiting for manual restart of the Chemotion Server...")
             input("Press Enter to continue...")
 

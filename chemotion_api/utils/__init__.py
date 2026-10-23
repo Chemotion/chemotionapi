@@ -1,11 +1,14 @@
 import copy
 import os
+import re
 import sys
 import uuid
 from abc import ABC
 from collections.abc import MutableMapping, MutableSequence
 from collections import OrderedDict
-from typing import Optional
+from typing import Any, Optional
+
+from chemotion_api.utils.segment_fields import SegmentField
 
 
 class PropertyDict(MutableMapping):
@@ -24,7 +27,8 @@ class PropertyDict(MutableMapping):
 
     def __getitem__(self, name):
         ret_val = self.data.__getitem__(name)
-        if isinstance(ret_val, dict):
+        # Dict subclasses with their own methods (e.g. Temperature) are returned as they are
+        if type(ret_val) is dict:
             ret_val = PropertyDict(None, ret_val)
         if isinstance(ret_val, PropertyDict):
             def inner_on_change(inner_dict_obj, inner_name, inner_value):
@@ -98,6 +102,28 @@ class UnitDict(FixedDict):
         self.__setitem__('unit', unit)
 
 
+class AttrAccessMixin:
+    """
+    Makes the keys of a dict readable and writable as attributes: ``obj.name`` is ``obj['name']``.
+    Real attributes take precedence over keys.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        if not name.startswith('_'):
+            try:
+                return self[name]
+            except KeyError:
+                pass
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name: str, value: Any):
+        if not name.startswith('_') and name in self and name not in self.__dict__ and \
+                not hasattr(type(self), name):
+            self[name] = value
+        else:
+            super().__setattr__(name, value)
+
+
 def add_to_dict(obj: dict, key: str, val: any) -> str:
     origen_key = key
     idx = 1
@@ -156,21 +182,35 @@ def parse_generic_object_json(segment_json_data: dict) -> dict:
     temp_segment = {}
     temp_id_segment = {'__id': segment_json_data.get('id')}
     layers = OrderedDict(
-        sorted(segment_json_data.get('properties', {}).get('layers', {}).items(), key=lambda x: x[1].get('position')))
+        sorted(segment_json_data.get('properties', {}).get('layers', {}).items(),
+               key=lambda x: (x[1].get('position'), x[1].get('wf_position') or 0)))
     for key, layer in layers.items():
         parse_generic_object_layer_json(key, layer, temp_segment, temp_id_segment)
     return {'values': temp_segment, 'obj_mapping': temp_id_segment}
 
 
-def parse_generic_object_layer_json(key, layer, values, obj_mapping):
+def parse_generic_object_layer_json(key, layer, values, obj_mapping) -> str:
+    """
+    Adds a layer to the values as ``values[name] = {field: value}`` and returns the name. The name is the layer
+    label; a duplicated layer (key ``three.1``) gets the suffix of its key (``Nr 3.1``), so the name does not
+    depend on the order the layers are read in.
+    """
     temp_layer = parse_generic_layer(key, layer)
     layer_name = layer.get('label') if len(layer.get('label')) > 0 else layer.get('key')
+    suffix = re.fullmatch(r'.+\.(\d+)', key or '')
+    if suffix is not None and not layer_name.endswith(f".{suffix.group(1)}") and \
+            f"{layer_name}.{suffix.group(1)}" not in values:
+        layer_name = f"{layer_name}.{suffix.group(1)}"
     key = add_to_dict(values, layer_name, temp_layer.get('values'))
     obj_mapping[key] = temp_layer.get('obj_mapping')
+    return key
 
 
-def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str = None) -> dict[str, any]:
+def clean_generic_field(field_obj: dict, values: Any, field_mapping: dict | str | None = None,
+                        select_options: dict | None = None) -> dict[str, Any]:
     sub_fields = field_obj.get('sub_fields')
+    if field_obj.get('type') in ('select', 'system-defined', 'integer'):
+        values = _check_generic_field_value(field_obj, values, select_options)
     if type(sub_fields) is list and len(sub_fields) > 0:
         if field_obj.get('type') == 'input-group':
             for (idx, val) in enumerate(values):
@@ -195,9 +235,15 @@ def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str 
 
 
 def clean_generic_object_json(segment_json_data: dict, values: dict, mapping: dict):
+    properties: dict = segment_json_data['properties']
     for (k, v) in values.items():
         layer_mapping = mapping.get(k, {})
         layer_key = layer_mapping.get('__key')
+        layer = properties.get('layers').get(layer_key)
+        if layer is None:
+            available = [name for name in mapping if not name.startswith('__')]
+            raise ValueError(f'Unknown layer "{k}". Available: {", ".join(available)}')
+        fields = layer.get('fields')
         for (value_name, value_ob) in v.items():
             field_mapping = layer_mapping.get(value_name)
             field_key = ''
@@ -205,9 +251,32 @@ def clean_generic_object_json(segment_json_data: dict, values: dict, mapping: di
                 field_key = field_mapping
             elif type(field_mapping) is dict:
                 field_key = field_mapping.get('__field')
-            fields = segment_json_data.get('properties').get('layers').get(layer_key).get('fields')
             field_obj = next((x for x in fields if x.get('field') == field_key), None)
-            clean_generic_field(field_obj, value_ob, field_mapping)
+            if field_obj is None:
+                available = [name for name in layer_mapping if not name.startswith('__')]
+                raise ValueError(f'Unknown field "{value_name}" in layer "{k}". Fields are named as in the template '
+                                 f'version the element uses. Available: {", ".join(available)}')
+            clean_generic_field(field_obj, value_ob, field_mapping, properties.get('select_options'))
+
+
+def _check_generic_field_value(field_obj: dict, values: Any, select_options: dict | None) -> Any:
+    """
+    Checks a changed value of a select, system-defined or integer field against the template and
+    returns it in the stored format. Unchanged values are returned as they are, so data loaded from
+    the server can always be saved again.
+    """
+    current: Any
+    if field_obj.get('type') == 'system-defined':
+        current = {'value': field_obj.get('value'), 'unit': field_obj.get('value_system')}
+    else:
+        current = field_obj.get('value')
+    if values == current:
+        return values
+    field = SegmentField(field_obj, '', select_options)
+    try:
+        return field.clean_value(values)
+    except ValueError as e:
+        raise ValueError(f'Invalid value for field "{field.label}": {e}') from None
 
 
 def merge_dicts(*args) -> dict:

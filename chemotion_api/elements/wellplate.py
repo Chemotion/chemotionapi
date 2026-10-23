@@ -5,6 +5,10 @@ from collections.abc import MutableMapping
 import string
 
 class WellplateCol(MutableMapping):
+    """
+    One column of a wellplate. The wells are addressed by the row letters 'A' to 'H'.
+    Setting a sample stores a split of it.
+    """
 
     def __init__(self, *args, **kwargs):
         self._keys = [letter for letter in string.ascii_uppercase[0:8]]
@@ -39,8 +43,11 @@ class Wellplate(AbstractElement):
     It extends the :class:`chemotion_api.elements.abstract_element.AbstractElement`
 
     - Plate size: 12 x 8
-    - Verical indexing: 0-11
-    - Horiconcal indexing: 'A' - 'H'
+    - Columns (``wells[0]`` to ``wells[11]``): 0-11
+    - Rows (keys of a column): 'A' - 'H'
+
+    ``wells`` is a list of 12 :class:`WellplateCol`. Setting a sample in a well stores a split of it.
+    ``properties`` contains ``name`` and ``description``.
 
     Usage::
 
@@ -51,7 +58,7 @@ class Wellplate(AbstractElement):
     >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
-    >>> # Get the reaction with ID 1
+    >>> # Get the wellplate with ID 1
     >>> wp = instance.get_wellplate(1)
     >>> # Add samples to wellplate
     >>> wp.wells[0]['A'] = instance.get_sample(1)
@@ -66,12 +73,20 @@ class Wellplate(AbstractElement):
 
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
-        self.wells = [WellplateCol() for i in range(12)]
+        self._wells = [WellplateCol() for i in range(12)]
         for element in self.json_data.get('wells'):
             if element.get('sample') is not None:
                 x = int(element['position']['x']) - 1
                 y = chr(int(element['position']['y']) + ord('A') - 1)
-                self.wells[x][y] = Sample(self._generic_segments, self._session, element['sample'])
+                self._wells[x][y] = Sample(self._generic_segments, self._session, element['sample'])
+
+    @property
+    def wells(self) -> list[WellplateCol]:
+        """
+        The 12 columns of the wellplate
+        """
+        self._load_if_partial()
+        return self._wells
 
     def _parse_properties(self) -> dict:
 
@@ -97,5 +112,8 @@ class Wellplate(AbstractElement):
         return self.json_data
 
     def save(self):
+        """
+        Saves the wellplate and reloads it from the server.
+        """
         super().save()
         self.load()

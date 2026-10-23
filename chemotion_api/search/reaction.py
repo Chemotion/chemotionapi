@@ -88,6 +88,9 @@ def field_details(field_name: Literal[
 
 
 class ReactionSearcher(SearchHelperBase):
+    """
+    Advanced search for reactions. Use :meth:`chemotion_api.Instance.search_reaction` to create one.
+    """
     element_type_res = "reactions"
     element_type = "reaction"
     def add_search_condition(self, match: EnumMatch, connector: EnumConnector, name: Optional[str] = None,
@@ -95,6 +98,22 @@ class ReactionSearcher(SearchHelperBase):
                              conditions: Optional[str] = None, reaction_type: Optional[str] = None,
                              temperature_in_c: Optional[float] = None, duration_in_sec: Optional[int] = None,
                              private_note: Optional[str] = None):
+        """
+        Adds a condition for each given field. Fields set to None are ignored.
+
+        :param match: how the field is compared with the value
+        :param connector: how the condition is connected with the conditions before it
+        :param name: reaction name
+        :param short_label: short label
+        :param status: status, e.g. 'Planned' or 'Done'
+        :param conditions: conditions
+        :param reaction_type: reaction type (RXNO)
+        :param temperature_in_c: temperature in °C
+        :param duration_in_sec: duration in seconds
+        :param private_note: private note
+
+        :return: the searcher itself
+        """
         field_values = {"name": name, "short_label": short_label, "temperature": temperature_in_c,
                         "status": status, "conditions": conditions, "rxno": reaction_type, "duration": duration_in_sec,
                         "content": private_note}

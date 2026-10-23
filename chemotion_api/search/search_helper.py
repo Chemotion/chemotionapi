@@ -1,4 +1,3 @@
-import json
 from abc import ABC, abstractmethod
 from typing import Self
 
@@ -9,6 +8,11 @@ from chemotion_api.search.utils import EnumMatch, EnumConnector
 
 
 class SearchHelperBase(ABC):
+    """
+    Base class of the advanced search. Conditions are added with ``add_search_condition``,
+    :meth:`request` runs the search. All methods except :meth:`request` return the searcher itself,
+    so calls can be chained.
+    """
     element_type_res: str
     element_type: str
 
@@ -35,14 +39,31 @@ class SearchHelperBase(ABC):
         }
 
     def in_collection(self, collection_id: int) -> Self:
+        """
+        Searches only in one collection. By default, the 'All' collection is searched.
+
+        :param collection_id: ID of the collection
+        """
         self._collection_id = collection_id
         return self
 
     def find_max(self, per_page: int) -> Self:
+        """
+        Sets the maximum number of results (default 15).
+
+        :param per_page: maximum number of results
+        """
         self._per_page = per_page
         return self
 
     def add_search_condition(self, match: EnumMatch, connector: EnumConnector, **field_values) -> Self:
+        """
+        Adds a condition for each given field. Fields set to None are ignored.
+
+        :param match: how the field is compared with the value
+        :param connector: how the condition is connected with the conditions before it
+        :param field_values: field name = search value
+        """
         for field_name, field_value in field_values.items():
             if field_value is not None:
                 _connector = connector.value if len(
@@ -55,19 +76,24 @@ class SearchHelperBase(ABC):
         self._payload['selection']['page_size'] = self._per_page
         self._payload['per_page'] = self._per_page
         self._payload['collection_id'] = self._collection_id
-        with open('test.json', 'w') as file:
-            file.write(json.dumps(self._payload))
         res = self._connection.post('/api/v1/search/advanced', json=self._payload)
         if res.status_code != 201:
             raise ConnectionError(res.status_code)
         return res.json()[self.element_type_res]['elements']
 
     def request(self) -> ElementSet:
+        """
+        Runs the search.
+
+        :return: the found elements
+
+        :raises ConnectionError: if the search request fails
+        """
         e = ElementSet(self._connection, self._element_manager.all_classes.get(self.element_type), self._collection_id,
                        False, True)
 
         for val in self._send_request():
-            e.new_element(val)
+            e.new_element(val).mark_partial()
 
         return e
 

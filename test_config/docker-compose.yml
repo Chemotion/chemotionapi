@@ -1,12 +1,12 @@
 services:
 
   dbupgrade:
-    image: ptrxyz/chemotion:dbupgrade-2.1.1
+    image: ptrxyz/chemotion:dbupgrade-3.1.2
     volumes:
       - chemotion_db:/var/lib/postgresql/data/
     restart: "no"
   db:
-    image: ptrxyz/chemotion:db-2.1.1
+    image: ptrxyz/chemotion:db-3.1.2
     restart: unless-stopped
     hostname: db
     ports:
@@ -17,12 +17,13 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=chemotion
     volumes:
     - chemotion_db:/var/lib/postgresql/data/
     networks:
     - chemotion
   msconvert:
-    image: ptrxyz/chemotion:msconvert-2.1.1
+    image: ptrxyz/chemotion:msconvert-3.1.2
     restart: unless-stopped
     hostname: msconvert
     volumes:
@@ -30,7 +31,7 @@ services:
     networks:
     - chemotion
   spectra:
-    image: ptrxyz/chemotion:spectra-2.1.1
+    image: ptrxyz/chemotion:spectra-3.1.2
     restart: unless-stopped
     hostname: spectra
     volumes:
@@ -40,8 +41,9 @@ services:
     networks:
     - chemotion
   worker:
-    image: ptrxyz/chemotion:eln-2.1.1
+    image: ptrxyz/chemotion:eln-3.1.2
     restart: unless-stopped
+    env_file: .env
     environment:
     - CONFIG_ROLE=worker
     - SECRET_KEY_BASE=3b4576cc0m927897n56v
@@ -56,7 +58,7 @@ services:
     networks:
     - chemotion
   eln:
-    image: ptrxyz/chemotion:eln-2.1.1
+    image: ptrxyz/chemotion:eln-3.1.2
     restart: unless-stopped
     env_file: .env
     environment:
@@ -76,7 +78,7 @@ services:
     networks:
     - chemotion
   ketchersvc:
-    image: ptrxyz/chemotion:ketchersvc-2.1.1
+    image: ptrxyz/chemotion:ketchersvc-3.1.2
     restart: unless-stopped
     init: true
     environment:
@@ -87,16 +89,8 @@ services:
         condition: service_healthy
     networks:
     - chemotion
-  knmfproposalminer:
-    image: mstarman/knmfproposalminer:0.1.9
-    env_file:
-    - .env
-    volumes:
-      - knmfproposalminer:/srv/app
-    networks:
-    - chemotion
   converter:
-    image: ptrxyz/chemotion:converter-2.1.1
+    image: ptrxyz/chemotion:converter-3.1.2
     restart: unless-stopped
     environment:
     - SECRET_KEY=3b4576cc0m927897n56v

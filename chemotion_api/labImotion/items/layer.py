@@ -1,13 +1,13 @@
 import re
-import string
 from enum import Enum
 
 from chemotion_api.labImotion.items.condition_handler import ConditionHandler
 from chemotion_api.labImotion.items.fields import BaseField, field_factory, FieldType, create_field
+from chemotion_api.labImotion.items.fields.fields import SelectField
 from chemotion_api.labImotion.items.options import LayerColor
 from chemotion_api.labImotion.items.validation import validate_generic_layer
 from chemotion_api.labImotion.structure import StructureRegistry
-from chemotion_api.labImotion.utils import ChemotionSerializable, all_instances_of
+from chemotion_api.labImotion.utils import ChemotionSerializable, all_instances_of, generate_key
 
 
 class Layer(ChemotionSerializable, ConditionHandler):
@@ -46,17 +46,41 @@ class Layer(ChemotionSerializable, ConditionHandler):
             if hasattr(self, key):
                 setattr(self, key, value)
 
-    def add_field(self, field_type: FieldType, label: str, field: str = "", idx: int = -1):
-        all_keys = [l.field for l in self.fields]
-        if field == '':
-            field = re.sub(r'[^a-z]', '_', label.lower())
-            t_field = field
-            i = 0
-            while field in all_keys or field.endswith('_'):
-                field = t_field + string.ascii_lowercase[i]
-                i += 1
+    def add_field(self, field_type: FieldType, label: str, field: str = "", idx: int = -1,
+                  options: list[str] | None = None, ontology: dict | str | None = None) -> BaseField:
+        """
+        Adds a new field to the layer.
 
-        new_field = create_field(self._sr, self.key, field_type, field, idx, field)
+        >>> layer.add_field(FieldType.TEXT, 'Strain')
+        >>> layer.add_field(FieldType.SELECT, 'Medium', options=['LB', 'TB'])
+        >>> layer.add_field(FieldType.TEXT, 'NMR method', ontology='CHMO:0000593')
+
+        :param field_type: the type of the field
+        :param label: the label shown in Chemotion
+        :param field: the key of the field. If empty, it is generated from the label
+        :param idx: the position in the layer. Negative values append the field
+        :param options: only for SELECT fields: creates a new select option list (option layer) with these
+            entries and links the field to it
+        :param ontology: an ontology term (dict or term ID) linked to the field, see :attr:`BaseField.ontology`
+        :return: the new field
+
+        :raises ValueError: if the key is already used in this layer
+        """
+        all_keys = [l.field for l in self.fields if l.field is not None]
+        if field == '':
+            field = generate_key(label, all_keys, max_len=40, fallback='field')
+        elif field in all_keys:
+            raise ValueError(f'A field with the key "{field}" already exists in layer "{self.key}"')
+        if options is not None and field_type != FieldType.SELECT:
+            raise ValueError('options are only supported for SELECT fields')
+
+        new_field = create_field(self._sr, self.key, field_type, label, idx, field)
+        new_field.ontology = ontology
+        if isinstance(new_field, SelectField) and options is not None:
+            properties = self._sr.get_properties()
+            if properties is None:
+                raise ValueError('options can only be added to a template with properties')
+            new_field.option_layers = properties.add_select_option(field, options)
         if idx < 0 :
             self.fields.append(new_field)
         else:
@@ -97,7 +121,7 @@ class Layer(ChemotionSerializable, ConditionHandler):
         self._fields = []
         for field in value:
             if isinstance(field, BaseField):
-                self._fields.append(value)
+                self._fields.append(field)
             elif isinstance(field, dict):
                 self._fields.append(field_factory(self._sr, self.key, field))
 
