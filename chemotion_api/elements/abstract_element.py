@@ -13,7 +13,7 @@ from jsonschema.validators import validate
 
 from chemotion_api.elements.analyses_manager import AnalysesManager
 
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
 
 from chemotion_api.generic_segments import GenericSegments
@@ -688,7 +688,7 @@ class AbstractElement:
         res = self._session.get(f"{self.__class__.get_url(self.element_type)}/{self.id}.json",
                                 data=payload)
         if res.status_code != 200:
-            raise RequestException("{} -> {}".format(res.status_code, res.text))
+            raise request_error(res, f'loading {self.element_type} {self.id}')
         res_json = res.json()
         attachments_data = res_json.get('attachments')
         return attachments_data, res_json[self.get_response_key(self.element_type)]
@@ -767,7 +767,7 @@ class AbstractElement:
         else:
             res = self._session.put(self.save_url(), data=json_dumps_data)
         if res.status_code != 200 and res.status_code != 201:
-            raise RequestException(f'{res.status_code} -> {res.text}')
+            raise request_error(res, f'saving {self.element_type} {"(new)" if is_created else self.id}')
         if is_created:
             res_json = res.json()
             res_json = merge_dicts(self.json_data, res_json.get(self.element_type, res_json.get('element')))

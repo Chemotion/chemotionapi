@@ -33,8 +33,6 @@ def _reaction(starting_materials, reactants=()):
         'solvents': [], 'purification_solvents': []})
     for role, samples in (('starting_materials', starting_materials), ('reactants', reactants)):
         for sample in samples:
-            sample.reaction = reaction
-            sample.role_in_reaction = role
             reaction.properties[role].append_no_split(sample)
     return reaction
 
@@ -162,3 +160,49 @@ def test_molecule_without_density_or_molarity_changes_nothing():
     sample = _sample()
     sample.molecule = Molecule({'id': 2, 'molecular_weight': 46.07, 'density': 0.0})
     assert (sample.properties['density'], sample.properties['molarity']['value']) == (0, 0)
+
+
+def test_append_no_split_assigns_reaction_role_and_position():
+    first, second = _sample(1), _sample(2, target_amount_unit=None, target_amount_value=None)
+    reaction = _reaction([first, second])
+    assert reaction.starting_materials[1] is second
+    assert (second.reaction, second.role_in_reaction, second.properties['position']) == (
+        reaction, 'starting_materials', 1)
+    assert second.properties['target_amount'].to_dict() == {'value': 0.0, 'unit': 'g'}
+
+
+def test_direct_build_computes_equivalents_and_yield():
+    # Issue: materials added with append_no_split got no equivalents and products no yield
+    ref, reactant, product = _sample(1), _sample(2), _sample(3)
+    for sample, role, value, unit in ((ref, 'starting_materials', 0.002, QuantityUnit.Mole),
+                                      (reactant, 'reactants', 0.003, QuantityUnit.Mole),
+                                      (product, 'products', 0.1, QuantityUnit.Gram)):
+        sample.role_in_reaction = role
+        sample.set_amount(value, unit)
+    reaction = _reaction([ref], [reactant])
+    reaction.products.append_no_split(product)
+    reaction.reference_sample = ref
+    assert [m.properties['equivalent'] for m in (ref, reactant, product)] == pytest.approx([1, 1.5, 0.5])
+
+
+def test_equivalent_without_reference_amount_is_unknown():
+    ref, reactant = _sample(1, target_amount_value=0), _sample(2)
+    _reaction([ref], [reactant])
+    assert reactant.properties['equivalent'] is None
+
+
+def test_product_amount_in_mol():
+    product = _sample(2)
+    reaction = _reaction([_sample(1)])
+    reaction.products.append_no_split(product)
+    product.set_amount(0.002, QuantityUnit.Mole)
+    assert product.properties['real_amount'].to_dict() == {'value': 0.002, 'unit': 'mol'}
+    assert product.gram == pytest.approx(0.2)
+
+
+def test_molecule_attribute_access():
+    molecule = Molecule({'id': 2, 'molecular_weight': 46.07})
+    assert molecule.molecular_weight == molecule['molecular_weight'] == 46.07
+    assert molecule.sum_formular is None
+    with pytest.raises(AttributeError):
+        _ = molecule.unknown_key

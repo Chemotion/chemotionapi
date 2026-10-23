@@ -24,7 +24,8 @@ class MaterialList(TypedList):
     Splitting and copying save the original sample first.
 
     In order to avoid the splitting and the pre saving use the 'append_no_split'
-    method.
+    method. It adds the sample itself, but like the other methods it assigns the reaction, role and position
+    and initializes the amount.
     """
 
     def __init__(self, reaction: 'Reaction',
@@ -48,12 +49,15 @@ class MaterialList(TypedList):
             return_element = element
         else:
             raise ValueError("Unknown material type.")
-        return_element.reaction = self._reaction
-        return_element.role_in_reaction = self._mat_type
+        self._attach(return_element)
         return_element.set_ref(False, False)
-        return_element.properties['position'] = len(self)
 
         return return_element
+
+    def _attach(self, element: Sample):
+        element.reaction = self._reaction
+        element.role_in_reaction = self._mat_type
+        element.properties['position'] = len(self)
 
     def after_append(self, element: Sample):
         try:
@@ -64,13 +68,18 @@ class MaterialList(TypedList):
 
     def append_no_split(self, element: Sample):
         """
-        Add a Sample without splitting it
+        Add a Sample without splitting or copying it. The reaction, role and position are set,
+        the amount is initialized and the equivalents are updated.
 
         :param element: Sample to be added
+        :return: the added sample
         """
 
         self._check_element(element)
-        return super(TypedList, self).append(element)
+        self._attach(element)
+        super(TypedList, self).append(element)
+        self.after_append(element)
+        return element
 
 
 class SampleVariation:
@@ -1029,6 +1038,8 @@ class Reaction(AbstractElement):
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         if serialize_data is None:
             serialize_data = {}
+        # The equivalents are sent to the server, make sure they fit the current amounts
+        self.update_equivalent()
         serialize_data['materials'] = {}
         for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
             temp_json_sample = self.json_data[reaction_elm_names]

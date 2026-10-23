@@ -12,7 +12,7 @@ from chemotion_api.elements.empty_elements import init_container
 from requests.exceptions import RequestException
 
 from chemotion_api.utils import resource_path
-from chemotion_api.utils.solvent_manager import get_solvent_list
+from chemotion_api.utils.solvent_manager import get_solvent_list, get_solvent_info
 
 
 class ElementManager:
@@ -154,11 +154,7 @@ class ElementManager:
         return data
 
     def build_solvent_sample(self, name, collection_id):
-        solvent_info = self.get_solvent_list().get(name)
-        if solvent_info is None:
-            raise KeyError(
-                'Solver: "{}" is not available. Run instance.get_solvent_list() to see all valid solver names'.format(
-                    name))
+        solvent_info = get_solvent_info(name)
         sample_data = self.build_new('sample', collection_id)
 
         mol = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'], solvent_info['density'])

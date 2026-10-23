@@ -33,11 +33,11 @@ def get_equivalent(sample: Sample, mol: float, ref_mol: float, ppm: float, tempe
             stoichiometry_coefficient = (sample.properties['coefficient'] or 1.0) / (
                         sample.reaction.reference_sample.properties['coefficient'] or 1.0)
             return mol / ref_mol / stoichiometry_coefficient
-        except ZeroDivisionError or AttributeError:
+        except (ZeroDivisionError, TypeError, AttributeError):
             return None
     elif role in ['starting_materials', 'reactants']:
         try:
             return mol / ref_mol
-        except ZeroDivisionError or AttributeError:
+        except (ZeroDivisionError, TypeError, AttributeError):
             return None
     return None

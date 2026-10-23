@@ -393,7 +393,10 @@ class AbstractCollection:
         """
         List of all samples.
 
-        :param per_page: How many Elements per page
+        The server does not list samples that are only used as reactants or solvents of a reaction.
+        Use ``reaction.reactants``, ``reaction.solvents`` etc. to access them.
+
+        :param per_page: How many Elements per page (the server allows at most 100)
         :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
         :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
         :param product_only: If True only samples which are products in a reaction are returned

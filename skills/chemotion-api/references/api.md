@@ -97,7 +97,8 @@ SyncPermission: Read, Write, Share, Delete, ImportElements, PassOwnership
 
 A list subclass loaded page by page (`per_page`). Iterating loads all pages. `es[i]` loads the page and the
 full element; `es[:5]` returns a list; negative indices raise TypeError. Elements are partial until their
-data is accessed (see SKILL.md).
+data is accessed (see SKILL.md). `len(es)` is the total number on the server (server max per_page: 100).
+Sample listings omit samples that are only reactants or solvents of a reaction (server behavior).
 
 ```
 .page (get/set) / .max_page / .iter_pages() / .next_page() / .prev_page()
@@ -127,6 +128,7 @@ data is accessed (see SKILL.md).
 ```
 .molecule -> Molecule  # dict-like: molecular_weight, exact_molecular_weight, sum_formular, cano_smiles,
                        # inchikey, inchistring, density, boiling_point, melting_point, iupac_name, ...
+                       # m['molecular_weight'] or read-only m.molecular_weight
 .set_amount(value, unit=None)          # unit: QuantityUnit or 'g'/'mol'/'l'/'Equivalent'
 .get_amount() -> {'value', 'unit'}     # real_amount for products, else target_amount
 .allowed_quantity_units() -> list[QuantityUnit]
@@ -177,7 +179,7 @@ Property keys (`sample.properties[...]`):
 
 MaterialList (list of Sample)
   .append(sample)          # starting_materials/reactants: split; products: copy; solvents: as is
-  .append_no_split(sample)
+  .append_no_split(sample) # adds the sample itself; sets reaction, role, position, amount like append
 
 Temperature (properties['temperature'], a dict)
   .add_time_point(hour, minute, second, temperature)
@@ -361,8 +363,10 @@ GasType: OFF, GAS, CATALYST, FEEDSTOCK
 | ConnectionError | server unreachable, collection/profile request failed, share failed |
 | PermissionError | login failed |
 | requests.exceptions.RequestException | element load/save failed; 401 = not visible to this user |
+| chemotion_api.connection.ChemotionRequestError | subclass raised by element load/save/list; .status_code, .url, .context, .snippet |
+| chemotion_api.connection.ChemotionServerError | the same for 5xx (server bug, often triggered by invalid data) |
 | ModuleNotFoundError | collection path does not exist |
-| ValueError | invalid segment value, unit not allowed, unknown generic type/label, unsaved element in url()/open() |
+| ValueError | invalid segment value, unit not allowed, unknown generic type/label, unsaved element in url()/open(), SMILES the server cannot resolve ('Mg' instead of '[Mg]') |
 | KeyError | sample has no reaction; unknown segment/field name |
 | StopIteration | by_name/by_id/dataset_by_name found nothing |
 | NotImplementedError | quantities of mixtures in variations |

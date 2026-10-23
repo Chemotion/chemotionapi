@@ -4,6 +4,9 @@ Reaction
 A reaction has five material lists: starting materials, reactants, products, solvents and purification solvents
 (:class:`chemotion_api.elements.reaction.MaterialList`). Adding a sample to the starting materials or reactants
 adds a split of it, adding it to the products adds a copy.
+:meth:`chemotion_api.elements.reaction.MaterialList.append_no_split` adds the sample itself. In both cases the
+reaction, role and position of the sample are set and its amount is initialized. Saving the reaction recomputes the
+equivalents (and the yields of the products) from the amounts and the reference material.
 
 .. autoclass:: chemotion_api.elements.reaction.Reaction
     :members:

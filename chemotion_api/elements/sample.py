@@ -1,6 +1,7 @@
 import json
 import re
 import copy
+import warnings
 from enum import Enum
 from typing import Literal, Optional, Self
 
@@ -14,7 +15,7 @@ from chemotion_api.elements.empty_elements import init_container
 from collections.abc import MutableMapping
 from chemotion_api.connection import Connection
 from chemotion_api.utils import UnitDict, FixedDict, PropertyDict
-from chemotion_api.utils.solvent_manager import get_solvent_list
+from chemotion_api.utils.solvent_manager import get_solvent_info
 from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity, GasCalculations
 
 
@@ -142,11 +143,7 @@ class SolventList(list):
         :raises KeyError: if the name is not in the solvent list
         """
 
-        solvent_info = get_solvent_list().get(name)
-        if solvent_info is None:
-            raise KeyError(
-                'Solver: "{}" is not available. Run instance.get_solvent_list() to see all valid solver names'.format(
-                    name))
+        solvent_info = get_solvent_info(name)
 
         m = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'])
         self.append({
@@ -180,6 +177,13 @@ class Molecule(MutableMapping):
         for key in ["boiling_point", "molecular_weight", "exact_molecular_weight", "cano_smiles", "density", "inchikey",
                     "inchistring", "melting_point", "sum_formular"]:
             self.all_store[key] = self.all_store.get(key)
+
+    def __getattr__(self, key: str):
+        # Read-only attribute access to the keys, e.g. molecule.molecular_weight
+        try:
+            return self.__dict__['all_store'][key]
+        except KeyError:
+            raise AttributeError(f"'Molecule' object has no attribute or key '{key}'") from None
 
     def __getitem__(self, key: str):
         key = self._keytransform(key)
@@ -233,6 +237,7 @@ class MoleculeManager:
         :return: Molecule obj
 
         :raises ConnectionError: if the molecule cannot be created
+        :raises ValueError: if the server cannot resolve the SMILES code (e.g. 'Mg' instead of '[Mg]')
         """
         smiles_url = "/api/v1/molecules/smiles"
         payload = {
@@ -244,6 +249,10 @@ class MoleculeManager:
         if res.status_code != 201:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         res_json = res.json()
+        # For unresolvable SMILES the server answers 201 with an empty molecule. Saving a sample with it fails (500)
+        if not res_json or res_json.get('id') is None:
+            raise ValueError(f'The server could not create a molecule for the SMILES "{smiles_code}". '
+                             f'Elements and ions need brackets, e.g. "[Mg]" instead of "Mg".')
         if density is not None:
             res_json['density'] = density
         return Molecule(res_json)
@@ -831,13 +840,17 @@ class Sample(AbstractElement):
             if self.role_in_reaction in ['starting_materials', 'reactants']:
                 return default_set + [QuantityUnit.Mole, QuantityUnit.Equivalent]
             elif self.role_in_reaction == 'products':
-                return default_set + []
+                # The amount of gas products is computed from the gas phase data
+                if self.gas_type == GasType.GAS:
+                    return default_set
+                return default_set + [QuantityUnit.Mole]
         return default_set + [QuantityUnit.Mole]
 
     def update_equivalent(self):
         try:
             self._set_equivalent()
-        except KeyError:
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            # Incomplete data (no amount, molecular weight or reference amount): the equivalent is unknown
             self._properties['equivalent'] = None
 
     def update_amount(self):
@@ -928,10 +941,11 @@ class Sample(AbstractElement):
         else:
             self._properties[key] = UnitDict(unit=str(unit.value), value=value)
             self._properties[zero_key] = UnitDict(unit=str(unit.value), value=None)
-            try:
-                self.reaction.update_equivalent()
-            except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError):
-                pass
+            if self.reaction is not None:
+                try:
+                    self.reaction.update_equivalent()
+                except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError) as e:
+                    warnings.warn(f'The equivalents of the reaction could not be updated: {e!r}')
 
     def on_properties_change(self, dict_obj, name, value):
         if name[0] in ['target_amount', 'real_amount']:

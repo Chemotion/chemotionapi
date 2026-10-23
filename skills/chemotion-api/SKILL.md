@@ -40,6 +40,10 @@ for s in col.get_samples(per_page=50):           # get_reactions, get_wellplates
     print(s.id, s.short_label, s.name)           # get_generics_by_label(label), get_generics_by_name(name)
 ```
 
+`get_samples()` does not list samples that are only reactants or solvents of a reaction (server behavior);
+reach them via `reaction.reactants` / `reaction.solvents`. `len(es)` is the total on the server; the server
+allows at most 100 per page, iteration loads all pages.
+
 Listing and search results are partial. `id`, `name`, `short_label` and `json_data` come from the
 listing; the first access to `properties`, `segments`, `analyses`, `attachments` (or `molecule`, `wells`,
 `workflow`) loads the full element - one request each. So iterate cheaply over labels, and expect a
@@ -64,7 +68,8 @@ Elements cannot be created in the root collection ('All'): `root` has no `new_*`
 
 ```python
 s = col.new_sample_smiles('CCO')         # molecule from SMILES (server-side lookup)
-solv = col.new_solvent('CDCl3')          # name from instance.get_solvent_list()
+                                         # elements/ions need brackets: '[Mg]', not 'Mg' (ValueError)
+solv = col.new_solvent('CDCl3')          # exact name from instance.get_solvent_list(); KeyError suggests names
 r = col.new_reaction(); rp = col.new_research_plan(); wp = col.new_wellplate()
 g = col.new_generic_by_label('Device')   # or new_generic(type_name)
 s.save()                                 # s.id is an int afterwards (a UUID string before)
@@ -95,9 +100,11 @@ s.save()
 - A sample has `target_amount` (planned/used) and `real_amount` (obtained). `set_amount` writes
   `real_amount` for reaction products and `target_amount` otherwise, and clears the other one.
 - Units: `QuantityUnit.Gram` ('g'), `Mole` ('mol'), `Liter` ('l'), `Equivalent` (relative to the reaction's
-  reference material; starting materials and reactants only). `s.allowed_quantity_units()` lists what is
-  valid for this sample. With no unit given and none stored, the first allowed unit is used.
-- `s.molecule` is a dict-like `Molecule` (`molecular_weight`, `sum_formular`, `cano_smiles`, `inchikey`, ...).
+  reference material; starting materials and reactants only). Products accept g, mol (and l with
+  density/molarity). `s.allowed_quantity_units()` lists what is valid for this sample. With no unit given and
+  none stored, the first allowed unit is used.
+- `s.molecule` is a dict-like `Molecule`: `s.molecule['molecular_weight']` or `s.molecule.molecular_weight`
+  (read-only); keys: `molecular_weight`, `sum_formular`, `cano_smiles`, `inchikey`, ...
 - `s.split()` and `s.copy()` save the original first, then return an unsaved new sample.
 
 ### Reactions
@@ -108,16 +115,18 @@ r.starting_materials.append(instance.get_sample(12))   # appends a SPLIT (saves 
 r.reactants.append(instance.get_sample(13))            # split, short label 'reactant'
 r.products.append(instance.get_sample(14))             # appends a COPY
 r.solvents.append(col.new_solvent('Toluene'))          # solvents are added as they are
-# r.starting_materials.append_no_split(sample) avoids splitting and pre-saving
+# r.starting_materials.append_no_split(sample) adds the sample itself (no split, no pre-saving);
+# like append it sets reaction, role and position and keeps/initializes the amount
 
 r.reference_sample = r.starting_materials[0]   # equivalents and yields are relative to it
 r.reactants[0].set_amount(1.5, QuantityUnit.Equivalent)
+r.products[0].set_amount(0.0015, QuantityUnit.Mole)   # real amount; the yield follows from the reference
 r.properties['temperature'].add_time_point(0, 30, 0, 80)   # h, min, s, value in valueUnit (°C)
 r.properties['status'] = 'Running'      # '', Planned, Running, Done, Analyses Pending, Successful, Not Successful
 r.properties['purification'] = ['TLC', 'Filtration']   # unknown values are dropped silently
 r.properties['description'] = 'Plain text is converted to Quill.js'
 r.properties['vessel_size'] = {'amount': 50, 'unit': 'ml'}
-r.save()
+r.save()                                # recomputes equivalents and yields from the amounts
 ```
 
 The material lists are also `r.properties['starting_materials']` etc. Unknown status values are ignored
@@ -258,3 +267,5 @@ dest.remove_elements(sample)                # stays in 'All'; nothing is deleted
 - `ElementSet` (listings) cannot be indexed negatively; with an IRI filter it can only be iterated.
 - `ValueError` from `save()` usually means a segment value does not fit its field; the message names the field.
 - `requests.exceptions.RequestException` with `401` means the element is not visible to this user.
+  Load/save/list failures raise `chemotion_api.connection.ChemotionRequestError` (a `RequestException`;
+  `ChemotionServerError` for 5xx) with `status_code`, `url` and `context`, e.g. `saving sample 12`.

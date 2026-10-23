@@ -8,7 +8,7 @@ from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
 from chemotion_api.elements.research_plan import ResearchPlan
 from chemotion_api.generic_segments import GenericSegments
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
 
 
@@ -21,6 +21,8 @@ class ElementSet(list):
     loads all pages one after another. Indexing (``elements[12]``) loads the page containing the
     element and fully loads the element. Slicing (``elements[:5]``) returns a list. Negative indices are
     not supported. If an IRI filter is set, the set can only be iterated.
+    ``len()`` returns the total number of elements on the server, not the size of the loaded page.
+    The server limits ``per_page`` (100 in Chemotion 3.x).
 
     The listing contains only part of the data of each element. An element is loaded completely
     (one request) the first time its properties, segments, analyses or attachments are accessed.
@@ -40,6 +42,8 @@ class ElementSet(list):
         self._per_page = 10
         self._iri_filter = None
         self._fixed_length = fixed_length
+        # Total number of elements on the server (X-Total header), None until a page is loaded
+        self._length = None
 
     def set_iri_filter(self, iri):
         """
@@ -50,10 +54,14 @@ class ElementSet(list):
         self._iri_filter = iri
 
     def __len__(self):
-        if self._iri_filter is None or self._fixed_length:
+        """
+        :return: the total number of elements on the server, not only the ones of the loaded page
+        """
+        if self._fixed_length or self._length is None:
             return super().__len__()
-        else:
-            raise TypeError("Length cannot be predicted if you use IRI typs")
+        if self._iri_filter is None:
+            return self._length
+        raise TypeError("Length cannot be predicted if you use IRI typs")
 
     def __getitem__(self, item):
         if isinstance(item, slice):
@@ -164,6 +172,7 @@ class ElementSet(list):
 
         :raises ValueError: if the set does not belong to a collection
         :raises RequestException: if the request was not successful
+            (:class:`chemotion_api.connection.ChemotionRequestError`)
         """
         if per_page is not None:
             self._per_page = per_page
@@ -197,11 +206,12 @@ class ElementSet(list):
         res = self._session.get(self._get_url() + '.json',
                                 data=payload)
         if res.status_code != 200:
-            raise RequestException('{} -> {}'.format(res.status_code, res.text))
+            raise request_error(res, f'listing {self._element_type["name"]} of collection {self._collection_id}')
 
         try:
             self.max_page = int(res.headers.get('X-Total-Pages', 1))
-            self._length = int(res.headers.get('X-Total', 0))
+            total = res.headers.get('X-Total')
+            self._length = int(total) if total is not None else None
         except:
             pass
         self.clear()
