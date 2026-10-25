@@ -7,7 +7,10 @@
 #   eln on host port 3579 (ELN_URL/ELN_PORT in tests/conftest.py).
 services:
   db:
-    image: ptrxyz/chemotion:db-3.1.2
+    # Supplied by the version line under test — see tests/test_config/README.md.
+    # Deliberately no default: a stack that silently starts the wrong server is
+    # worse than one that refuses to start.
+    image: ${CHEMOTION_DB_IMAGE:?set CHEMOTION_DB_IMAGE (see tests/test_config/README.md)}
     restart: unless-stopped
     hostname: db
     ports:
@@ -21,7 +24,7 @@ services:
       - chemotion
 
   eln:
-    image: ptrxyz/chemotion:eln-3.1.2
+    image: ${CHEMOTION_ELN_IMAGE:?set CHEMOTION_ELN_IMAGE (see tests/test_config/README.md)}
     restart: unless-stopped
     environment:
       - CONFIG_ROLE=combine

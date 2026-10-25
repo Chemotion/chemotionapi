@@ -50,3 +50,24 @@ from the working directory, i.e. `tests/` in the `just test-integration` workflo
 Note: the DB reset uses the host Postgres client tools (`psql`, `pg_dump`) against port 54320
 when available, and falls back to `docker compose exec db` otherwise — docker is the only hard
 requirement.
+
+
+## Choosing the server version
+
+This stack is version-neutral on purpose: it is shared by every release line of the client, and
+each line runs against the ELN it targets. The compose file therefore takes the images from the
+environment and **has no default** — an unset variable makes `docker compose` refuse to start,
+which is the point. A stack that silently brings up the wrong server produces failures that look
+like client bugs.
+
+```bash
+# ELN 3.1.2
+export CHEMOTION_DB_IMAGE=ptrxyz/chemotion:db-3.1.2
+export CHEMOTION_ELN_IMAGE=ptrxyz/chemotion:eln-3.1.2
+
+# ELN v4 (pin by digest: `next-release` is a rolling tag and is force-pushed)
+export CHEMOTION_DB_IMAGE=complat/dev:postgres16-rdkit@sha256:...
+export CHEMOTION_ELN_IMAGE=complat/chemotion_eln_stage:next-release@sha256:...
+```
+
+The release line's own branch sets these; see its `justfile` or CI workflow.
