@@ -52,20 +52,27 @@ when available, and falls back to `docker compose exec db` otherwise — docker 
 requirement.
 
 
+## Scope: ELN v3 and v4
+
+**This stack serves the v3 and v4 release lines. It does not support ELN v2, and the client is not
+claimed to work against one.** A 2.x image will start on it — the embed scripts are portable — but
+nothing here is seeded, exercised or supported for v2. `main` is where the v2-era client lives;
+this layer exists to carry v3 and v4 forward.
+
 ## Choosing the server version
 
-This stack is version-neutral on purpose: it is shared by every release line of the client, and
-each line runs against the ELN it targets. The compose file therefore takes the images from the
+The stack takes its images from the environment rather than pinning one, because v3 and v4 share
+it and each runs against the ELN it targets. The compose file therefore takes the images from the
 environment and **has no default** — an unset variable makes `docker compose` refuse to start,
 which is the point. A stack that silently brings up the wrong server produces failures that look
 like client bugs.
 
 ```bash
-# ELN 3.1.2
+# ELN 3.1.2 (the v3 line)
 export CHEMOTION_DB_IMAGE=ptrxyz/chemotion:db-3.1.2
 export CHEMOTION_ELN_IMAGE=ptrxyz/chemotion:eln-3.1.2
 
-# ELN v4 (pin by digest: `next-release` is a rolling tag and is force-pushed)
+# ELN v4 (the v4 line; pin by digest: `next-release` is a rolling tag and is force-pushed)
 export CHEMOTION_DB_IMAGE=complat/dev:postgres16-rdkit@sha256:...
 export CHEMOTION_ELN_IMAGE=complat/chemotion_eln_stage:next-release@sha256:...
 ```
