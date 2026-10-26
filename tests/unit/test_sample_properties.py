@@ -241,3 +241,35 @@ def test_molecule_attribute_access():
 def test_an_unknown_unit_names_the_valid_ones():
     with pytest.raises(ValueError, match=r'Valid units: l, mol, g, Equivalent\..*gas_phase_data.*ppm'):
         _sample().set_amount(1, 'ppm')
+
+
+def test_variation_edits_are_serialised_not_the_stale_property():
+    """A reaction that already has variations must serialise the live Variations object.
+
+    `properties['variations']` is parsed from the server payload and never written back, so
+    `get_prop_or_json('variations') or self._clean_variations()` short-circuited on the stale
+    (truthy) value and silently dropped every edit made through `reaction.variations`. Only
+    reactions with no existing variations — where the value is falsy — reached the serialiser.
+    """
+    reaction = _reaction([_sample(1)])
+    reaction._properties['description'] = {'ops': []}
+    reaction._properties['observation'] = {'ops': []}
+    reaction.json_data['variations'] = [{'id': 'stale-from-server'}]
+    reaction._properties['variations'] = [{'id': 'stale-from-server'}]
+
+    # Stand in for a materialised Variations object: the bug is in which source is chosen,
+    # not in what clean() produces.
+    reaction._variations = SimpleNamespace(clean=lambda: [{'id': 'edited-in-memory'}])
+
+    assert reaction._clean_properties_data()['variations'] == [{'id': 'edited-in-memory'}]
+
+
+def test_untouched_variations_fall_back_to_the_stored_value():
+    """If `reaction.variations` was never materialised there is nothing to serialise from."""
+    reaction = _reaction([_sample(1)])
+    reaction._properties['description'] = {'ops': []}
+    reaction._properties['observation'] = {'ops': []}
+    reaction.json_data['variations'] = [{'id': 'stored'}]
+    reaction._properties['variations'] = [{'id': 'stored'}]
+    assert reaction._variations is None
+    assert reaction._clean_properties_data()['variations'] == [{'id': 'stored'}]

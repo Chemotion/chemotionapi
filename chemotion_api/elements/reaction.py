@@ -1352,7 +1352,12 @@ class Reaction(AbstractElement):
         serialize_data['weight_percentage'] = get_prop_or_json('weight_percentage', False)
         serialize_data['rinchi_string'] = get_prop_or_json('rinchi_string')
         serialize_data['rinchi_web_key'] = get_prop_or_json('rinchi_web_key')
-        serialize_data['variations'] = get_prop_or_json('variations') or self._clean_variations()
+        # Serialise from the Variations object whenever it has been materialised: edits made
+        # through `reaction.variations` live only there. `properties['variations']` is parsed from
+        # the server payload and never written back, so preferring it discarded every such edit on
+        # any reaction that already had variations (the stale value being truthy).
+        serialize_data['variations'] = (self._clean_variations() if self._variations is not None
+                                        else get_prop_or_json('variations'))
 
         return serialize_data
 
