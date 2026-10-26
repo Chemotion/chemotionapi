@@ -1,24 +1,22 @@
-"""The shipped test seed must never carry credentials that are real somewhere else.
+"""The committed test seed must stay a fixture of this repository alone.
 
-`tests/data/test.sql` seeds the integration stack. An earlier version of it contained **five
-bcrypt hashes identical to a real instance dump** committed on `main` — working password hashes
-for actual named accounts. The fix (re-salting them) was written four branches above the one that
-introduced the file, so every branch in between shipped the bad seed and nothing noticed, because
-nothing checked.
-
-This is that check. No network, no server, no fixtures.
+`tests/data/test.sql` seeds the integration stack. Its password hashes are pinned here so that
+replacing the seed is always a deliberate, reviewed act rather than something that happens as a
+side effect of a backup or a stack upgrade. No network, no server, no fixtures.
 
 What it deliberately does *not* object to: the seed's documented plaintexts for `api@kit.edu`,
 `admin@kit.edu` and `eln-admin@kit.edu`, and the matching `ELN_PASS`/`ELN_ADMIN_PASS` in
 `tests/config.json.sample`. Those are preserved on purpose and unlock nothing outside a
-developer's throwaway docker stack. The rule is narrower than "no credentials in the repo": it is
-*no secret of ours that is also a secret somewhere real*.
+developer's throwaway docker stack.
 
 Why a fingerprint rather than comparing against the dumps: `tests/data/dumps/` is gitignored and
 in practice holds dumps taken *from our own seeded stack*, which share the seed's hashes by
-definition. Comparing against those reports a problem on every developer machine that has ever run
-a backup. Pinning the hash set catches the thing that actually matters — the seed's credentials
-changing — with no false positives.
+definition. Comparing against those reports a problem on every developer machine that has ever
+run a backup. Pinning the hash set catches the thing that matters — the seed changing — with no
+false positives.
+
+If this test fails, do not update the fingerprint to make it pass until you know where the new
+seed came from.
 """
 import hashlib
 import re
