@@ -206,3 +206,8 @@ def test_molecule_attribute_access():
     assert molecule.sum_formular is None
     with pytest.raises(AttributeError):
         _ = molecule.unknown_key
+
+
+def test_an_unknown_unit_names_the_valid_ones():
+    with pytest.raises(ValueError, match=r'Valid units: l, mol, g, Equivalent\..*gas_phase_data.*ppm'):
+        _sample().set_amount(1, 'ppm')

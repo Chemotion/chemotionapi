@@ -8,7 +8,7 @@ from chemotion_api.elements.abstract_element import AbstractElement, Analyses, A
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample, SampleVariationType, GasPhaseObj
-from chemotion_api.elements.utils.converter import convert_value, TIME_UNITS, TEMPERATURE_UNITS
+from chemotion_api.elements.utils.converter import convert_value, TIME_UNITS, TEMPERATURE_UNITS, TON_UNITS
 from chemotion_api.elements.utils import QuantityUnit, GasType
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict
@@ -326,6 +326,7 @@ class SampleVariation:
         # The frontend shows a gas product with extra entries (getMaterialEntries in
         # ReactionVariationsMaterials.js) and reads each one as {'value', 'unit'}. A missing or null
         # entry makes the variations tab crash, so fill them like the frontend does (getStandardValue).
+        # A null value inside an entry is fine: the frontend creates such entries itself.
         if self._sample_type != SampleVariationType.PRODUCT or self._values['aux']['gasType'] != GasType.GAS.value:
             return
         for entry, default in self._new_gas_entries().items():
@@ -360,8 +361,9 @@ class SampleVariation:
                 "value": gas_phase_data.get('turnover_number'),
                 "unit": None
             },
+            # Unitless in the frontend, which computes it per hour (turnover number / duration in hours)
             "turnoverFrequency": {
-                "value": (gas_phase_data.get('turnover_frequency') or {}).get('value'),
+                "value": convert(gas_phase_data.get('turnover_frequency'), TON_UNITS.PER_HOUR.value),
                 "unit": None
             }
         }

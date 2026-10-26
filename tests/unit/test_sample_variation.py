@@ -121,7 +121,7 @@ def test_a_gas_product_gets_the_gas_entries_of_the_frontend():
     sv = SampleVariation(_gas_product({'time': {'value': 2, 'unit': 'h'},
                                        'temperature': {'value': 300, 'unit': 'K'},
                                        'part_per_million': 5, 'turnover_number': 3,
-                                       'turnover_frequency': {'value': 1.5, 'unit': 'TON/h'}}),
+                                       'turnover_frequency': {'value': 1.5, 'unit': 'TON/m'}}),
                          SampleVariationType.PRODUCT, None)
     values = sv.clean()
     assert all(isinstance(values[entry], dict) for entry in GAS_ENTRIES)
@@ -130,7 +130,7 @@ def test_a_gas_product_gets_the_gas_entries_of_the_frontend():
     assert values['temperature']['unit'] == '°C'
     assert values['concentration'] == {'value': 5, 'unit': 'ppm'}
     assert values['turnoverNumber']['value'] == 3
-    assert values['turnoverFrequency']['value'] == 1.5
+    assert values['turnoverFrequency'] == {'value': 90, 'unit': None}   # per hour, like the frontend
     assert values['aux']['isReference'] is False
 
 
@@ -147,9 +147,3 @@ def test_null_gas_entries_of_a_loaded_variation_are_repaired():
 def test_a_non_gas_product_has_no_gas_entries():
     values = _variation(SampleVariationType.PRODUCT).clean()
     assert not any(entry in values for entry in GAS_ENTRIES)
-
-
-def test_an_unknown_unit_names_the_valid_ones():
-    from chemotion_api.elements.sample import Sample
-    with pytest.raises(ValueError, match=r'Valid units: l, mol, g, Equivalent\..*gas_phase_data.*ppm'):
-        Sample.set_amount(SimpleNamespace(), 1, 'ppm')
