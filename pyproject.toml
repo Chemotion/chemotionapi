@@ -9,16 +9,12 @@ requires-python = ">=3.14,<3.15"
 dependencies = [
     "requests>=2.32.3,<3",
     "python-dateutil>=2.9.0,<3",
-    "pytz>=2025.1",
     "python-magic>=0.4.27,<0.5",
     "click>=8.1.7,<9",
     "jinja2>=3.1.6,<4",
     "pyyaml>=6.0.1,<7",
     "jsonschema>=4.23.0,<5",
-    "typing-extensions>=4.12.2,<5",
-    # Typed element data (chemotion_api.models) is built on pydantic. The .eln exporter's own
-    # dependencies — chem_dcat_ap, dcat_ap_plus, linkml-runtime, tqdm — arrive with the PR that
-    # introduces the code importing them.
+    # Typed element data (chemotion_api.models) is built on pydantic.
     "pydantic>=2.0.0,<3",
 ]
 
