@@ -77,10 +77,13 @@ ignore_missing_imports = true
 # same commit. Never add an entry — that would mean a clean module regressed, which is what this
 # gate exists to prevent.
 #
-# The exemptions are deliberately NOT being cleared up front: roughly half of the outstanding errors
-# live in modules that the ELN v4 migration rewrites (collection, elements.sample, elements.reaction,
-# elements.abstract_element), so fixing them against the current shape would be discarded work. Each
-# module gets cleaned by the change that rewrites it.
+# This comment used to say the four modules the v4 migration rewrites — collection,
+# elements.sample, elements.reaction, elements.abstract_element — would each be cleaned by the
+# change that rewrites them. That change is this one, and it did not clean them: dropping their
+# four entries leaves 14 errors (reaction 8, abstract_element 4, collection 1, sample 1), measured
+# 2026-10-26. None is a runtime defect — the most alarming, `AbstractCollection has no attribute
+# collection_json`, is a guarded `getattr` whose attribute lives on a subclass — but they are real
+# typing debt and the ratchet does not tighten until they are paid. Tracked in AI/DEFERRED.md.
 [[tool.mypy.overrides]]
 ignore_errors = true
 module = [
