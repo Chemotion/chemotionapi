@@ -50,3 +50,30 @@ def test_an_account_without_an_all_collection_says_so():
     root = RootCollection(_Session())
     with pytest.raises(ValueError, match="no 'All' collection"):
         root.load_collection()
+
+
+def test_load_sync_collection_refetches_instead_of_serving_a_stale_cache():
+    """A standalone `load_sync_collection()` must see shares granted since the last fetch.
+
+    `_collections_payload` exists only so `get_root_collection()` can serve both halves of the
+    listing from one request. Retaining it meant a caller who ran `load_sync_collection()` to
+    pick up a new share got whatever `load_collection()` had last seen, with nothing to indicate
+    it was stale.
+    """
+    import json
+
+    calls = []
+    shared = [[], [{'id': 7, 'label': 'Granted just now', 'ancestry': None}]]
+
+    class _Session:
+        def get(self, url, **_):
+            calls.append(url)
+            body = {'own': [], 'shared_with_me': shared[min(len(calls) - 1, 1)]}
+            return SimpleNamespace(status_code=200, content=json.dumps(body).encode(),
+                                   json=lambda: body)
+
+    root = RootCollection(_Session())
+    root._element_manager = SimpleNamespace()
+    assert root.load_sync_collection().children == []
+    assert [c.label for c in root.load_sync_collection().children] == ['Granted just now']
+    assert len(calls) == 2, 'the second call must issue its own request'

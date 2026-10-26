@@ -1291,7 +1291,12 @@ class RootCollection(AbstractCollection):
         # ELN v4 deleted the whole /syncCollections namespace (that path is a genuine 404 now).
         # Collections other people share with you arrive in the `shared_with_me` half of the same
         # listing that load_collection() reads, so reuse that response instead of a second request.
+        # The cache exists to let get_root_collection() serve both halves from one request, so it
+        # is consumed here rather than read: a standalone load_sync_collection() — the call you
+        # make to see a share someone just granted — must not hand back the listing from whenever
+        # load_collection() last ran, with nothing to indicate it is stale.
         payload = self._collections_payload or self._fetch_collections()
+        self._collections_payload = None
         self._sync_root = RootSyncCollection(self._session, self._element_manager)
         self._sync_root._set_children(nest_by_ancestry(payload.get('shared_with_me') or []))
         return self._sync_root
