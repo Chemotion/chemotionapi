@@ -103,6 +103,9 @@ s.save()
   reference material; starting materials and reactants only). Products accept g, mol (and l with
   density/molarity). `s.allowed_quantity_units()` lists what is valid for this sample. With no unit given and
   none stored, the first allowed unit is used.
+- `set_amount(value, unit)`: value first. A unit string must be one of 'g', 'mol', 'l', 'Equivalent'
+  (case insensitive); 'gram', 'eq', 'mg', 'mmol', 'ppm' raise ValueError, so convert to g/mol/l yourself.
+  There is no `QuantityUnit.Ppm`; ppm is only the concentration of a gas product (see Gas-phase reactions).
 - `s.molecule` is a dict-like `Molecule`: `s.molecule['molecular_weight']` or `s.molecule.molecular_weight`
   (read-only); keys: `molecular_weight`, `sum_formular`, `cano_smiles`, `inchikey`, ...
 - `s.split()` and `s.copy()` save the original first, then return an unsaved new sample.
@@ -131,6 +134,28 @@ r.save()                                # recomputes equivalents and yields from
 
 The material lists are also `r.properties['starting_materials']` etc. Unknown status values are ignored
 on save, so check spelling.
+
+### Gas-phase reactions
+
+```python
+from chemotion_api.elements.utils import GasType
+
+r.gas_schema = True                                   # first; no save needed before setting gas types
+r.starting_materials[0].set_gas_type(GasType.FEEDSTOCK)
+r.products[0].set_gas_type(GasType.GAS)
+gp = r.products[0].properties['gas_phase_data']       # GasPhaseObj of the gas product
+gp.ppm = 9222                                         # concentration in ppm
+gp.time_in_h = 12.5
+gp.temperature_in_k = 325.65
+r.save()
+```
+
+- Set gas types on the materials of the reaction (`r.starting_materials[0]`, ...); a sample that is not part
+  of a reaction cannot have a gas type.
+- FEEDSTOCK and CATALYST only for starting materials/reactants (CATALYST needs a feedstock first), GAS only
+  for products. A reaction has at most one feedstock and one catalyst.
+- The allowed units change with the gas type, re-read `allowed_quantity_units()`: a FEEDSTOCK takes l, mol,
+  Equivalent; a GAS product takes g only (plus l with density/molarity), no mol.
 
 ### Reaction variations (Chemotion >= 3.1)
 

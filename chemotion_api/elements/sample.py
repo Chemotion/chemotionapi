@@ -574,10 +574,15 @@ class Sample(AbstractElement):
         if isinstance(gas_type, str):
             gas_type = GasType(gas_type)
 
-        if gas_type != GasType.OFF and self.reaction is not None and not self.reaction.gas_schema:
-            raise ValueError(f'Reaction is not a gas schema reaction')
-        if gas_type not in self.allowed_gas_types():
-            raise ValueError(f'Reaction is not a gas schema reaction')
+        if gas_type != GasType.OFF and self.reaction is None:
+            raise ValueError('The sample is not part of a reaction. Set the gas type on the reaction material, '
+                             'e.g. reaction.starting_materials[0].')
+        if gas_type != GasType.OFF and not self.reaction.gas_schema:
+            raise ValueError('Reaction is not a gas schema reaction. Set reaction.gas_schema = True first.')
+        allowed_gas_types = self.allowed_gas_types()
+        if gas_type not in allowed_gas_types:
+            raise ValueError(f'Gas type {gas_type.value} is not allowed for {self.role_in_reaction}. '
+                             f'Allowed: {", ".join(g.value for g in allowed_gas_types)}')
         has_change = self._properties['gas_type'] != gas_type and self.reaction is not None
         if has_change and gas_type in [GasType.FEEDSTOCK, GasType.CATALYST]:
             gas_elem = self.reaction.get_gas_component(gas_type)
@@ -916,7 +921,9 @@ class Sample(AbstractElement):
             unit_str = unit
             unit = QuantityUnit.from_string(unit_str)
             if unit is None:
-                raise ValueError(f'{unit_str} is not a valid unit')
+                hint = ' The ppm of a gas product is properties["gas_phase_data"].ppm.' if unit_str.lower() == 'ppm' else ''
+                raise ValueError(f'{unit_str} is not a valid unit. Valid units: '
+                                 f'{", ".join(u.value for u in QuantityUnit if u is not QuantityUnit.Yield)}.{hint}')
         amount_dict = ['target_amount', 'real_amount']
         [key, zero_key] = amount_dict.__reversed__() if self.role_in_reaction == 'products' else amount_dict
         if unit is None:

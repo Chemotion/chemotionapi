@@ -147,3 +147,9 @@ def test_null_gas_entries_of_a_loaded_variation_are_repaired():
 def test_a_non_gas_product_has_no_gas_entries():
     values = _variation(SampleVariationType.PRODUCT).clean()
     assert not any(entry in values for entry in GAS_ENTRIES)
+
+
+def test_an_unknown_unit_names_the_valid_ones():
+    from chemotion_api.elements.sample import Sample
+    with pytest.raises(ValueError, match=r'Valid units: l, mol, g, Equivalent\..*gas_phase_data.*ppm'):
+        Sample.set_amount(SimpleNamespace(), 1, 'ppm')
