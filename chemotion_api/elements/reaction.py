@@ -1221,6 +1221,17 @@ class Reaction(AbstractElement):
         return res
 
 
+    def _yield_to_serialise(self):
+        """The yield to send: an explicit assignment, else the recomputed product equivalent."""
+        if self._yield_value_cache is not None:
+            return self._yield_value_cache
+        products = self.properties.get('products') or []
+        if products:
+            equivalent = products[0].properties.get('equivalent')
+            if equivalent is not None:
+                return float(equivalent) * 100.0
+        return self._current_yield()
+
     def _current_yield(self):
         """The reaction yield in percent, preferring ``yield_value`` over ``yield``.
 
@@ -1245,7 +1256,12 @@ class Reaction(AbstractElement):
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         if serialize_data is None:
             serialize_data = {}
-        reaction_yield = self._current_yield()
+        # Only an explicitly assigned yield overrides the product's equivalent. `save()` calls
+        # `update_equivalent()` first, which recomputes products[0]['equivalent'] from the current
+        # amounts; writing `_current_yield()` over it unconditionally discarded that recompute and
+        # sent back the value captured at load time. `_yield_value_cache` is set only by
+        # `on_properties_change` when the user assigns `properties['yield']`.
+        reaction_yield = self._yield_value_cache
         if reaction_yield is not None:
             # Chemotion has no explicit yield field; it is persisted as the first product's
             # `equivalent` (yield / 100). Multi-product reactions only carry yield on product[0].
@@ -1289,7 +1305,9 @@ class Reaction(AbstractElement):
         except (AttributeError, ValueError, TypeError):
             timestamp_stop = ''
         serialize_data['name'] = self.properties.get('name')
-        serialize_data['yield'] = self._current_yield()
+        # An explicit assignment wins; otherwise report what the products actually carry after
+        # update_equivalent(), rather than the value this reaction was loaded with.
+        serialize_data['yield'] = self._yield_to_serialise()
         serialize_data['description'] = quill_hedging(cast('str | dict', self.properties.get('description')), 'Description')
         serialize_data['dangerous_products'] = self.properties.get('dangerous_products')
         serialize_data['conditions'] = self.properties.get('conditions')

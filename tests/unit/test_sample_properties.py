@@ -273,3 +273,43 @@ def test_untouched_variations_fall_back_to_the_stored_value():
     reaction._properties['variations'] = [{'id': 'stored'}]
     assert reaction._variations is None
     assert reaction._clean_properties_data()['variations'] == [{'id': 'stored'}]
+
+
+def _reaction_with_product(product_equivalent):
+    reaction = _reaction([_sample(1)])
+    reaction._properties['description'] = {'ops': []}
+    reaction._properties['observation'] = {'ops': []}
+    # target_amount_unit must be one a product allows: appending initialises the amount, and a
+    # stored 'Equivalent' is rejected for products.
+    product = _sample(2, target_amount_unit='g', target_amount_value=1.0)
+    reaction.properties['products'].append_no_split(product)
+    # Written underneath the change handler on purpose: assigning properties['equivalent'] on a
+    # product routes through set_amount(Equivalent), which products reject. This stands in for
+    # what update_equivalent() computes during save().
+    product._properties['equivalent'] = product_equivalent
+    return reaction, product
+
+
+def test_a_recomputed_yield_is_not_overwritten_by_the_load_time_value():
+    """`save()` recomputes equivalents, then serialisation must not undo that.
+
+    `_clean_properties_data` wrote `_current_yield() / 100` onto products[0]['equivalent'].
+    `_current_yield()` reads `properties['yield_value']`, captured when the reaction was parsed,
+    so raising a product amount and saving sent the old yield back and discarded the recompute.
+    """
+    reaction, product = _reaction_with_product(0.80)
+    reaction._properties['yield_value'] = 50.0   # as parsed from the server at load time
+    assert reaction._yield_value_cache is None   # the user never assigned a yield
+
+    data = reaction._clean_properties_data()
+    assert data['materials']['products'][0]['equivalent'] == pytest.approx(0.80)
+    assert data['yield'] == pytest.approx(80.0)
+
+
+def test_an_explicitly_set_yield_still_wins():
+    reaction, product = _reaction_with_product(0.80)
+    reaction.properties['yield'] = 25.0
+
+    data = reaction._clean_properties_data()
+    assert data['materials']['products'][0]['equivalent'] == pytest.approx(0.25)
+    assert data['yield'] == pytest.approx(25.0)
