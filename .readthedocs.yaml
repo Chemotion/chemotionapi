@@ -1,0 +1,39 @@
+# Read the Docs stopped building this project when a configuration file became mandatory: the
+# last green build was 2025-03-19, and since then every build clones, checks out, and stops
+# before installing anything. The published docs have been stale ever since.
+#
+# https://chemotionapi.readthedocs.io/ builds `main` from this repository.
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    # Matches .python-version, so uv does not go and fetch a second interpreter. pyproject.toml
+    # allows >=3.13,<3.15, but CI and local development both use 3.14.
+    python: "3.14"
+  apt_packages:
+    # `import chemotion_api` reaches `import magic` (inbox/, elements/attachments.py), and
+    # python-magic loads the libmagic shared library at import time. Without it autodoc cannot
+    # import the package — and autodoc reports that as a *warning*, so the build would go green
+    # with empty API pages. Declared rather than relied upon: the image happening to carry
+    # libmagic1 today is not something this build should depend on.
+    - libmagic1
+
+python:
+  install:
+    # uv with the PEP 735 `docs` dependency group, so the docs build uses this project's own
+    # group and uv.lock rather than a second, drifting list of Sphinx pins. `uv sync` also
+    # installs the project itself, which autodoc needs — it imports chemotion_api to read
+    # docstrings.
+    - method: uv
+      command: sync
+      groups:
+        - docs
+
+sphinx:
+  configuration: docs/conf.py
+  # autodoc reports a failed import as a *warning* and carries on, so a missing system library or
+  # a broken dependency would publish a green build with empty API pages — which is close to the
+  # failure that left this site serving 2025 content. The tree builds warning-free today
+  # (`sphinx-build -W` passes), so there is nothing to grandfather in.
+  fail_on_warning: true
