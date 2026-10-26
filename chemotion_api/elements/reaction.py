@@ -250,6 +250,12 @@ class SampleVariation:
             self._values['amount']['value'] = value
         elif unit == QuantityUnit.Liter.value and self._values['aux']['molarity'] != 0:
             self._values['amount']['value'] = value * self._values['aux']['molarity']
+        elif unit == QuantityUnit.Liter.value and self._values['aux']['density']:
+            # The inverse of get_volume()'s density branch: volume -> mass -> amount. A sample
+            # with a density but no molarity is offered litres by Sample.allowed_quantity_units(),
+            # and _set_quantity_from_sample() passes that unit straight through.
+            mass = value * self._values['aux']['density'] * 1000
+            self._values['amount']['value'] = (mass / self._molecular_weight()) * self._values['aux']['purity']
         else:
             raise ValueError(f"{self._sample_type.value} can't be quantified as {unit}.")
         self._update_equivalent()

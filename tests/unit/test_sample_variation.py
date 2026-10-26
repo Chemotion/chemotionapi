@@ -87,3 +87,18 @@ def test_a_solvent_with_molarity_also_survives_clean():
     sv.set_quantity(1.5, QuantityUnit.Liter)
     assert sv.get_volume() == pytest.approx(1.5)
     assert sv.clean()['volume']['value'] == pytest.approx(1.5)
+
+
+
+def test_litres_accepted_for_a_sample_with_density_but_no_molarity():
+    """`Sample._allowed_quantity_units()` offers litres when density OR molarity is set, and
+    `_set_quantity_from_sample()` passes the sample's own unit straight through -- so litres can
+    reach `set_quantity()` with molarity 0. `get_volume()` already handles that case; this is the
+    inverse of it.
+    """
+    sv = _variation(mw=100.0, purity=0.5, density=0.8)
+    sv.set_quantity(2, QuantityUnit.Liter)
+    # 2 l * 0.8 g/ml * 1000 ml/l = 1600 g;  amount = 1600 / 100 * 0.5 = 8 mol
+    assert sv.get_amount() == pytest.approx(8.0)
+    # and it round-trips back through the density branch of get_volume()
+    assert sv.get_volume() == pytest.approx(2.0)
