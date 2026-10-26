@@ -158,6 +158,13 @@ class Wellplate(AbstractElement):
     def resize(self, width: int, height: int) -> Wellplate:
         """Change the plate's grid (``PUT /api/v1/wellplates/resize/:id``).
 
+        .. warning::
+           **Not verified against a server.** This route was added to the ELN *between* the
+           release-candidate image the test stack pins (``v4.0.0-rc-260818``, which has no
+           ``resize`` route at all) and tagged ELN v4.0.0. It is covered by unit tests against a
+           mocked session only. Treat it as provisional until the integration suite has run
+           against a real v4.0.0 server.
+
         **This is the only way to resize a plate on ELN v4.** The ordinary wellplate ``PUT`` does
         not declare ``width``/``height`` at all, so assigning them and calling :meth:`save` is
         silently a no-op — the server drops undeclared params. Upstream did that deliberately, so

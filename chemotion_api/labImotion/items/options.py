@@ -145,7 +145,10 @@ class LayerColor(ListableEnum):
     ORANGE = "warning"
 
 #: Allowed unit keys per unit type. Mirrors ``lib/labimotion/utils/units.rb`` from the
-#: LabIMotion gem (2.3.0) — regenerate from the gem when the ELN bumps LabIMotion; see
+#: LabIMotion gem (2.3.2, the version ELN v4.0.0 pins) — verified with
+#: `scripts/sync_labimotion_units.py 2.3.2 --check`. Note the test stack's RC image still
+#: runs 2.3.0.rc6, which lacks mass_flow and space_time_yield, so those two cannot be
+#: exercised there. Regenerate from the gem when the ELN bumps LabIMotion; see
 #: ``docs/`` and the note on :func:`get_unit`.
 UNITS: dict[FieldUnit, list[str]] = {
     FieldUnit.ACCELERATION: ["mm_s2"],
