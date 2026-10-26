@@ -3,8 +3,6 @@ import logging
 import os
 from threading import Thread
 
-from psutil import process_iter, AccessDenied
-from signal import SIGTERM  # or SIGKILL
 import subprocess
 import uuid
 from random import random
@@ -99,22 +97,16 @@ def pytest_sessionstart(session):
     logging.info('Config:\n' + '\n'.join([f"#\t{key}={val}" for key, val in CONFIG.items()]))
 
 
-def pytest_sessionfinish(session, exitstatus):
-    """
-    Called after whole test run finished, right before
-    returning the exit status to the system.
-    """
-    global CHEMOTION_PROCESS
-    if CHEMOTION_PROCESS is not None:
-        for proc in process_iter():
-            try:
-                for conns in proc.net_connections(kind='inet'):
-                    if conns.laddr.port == 3579:
-                        proc.send_signal(SIGTERM)  # or SIGKILL
-            except AccessDenied:
-                pass
-
-    pass
+# No pytest_sessionfinish teardown on purpose.
+#
+# There used to be one: it SIGTERMed every process holding a local connection on port 3579. That
+# made sense when the suite started a server itself. It does not now — the stack is docker, and
+# the only host process on 3579 is `docker-proxy`. Killing that leaves the ELN container running
+# (`restart: unless-stopped`) but unreachable from the host until the next `compose restart`,
+# which is a confusing state to hand the next run.
+#
+# The stack is meant to outlive a test run anyway: `setup_chemotion_db.sh` reseeds it at the
+# start of each session, and `just stack-down` is how you actually stop it.
 
 
 @pytest.fixture(scope='session')
