@@ -4,10 +4,9 @@ import pytest
 
 from chemotion_api.elements.reaction import QuantityUnit
 
-# The reaction-variations feature is inherited incomplete from upstream (the client fails safe
-# and skips loading variations). Blueprint for completing it: old_chemotionapi branch version-3;
-# see AI/DEFERRED.md. Until then these tests document the intended API but cannot pass.
-pytestmark = pytest.mark.skip(reason="reaction variations not implemented; see AI/DEFERRED.md")
+# These were skipped as "reaction variations not implemented" while this line carried the stub
+# that skipped loading variations with a warning. #6 brought the full implementation, so the
+# skip outlived its reason; all four pass against ELN 3.1.2.
 
 
 @pytest.fixture()

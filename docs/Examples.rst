@@ -4,7 +4,7 @@ Getting Started
 
 Installation/Usage:
 *******************
-The package has been published on PyPi, it can be installed using pip. It needs Python 3.13 or 3.14.
+The package has been published on PyPi, it can be installed using pip. It needs Python 3.14.
 
 .. code-block:: bash
 

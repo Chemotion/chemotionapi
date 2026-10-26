@@ -9,7 +9,7 @@ build:
   os: ubuntu-24.04
   tools:
     # Matches .python-version, so uv does not go and fetch a second interpreter. pyproject.toml
-    # allows >=3.13,<3.15, but CI and local development both use 3.14.
+    # requires >=3.14,<3.15, which is also what CI and local development use.
     python: "3.14"
   apt_packages:
     # `import chemotion_api` reaches `import magic` (inbox/, elements/attachments.py), and
