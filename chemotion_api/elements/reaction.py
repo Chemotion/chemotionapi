@@ -277,6 +277,10 @@ class SampleVariation:
             self._values['volume'] = {'value': 0, 'unit': 'l'}
         if self._values['volume']['value']:
             return self._values['volume']['value']
+        if self._sample_type is SampleVariationType.SOLVENTS:
+            # A solvent variation holds a volume and nothing else -- there is no `amount` to
+            # derive one from, so the branches below would raise KeyError. An unset volume is 0.
+            return 0
         elif self._values['aux']['molarity']:
             return self.get_amount() / self._values['aux']['molarity']
         elif self._values['aux']['density']:

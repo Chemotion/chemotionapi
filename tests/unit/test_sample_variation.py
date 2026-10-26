@@ -68,3 +68,22 @@ def test_mixture_quantity_not_supported():
     sv._sample.is_mixture = True
     with pytest.raises(NotImplementedError):
         sv.set_quantity(1, QuantityUnit.Mole)
+
+
+def test_a_solvent_volume_does_not_need_an_amount():
+    """A solvent variation carries only a volume -- there is no `amount` key to derive one from.
+
+    `_update_equivalent()` recomputes `volume` whenever the key exists, which it always does for
+    a solvent, so falling through to the molarity/density branches raised KeyError('amount')
+    for any solvent whose sample had a density or a molarity.
+    """
+    sv = _variation(SampleVariationType.SOLVENTS, density=0.8)
+    assert sv.get_volume() == 0
+    sv.clean()   # must not raise
+
+
+def test_a_solvent_with_molarity_also_survives_clean():
+    sv = _variation(SampleVariationType.SOLVENTS, molarity=2.0)
+    sv.set_quantity(1.5, QuantityUnit.Liter)
+    assert sv.get_volume() == pytest.approx(1.5)
+    assert sv.clean()['volume']['value'] == pytest.approx(1.5)
