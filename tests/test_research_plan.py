@@ -1,3 +1,5 @@
+import os
+
 from chemotion_api import Instance
 from chemotion_api.elements.research_plan import ResearchPlan, RichText
 from chemotion_api.collection import Collection
@@ -7,7 +9,7 @@ def test_create(instance_with_collection: dict):
     logged_in_instance :Instance = instance_with_collection['instance']
     col: Collection = instance_with_collection['main_collection']
     rs_1: ResearchPlan = col.new_research_plan()
-    rs_1.add_image('../test_config/sample_files/kadi.png')
+    rs_1.add_image(os.path.join(os.path.dirname(__file__), 'test_config', 'sample_files', 'kadi.png'))
     rs_1.add_richtext('Super Text')
     table = rs_1.add_table()
     t_id = table.id
@@ -31,5 +33,5 @@ def test_create(instance_with_collection: dict):
         rs.attachments.load_attachment(7)
     except:
         pass
-    rs.attachments.add_file('../test_config/sample_files/20200702_dcm_PH884_100_red2.DTA')
+    rs.attachments.add_file(os.path.join(os.path.dirname(__file__), 'test_config', 'sample_files', '20200702_dcm_PH884_100_red2.DTA'))
     rs.save()

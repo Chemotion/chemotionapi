@@ -48,7 +48,7 @@ def test_move_collection(prepare_manipulation):
     assert root_col.get_collection(name + '/A/B').label == 'B'
     assert root_col.get_collection(name).get_collection(['A', 'B']).label == 'B'
     assert root_col.get_collection(name).get_collection('A/B').label == 'B'
-    assert root_col.get_collection(name).get_collection('/{}/A/B'.format(name)).label == 'B'
+    assert root_col.get_collection(name).get_collection(f'/{name}/A/B').label == 'B'
 
 
 def test_rename_collection(prepare_manipulation):

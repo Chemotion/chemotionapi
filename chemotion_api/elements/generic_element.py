@@ -82,7 +82,7 @@ class GenericElement(AbstractElement, WorkflowInterface):
 
     def save_url(self) -> str:
         if not self.is_new:
-            return "/api/v1/generic_elements/{}".format(self.id)
+            return f"/api/v1/generic_elements/{self.id}"
         return "/api/v1/generic_elements"
 
     @property

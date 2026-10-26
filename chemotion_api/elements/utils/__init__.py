@@ -36,7 +36,7 @@ class QuantityUnit(Enum):
         return None
 
 
-def _get_from_gram(current_value: float, output_unit: QuantityUnit, molecular_weight: Optional[float], purity: float,
+def _get_from_gram(current_value: float, output_unit: QuantityUnit, molecular_weight: float | None, purity: float,
                    density: float = 0, molarity: float = 0) -> float:
     if output_unit == QuantityUnit.Gram:
         return current_value
@@ -57,7 +57,7 @@ def _get_from_gram(current_value: float, output_unit: QuantityUnit, molecular_we
     return float('NaN')
 
 
-def _get_from_mol(current_value: float, output_unit: QuantityUnit, molecular_weight: Optional[float], purity: float,
+def _get_from_mol(current_value: float, output_unit: QuantityUnit, molecular_weight: float | None, purity: float,
                   density: float = 0, molarity: float = 0) -> float:
     if output_unit == QuantityUnit.Mole:
         return current_value
@@ -78,7 +78,7 @@ def _get_from_mol(current_value: float, output_unit: QuantityUnit, molecular_wei
     return float('NaN')
 
 
-def _get_from_liter(current_value: float, output_unit: QuantityUnit, molecular_weight: Optional[float], purity: float,
+def _get_from_liter(current_value: float, output_unit: QuantityUnit, molecular_weight: float | None, purity: float,
                     density: float = 0, molarity: float = 0) -> float:
     if output_unit == QuantityUnit.Liter:
         return current_value
@@ -101,7 +101,7 @@ def _get_from_liter(current_value: float, output_unit: QuantityUnit, molecular_w
 
 
 def calculate_quantity(current_value: float, current_unit: QuantityUnit, output_unit: QuantityUnit,
-                       molecular_weight: Optional[float], purity: float, density: float = 0, molarity: float = 0,
+                       molecular_weight: float | None, purity: float, density: float = 0, molarity: float = 0,
                        gas_type: GasType = GasType.OFF, vessel_size: float = 0, temperature_in_k: float = 0, ppm: float = 0, time_in_h: float = 0) -> float:
     if gas_type != GasType.OFF:
         return GasCalculations.calculate_quantity(current_value, current_unit, output_unit, molecular_weight, purity, density,
@@ -118,7 +118,7 @@ def calculate_quantity(current_value: float, current_unit: QuantityUnit, output_
 class GasCalculations:
     @classmethod
     def calculate_quantity(cls, current_value: float, current_unit: QuantityUnit, output_unit: QuantityUnit,
-                           molecular_weight: Optional[float], purity: float, density: float = 0, molarity: float = 0,
+                           molecular_weight: float | None, purity: float, density: float = 0, molarity: float = 0,
                            gas_type: GasType = GasType.OFF, vessel_size: float = 0, temperature_in_k: float = 0, ppm: float = 0, time_in_h: float = 0) -> float:
         if gas_type == GasType.CATALYST:
             # Catalyst is calculated as normal material

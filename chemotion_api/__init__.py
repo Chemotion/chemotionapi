@@ -100,7 +100,7 @@ class Instance:
         ping_url = "/api/v1/public/ping"
         res = self._con.get(url_path=ping_url)
         if res.status_code != 204:
-            raise ConnectionError('Could not ping the Chemotion instance: {}'.format(self.host_url))
+            raise ConnectionError(f'Could not ping the Chemotion instance: {self.host_url}')
         return self
 
     def get_all_types(self) -> list[str]:
@@ -233,7 +233,7 @@ class Instance:
                 collection_id = element.json_data['tag']['taggable_data']['collection_labels'][0]["id"]
             return self.get_collection_by_id(collection_id)
         except KeyError:
-            raise KeyError('Could not find collection of {}'.format(element))
+            raise KeyError(f'Could not find collection of {element}')
 
     def search_sample(self) -> SampleSearcher:
         """

@@ -12,7 +12,7 @@ def get_solvent_list() -> dict[str, dict[str, str | float]]:
     if _SOLVER_LIST is None:
         json_path = os.path.join(resource_path(__file__), '../elements/empty_elements/solvents.json')
         if os.path.exists(json_path):
-            with open(json_path, 'r') as f:
+            with open(json_path) as f:
                 _SOLVER_LIST = json.loads(f.read())
         else:
             return {}

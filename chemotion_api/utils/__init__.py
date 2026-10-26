@@ -89,7 +89,7 @@ class FixedDict(PropertyDict):
 
 
 class UnitDict(FixedDict):
-    def __init__(self, unit: str, value: Optional[float]):
+    def __init__(self, unit: str, value: float | None):
         super().__init__({'unit': unit, 'value': value})
 
     def set_value_unit(self, value: float):
@@ -128,7 +128,7 @@ def add_to_dict(obj: dict, key: str, val: any) -> str:
     origen_key = key
     idx = 1
     while key in obj and obj[key] is not None:
-        key = "{}.{}".format(origen_key, idx)
+        key = f"{origen_key}.{idx}"
         idx += 1
 
     obj[key] = val

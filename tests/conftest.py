@@ -9,26 +9,31 @@ import subprocess
 import uuid
 from random import random
 
-from chemotion_api import Instance
 import pytest
+# NOTE: chemotion_api is imported lazily inside fixtures (not at module level) so collecting
+# pure-logic unit tests does not pull in the heavy rdflib/linkml/chem_dcat_ap stack. This keeps
+# the offline unit suite's memory footprint small.
 
 DEFAULT_CONFIG = {
-    "ELN_URL": "http://127.0.0.1:3000",
-    "ELN_USER": "",
-    "ELN_PASS": "",
-    "ELN_ADMIN_USER": "",
-    "ELN_ADMIN_PASS": "",
+    # Defaults match the seeded docker stack in test_config/ (eln published on 3579) and the
+    # fictional users baked into tests/data/test.sql — see tests/test_config/README.md.
+    "ELN_URL": "http://127.0.0.1:3579",
+    "ELN_USER": "API",
+    "ELN_PASS": "1234qewR!",
+    "ELN_ADMIN_USER": "ADM",
+    "ELN_ADMIN_PASS": "PleaseChangeYourPassword",
     "PG_PASSWORD": "postgres",
     "PG_HOST": "localhost",
     "PG_PORT": "54320",
     "PG_USER": "postgres",
     "PG_DB": "chemotion",
     "ELN_PORT": "3579",
-    "DOCKER_FILE": "docker-compose.yml",
-    "DOCKER_CWD": "../../test_config",
+    "DOCKER_FILE": "compose.yml",
+    "DOCKER_CWD": "../test_config",
     "DOCKER_COMPOSE_SERVICE": "eln",
     "WAIT_FOR_MANUAL_RESTART": "0",
-    "NO_SETUP": "0"
+    # Default: do NOT auto-provision a Chemotion server. Opt into the docker setup with NO_SETUP=0.
+    "NO_SETUP": "1"
 }
 
 CONFIG = {}
@@ -38,11 +43,12 @@ CHEMOTION_PROCESS: subprocess.Popen | None = None
 def set_config():
     global CONFIG, DEFAULT_CONFIG
 
-    # config.json is local (gitignored); without it the defaults and environment variables are used
-    file = os.path.join(os.path.dirname(__file__), "config.json")
+    # config.json is an optional local convenience (gitignored; see config.json.sample). When absent,
+    # configuration comes from environment variables, falling back to DEFAULT_CONFIG.
+    file = "config.json"
     data = {}
-    if os.path.isfile(file):
-        with open(file, "r") as jsonfile:
+    if os.path.exists(file):
+        with open(file) as jsonfile:
             data = json.load(jsonfile)
 
     for key, val in DEFAULT_CONFIG.items():
@@ -62,18 +68,6 @@ def write_proces_logs():
             f.write(line.strip() + '\n')
 
 
-def pytest_configure(config):
-    config.addinivalue_line("markers", "integration: needs the test ELN (all tests outside tests/unit)")
-
-
-def pytest_collection_modifyitems(config, items):
-    # Everything outside tests/unit talks to the test ELN
-    unit_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'unit')
-    for item in items:
-        if os.path.commonpath([str(item.path), unit_dir]) != unit_dir:
-            item.add_marker(pytest.mark.integration)
-
-
 def pytest_sessionstart(session):
     global DEFAULT_CONFIG, CONFIG, CHEMOTION_PROCESS
     set_config()
@@ -83,9 +77,8 @@ def pytest_sessionstart(session):
 
         CHEMOTION_PROCESS = subprocess.Popen(path, shell=True, executable='/bin/bash', cwd=path_dir,
                                              env=dict(os.environ, **CONFIG),
-                                             stdin=subprocess.DEVNULL,
                                              stdout=subprocess.PIPE,
-                                             stderr=subprocess.STDOUT)
+                                             stderr=subprocess.PIPE)
 
         while True:
             line = CHEMOTION_PROCESS.stdout.readline().decode("utf-8")
@@ -97,11 +90,13 @@ def pytest_sessionstart(session):
                 Thread(target=write_proces_logs, args=()).start()
                 break
 
+        # CONFIG values are strings; the old `!= 0` compared str to int and was always true,
+        # so every NO_SETUP=0 run blocked on input() (a crash under pytest's capture).
         if CONFIG["WAIT_FOR_MANUAL_RESTART"] != '0':
             print("Waiting for manual restart of the Chemotion Server...")
             input("Press Enter to continue...")
 
-    logging.info('Config:\n' + '\n'.join(["#\t%s=%s" % (key, val) for key, val in CONFIG.items()]))
+    logging.info('Config:\n' + '\n'.join([f"#\t{key}={val}" for key, val in CONFIG.items()]))
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -134,6 +129,7 @@ def config_login():
 
 @pytest.fixture(scope='session')
 def logged_in_instance(delete_col_prefix):
+    from chemotion_api import Instance  # lazy: only when an integration test actually needs a server
     instance = Instance(CONFIG['ELN_URL']).test_connection().login(CONFIG['ELN_USER'], CONFIG['ELN_PASS'])
     yield instance
 
@@ -166,3 +162,17 @@ def instance_with_test_samples(instance_with_collection):
         'sample_ids': sample_ids
 
     }
+
+
+# Fixtures that require a live Chemotion server/DB. Any test requesting one of these (directly or
+# transitively) is auto-marked `integration` so the offline subset can run via `-m "not integration"`.
+SERVER_FIXTURES = {
+    "config_login", "logged_in_instance", "delete_col_prefix",
+    "instance_with_collection", "instance_with_test_samples", "instance_with_test_reaction",
+}
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        if SERVER_FIXTURES.intersection(getattr(item, "fixturenames", [])):
+            item.add_marker(pytest.mark.integration)

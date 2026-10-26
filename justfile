@@ -33,7 +33,12 @@ lint:
 lint-fix:
     uv run ruff check chemotion_api tests docs --fix
 
-# lint + mypy + offline tests — the full local gate
+# ruff + mypy — the static gate, and exactly what CI enforces on every push and PR
+static: lint mypy
+
+# static gate + the test suite. NOTE: the suite in tests/ currently needs a live Chemotion
+# server (tests/conftest.py boots one via test_config/), so this only works with a stack up —
+# use `just static` for a server-free check until the dockerized offline suite lands.
 check: lint mypy test
 
 # build the Sphinx documentation → docs/_build/html/index.html
