@@ -98,5 +98,7 @@ def test_move_assign_remove_elements(instance_with_collection):
     assert ids(a) == {sample.id} and ids(b) == {sample.id, reaction.id}
     b.remove_elements(sample)
     assert ids(b) == {reaction.id}
-    with pytest.raises(ConnectionError):
+    # v4 answers 403 for this, not a generic failure: the 'All' collection is every element's
+    # home, so removing from it would mean deleting. The v3 line raised ConnectionError here.
+    with pytest.raises(PermissionError, match='ALL-Collection'):
         root.remove_elements(sample)

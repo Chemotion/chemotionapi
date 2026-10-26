@@ -1032,22 +1032,25 @@ class Reaction(AbstractElement):
     @property
     def reference_sample(self) -> Sample | None:
         """
-        The reference material of the reaction, a starting material or reactant. Equivalents and yields
-        are relative to it. If none is set, the **first** starting material or reactant becomes the
-        reference. Setting it to None removes the reference.
+        The reference material of the reaction, a starting material or reactant. Equivalents and
+        yields are relative to it. If none is flagged, the **last** starting material or reactant
+        is marked as the reference. Setting it to None removes the reference.
 
         :return: The reference :class:`Sample`, or ``None`` if there are no candidates
         """
-        first_sample = None
-        for mat in [*self.starting_materials, *self.reactants]:
+        candidates = [*self.starting_materials, *self.reactants]
+        for mat in candidates:
             if mat.properties['reference']:
                 return mat
-            if first_sample is None:
-                first_sample = mat
-        # No reference set: the first starting material or reactant becomes the reference
-        if first_sample is not None:
-            first_sample.properties['reference'] = True
-        return first_sample
+        if not candidates:
+            return None
+        # Nothing flagged: the last candidate becomes the reference. Deliberately the last, not
+        # the first — tests/test_reaction.py pins the equivalents this produces against a live
+        # server. (The previous form read the loop variable after the loop, which raised
+        # NameError when a reaction had no starting materials or reactants at all.)
+        last = candidates[-1]
+        last.properties['reference'] = True
+        return last
 
     @reference_sample.setter
     def reference_sample(self, value: Sample | None):

@@ -51,10 +51,6 @@ generic_element_schema = {
         "updated_at": {
             "type": "string"
         },
-        # ELN v4 / LabIMotion 2.3 additions.
-        "metadata": {
-            "type": ["object", "null"]
-        },
     },
     "additionalProperties": False,
     "required": [
