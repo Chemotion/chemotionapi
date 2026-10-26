@@ -62,7 +62,9 @@ class ElementManager:
                 version_list[name] = {None}
             elif 'id' in class_obj:
                 version_list[name] = set()
-                res = self._session.get(f"/api/v1/generic_elements/klass_revisions.json?id={class_obj['id']}&klass=ElementKlass")
+                res = self._session.get(
+                    "/api/v1/generic_elements/klass_revisions.json",
+                    params={'id': class_obj['id'], 'klass': 'ElementKlass'})
                 if res.status_code != 200:
                     raise RequestException('Counld not get the genetic elements')
                 for revision in res.json()['revisions']:
