@@ -73,8 +73,11 @@ class Attachment(AttrAccessMixin, dict):
         """
         res = self._con.get(f"/api/v1/attachments/{self['id']}", stream=True)
         if res.status_code != 200:
+            # Read the body *before* closing: with stream=True nothing has been consumed yet, and
+            # `.text` on a closed response comes back empty, losing the server's error message.
+            body = res.text
             res.close()
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
+            raise ConnectionError(f'{res.status_code} -> {body}')
         try:
             for chunk in res.iter_content(chunk_size=chunk_size):
                 if chunk:
