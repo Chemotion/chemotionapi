@@ -1,6 +1,10 @@
 # Task runner for the chemotion-api client. Everything is self-contained:
 # `uv` manages Python + dependencies, docker runs the test ELN. Run `just` to list recipes.
 
+# Every docker compose call goes through tests/test_config/images.env, which decides which
+# server this line tests against. compose.yml itself declares no defaults.
+compose := "docker compose --env-file tests/test_config/images.env -f tests/test_config/compose.yml"
+
 # list available recipes
 default:
     @just --list
@@ -36,9 +40,9 @@ lint-fix:
 # ruff + mypy — the static gate, and exactly what CI enforces on every push and PR
 static: lint mypy
 
-# static gate + the test suite. NOTE: the suite in tests/ currently needs a live Chemotion
-# server (tests/conftest.py boots one via test_config/), so this only works with a stack up —
-# use `just static` for a server-free check until the dockerized offline suite lands.
+# The local gate: lint + types + the offline suite. Needs no server — conftest.py defaults to
+# NO_SETUP=1 and tests/pytest.ini deselects the integration tests. Run those separately against
+# a stack with `just test-integration`.
 check: lint mypy test
 
 # build the Sphinx documentation → docs/_build/html/index.html
@@ -55,11 +59,11 @@ build:
 
 # start the dockerized test ELN (db on :54320, eln on :3579)
 stack-up:
-    docker compose -f tests/test_config/compose.yml up -d
+    {{compose}} up -d
 
 # stop the dockerized test ELN
 stack-down:
-    docker compose -f tests/test_config/compose.yml down
+    {{compose}} down
 
 # reset the test DB from the committed seed (starts the stack if needed)
 stack-reset:
@@ -67,7 +71,7 @@ stack-reset:
 
 # tail the ELN container logs
 stack-logs:
-    docker compose -f tests/test_config/compose.yml logs -f eln
+    {{compose}} logs -f eln
 
 # dump the LabIMotion JSON validation schemas to ./schemas/ (live ELN needed; override ELN_URL/ELN_USER/ELN_PASS)
 schemas:

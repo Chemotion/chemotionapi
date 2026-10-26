@@ -31,7 +31,9 @@ echo "Compose directory: ${DOCKER_CWD}"
 cd "${DOCKER_CWD}" || exit 1
 
 compose() {
-    docker compose -f "${DOCKER_FILE}" "$@"
+    # --env-file: compose.yml declares no default images, and this script is run directly by
+    # conftest.py as well as from `just`, so the values cannot come from the caller's shell.
+    docker compose --env-file "${DOCKER_CWD}/images.env" -f "${DOCKER_FILE}" "$@"
 }
 
 # Ensure the stack is up (no-op if already running).
