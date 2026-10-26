@@ -29,3 +29,24 @@ def test_walk_include_self_and_max_depth():
 def test_label_aliases():
     col = _tree().get_collection('/A/A1')
     assert col.name == col.get_label() == col.get_name() == col.label == 'A1'
+
+
+def test_an_account_without_an_all_collection_says_so():
+    """A 3.1.2 server answers `{"collection": null}` for an account that owns nothing.
+
+    Subscripting that raised `TypeError: 'NoneType' object is not subscriptable` from inside
+    `get_root_collection()`, which says nothing about the cause.
+    """
+    import json
+
+    import pytest
+
+    class _Session:
+        def get(self, url, **_):
+            body = {'collection': None} if url.endswith('/all') else []
+            return SimpleNamespace(status_code=200, content=json.dumps(body).encode(),
+                                   json=lambda: body)
+
+    root = RootCollection(_Session())
+    with pytest.raises(ValueError, match="no 'All' collection"):
+        root.load_collection()

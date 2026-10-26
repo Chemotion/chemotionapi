@@ -869,7 +869,15 @@ class RootCollection(AbstractCollection):
             raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         collections = json.loads(res.content)
-        self._all = self._load_all_collection()['collection']
+        self._all = self._load_all_collection().get('collection')
+        if self._all is None:
+            # Seen on a real 3.1.2 server with an Admin account that owns nothing: the endpoint
+            # answers 200 with `{"collection": null}`. Subscripting that gave
+            # "TypeError: 'NoneType' object is not subscriptable" from inside get_root_collection(),
+            # which says nothing about the cause.
+            raise ValueError(
+                "This account has no 'All' collection, so its collection tree cannot be loaded. "
+                "That normally means the account has never owned or been shared an element.")
         self._id = self._all['id']
         self._set_children(collections['collections'])
         return self._all
