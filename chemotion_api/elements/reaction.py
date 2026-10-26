@@ -1032,25 +1032,26 @@ class Reaction(AbstractElement):
     @property
     def reference_sample(self) -> Sample | None:
         """
-        The reference material of the reaction, a starting material or reactant. Equivalents and
-        yields are relative to it. If none is flagged, the **last** starting material or reactant
-        is marked as the reference. Setting it to None removes the reference.
+        The reference material of the reaction: the starting material or reactant explicitly
+        flagged as the reference. Equivalents and yields are relative to it. Setting it to None
+        removes the reference.
 
-        :return: The reference :class:`Sample`, or ``None`` if there are no candidates
+        **No reference is invented when none is flagged.** This mirrors the ELN itself: its
+        `Reaction.referenceMaterial` is `allReactionMaterials.find(s => s.reference)`, which is
+        simply undefined when nothing carries the flag, and its only fallback —
+        `_setAsReferenceMaterial(starting_materials[0])` in `rebuildReference` — exists to recover
+        a flagged reference that has gone missing, not to pick one from nothing.
+
+        Earlier versions of this client auto-selected a candidate, which meant the equivalents it
+        computed and saved were relative to a material the ELN had not chosen. Reading this
+        property no longer has that side effect.
+
+        :return: The flagged reference :class:`Sample`, or ``None`` if nothing is flagged
         """
-        candidates = [*self.starting_materials, *self.reactants]
-        for mat in candidates:
+        for mat in [*self.starting_materials, *self.reactants]:
             if mat.properties['reference']:
                 return mat
-        if not candidates:
-            return None
-        # Nothing flagged: the last candidate becomes the reference. Deliberately the last, not
-        # the first — tests/test_reaction.py pins the equivalents this produces against a live
-        # server. (The previous form read the loop variable after the loop, which raised
-        # NameError when a reaction had no starting materials or reactants at all.)
-        last = candidates[-1]
-        last.properties['reference'] = True
-        return last
+        return None
 
     @reference_sample.setter
     def reference_sample(self, value: Sample | None):

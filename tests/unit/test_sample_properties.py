@@ -69,12 +69,30 @@ def test_amount_in_reaction_updates_equivalent():
     assert reactant.mol == pytest.approx(0.005)
 
 
-def test_reference_defaults_to_first_material():
+def test_no_reference_is_invented_when_none_is_flagged():
+    """Reading `reference_sample` must not pick one, and must not mutate.
+
+    The ELN does not invent a reference either: `Reaction.referenceMaterial` is
+    `allReactionMaterials.find(s => s.reference)`, undefined when nothing is flagged.
+
+    This previously returned the *first* material here — not by design but by accident of
+    ordering: the getter flagged `candidates[-1]`, and `update_equivalent()` called it during the
+    first append, when the first material was the only candidate. A server-loaded reaction with
+    two unflagged materials got the *last* instead, so the same code gave two different answers
+    depending on how the reaction was built.
+    """
     first, second = _sample(1), _sample(2)
     reaction = _reaction([first, second])
-    assert reaction.reference_sample is first
-    assert first.properties['reference'] is True
+    assert reaction.reference_sample is None
+    assert first.properties['reference'] is False
     assert second.properties['reference'] is False
+
+
+def test_an_explicitly_flagged_reference_is_returned():
+    first, second = _sample(1), _sample(2)
+    reaction = _reaction([first, second])
+    second.properties['reference'] = True
+    assert reaction.reference_sample is second
 
 
 def test_reference_without_materials():
