@@ -171,10 +171,7 @@
                     "id",
                     "data",
                     "type",
-                    "width",
-                    "height",
-                    "position",
-                    "positionAbsolute"
+                    "position"
                 ]
             }
         },

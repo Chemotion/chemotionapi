@@ -1,30 +1,87 @@
-from types import SimpleNamespace
+"""Richer errors for a rejected request, ported from version-3 (PR #6).
 
+The old message was `f'{status} -> {text}'`. When the server returns an HTML error page — which
+Rails does for a 500 — that put tens of kilobytes of markup into the traceback and told you
+neither which request failed nor what it was doing.
+
+One deliberate deviation from the original: these also inherit the **builtin** `ConnectionError`.
+This client has always raised that, so a straight port would have broken every `except
+ConnectionError` our users have written.
+"""
 import pytest
-from requests.exceptions import RequestException
+import requests
 
-from chemotion_api.connection import ChemotionRequestError, ChemotionServerError, request_error
-from chemotion_api.elements import ElementSet
-from chemotion_api.utils.solvent_manager import get_solvent_info
-
-
-def _response(status_code, text, headers=None):
-    return SimpleNamespace(status_code=status_code, text=text, headers=headers or {}, url='http://eln/x',
-                           request=SimpleNamespace(method='POST', url='http://eln/api/v1/samples'))
+from chemotion_api.connection import (
+    ChemotionRequestError, ChemotionServerError, request_error)
 
 
-def test_server_error_reports_title_and_request():
-    html = '<!DOCTYPE html><html><head><title>We\'re sorry, but something went wrong (500)</title></head></html>'
-    error = request_error(_response(500, html), 'saving sample (new)')
-    assert isinstance(error, ChemotionServerError) and isinstance(error, RequestException)
-    assert str(error) == ("500 -> We're sorry, but something went wrong (500) "
-                          "[POST http://eln/api/v1/samples] (saving sample (new))")
+def _response(status, text, method="PUT", url="https://eln.example.org/api/v1/samples/12"):
+    res = requests.Response()
+    res.status_code = status
+    res._content = text.encode()
+    req = requests.Request(method=method, url=url).prepare()
+    res.request = req
+    res.url = url
+    return res
 
 
-def test_client_error_keeps_json_body():
-    error = request_error(_response(400, '{"error":"name is missing"}'))
-    assert type(error) is ChemotionRequestError
-    assert error.status_code == 400 and error.snippet == '{"error":"name is missing"}'
+def test_existing_handlers_still_catch_it():
+    """The whole point of the deviation: `except ConnectionError` must keep working."""
+    assert issubclass(ChemotionRequestError, ConnectionError)
+    assert issubclass(ChemotionRequestError, requests.exceptions.RequestException)
+
+
+def test_an_html_error_page_is_reduced_to_its_title():
+    html = "<html><head><title>Something went wrong (500)</title></head><body>" + "x" * 40000
+    err = request_error(_response(500, html), context="saving sample 12")
+    assert err.snippet == "Something went wrong (500)"
+    assert len(str(err)) < 200                       # not 40 KB of markup
+
+
+def test_an_html_page_without_a_title_still_says_so():
+    err = request_error(_response(500, "<html><body>no title here</body></html>"))
+    assert err.snippet == "HTML error page"
+
+
+def test_a_long_plain_body_is_truncated():
+    err = request_error(_response(422, "y" * 5000))
+    assert err.snippet.endswith("...") and len(err.snippet) < 600
+
+
+def test_the_message_names_the_request_and_what_it_was_doing():
+    err = request_error(_response(422, "nope"), context="saving sample 12")
+    text = str(err)
+    assert "422" in text and "PUT" in text and "samples/12" in text
+    assert "saving sample 12" in text
+
+
+def test_5xx_is_a_server_error_and_4xx_is_not():
+    assert isinstance(request_error(_response(500, "boom")), ChemotionServerError)
+    assert isinstance(request_error(_response(503, "boom")), ChemotionServerError)
+    err = request_error(_response(404, "gone"))
+    assert isinstance(err, ChemotionRequestError) and not isinstance(err, ChemotionServerError)
+
+
+def test_a_response_with_no_request_attached_does_not_blow_up():
+    """Error construction must never raise — it would mask the failure it is reporting."""
+    res = requests.Response()
+    res.status_code = 500
+    res._content = b"boom"
+    err = request_error(res)
+    assert err.status_code == 500
+
+
+@pytest.mark.parametrize("status", [400, 401, 404, 422, 500, 503])
+def test_every_status_produces_a_usable_message(status):
+    assert str(request_error(_response(status, "body")))
+
+
+# --- kept from the v3 line: coverage the error-machinery tests above do not provide ---
+
+from types import SimpleNamespace  # noqa: E402
+
+from chemotion_api.elements import ElementSet  # noqa: E402
+from chemotion_api.utils.solvent_manager import get_solvent_info  # noqa: E402
 
 
 def test_unknown_solvent_suggests_names():

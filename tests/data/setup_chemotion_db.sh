@@ -18,6 +18,21 @@ PG_USER="${PG_USER:-postgres}"
 PG_DB="${PG_DB:-chemotion}"
 ELN_PORT="${ELN_PORT:-3579}"
 
+# Every connection setting above is env-overridable, and this script runs
+# `DROP DATABASE ... WITH (FORCE)`. Pointed at anything other than the test_config stack, that is
+# an unrecoverable mistake with no prompt in between, so anything off the default target has to be
+# opted into explicitly.
+if [ "$PG_HOST" != "localhost" ] && [ "$PG_HOST" != "127.0.0.1" ] \
+   || [ "$PG_PORT" != "54320" ] || [ "$PG_DB" != "chemotion" ]; then
+    if [ "$CONFIRM_DESTRUCTIVE_DB_RESET" != "yes" ]; then
+        echo "ERROR: refusing to DROP DATABASE '$PG_DB' on $PG_HOST:$PG_PORT."
+        echo "       This script is for the test_config stack (localhost:54320/chemotion) only."
+        echo "       To override deliberately, set CONFIRM_DESTRUCTIVE_DB_RESET=yes."
+        exit 1
+    fi
+    echo "WARNING: destructive reset of '$PG_DB' on $PG_HOST:$PG_PORT (explicitly confirmed)"
+fi
+
 BASEDIR="$(cd "$(dirname "$0")"; pwd)"
 SEED="${BASEDIR}/test.sql"
 

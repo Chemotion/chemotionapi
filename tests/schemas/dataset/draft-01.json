@@ -69,6 +69,12 @@
         "updated_at": {
             "type": "string"
         },
+        "metadata": {
+            "type": [
+                "object",
+                "null"
+            ]
+        },
         "ols_term_id": {
             "type": "string"
         }

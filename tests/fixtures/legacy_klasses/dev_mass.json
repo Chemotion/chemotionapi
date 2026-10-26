@@ -1,0 +1,814 @@
+{
+  "created_at": "2026-01-18T21:03:55+0000",
+  "desc": "Device mass spectrometry",
+  "element_klass": {
+    "created_at": "2025-02-25T11:43:19+0000",
+    "desc": "ELN Device Description",
+    "icon_name": "icon-device_description",
+    "id": 1,
+    "identifier": null,
+    "is_active": true,
+    "is_generic": false,
+    "klass_prefix": "",
+    "label": "Device Description",
+    "metadata": {},
+    "name": "device_description",
+    "place": 0,
+    "properties_release": {
+      "eln": {
+        "ancestor_tag": "v2.0.0-rc1",
+        "base_revision": "eb8de136451bf5d4a0d51f069f4ab8121341306c",
+        "compare_to_main": "https://github.com/ComPlat/chemotion_ELN/compare/main...37f599621c87b63cc0c7ca804dcba23dccc2b537",
+        "current_revision": "37f599621c87b63cc0c7ca804dcba23dccc2b537",
+        "date": "Tue Feb 25 08:14:35 UTC 2025",
+        "version": "tags/v2.0.0-rc1"
+      },
+      "klass": "ElementKlass",
+      "select_options": {},
+      "uuid": "e6080d19-50c6-49e6-bca5-5b9535fb568c"
+    },
+    "properties_template": {
+      "eln": {
+        "ancestor_tag": "v2.0.0-rc1",
+        "base_revision": "eb8de136451bf5d4a0d51f069f4ab8121341306c",
+        "compare_to_main": "https://github.com/ComPlat/chemotion_ELN/compare/main...37f599621c87b63cc0c7ca804dcba23dccc2b537",
+        "current_revision": "37f599621c87b63cc0c7ca804dcba23dccc2b537",
+        "date": "Tue Feb 25 08:14:35 UTC 2025",
+        "version": "tags/v2.0.0-rc1"
+      },
+      "klass": "ElementKlass",
+      "select_options": {},
+      "uuid": "e6080d19-50c6-49e6-bca5-5b9535fb568c"
+    },
+    "released_at": "2025-02-25T11:43:19+0000",
+    "sync_time": null,
+    "updated_at": "2025-02-25T11:43:19+0000",
+    "uuid": "e6080d19-50c6-49e6-bca5-5b9535fb568c",
+    "version": null
+  },
+  "id": 4,
+  "identifier": "1ee3a4fa-938e-4cff-b853-f1cea26a1e8e",
+  "is_active": true,
+  "label": "dev_mass",
+  "metadata": {},
+  "place": 100,
+  "properties_release": {
+    "identifier": "1ee3a4fa-938e-4cff-b853-f1cea26a1e8e",
+    "klass": "SegmentKlass",
+    "layers": {
+      "additional_components": {
+        "color": "default",
+        "cols": 1,
+        "fields": [],
+        "key": "additional_components",
+        "label": "Additional components",
+        "position": 80,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "detector": {
+        "color": "default",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "detector_type",
+            "label": "detector_type",
+            "option_layers": "mass_detector_type",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select",
+            "value": "electron multiplier"
+          }
+        ],
+        "key": "detector",
+        "label": "Detector",
+        "position": 50,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "general_layer_devices": {
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "type",
+            "label": "Type",
+            "option_layers": "all_types",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "mode",
+            "label": "Mode of operation",
+            "option_layers": "mode_of_operation",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "ontology",
+            "label": "ontology",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "checkbox"
+          }
+        ],
+        "key": "general_layer_devices",
+        "label": "General information",
+        "position": 10,
+        "timeRecord": "",
+        "wf_position": 0
+      },
+      "ion_source": {
+        "color": "default",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "technology",
+            "label": "Technology",
+            "option_layers": "ion_technology",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          }
+        ],
+        "key": "ion_source",
+        "label": "Ion source",
+        "position": 30,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "mass_analyzer": {
+        "color": "default",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "mass_analyzer_type",
+            "label": "mass_analyzer_type",
+            "option_layers": "mass_analyzer_types",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          }
+        ],
+        "key": "mass_analyzer",
+        "label": "Mass analyzer",
+        "position": 40,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "ontology": {
+        "color": "default",
+        "cols": 3,
+        "cond_fields": [
+          {
+            "field": "ontology",
+            "id": "573bbbd1-f009-4024-ab24-0f4790d0a1de",
+            "label": "",
+            "layer": "general_layer_devices",
+            "value": "true"
+          }
+        ],
+        "fields": [
+          {
+            "default": "",
+            "field": "ontology_one",
+            "label": "Ontology term one",
+            "ontology": {
+              "description": [
+                "Spectrometry where the sample is converted into gaseous ions which are characterised by their mass-to-charge ratio and relative abundance."
+              ],
+              "id": "chmo:class:http://purl.obolibrary.org/obo/CHMO_0000470",
+              "iri": "http://purl.obolibrary.org/obo/CHMO_0000470",
+              "label": "mass spectrometry",
+              "obo_id": "CHMO:0000470",
+              "ontology_name": "chmo",
+              "ontology_prefix": "CHMO",
+              "short_form": "CHMO_0000470",
+              "type": "class"
+            },
+            "placeholder": "Ontology assignment one",
+            "position": 1,
+            "readonly": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "ontology_two",
+            "label": "Ontology term two",
+            "ontology": {
+              "id": "chmo:class:http://purl.obolibrary.org/obo/CHMO_0002876",
+              "iri": "http://purl.obolibrary.org/obo/CHMO_0002876",
+              "label": "high performance liquid chromatography-tandem mass spectrometry",
+              "obo_id": "CHMO:0002876",
+              "ontology_name": "chmo",
+              "ontology_prefix": "CHMO",
+              "short_form": "CHMO_0002876",
+              "type": "class"
+            },
+            "position": 2,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "ontology_three",
+            "label": "ontology term three",
+            "position": 3,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "ontology",
+        "label": "Ontology",
+        "position": 90,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "sample_introduction": {
+        "color": "default",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "type",
+            "label": "type",
+            "option_layers": "intro_type",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          }
+        ],
+        "key": "sample_introduction",
+        "label": "Sample introduction",
+        "position": 20,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "software": {
+        "color": "default",
+        "cols": 1,
+        "fields": [],
+        "key": "software",
+        "label": "Software",
+        "position": 70,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "vacuum_system": {
+        "color": "default",
+        "cols": 1,
+        "fields": [],
+        "key": "vacuum_system",
+        "label": "Vacuum system",
+        "position": 60,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      }
+    },
+    "pkg": {
+      "eln": {
+        "base_revision": null,
+        "current_revision": null,
+        "version": "post-v2.1.0"
+      },
+      "labimotion": "2.1.0.rc13",
+      "name": "chem-generic-ui",
+      "version": "2.1.0-rc22"
+    },
+    "select_options": {
+      "intro_type": {
+        "options": [
+          {
+            "key": "GC",
+            "label": "GC"
+          },
+          {
+            "key": "LC",
+            "label": "LC"
+          },
+          {
+            "key": "direct injection",
+            "label": "direct injection"
+          }
+        ]
+      },
+      "ion_technology": {
+        "options": [
+          {
+            "key": "Electrospray Ionization (ESI)",
+            "label": "Electrospray Ionization (ESI)"
+          },
+          {
+            "key": "Atmospheric Pressure Chemical Ionization (APCI)",
+            "label": "Atmospheric Pressure Chemical Ionization (APCI)"
+          },
+          {
+            "key": "Matrix-Assisted Laser Desorption/Ionization (MALDI)",
+            "label": "Matrix-Assisted Laser Desorption/Ionization (MALDI)"
+          },
+          {
+            "key": "Electron Ionization (EI)",
+            "label": "Electron Ionization (EI)"
+          },
+          {
+            "key": "Chemical Ionization (CI)",
+            "label": "Chemical Ionization (CI)"
+          }
+        ]
+      },
+      "mass_analyzer_types": {
+        "options": [
+          {
+            "key": "quadrupole analyzer",
+            "label": "quadrupole analyzer"
+          },
+          {
+            "key": "triplequad",
+            "label": "triplequad"
+          },
+          {
+            "key": "Time-of-Flight (TOF)",
+            "label": "Time-of-Flight (TOF)"
+          },
+          {
+            "key": "magnetic sector analyzer",
+            "label": "magnetic sector analyzer"
+          },
+          {
+            "key": "ion trap analyzer",
+            "label": "ion trap analyzer"
+          },
+          {
+            "key": "orbitrap analyzer",
+            "label": "orbitrap analyzer"
+          },
+          {
+            "key": "q-ToF",
+            "label": "q-ToF"
+          }
+        ]
+      },
+      "mass_detector_type": {
+        "options": [
+          {
+            "key": "electron multiplier",
+            "label": "electron multiplier"
+          },
+          {
+            "key": "Faraday cup",
+            "label": "Faraday cup"
+          },
+          {
+            "key": "microchannel plates (MCP)",
+            "label": "microchannel plates (MCP)"
+          },
+          {
+            "key": "secondary ion multiplier",
+            "label": "secondary ion multiplier"
+          }
+        ]
+      },
+      "mode_of_operation": {
+        "options": [
+          {
+            "key": "integrated",
+            "label": "integrated"
+          },
+          {
+            "key": "manual",
+            "label": "manual"
+          },
+          {
+            "key": "dual use",
+            "label": "dual use"
+          }
+        ]
+      }
+    },
+    "uuid": "eedd8956-f884-4b1d-8f71-ebdd7b71a490",
+    "version": "0.4"
+  },
+  "properties_template": {
+    "identifier": "1ee3a4fa-938e-4cff-b853-f1cea26a1e8e",
+    "klass": "SegmentKlass",
+    "layers": {
+      "additional_components": {
+        "color": "default",
+        "cols": 1,
+        "fields": [],
+        "key": "additional_components",
+        "label": "Additional components",
+        "position": 80,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "detector": {
+        "color": "default",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "detector_type",
+            "label": "detector_type",
+            "option_layers": "mass_detector_type",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select",
+            "value": "electron multiplier"
+          }
+        ],
+        "key": "detector",
+        "label": "Detector",
+        "position": 50,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "general_layer_devices": {
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "type",
+            "label": "Type",
+            "option_layers": "all_types",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "mode",
+            "label": "Mode of operation",
+            "option_layers": "mode_of_operation",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "ontology",
+            "label": "ontology",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "checkbox"
+          }
+        ],
+        "key": "general_layer_devices",
+        "label": "General information",
+        "position": 10,
+        "timeRecord": "",
+        "wf_position": 0
+      },
+      "ion_source": {
+        "color": "default",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "technology",
+            "label": "Technology",
+            "option_layers": "ion_technology",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          }
+        ],
+        "key": "ion_source",
+        "label": "Ion source",
+        "position": 30,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "mass_analyzer": {
+        "color": "default",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "mass_analyzer_type",
+            "label": "mass_analyzer_type",
+            "option_layers": "mass_analyzer_types",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          }
+        ],
+        "key": "mass_analyzer",
+        "label": "Mass analyzer",
+        "position": 40,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "ontology": {
+        "color": "default",
+        "cols": 3,
+        "cond_fields": [
+          {
+            "field": "ontology",
+            "id": "573bbbd1-f009-4024-ab24-0f4790d0a1de",
+            "label": "",
+            "layer": "general_layer_devices",
+            "value": "true"
+          }
+        ],
+        "fields": [
+          {
+            "default": "",
+            "field": "ontology_one",
+            "label": "Ontology term one",
+            "ontology": {
+              "description": [
+                "Spectrometry where the sample is converted into gaseous ions which are characterised by their mass-to-charge ratio and relative abundance."
+              ],
+              "id": "chmo:class:http://purl.obolibrary.org/obo/CHMO_0000470",
+              "iri": "http://purl.obolibrary.org/obo/CHMO_0000470",
+              "label": "mass spectrometry",
+              "obo_id": "CHMO:0000470",
+              "ontology_name": "chmo",
+              "ontology_prefix": "CHMO",
+              "short_form": "CHMO_0000470",
+              "type": "class"
+            },
+            "placeholder": "Ontology assignment one",
+            "position": 1,
+            "readonly": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "ontology_two",
+            "label": "Ontology term two",
+            "ontology": {
+              "id": "chmo:class:http://purl.obolibrary.org/obo/CHMO_0002876",
+              "iri": "http://purl.obolibrary.org/obo/CHMO_0002876",
+              "label": "high performance liquid chromatography-tandem mass spectrometry",
+              "obo_id": "CHMO:0002876",
+              "ontology_name": "chmo",
+              "ontology_prefix": "CHMO",
+              "short_form": "CHMO_0002876",
+              "type": "class"
+            },
+            "position": 2,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "ontology_three",
+            "label": "ontology term three",
+            "position": 3,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "ontology",
+        "label": "Ontology",
+        "position": 90,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "sample_introduction": {
+        "color": "default",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "type",
+            "label": "type",
+            "option_layers": "intro_type",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          }
+        ],
+        "key": "sample_introduction",
+        "label": "Sample introduction",
+        "position": 20,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "software": {
+        "color": "default",
+        "cols": 1,
+        "fields": [],
+        "key": "software",
+        "label": "Software",
+        "position": 70,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "vacuum_system": {
+        "color": "default",
+        "cols": 1,
+        "fields": [],
+        "key": "vacuum_system",
+        "label": "Vacuum system",
+        "position": 60,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      }
+    },
+    "pkg": {
+      "eln": {
+        "base_revision": null,
+        "current_revision": null,
+        "version": "post-v2.1.0"
+      },
+      "labimotion": "2.1.0.rc13",
+      "name": "chem-generic-ui",
+      "version": "2.1.0-rc22"
+    },
+    "select_options": {
+      "intro_type": {
+        "options": [
+          {
+            "key": "GC",
+            "label": "GC"
+          },
+          {
+            "key": "LC",
+            "label": "LC"
+          },
+          {
+            "key": "direct injection",
+            "label": "direct injection"
+          }
+        ]
+      },
+      "ion_technology": {
+        "options": [
+          {
+            "key": "Electrospray Ionization (ESI)",
+            "label": "Electrospray Ionization (ESI)"
+          },
+          {
+            "key": "Atmospheric Pressure Chemical Ionization (APCI)",
+            "label": "Atmospheric Pressure Chemical Ionization (APCI)"
+          },
+          {
+            "key": "Matrix-Assisted Laser Desorption/Ionization (MALDI)",
+            "label": "Matrix-Assisted Laser Desorption/Ionization (MALDI)"
+          },
+          {
+            "key": "Electron Ionization (EI)",
+            "label": "Electron Ionization (EI)"
+          },
+          {
+            "key": "Chemical Ionization (CI)",
+            "label": "Chemical Ionization (CI)"
+          }
+        ]
+      },
+      "mass_analyzer_types": {
+        "options": [
+          {
+            "key": "quadrupole analyzer",
+            "label": "quadrupole analyzer"
+          },
+          {
+            "key": "triplequad",
+            "label": "triplequad"
+          },
+          {
+            "key": "Time-of-Flight (TOF)",
+            "label": "Time-of-Flight (TOF)"
+          },
+          {
+            "key": "magnetic sector analyzer",
+            "label": "magnetic sector analyzer"
+          },
+          {
+            "key": "ion trap analyzer",
+            "label": "ion trap analyzer"
+          },
+          {
+            "key": "orbitrap analyzer",
+            "label": "orbitrap analyzer"
+          },
+          {
+            "key": "q-ToF",
+            "label": "q-ToF"
+          }
+        ]
+      },
+      "mass_detector_type": {
+        "options": [
+          {
+            "key": "electron multiplier",
+            "label": "electron multiplier"
+          },
+          {
+            "key": "Faraday cup",
+            "label": "Faraday cup"
+          },
+          {
+            "key": "microchannel plates (MCP)",
+            "label": "microchannel plates (MCP)"
+          },
+          {
+            "key": "secondary ion multiplier",
+            "label": "secondary ion multiplier"
+          }
+        ]
+      },
+      "mode_of_operation": {
+        "options": [
+          {
+            "key": "integrated",
+            "label": "integrated"
+          },
+          {
+            "key": "manual",
+            "label": "manual"
+          },
+          {
+            "key": "dual use",
+            "label": "dual use"
+          }
+        ]
+      }
+    },
+    "uuid": "eedd8956-f884-4b1d-8f71-ebdd7b71a490",
+    "version": "0.4"
+  },
+  "released_at": "2026-01-18T21:03:55+0000",
+  "sync_time": null,
+  "updated_at": "2026-01-18T21:04:37+0000",
+  "uuid": "eedd8956-f884-4b1d-8f71-ebdd7b71a490",
+  "version": "0.4"
+}

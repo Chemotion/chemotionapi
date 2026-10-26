@@ -60,12 +60,9 @@
         },
         "layers": {
             "type": "object",
-            "patternProperties": {
-                "^[a-z][a-zA-Z_]{1,20}[a-z]$": {
-                    "$ref": "chemotion://generic/layer/draft-01"
-                }
-            },
-            "additionalProperties": false
+            "additionalProperties": {
+                "$ref": "chemotion://generic/layer/draft-01"
+            }
         },
         "version": {
             "type": [
@@ -237,10 +234,7 @@
                             "id",
                             "data",
                             "type",
-                            "width",
-                            "height",
-                            "position",
-                            "positionAbsolute"
+                            "position"
                         ]
                     }
                 },
@@ -283,19 +277,51 @@
             "type": "object",
             "properties": {
                 "version": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "base_revision": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "current_revision": {
-                    "type": "number"
+                    "type": [
+                        "string",
+                        "number",
+                        "null"
+                    ]
+                },
+                "describe_tag": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "branch": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
             "required": [
-                "version",
-                "base_revision",
-                "current_revision"
+                "version"
+            ]
+        },
+        "labimotion": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "released_at": {
+            "type": [
+                "string",
+                "null"
             ]
         }
     },

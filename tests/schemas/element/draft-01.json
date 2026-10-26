@@ -63,6 +63,12 @@
         "updated_at": {
             "type": "string"
         },
+        "metadata": {
+            "type": [
+                "object",
+                "null"
+            ]
+        },
         "name": {
             "type": "string"
         },
