@@ -71,7 +71,11 @@ fi
 # Drop, recreate, and load the seed.
 run_psql -c "DROP DATABASE IF EXISTS $PG_DB WITH (FORCE);" || exit 1
 run_psql -c "CREATE DATABASE $PG_DB;" || exit 1
-run_psql -q -o /dev/null -d "$PG_DB" < "$SEED" || { echo "ERROR: seed load failed"; exit 1; }
+# ON_ERROR_STOP: psql otherwise carries on past a failed statement and still exits 0, so a
+# seed that only half-loaded would print SUCCESS and hand the suite a partial database —
+# surfacing much later as test failures a long way from the cause.
+run_psql -v ON_ERROR_STOP=1 -q -o /dev/null -d "$PG_DB" < "$SEED" \
+    || { echo "ERROR: seed load failed"; exit 1; }
 echo "DB reset from seed: ${SEED}"
 
 # Bring the schema up to the running server version (normally a no-op: the committed seed is
