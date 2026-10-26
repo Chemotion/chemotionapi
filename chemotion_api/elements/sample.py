@@ -42,7 +42,7 @@ class GasPhaseObj(FixedDict):
         }
     }
 
-    def __init__(self, sample: 'Sample', kwargs: Optional[dict] = None):
+    def __init__(self, sample: Sample, kwargs: dict | None = None):
         self._sample = sample
         if kwargs is None:
             kwargs = {**self.default_val}
@@ -100,7 +100,7 @@ class SampleVariationType(Enum):
     PRODUCT = 'products'
     SOLVENTS = 'solvents'
 
-    def from_role(self, sample: 'Sample') -> Self:
+    def from_role(self, sample: Sample) -> Self:
         role = sample.role_in_reaction
         if role == 'starting_aterials':
             return SampleVariationType.STARTING_MATERIAL
@@ -247,7 +247,7 @@ class MoleculeManager:
         res = self._session.post(smiles_url,
                                  data=json.dumps(payload))
         if res.status_code != 201:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         res_json = res.json()
         # For unresolvable SMILES the server answers 201 with an empty molecule. Saving a sample with it fails (500)
         if not res_json or res_json.get('id') is None:
@@ -361,8 +361,7 @@ class Sample(AbstractElement):
             raise ValueError(f'Unknown role: {role_in_reaction}')
         self._role_in_reaction = role_in_reaction
 
-    def reload_role_in_reaction(self) -> Optional[Literal[
-        'starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']]:
+    def reload_role_in_reaction(self) -> Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'] | None:
         if self.reaction is None:
             return None
 
@@ -602,10 +601,10 @@ class Sample(AbstractElement):
         :return: Response with the svg as content
         """
 
-        image_url = "/images/samples/{}".format(self._svg_file)
+        image_url = f"/images/samples/{self._svg_file}"
         res = self._session.get(image_url)
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         return res
 
     def split(self):
@@ -793,7 +792,7 @@ class Sample(AbstractElement):
 
         return serialize_data
 
-    def _set_serialized_if_exist(self, key: str, serialize_data: dict, origen_data: Optional[dict] = None):
+    def _set_serialized_if_exist(self, key: str, serialize_data: dict, origen_data: dict | None = None):
         if origen_data is None:
             value = self.properties.get(key, self.json_data.get(key, '____NOT_EXISTING____'))
         else:
@@ -860,7 +859,7 @@ class Sample(AbstractElement):
         if unit not in allowed_units:
             self.set_amount(0.0, allowed_units[-1])
 
-    def _set_equivalent(self, value: Optional[float] = None):
+    def _set_equivalent(self, value: float | None = None):
         unit = QuantityUnit.Equivalent
         if value is not None:
             if unit not in self.allowed_quantity_units():
@@ -899,7 +898,7 @@ class Sample(AbstractElement):
     def _amount_key(self) -> str:
         return 'real_amount' if self.role_in_reaction == 'products' else 'target_amount'
 
-    def set_amount(self, value: float, unit: Optional[QuantityUnit | str] = None):
+    def set_amount(self, value: float, unit: QuantityUnit | str | None = None):
         """
         Sets the amount of the sample: the real amount for products, otherwise the target amount.
         The equivalents of the reaction materials are updated.

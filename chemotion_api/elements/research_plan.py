@@ -1,9 +1,10 @@
 import uuid
 from enum import Enum
 from string import ascii_lowercase
-from typing import Optional, Literal, Generator
+from typing import Optional, Literal
+from collections.abc import Generator
 
-from typing_extensions import Self
+from typing import Self
 
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.sample import Sample
@@ -83,7 +84,7 @@ class Table(dict):
         """
         return next(self.column_ids_by_labels(label))
 
-    def column_ids_by_labels(self, *labels: str) -> Generator[str, None, None]:
+    def column_ids_by_labels(self, *labels: str) -> Generator[str]:
         """
         Finds all column IDs of columns with the given labels
 
@@ -186,7 +187,7 @@ class RichText(dict):
         H2 = 2
         H3 = 3
 
-    def __init__(self, id: str, value: Optional[dict] = None):
+    def __init__(self, id: str, value: dict | None = None):
         if value is None:
             value = {"ops": []}
         value = {"ops": value.get('ops', [])}
@@ -208,11 +209,11 @@ class RichText(dict):
         return self['value']['ops']
 
     def add_text(self, text: str,
-                 bold: Optional[bool] = None,
-                 underline: Optional[bool] = None,
-                 italic: Optional[bool] = None,
-                 list: Optional[Literal['bullet', 'ordered']] = None,
-                 header: Optional[HeaderType] = None) -> Self:
+                 bold: bool | None = None,
+                 underline: bool | None = None,
+                 italic: bool | None = None,
+                 list: Literal['bullet', 'ordered'] | None = None,
+                 header: HeaderType | None = None) -> Self:
         """
         Appends text. Lists and headers apply to the line, so end the text with a line break (``\\n``).
 
@@ -364,7 +365,7 @@ class ResearchPlan(AbstractElement):
 
         return self.json_data
 
-    def add_richtext(self, text: Optional[str] = None, at_idx: Optional[int] = None) -> RichText:
+    def add_richtext(self, text: str | None = None, at_idx: int | None = None) -> RichText:
         """
         Adds a text block to the Research plan
 
@@ -378,7 +379,7 @@ class ResearchPlan(AbstractElement):
             body_obj.add_text(text)
         return body_obj
 
-    def add_image(self, image_path: str, at_idx: Optional[int] = None) -> dict:
+    def add_image(self, image_path: str, at_idx: int | None = None) -> dict:
         """
         Adds an image to the Research plan. The image is uploaded as attachment when the plan is saved.
 
@@ -400,7 +401,7 @@ class ResearchPlan(AbstractElement):
         body_obj['value'] = file_obj
         return body_obj
 
-    def add_table(self, at_idx: Optional[int] = None) -> Table:
+    def add_table(self, at_idx: int | None = None) -> Table:
         """
         Adds a new table to the Research plan
 
@@ -412,7 +413,7 @@ class ResearchPlan(AbstractElement):
         body_obj = self._add_new_element(BodyElements.table, at_idx)
         return body_obj
 
-    def _add_new_element(self, element_type: BodyElements, at_idx: Optional[int]):
+    def _add_new_element(self, element_type: BodyElements, at_idx: int | None):
         body_elem = {
             'id': uuid.uuid4().__str__(),
             'type': element_type.name,

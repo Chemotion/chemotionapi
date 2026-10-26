@@ -2,7 +2,7 @@ import json
 import os
 import re
 import string
-from typing import Callable
+from collections.abc import Callable
 
 from chemotion_api.labImotion import ontology
 from chemotion_api.labImotion.icons import all_icons
@@ -150,7 +150,7 @@ class GenericDataset(GenericObj):
         return validate_generic_dataset
 
 
-class GenericManager():
+class GenericManager:
     def __init__(self, connection: Connection, element_manager: ElementManager | None = None):
         self._connection = connection
         self._element_manager = element_manager

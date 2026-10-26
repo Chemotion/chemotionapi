@@ -1,5 +1,6 @@
 from enum import Enum
-from typing import Callable, Optional, Iterator, Literal
+from typing import Optional, Literal
+from collections.abc import Callable, Iterator
 
 from requests import Response
 
@@ -28,7 +29,7 @@ class MaterialList(TypedList):
     and initializes the amount.
     """
 
-    def __init__(self, reaction: 'Reaction',
+    def __init__(self, reaction: Reaction,
                  mat_type: Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'],
                  *args):
         super().__init__(Sample, *args)
@@ -101,8 +102,8 @@ class SampleVariation:
     >>> reaction.save()
     """
 
-    def __init__(self, sample: Sample, sample_type: SampleVariationType, vessel_volume: Optional[float],
-                 json_data: Optional[dict] = None, get_ref_amount: Optional[Callable[[], float]] = None):
+    def __init__(self, sample: Sample, sample_type: SampleVariationType, vessel_volume: float | None,
+                 json_data: dict | None = None, get_ref_amount: Callable[[], float] | None = None):
         self._sample = sample
         self._sample_type = sample_type
         if get_ref_amount is not None:
@@ -812,10 +813,10 @@ class Reaction(AbstractElement):
         :return: Response with the svg as content
         """
 
-        image_url = "/images/reactions/{}".format(self._svg_file)
+        image_url = f"/images/reactions/{self._svg_file}"
         res = self._session.get(image_url)
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
         return res
 
     def properties_schema(self) -> dict:
@@ -868,7 +869,7 @@ class Reaction(AbstractElement):
         return super().properties
 
     @property
-    def variations(self) -> 'Variations':
+    def variations(self) -> Variations:
         """
         The variations of the reaction (variations tab in Chemotion). They are saved with the reaction.
 
@@ -911,7 +912,7 @@ class Reaction(AbstractElement):
         return self.properties['purification_solvents']
 
     @property
-    def reference_sample(self) -> Optional[Sample]:
+    def reference_sample(self) -> Sample | None:
         """
         The reference material of the reaction, a starting material or reactant. Equivalents and yields
         are relative to it. If none is set, the first starting material or reactant becomes the reference.
@@ -1130,7 +1131,7 @@ class Reaction(AbstractElement):
                     "dispUnit": total_unit,
                     "dispValue": f"{int(total_time)}",
                     "memUnit": total_unit,
-                    "memValue": "{:0.15f}".format(total_time)
+                    "memValue": f"{total_time:0.15f}"
                 }
                 }
 

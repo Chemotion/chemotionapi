@@ -107,7 +107,7 @@ class ElementManager:
         if not class_obj['is_generic']:
             json_path = os.path.join(resource_path(__file__), 'elements/empty_elements', type_name + '.json')
             if os.path.exists(json_path):
-                with open(json_path, 'r') as f:
+                with open(json_path) as f:
                     data = json.loads(f.read())
             if type_name == 'wellplate':
                 data['wells'] = []
@@ -161,7 +161,7 @@ class ElementManager:
 
         sample_data['molecule'] = mol
         sample_data['density'] = solvent_info['density']
-        sample_data['external_label'] = '{}'.format(name)
+        sample_data['external_label'] = f'{name}'
         sample_data['short_label'] = 'solvent'
         sample_data['show_label'] = False
         sample_data['reference'] = False

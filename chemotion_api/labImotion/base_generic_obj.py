@@ -1,6 +1,7 @@
 import json
 import warnings
-from typing import Self, Callable
+from typing import Self
+from collections.abc import Callable
 
 from jsonschema.exceptions import ValidationError
 
@@ -195,7 +196,7 @@ class GenericObj(ChemotionSerializable):
     def upload(cls, con: Connection, file_path: str) -> list[Self]:
         if cls.url_create is None:
             return []
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             json_data = json.loads(f.read())
         res = con.post(cls.url_upload, data=json_data)
         if res.status_code != 201:

@@ -98,8 +98,7 @@ class ElementSet(list):
         return elm
 
     def __iter__(self):
-        for x in self.iter_elements():
-            yield x
+        yield from self.iter_elements()
 
     @property
     def page(self) -> int:
@@ -160,8 +159,8 @@ class ElementSet(list):
         self._set_page(self.page - 1)
         return self
 
-    def load_elements(self, per_page: Optional[int] = None, updated_to_date: Optional[datetime] = None,
-                      updated_from_date: Optional[datetime] = None, product_only: bool = False):
+    def load_elements(self, per_page: int | None = None, updated_to_date: datetime | None = None,
+                      updated_from_date: datetime | None = None, product_only: bool = False):
         """
         Loads the current page of elements from the server.
 

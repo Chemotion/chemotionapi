@@ -93,11 +93,11 @@ class ReactionSearcher(SearchHelperBase):
     """
     element_type_res = "reactions"
     element_type = "reaction"
-    def add_search_condition(self, match: EnumMatch, connector: EnumConnector, name: Optional[str] = None,
-                             short_label: Optional[str] = None, status: Optional[str] = None,
-                             conditions: Optional[str] = None, reaction_type: Optional[str] = None,
-                             temperature_in_c: Optional[float] = None, duration_in_sec: Optional[int] = None,
-                             private_note: Optional[str] = None):
+    def add_search_condition(self, match: EnumMatch, connector: EnumConnector, name: str | None = None,
+                             short_label: str | None = None, status: str | None = None,
+                             conditions: str | None = None, reaction_type: str | None = None,
+                             temperature_in_c: float | None = None, duration_in_sec: int | None = None,
+                             private_note: str | None = None):
         """
         Adds a condition for each given field. Fields set to None are ignored.
 

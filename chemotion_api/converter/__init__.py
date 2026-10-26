@@ -1,6 +1,5 @@
 import json
 import os
-from typing import List
 from uuid import uuid4
 
 import requests
@@ -81,7 +80,7 @@ class Profile:
         return self._session.delete(f'/api/v1/converter/profiles/{self.id}')
 
 
-class ProfileManager(object):
+class ProfileManager:
     """
     Lists, loads and creates converter profiles. Use :meth:`chemotion_api.Instance.get_profile_manager`
     to get one.
@@ -109,7 +108,7 @@ class ProfileManager(object):
         return next((p for p in self.profiles if p.id == profile_id), None)
 
     @property
-    def profiles(self) -> List[Profile]:
+    def profiles(self) -> list[Profile]:
         """
         All converter profiles on the server. They are loaded once and cached.
 
@@ -136,7 +135,7 @@ class ProfileManager(object):
         """
         if os.path.exists(file_path):
             try:
-                with open(file_path, 'r') as f:
+                with open(file_path) as f:
                     pd = json.loads(f.read())
                     while self.get_profile(pd['id']) is not None:
                         pd['id'] = uuid4().__str__()
