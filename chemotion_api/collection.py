@@ -7,16 +7,15 @@ elements, and sharing/syncing.
 """
 
 import json
-import re
 import os
 import typing
 import logging
-from datetime import datetime, UTC
+from datetime import datetime
 from urllib.parse import urlparse
 from enum import Enum
 from random import random
-from typing import TypeVar, Optional, Self, Any
-from collections.abc import Iterator, Generator, Callable
+from typing import TypeVar, Self, Any
+from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +26,8 @@ from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection
 
 from chemotion_api.element_manager import ElementManager
-from collections.abc import Mapping
 
-from chemotion_api.utils import break_parent_cycles, normalise_range_value, quill_to_text
+from chemotion_api.utils import break_parent_cycles
 from chemotion_api.elements import ElementSet, AbstractElement
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
@@ -48,17 +46,6 @@ def _col_path_join(path_part: str, *path_parts: str) -> str:
     while '//' in joined:
         joined = joined.replace('//', '/')
     return joined
-
-
-# Deliberately NOT here — each arrives as a list or mapping, so the container guard skips it and
-# listing it would be dead code pretending to be a curated choice:
-#   solvent, purification - always lists;  vessel_size - always a mapping
-#   stereo, xref  - jsonb on the server, so they arrive as mappings and are skipped anyway.
-#                   xref is an internal bag (it holds inventory_label), not descriptive metadata.
-#   temperature_display - not exposed by the reaction API at all; it is computed in the frontend.
-#                   The real temperature is mapped properly as a QUDT quantity.
-# Administrative flags (is_top_secret, decoupled, can_update, children_count, ancestor_ids, ...)
-# are left out on purpose: a crate padded with booleans is harder to read, not richer.
 
 
 def _share_target_ids(users) -> list[int]:
