@@ -33,6 +33,29 @@ jobs:
       - name: Type check (mypy)
         run: just mypy
 
+  test:
+    name: offline test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install dependencies (locked)
+        run: uv sync --frozen --all-groups
+
+      # Integration tests are deselected by tests/pytest.ini (addopts -m "not integration") since
+      # they need a live Chemotion server; they run against the dockerized stack via
+      # `just test-integration`, not here.
+      - name: Offline tests
+        run: just test
+
   # Release artefacts only: a wheel is worth building when we are actually cutting a version,
   # not on every merge. Tag pushes only — skipped for branch pushes and pull requests.
   build:
