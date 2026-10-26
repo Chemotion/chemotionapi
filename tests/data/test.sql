@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 16.8 (Debian 16.8-1.pgdg120+1)
--- Dumped by pg_dump version 16.8 (Debian 16.8-1.pgdg120+1)
+-- Dumped from database version 16.9 (Debian 16.9-1.pgdg120+1)
+-- Dumped by pg_dump version 16.9 (Debian 16.9-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1222,45 +1222,6 @@ ALTER SEQUENCE public.analyses_experiments_id_seq OWNED BY public.analyses_exper
 
 
 --
--- Name: api_tokens; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.api_tokens (
-    id bigint NOT NULL,
-    name character varying,
-    token_digest character varying NOT NULL,
-    user_id bigint NOT NULL,
-    expires_at timestamp without time zone,
-    revoked_at timestamp without time zone,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-
-ALTER TABLE public.api_tokens OWNER TO postgres;
-
---
--- Name: api_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.api_tokens_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.api_tokens_id_seq OWNER TO postgres;
-
---
--- Name: api_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.api_tokens_id_seq OWNED BY public.api_tokens.id;
-
-
---
 -- Name: ar_internal_metadata; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -1386,8 +1347,7 @@ CREATE TABLE public.calendar_entries (
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     eventable_type character varying,
-    eventable_id bigint,
-    status character varying
+    eventable_id bigint
 );
 
 
@@ -1642,52 +1602,6 @@ CREATE TABLE public.code_logs (
 ALTER TABLE public.code_logs OWNER TO postgres;
 
 --
--- Name: collection_shares; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.collection_shares (
-    id bigint NOT NULL,
-    collection_id bigint,
-    shared_with_id bigint NOT NULL,
-    permission_level integer DEFAULT 0 NOT NULL,
-    celllinesample_detail_level integer DEFAULT 0 NOT NULL,
-    devicedescription_detail_level integer DEFAULT 0 NOT NULL,
-    element_detail_level integer DEFAULT 0 NOT NULL,
-    reaction_detail_level integer DEFAULT 0 NOT NULL,
-    researchplan_detail_level integer DEFAULT 0 NOT NULL,
-    sample_detail_level integer DEFAULT 0 NOT NULL,
-    screen_detail_level integer DEFAULT 0 NOT NULL,
-    sequencebasedmacromoleculesample_detail_level integer DEFAULT 0 NOT NULL,
-    wellplate_detail_level integer DEFAULT 0 NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-
-ALTER TABLE public.collection_shares OWNER TO postgres;
-
---
--- Name: collection_shares_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.collection_shares_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.collection_shares_id_seq OWNER TO postgres;
-
---
--- Name: collection_shares_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.collection_shares_id_seq OWNED BY public.collection_shares.id;
-
-
---
 -- Name: collections; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -1696,14 +1610,26 @@ CREATE TABLE public.collections (
     user_id integer NOT NULL,
     ancestry character varying DEFAULT '/'::character varying NOT NULL COLLATE pg_catalog."C",
     label text NOT NULL,
+    shared_by_id integer,
+    is_shared boolean DEFAULT false,
+    permission_level integer DEFAULT 0,
+    sample_detail_level integer DEFAULT 10,
+    reaction_detail_level integer DEFAULT 10,
+    wellplate_detail_level integer DEFAULT 10,
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     "position" integer,
+    screen_detail_level integer DEFAULT 10,
     is_locked boolean DEFAULT false,
     deleted_at timestamp without time zone,
+    is_synchronized boolean DEFAULT false NOT NULL,
+    researchplan_detail_level integer DEFAULT 10,
+    element_detail_level integer DEFAULT 10,
     tabs_segment jsonb DEFAULT '{}'::jsonb,
+    celllinesample_detail_level integer DEFAULT 10,
     inventory_id bigint,
-    shared boolean DEFAULT false NOT NULL
+    devicedescription_detail_level integer DEFAULT 10,
+    sequencebasedmacromoleculesample_detail_level integer DEFAULT 10
 );
 
 
@@ -2744,92 +2670,6 @@ ALTER SEQUENCE public.devices_id_seq OWNED BY public.devices.id;
 
 
 --
--- Name: dose_resp_outputs; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.dose_resp_outputs (
-    id bigint NOT NULL,
-    dose_resp_request_id bigint NOT NULL,
-    output_data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    notes text,
-    deleted_at timestamp without time zone,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-
-ALTER TABLE public.dose_resp_outputs OWNER TO postgres;
-
---
--- Name: dose_resp_outputs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.dose_resp_outputs_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.dose_resp_outputs_id_seq OWNER TO postgres;
-
---
--- Name: dose_resp_outputs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.dose_resp_outputs_id_seq OWNED BY public.dose_resp_outputs.id;
-
-
---
--- Name: dose_resp_requests; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.dose_resp_requests (
-    id bigint NOT NULL,
-    request_id character varying,
-    element_id integer,
-    state integer,
-    wellplates_metadata jsonb,
-    resp_message character varying,
-    created_by integer,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    access_token character varying,
-    expires_at timestamp without time zone,
-    revoked_at timestamp without time zone,
-    first_accessed_at timestamp without time zone,
-    last_accessed_at timestamp without time zone,
-    access_count integer DEFAULT 0,
-    input_metadata jsonb DEFAULT '{}'::jsonb NOT NULL
-);
-
-
-ALTER TABLE public.dose_resp_requests OWNER TO postgres;
-
---
--- Name: dose_resp_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.dose_resp_requests_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.dose_resp_requests_id_seq OWNER TO postgres;
-
---
--- Name: dose_resp_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.dose_resp_requests_id_seq OWNED BY public.dose_resp_requests.id;
-
-
---
 -- Name: element_klasses; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -2970,43 +2810,6 @@ ALTER SEQUENCE public.element_tags_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.element_tags_id_seq OWNED BY public.element_tags.id;
-
-
---
--- Name: element_variations; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.element_variations (
-    id bigint NOT NULL,
-    element_id bigint NOT NULL,
-    variations jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    layout jsonb DEFAULT '{}'::jsonb NOT NULL
-);
-
-
-ALTER TABLE public.element_variations OWNER TO postgres;
-
---
--- Name: element_variations_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.element_variations_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.element_variations_id_seq OWNER TO postgres;
-
---
--- Name: element_variations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.element_variations_id_seq OWNED BY public.element_variations.id;
 
 
 --
@@ -3219,44 +3022,6 @@ ALTER SEQUENCE public.elements_samples_id_seq OWNED BY public.elements_samples.i
 
 
 --
--- Name: elements_wellplates; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.elements_wellplates (
-    id bigint NOT NULL,
-    element_id bigint NOT NULL,
-    wellplate_id bigint NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
-    deleted_at timestamp without time zone,
-    log_data jsonb
-);
-
-
-ALTER TABLE public.elements_wellplates OWNER TO postgres;
-
---
--- Name: elements_wellplates_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.elements_wellplates_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.elements_wellplates_id_seq OWNER TO postgres;
-
---
--- Name: elements_wellplates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.elements_wellplates_id_seq OWNED BY public.elements_wellplates.id;
-
-
---
 -- Name: experiments; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -3354,44 +3119,6 @@ ALTER SEQUENCE public.fingerprints_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.fingerprints_id_seq OWNED BY public.fingerprints.id;
-
-
---
--- Name: info_support_links; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.info_support_links (
-    id bigint NOT NULL,
-    label character varying NOT NULL,
-    url character varying NOT NULL,
-    "position" integer DEFAULT 0 NOT NULL,
-    enabled boolean DEFAULT true NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-
-ALTER TABLE public.info_support_links OWNER TO postgres;
-
---
--- Name: info_support_links_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.info_support_links_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.info_support_links_id_seq OWNER TO postgres;
-
---
--- Name: info_support_links_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.info_support_links_id_seq OWNED BY public.info_support_links.id;
 
 
 --
@@ -3832,11 +3559,7 @@ CREATE TABLE public.reactions (
     log_data jsonb,
     weight_percentage boolean DEFAULT false,
     volume numeric(10,4),
-    use_reaction_volume boolean DEFAULT false NOT NULL,
-    lock_reaction_volume boolean DEFAULT false NOT NULL,
-    reaction_type character varying DEFAULT 'standard'::character varying NOT NULL,
-    ph_operator character varying DEFAULT '='::character varying NOT NULL,
-    ph_value double precision
+    use_reaction_volume boolean DEFAULT false NOT NULL
 );
 
 
@@ -4030,8 +3753,7 @@ CREATE TABLE public.measurements (
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     source_type character varying,
-    source_id bigint,
-    metadata jsonb DEFAULT '{}'::jsonb
+    source_id bigint
 );
 
 
@@ -4620,8 +4342,7 @@ CREATE TABLE public.profiles (
     data jsonb DEFAULT '{}'::jsonb NOT NULL,
     curation integer DEFAULT 2,
     show_sample_name boolean DEFAULT false,
-    show_sample_short_label boolean DEFAULT false,
-    theme integer DEFAULT 0 NOT NULL
+    show_sample_short_label boolean DEFAULT false
 );
 
 
@@ -5068,8 +4789,7 @@ CREATE TABLE public.research_plans (
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL,
     body jsonb,
-    log_data jsonb,
-    short_label character varying
+    log_data jsonb
 );
 
 
@@ -5806,6 +5526,56 @@ ALTER SEQUENCE public.subscriptions_id_seq OWNED BY public.subscriptions.id;
 
 
 --
+-- Name: sync_collections_users; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.sync_collections_users (
+    id integer NOT NULL,
+    user_id integer,
+    collection_id integer,
+    shared_by_id integer,
+    permission_level integer DEFAULT 0,
+    sample_detail_level integer DEFAULT 0,
+    reaction_detail_level integer DEFAULT 0,
+    wellplate_detail_level integer DEFAULT 0,
+    screen_detail_level integer DEFAULT 0,
+    fake_ancestry character varying,
+    researchplan_detail_level integer DEFAULT 10,
+    label character varying,
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    element_detail_level integer DEFAULT 10,
+    celllinesample_detail_level integer DEFAULT 10,
+    devicedescription_detail_level integer DEFAULT 10,
+    sequencebasedmacromoleculesample_detail_level integer DEFAULT 10
+);
+
+
+ALTER TABLE public.sync_collections_users OWNER TO postgres;
+
+--
+-- Name: sync_collections_users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.sync_collections_users_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.sync_collections_users_id_seq OWNER TO postgres;
+
+--
+-- Name: sync_collections_users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.sync_collections_users_id_seq OWNED BY public.sync_collections_users.id;
+
+
+--
 -- Name: text_templates; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -6093,6 +5863,27 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
+-- Name: v_samples_collections; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.v_samples_collections AS
+ SELECT cols.id AS cols_id,
+    cols.user_id AS cols_user_id,
+    cols.sample_detail_level AS cols_sample_detail_level,
+    cols.wellplate_detail_level AS cols_wellplate_detail_level,
+    cols.shared_by_id AS cols_shared_by_id,
+    cols.is_shared AS cols_is_shared,
+    samples.id AS sams_id,
+    samples.name AS sams_name
+   FROM ((public.collections cols
+     JOIN public.collections_samples col_samples ON (((col_samples.collection_id = cols.id) AND (col_samples.deleted_at IS NULL))))
+     JOIN public.samples ON (((samples.id = col_samples.sample_id) AND (samples.deleted_at IS NULL))))
+  WHERE (cols.deleted_at IS NULL);
+
+
+ALTER VIEW public.v_samples_collections OWNER TO postgres;
+
+--
 -- Name: vessel_templates; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -6302,13 +6093,6 @@ ALTER TABLE ONLY public.analyses_experiments ALTER COLUMN id SET DEFAULT nextval
 
 
 --
--- Name: api_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.api_tokens ALTER COLUMN id SET DEFAULT nextval('public.api_tokens_id_seq'::regclass);
-
-
---
 -- Name: attachments id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -6362,13 +6146,6 @@ ALTER TABLE ONLY public.channels ALTER COLUMN id SET DEFAULT nextval('public.cha
 --
 
 ALTER TABLE ONLY public.chemicals ALTER COLUMN id SET DEFAULT nextval('public.chemicals_id_seq'::regclass);
-
-
---
--- Name: collection_shares id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.collection_shares ALTER COLUMN id SET DEFAULT nextval('public.collection_shares_id_seq'::regclass);
 
 
 --
@@ -6533,20 +6310,6 @@ ALTER TABLE ONLY public.devices ALTER COLUMN id SET DEFAULT nextval('public.devi
 
 
 --
--- Name: dose_resp_outputs id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.dose_resp_outputs ALTER COLUMN id SET DEFAULT nextval('public.dose_resp_outputs_id_seq'::regclass);
-
-
---
--- Name: dose_resp_requests id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.dose_resp_requests ALTER COLUMN id SET DEFAULT nextval('public.dose_resp_requests_id_seq'::regclass);
-
-
---
 -- Name: element_klasses id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -6565,13 +6328,6 @@ ALTER TABLE ONLY public.element_klasses_revisions ALTER COLUMN id SET DEFAULT ne
 --
 
 ALTER TABLE ONLY public.element_tags ALTER COLUMN id SET DEFAULT nextval('public.element_tags_id_seq'::regclass);
-
-
---
--- Name: element_variations id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.element_variations ALTER COLUMN id SET DEFAULT nextval('public.element_variations_id_seq'::regclass);
 
 
 --
@@ -6610,13 +6366,6 @@ ALTER TABLE ONLY public.elements_samples ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
--- Name: elements_wellplates id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.elements_wellplates ALTER COLUMN id SET DEFAULT nextval('public.elements_wellplates_id_seq'::regclass);
-
-
---
 -- Name: experiments id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -6628,13 +6377,6 @@ ALTER TABLE ONLY public.experiments ALTER COLUMN id SET DEFAULT nextval('public.
 --
 
 ALTER TABLE ONLY public.fingerprints ALTER COLUMN id SET DEFAULT nextval('public.fingerprints_id_seq'::regclass);
-
-
---
--- Name: info_support_links id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.info_support_links ALTER COLUMN id SET DEFAULT nextval('public.info_support_links_id_seq'::regclass);
 
 
 --
@@ -6988,6 +6730,13 @@ ALTER TABLE ONLY public.subscriptions ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: sync_collections_users id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sync_collections_users ALTER COLUMN id SET DEFAULT nextval('public.sync_collections_users_id_seq'::regclass);
+
+
+--
 -- Name: text_templates id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -7081,14 +6830,6 @@ COPY public.analyses_experiments (id, sample_id, holder_id, status, devices_anal
 
 
 --
--- Data for Name: api_tokens; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.api_tokens (id, name, token_digest, user_id, expires_at, revoked_at, created_at, updated_at) FROM stdin;
-\.
-
-
---
 -- Data for Name: ar_internal_metadata; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -7123,7 +6864,7 @@ COPY public.authentication_keys (id, token, user_id, ip, role, fqdn, created_at,
 -- Data for Name: calendar_entries; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.calendar_entries (id, title, description, start_time, end_time, kind, created_by, created_at, updated_at, eventable_type, eventable_id, status) FROM stdin;
+COPY public.calendar_entries (id, title, description, start_time, end_time, kind, created_by, created_at, updated_at, eventable_type, eventable_id) FROM stdin;
 \.
 
 
@@ -7208,31 +6949,23 @@ ced018ed-bc9c-4733-84a3-d90170c786b7	sample	5	0274901470491545027998291490068106
 
 
 --
--- Data for Name: collection_shares; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.collection_shares (id, collection_id, shared_with_id, permission_level, celllinesample_detail_level, devicedescription_detail_level, element_detail_level, reaction_detail_level, researchplan_detail_level, sample_detail_level, screen_detail_level, sequencebasedmacromoleculesample_detail_level, wellplate_detail_level, created_at, updated_at) FROM stdin;
-\.
-
-
---
 -- Data for Name: collections; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.collections (id, user_id, ancestry, label, created_at, updated_at, "position", is_locked, deleted_at, tabs_segment, inventory_id, shared) FROM stdin;
-1	2	/	chemotion-repository.net	2024-01-23 15:12:02.256553	2024-01-23 15:12:02.256553	1	t	\N	{}	\N	f
-3	3	/	All	2024-01-23 15:12:19.921883	2024-01-23 15:12:19.921883	0	t	\N	{}	\N	f
-5	4	/	All	2024-01-24 07:01:45.778925	2024-01-24 07:01:45.778925	0	t	\N	{}	\N	f
-4	2	/	TEST 1	2024-01-23 15:17:02.666049	2024-01-24 08:41:10.845282	1	f	\N	{"sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3, "measurements": -1}}	\N	f
-2	2	/	All	2024-01-23 15:12:02.26009	2024-01-25 10:10:02.777475	0	t	\N	{"try": {"TrySeg1": 2, "analyses": 3, "properties": 1, "attachments": 4}, "sample": {"results": 5, "analyses": 1, "properties": 3, "references": 4, "qc_curation": 2, "measurements": -1}}	\N	f
-6	5	/	All	2024-02-16 08:50:38.511259	2024-02-16 08:50:38.511259	0	t	\N	{}	\N	f
-7	6	/	All	2024-02-16 08:51:22.298693	2024-02-16 08:51:22.298693	0	t	\N	{}	\N	f
-8	7	/	chemotion-repository.net	2024-02-16 08:52:48.558915	2024-02-16 08:52:48.558915	1	t	\N	{}	\N	f
-9	7	/	All	2024-02-16 08:52:48.561313	2024-02-16 08:52:48.561313	0	t	\N	{}	\N	f
-10	8	/	All	2024-02-16 08:53:15.379007	2024-02-16 08:53:15.379007	0	t	\N	{}	\N	f
-11	7	/	FIXED	2024-03-21 10:31:23.524241	2024-03-21 10:40:57.388683	1	f	\N	{}	\N	f
-12	9	/	chemotion-repository.net	2024-09-27 09:11:56.595124	2024-09-27 09:11:56.595124	1	t	\N	{}	\N	f
-13	9	/	All	2024-09-27 09:11:56.596278	2024-09-27 09:11:56.596278	0	t	\N	{}	\N	f
+COPY public.collections (id, user_id, ancestry, label, shared_by_id, is_shared, permission_level, sample_detail_level, reaction_detail_level, wellplate_detail_level, created_at, updated_at, "position", screen_detail_level, is_locked, deleted_at, is_synchronized, researchplan_detail_level, element_detail_level, tabs_segment, celllinesample_detail_level, inventory_id, devicedescription_detail_level, sequencebasedmacromoleculesample_detail_level) FROM stdin;
+1	2	/	chemotion-repository.net	\N	f	0	10	10	10	2024-01-23 15:12:02.256553	2024-01-23 15:12:02.256553	1	10	t	\N	f	10	10	{}	10	\N	10	10
+3	3	/	All	\N	f	0	10	10	10	2024-01-23 15:12:19.921883	2024-01-23 15:12:19.921883	0	10	t	\N	f	10	10	{}	10	\N	10	10
+5	4	/	All	\N	f	0	10	10	10	2024-01-24 07:01:45.778925	2024-01-24 07:01:45.778925	0	10	t	\N	f	10	10	{}	10	\N	10	10
+4	2	/	TEST 1	\N	f	0	10	10	10	2024-01-23 15:17:02.666049	2024-01-24 08:41:10.845282	1	10	f	\N	f	10	10	{"sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3, "measurements": -1}}	10	\N	10	10
+2	2	/	All	\N	f	0	10	10	10	2024-01-23 15:12:02.26009	2024-01-25 10:10:02.777475	0	10	t	\N	f	10	10	{"try": {"TrySeg1": 2, "analyses": 3, "properties": 1, "attachments": 4}, "sample": {"results": 5, "analyses": 1, "properties": 3, "references": 4, "qc_curation": 2, "measurements": -1}}	10	\N	10	10
+6	5	/	All	\N	f	0	10	10	10	2024-02-16 08:50:38.511259	2024-02-16 08:50:38.511259	0	10	t	\N	f	10	10	{}	10	\N	10	10
+7	6	/	All	\N	f	0	10	10	10	2024-02-16 08:51:22.298693	2024-02-16 08:51:22.298693	0	10	t	\N	f	10	10	{}	10	\N	10	10
+8	7	/	chemotion-repository.net	\N	f	0	10	10	10	2024-02-16 08:52:48.558915	2024-02-16 08:52:48.558915	1	10	t	\N	f	10	10	{}	10	\N	10	10
+9	7	/	All	\N	f	0	10	10	10	2024-02-16 08:52:48.561313	2024-02-16 08:52:48.561313	0	10	t	\N	f	10	10	{}	10	\N	10	10
+10	8	/	All	\N	f	0	10	10	10	2024-02-16 08:53:15.379007	2024-02-16 08:53:15.379007	0	10	t	\N	f	10	10	{}	10	\N	10	10
+11	7	/	FIXED	\N	f	0	10	10	10	2024-03-21 10:31:23.524241	2024-03-21 10:40:57.388683	1	10	f	\N	f	10	10	{}	10	\N	10	10
+12	9	/	chemotion-repository.net	\N	f	0	10	10	10	2024-09-27 09:11:56.595124	2024-09-27 09:11:56.595124	1	10	t	\N	f	10	10	{}	10	\N	10	10
+13	9	/	All	\N	f	0	10	10	10	2024-09-27 09:11:56.596278	2024-09-27 09:11:56.596278	0	10	t	\N	f	10	10	{}	10	\N	10	10
 \.
 
 
@@ -7517,9 +7250,10 @@ COPY public.datasets_revisions (id, dataset_id, uuid, klass_uuid, properties, cr
 --
 
 COPY public.delayed_jobs (id, priority, attempts, handler, last_error, run_at, locked_at, failed_at, locked_by, queue, created_at, updated_at, cron) FROM stdin;
-197	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemLookupJob\n  job_id: f9b1230e-5116-4c1b-ba50-d7e6a01194d0\n  provider_job_id: \n  queue_name: pubchem_lookup\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-08-21T08:38:33Z'\n	\N	2026-08-23 15:44:00	\N	\N	\N	pubchem_lookup	2026-08-21 08:38:33.506381	2026-08-21 08:38:33.506381	44 15 * * 7
-198	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: RefreshElementTagJob\n  job_id: 892a778c-1528-4638-9ca7-0b7540387965\n  provider_job_id: \n  queue_name: refresh_element_tag\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-08-21T08:38:33Z'\n	\N	2026-08-23 17:41:00	\N	\N	\N	refresh_element_tag	2026-08-21 08:38:33.514094	2026-08-21 08:38:33.514094	41 17 * * 7
-199	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: DiskUsageJob\n  job_id: 4c701133-d3f6-48a5-a2d7-17219978398e\n  provider_job_id: \n  queue_name: disk_usage\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-08-21T08:38:33Z'\n	\N	2026-08-22 07:07:00	\N	\N	\N	disk_usage	2026-08-21 08:38:33.518824	2026-08-21 08:38:33.518824	7 7 * * 6
+178	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemCidJob\n  job_id: 7d606fd3-910f-4253-a6a2-befd7a0097f4\n  provider_job_id: \n  queue_name: pubchem\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-07-02T17:40:43Z'\n	\N	2026-07-05 13:03:00	\N	\N	\N	pubchem	2026-07-02 17:40:43.127287	2026-07-02 17:40:43.127287	3 13 * * 7
+179	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: PubchemLcssJob\n  job_id: 6d51a9f3-21da-4405-a121-3df42f7be97c\n  provider_job_id: \n  queue_name: pubchemLcss\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-07-02T17:40:43Z'\n	\N	2026-07-05 05:18:00	\N	\N	\N	pubchemLcss	2026-07-02 17:40:43.132016	2026-07-02 17:40:43.132016	18 5 * * 7
+180	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: RefreshElementTagJob\n  job_id: 93e56926-a05e-434b-9a8c-9d952216c80a\n  provider_job_id: \n  queue_name: refresh_element_tag\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-07-02T17:40:43Z'\n	\N	2026-07-04 12:47:00	\N	\N	\N	refresh_element_tag	2026-07-02 17:40:43.135993	2026-07-02 17:40:43.135993	47 12 * * 6
+181	0	0	--- !ruby/object:ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper\njob_data:\n  job_class: DiskUsageJob\n  job_id: e2e71173-78c2-45d9-8b7b-19e5bdce3112\n  provider_job_id: \n  queue_name: disk_usage\n  priority: \n  arguments: []\n  executions: 0\n  exception_executions: {}\n  locale: en\n  timezone: UTC\n  enqueued_at: '2026-07-02T17:40:43Z'\n	\N	2026-07-05 13:00:00	\N	\N	\N	disk_usage	2026-07-02 17:40:43.139815	2026-07-02 17:40:43.139815	0 13 * * 7
 \.
 
 
@@ -7546,22 +7280,6 @@ COPY public.device_metadata (id, device_id, doi, url, landing_page, name, type, 
 COPY public.devices (id, name, name_abbreviation, first_name, last_name, email, serial_number, verification_status, account_active, visibility, deleted_at, created_at, updated_at, datacollector_method, datacollector_dir, datacollector_host, datacollector_user, datacollector_authentication, datacollector_number_of_files, datacollector_key_name, datacollector_user_level_selected, novnc_token, novnc_target, novnc_password) FROM stdin;
 5	Test Device 1 T.D	TD	Test Device 1	T.D	td@kit.edu	\N	none	f	f	\N	2024-02-16 08:50:38.507891	2024-02-16 08:50:38.507891	\N	\N	\N	\N	\N	\N	\N	f	\N	\N	\N
 6	Admin Device 2 A.Device	AD	Admin Device 2	A.Device	ad@git.edu	\N	none	f	f	\N	2024-02-16 08:51:22.295244	2024-02-16 08:51:24.672829	\N	\N	\N	\N	\N	\N	\N	f	\N	\N	\N
-\.
-
-
---
--- Data for Name: dose_resp_outputs; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.dose_resp_outputs (id, dose_resp_request_id, output_data, notes, deleted_at, created_at, updated_at) FROM stdin;
-\.
-
-
---
--- Data for Name: dose_resp_requests; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.dose_resp_requests (id, request_id, element_id, state, wellplates_metadata, resp_message, created_by, created_at, updated_at, deleted_at, access_token, expires_at, revoked_at, first_accessed_at, last_accessed_at, access_count, input_metadata) FROM stdin;
 \.
 
 
@@ -7612,28 +7330,20 @@ COPY public.element_klasses_revisions (id, element_klass_id, uuid, properties_re
 --
 
 COPY public.element_tags (id, taggable_type, taggable_id, taggable_data, created_at, updated_at) FROM stdin;
+2	Sample	1	{"collection_labels": [{"id": 4, "name": "TEST 1", "user_id": 2, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-01-23 15:17:46.432546	2024-01-23 15:17:46.432546
+5	Labimotion::Element	3	{"collection_labels": [{"id": 11, "name": "API_TEST_a3a7c777-6924-4ab2-a1b3-18c959051931", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 10:32:02.045545	2024-03-21 10:32:02.045545
+6	Labimotion::Element	4	{"collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 10:41:42.526193	2024-03-21 10:41:42.526193
+7	Labimotion::Element	5	{"collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-03-21 12:13:25.247046	2024-03-21 12:13:25.247046
 1	Molecule	1	{"pubchem_cid": 222, "pubchem_lcss": {"Record": {"Section": [{"Section": [{"URL": "https://www.osha.gov/sites/default/files/publications/OSHA3514.pdf", "Section": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/", "TOCHeading": "GHS Classification", "Description": "GHS (Globally Harmonized System of Classification and Labelling of Chemicals) is a United Nations system to identify hazardous chemicals and to inform users about these hazards. GHS has been adopted by many countries around the world and is now also used as the basis for international and national transport regulations for dangerous goods. The GHS hazard statements, class categories, pictograms, signal words, and the precautionary statements can be found on the PubChem GHS page.", "Information": [{"Name": "Note", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 185}], "String": "Pictograms displayed are for > 99.9% (3511 of 3512) of reports that indicate hazard statements. This chemical does not meet GHS hazard criteria for < 0.1% (1  of 3512) of reports."}]}, "ReferenceNumber": 47}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 4, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 47}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 47}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 29, "Length": 6}], "String": "H221 (87.7%): Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 66, "Length": 7}], "String": "H280 (29.6%): Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 57, "Length": 6}], "String": "H314 (> 99.9%): Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 32, "Length": 6}], "String": "H331 (87.6%): Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H332 (11.6%): Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 48, "Length": 7}], "String": "H335 (11.8%): May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 44, "Length": 7}], "String": "H400 (> 99.9%): Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411 (29.2%): Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 47}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P317, P319, P321, P363, P377, P381, P391, P403, P403+P233, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 47}, {"Name": "ECHA C&L Notifications Summary", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 179}], "String": "Aggregated GHS information provided per 3512 reports by companies from 57 notifications to the ECHA C&L Inventory. Each notification may be associated with multiple companies."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 146}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/11196", "Start": 125, "Length": 20}], "String": "Reported as not meeting GHS hazard criteria per 1 of 3512 reports by companies. For more detailed information, please visit  ECHA C&L website."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 103}], "String": "There are 56 notifications provided by 3511 of 3512 reports by companies with hazard statement code(s)."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 281}], "String": "Information may vary between notifications depending on impurities, additives, and other factors. The percentage value in parenthesis indicates the notified classification ratio from companies that provide hazard codes. Only hazard codes with percentage values above 10% are shown."}]}, "ReferenceNumber": 47}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 59}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 59}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 59}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P270, P271, P273, P280, P301+P317, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P321, P330, P363, P377, P381, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 59}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 60}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 60}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 60}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P264+P265, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P317, P321, P363, P377, P381, P391, P403, P403+P233, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 60}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 5, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 82}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 82}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 82}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P273, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P319, P321, P342+P316, P363, P377, P381, P391, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 82}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 5, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 83}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 83}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 44, "Length": 7}], "String": "H341: Suspected of causing genetic defects [Warning Germ cell mutagenicity]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 83}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P273, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P318, P319, P321, P342+P316, P363, P377, P381, P391, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 83}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"String": "H402: Harmful to aquatic life [Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 84}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P273, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 84}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"String": "Not Classified"}]}, "ReferenceNumber": 85}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg", "Type": "Icon", "Extra": "Flammable", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 3, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 4, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 86}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 86}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H220: Extremely flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 58, "Length": 7}], "String": "H280: Contains gas under pressure; may explode if heated [Warning Gases under pressure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 33, "Length": 6}], "String": "H318: Causes serious eye damage [Danger Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 31, "Length": 6}], "String": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 70, "Length": 6}], "String": "H372: Causes damage to organs through prolonged or repeated exposure [Danger Specific target organ toxicity, repeated exposure]"}]}, "ReferenceNumber": 86}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P203, P210, P222, P233, P260, P261, P264, P264+P265, P270, P271, P280, P284, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P308+P316, P316, P317, P319, P321, P342+P316, P363, P377, P381, P403, P405, P410+P403, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 86}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg", "Type": "Icon", "Extra": "Compressed Gas", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg", "Type": "Icon", "Extra": "Corrosive", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg", "Type": "Icon", "Extra": "Acute Toxic", "Start": 2, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 3, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 99}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 99}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 21, "Length": 6}], "String": "H221: Flammable gas [Danger Flammable gases]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 47, "Length": 6}], "String": "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 24, "Length": 6}], "String": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}]}, "ReferenceNumber": 99}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P271, P273, P280, P301+P330+P331, P302+P361+P354, P304+P340, P305+P354+P338, P316, P321, P363, P377, P381, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 99}], "DisplayControls": {"ShowAtMost": 1, "CreateTable": {"ColumnContents": ["Name", "Value"], "NumberOfColumns": 2, "FromInformationIn": "ThisSection"}}}], "TOCHeading": "Hazards Identification", "Description": "This section identifies the hazards of the chemical presented on the safety data sheet (SDS) and the appropriate warning information associated with those hazards.  The information in this section includes, but are not limited to, the hazard classification of the chemical, signal word, pictograms, hazard statements and precautionary statements.", "Information": [{"Name": "ERG Hazard Classes", "Value": {"StringWithMarkup": [{"String": "Toxic/poison by inhalation (TIH/PIH)"}]}, "ReferenceNumber": 33}]}], "TOCHeading": "Safety and Hazards", "Description": "Information on safety and hazards for this compound, including safety/hazards properties, reactivity, incompatibilities, management techniques, first aid treatments, and more.  For toxicity and related information, please see the Toxicity section."}], "Reference": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/erg/", "ANID": 39280829, "Name": "Ammonia", "SourceID": "45d2a3a006c4667a6d3f9f0b8d5e06c9", "LicenseURL": "https://www.transportation.gov/web-policies", "SourceName": "Emergency Response Guidebook (ERG)", "Description": "The Emergency Response Guidebook 2024 provides first responders with a manual intended for use during the initial phase of a transportation incident involving hazardous materials/dangerous goods. PubChem integration of ERG information provides more opportunities for users/first responders to find ERG data and additional safety, toxicity, and more chemical information. For more information, please visit ERG website (https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg) and/or the ERG summary table (https://pubchem.ncbi.nlm.nih.gov/erg/).", "ReferenceNumber": 33}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/11196", "ANID": 1854204, "Name": "Ammonia, anhydrous (EC: 231-635-3)", "SourceID": "11196", "LicenseURL": "https://echa.europa.eu/web/guest/legal-notice", "SourceName": "European Chemicals Agency (ECHA)", "Description": "The information provided here is aggregated from the \\"Notified classification and labelling\\" from ECHA's C&L Inventory. Read more: https://echa.europa.eu/information-on-chemicals/cl-inventory-database", "LicenseNote": "Use of the information, documents and data from the ECHA website is subject to the terms and conditions of this Legal Notice, and subject to other binding limitations provided for under applicable law, the information, documents and data made available on the ECHA website may be reproduced, distributed and/or used, totally or in part, for non-commercial purposes provided that ECHA is acknowledged as the source: \\"Source: European Chemicals Agency, http://echa.europa.eu/\\". Such acknowledgement must be included in each copy of the material. ECHA permits and encourages organisations and individuals to create links to the ECHA website under the following cumulative conditions: Links can only be made to webpages that provide a link to the Legal Notice page.", "ReferenceNumber": 47}, {"URL": "http://hcis.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=225", "ANID": 2279015, "Name": "Ammonia gas", "SourceID": "225", "SourceName": "Hazardous Chemical Information System (HCIS), Safe Work Australia", "Description": "The Hazardous Chemical Information System (HCIS) at the Safe Work Australia is a database of chemical classifications and workplace exposure standards. It allows users to find information on chemicals that have been classified in accordance with the GHS or which have an Australian Workplace Exposure Standard.", "ReferenceNumber": 59}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/162", "ANID": 122, "Name": "Ammonia", "IsToxnet": true, "SourceID": "162", "LicenseURL": "https://www.nlm.nih.gov/web_policies.html", "SourceName": "Hazardous Substances Data Bank (HSDB)", "Description": "The Hazardous Substances Data Bank (HSDB) is a toxicology database that focuses on the toxicology of potentially hazardous chemicals. It provides information on human exposure, industrial hygiene, emergency handling procedures, environmental fate, regulatory requirements, nanomaterials, and related areas. The information in HSDB has been assessed by a Scientific Review Panel.", "ReferenceNumber": 60}, {"URL": "https://www.nite.go.jp/chem/english/ghs/09-mhlw-2003e.html", "ANID": 8787865, "Name": "Ammonia - FY2009 (Revised classification)", "SourceID": "21B3003", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 82}, {"URL": "https://www.nite.go.jp/chem/english/ghs/06-imcg-0557e.html", "ANID": 8787866, "Name": "Ammonia - FY2006 (New/original classication)", "SourceID": "564", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 83}, {"URL": "https://www.nite.go.jp/chem/english/ghs/21-moe-2031e.html", "ANID": 39312838, "Name": "Ammonia - FY2021 (Revised classification)", "SourceID": "R03_C_031B_MOE", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 84}, {"URL": "https://www.nite.go.jp/chem/english/ghs/16-moe-0007e.html", "ANID": 39312839, "Name": "Ammonia - FY2016 (Revised classification)", "SourceID": "H28_K_007B", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 85}, {"URL": "https://www.nite.go.jp/chem/english/ghs/14-mhlw-2011e.html", "ANID": 39312840, "Name": "Ammonia - FY2014 (Revised classification)", "SourceID": "H26_B_011__", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 86}, {"URL": "https://eur-lex.europa.eu/eli/reg/2008/1272/2023-07-31", "ANID": 391813, "Name": "ammonia, anhydrous", "SourceID": "007-001-00-5", "LicenseURL": "https://eur-lex.europa.eu/content/legal-notice/legal-notice.html", "SourceName": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council", "Description": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council of 16 December 2008 on classification, labelling and packaging of substances and mixtures.", "LicenseNote": "The copyright for the editorial content of this source, the summaries of EU legislation and the consolidated texts, which is owned by the EU, is licensed under the Creative Commons Attribution 4.0 International licence.", "ReferenceNumber": 99}], "RecordType": "CID", "RecordTitle": "Ammonia", "RecordNumber": 222}}}	2024-01-23 15:17:17.524154	2024-09-27 09:09:45.213979
 9	Molecule	2	{"pubchem_cid": 6331, "pubchem_lcss": null}	2024-11-20 06:12:29.252337	2024-11-20 06:12:33.609213
 11	Molecule	3	{"pubchem_cid": 7002, "pubchem_lcss": {"Record": {"Section": [{"Section": [{"URL": "https://www.osha.gov/sites/default/files/publications/OSHA3514.pdf", "Section": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/", "TOCHeading": "GHS Classification", "Description": "GHS (Globally Harmonized System of Classification and Labelling of Chemicals) is a United Nations system to identify hazardous chemicals and to inform users about these hazards. GHS has been adopted by many countries around the world and is now also used as the basis for international and national transport regulations for dangerous goods. The GHS hazard statements, class categories, pictograms, signal words, and the precautionary statements can be found on the PubChem GHS page.", "Information": [{"Name": "Note", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 176}], "String": "Pictograms displayed are for 95.7% (1814 of 1895) of reports that indicate hazard statements. This chemical does not meet GHS hazard criteria for 4.3% (81  of 1895) of reports."}]}, "ReferenceNumber": 28}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 28}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 28}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 36, "Length": 7}], "String": "H302 (94.7%): Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 58, "Length": 6}], "String": "H304 (90%): May be fatal if swallowed and enters airways [Danger Aspiration hazard]"}, {"String": "H411 (13%): Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 28}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P264, P270, P273, P301+P316, P301+P317, P330, P331, P391, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 28}, {"Name": "ECHA C&L Notifications Summary", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 179}], "String": "Aggregated GHS information provided per 1895 reports by companies from 13 notifications to the ECHA C&L Inventory. Each notification may be associated with multiple companies."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 147}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/20442", "Start": 126, "Length": 20}], "String": "Reported as not meeting GHS hazard criteria per 81 of 1895 reports by companies. For more detailed information, please visit  ECHA C&L website."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 103}], "String": "There are 12 notifications provided by 1814 of 1895 reports by companies with hazard statement code(s)."}, {"Markup": [{"Type": "Italics", "Start": 0, "Length": 281}], "String": "Information may vary between notifications depending on impurities, additives, and other factors. The percentage value in parenthesis indicates the notified classification ratio from companies that provide hazard codes. Only hazard codes with percentage values above 10% are shown."}]}, "ReferenceNumber": 28}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 0, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 29}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 0, "Length": 7}], "String": "Warning"}]}, "ReferenceNumber": 29}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 35, "Length": 7}], "String": "H302 (100%): Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 44, "Length": 7}], "String": "H319 (100%): Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 47, "Length": 7}], "String": "H335 (100%): May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 48, "Length": 7}], "String": "H336 (100%): May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 81, "Length": 7}], "String": "H373 (100%): May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"String": "H411 (100%): Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 29}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P260, P261, P264, P264+P265, P270, P271, P273, P280, P301+P317, P304+P340, P305+P351+P338, P319, P330, P337+P317, P391, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 29}, {"Name": "ECHA C&L Notifications Summary", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Italics", "Start": 0, "Length": 92}], "String": "The GHS information provided by 1 company from 1 notification to the ECHA C&L Inventory."}]}, "ReferenceNumber": 29}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 39}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 0, "Length": 6}], "String": "Danger"}]}, "ReferenceNumber": 39}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H227: Combustible liquid [Warning Flammable liquids]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 30, "Length": 7}], "String": "H315: Causes skin irritation [Warning Skin corrosion/irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 37, "Length": 7}], "String": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSDanger", "Start": 81, "Length": 6}], "String": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 40, "Length": 7}], "String": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"String": "H401: Toxic to aquatic life [Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411: Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 39}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P233, P260, P261, P264, P264+P265, P270, P271, P273, P280, P284, P301+P317, P302+P352, P304+P340, P305+P351+P338, P319, P321, P330, P332+P317, P337+P317, P342+P316, P362+P364, P370+P378, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 39}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 75}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 0, "Length": 7}], "String": "Warning"}]}, "ReferenceNumber": 75}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H227: Combustible liquid [Warning Flammable liquids]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 37, "Length": 7}], "String": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 40, "Length": 7}], "String": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 41, "Length": 7}], "String": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"String": "H401: Toxic to aquatic life [Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411: Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 75}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P264+P265, P270, P271, P273, P280, P301+P317, P304+P340, P305+P351+P338, P319, P330, P337+P317, P370+P378, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 75}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 76}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 0, "Length": 7}], "String": "Warning"}]}, "ReferenceNumber": 76}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 26, "Length": 7}], "String": "H227: Combustible liquid [Warning Flammable liquids]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 28, "Length": 7}], "String": "H302: Harmful if swallowed [Warning Acute toxicity, oral]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 37, "Length": 7}], "String": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 40, "Length": 7}], "String": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 41, "Length": 7}], "String": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"String": "H401: Toxic to aquatic life [Hazardous to the aquatic environment, acute hazard]"}, {"String": "H411: Toxic to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 76}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P210, P260, P261, P264, P264+P265, P270, P271, P273, P280, P301+P317, P304+P340, P305+P351+P338, P319, P330, P337+P317, P370+P378, P391, P403, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 76}, {"Name": "Pictogram(s)", "Value": {"StringWithMarkup": [{"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg", "Type": "Icon", "Extra": "Irritant", "Start": 0, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg", "Type": "Icon", "Extra": "Health Hazard", "Start": 1, "Length": 1}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg", "Type": "Icon", "Extra": "Environmental Hazard", "Start": 2, "Length": 1}], "String": "          "}]}, "ReferenceNumber": 77}, {"Name": "Signal", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 0, "Length": 7}], "String": "Warning"}]}, "ReferenceNumber": 77}, {"Name": "GHS Hazard Statements", "Value": {"StringWithMarkup": [{"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 37, "Length": 7}], "String": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 40, "Length": 7}], "String": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 41, "Length": 7}], "String": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 74, "Length": 7}], "String": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 34, "Length": 7}], "String": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]"}, {"Markup": [{"Type": "Color", "Extra": "GHSWarning", "Start": 60, "Length": 7}], "String": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"}]}, "ReferenceNumber": 77}, {"Name": "Precautionary Statement Codes", "Value": {"StringWithMarkup": [{"String": "P260, P261, P264+P265, P271, P273, P280, P304+P340, P305+P351+P338, P319, P337+P317, P391, P403+P233, P405, and P501"}, {"Markup": [{"URL": "https://pubchem.ncbi.nlm.nih.gov/ghs/#_prec", "Start": 64, "Length": 18}], "String": "(The corresponding statement to each P-code can be found at the GHS Classification page.)"}]}, "ReferenceNumber": 77}], "DisplayControls": {"ShowAtMost": 1, "CreateTable": {"ColumnContents": ["Name", "Value"], "NumberOfColumns": 2, "FromInformationIn": "ThisSection"}}}], "TOCHeading": "Hazards Identification", "Description": "This section identifies the hazards of the chemical presented on the safety data sheet (SDS) and the appropriate warning information associated with those hazards.  The information in this section includes, but are not limited to, the hazard classification of the chemical, signal word, pictograms, hazard statements and precautionary statements."}], "TOCHeading": "Safety and Hazards", "Description": "Information on safety and hazards for this compound, including safety/hazards properties, reactivity, incompatibilities, management techniques, first aid treatments, and more.  For toxicity and related information, please see the Toxicity section."}], "Reference": [{"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/20442", "ANID": 1857041, "Name": "1-methylnaphthalene (EC: 201-966-8)", "SourceID": "20442", "LicenseURL": "https://echa.europa.eu/web/guest/legal-notice", "SourceName": "European Chemicals Agency (ECHA)", "Description": "The information provided here is aggregated from the \\"Notified classification and labelling\\" from ECHA's C&L Inventory. Read more: https://echa.europa.eu/information-on-chemicals/cl-inventory-database", "LicenseNote": "Use of the information, documents and data from the ECHA website is subject to the terms and conditions of this Legal Notice, and subject to other binding limitations provided for under applicable law, the information, documents and data made available on the ECHA website may be reproduced, distributed and/or used, totally or in part, for non-commercial purposes provided that ECHA is acknowledged as the source: \\"Source: European Chemicals Agency, http://echa.europa.eu/\\". Such acknowledgement must be included in each copy of the material. ECHA permits and encourages organisations and individuals to create links to the ECHA website under the following cumulative conditions: Links can only be made to webpages that provide a link to the Legal Notice page.", "ReferenceNumber": 28}, {"URL": "https://echa.europa.eu/information-on-chemicals/cl-inventory-database/-/discli/details/128874", "ANID": 1888956, "Name": "Methylnaphthalene (EC: 215-329-7)", "SourceID": "128874", "LicenseURL": "https://echa.europa.eu/web/guest/legal-notice", "SourceName": "European Chemicals Agency (ECHA)", "Description": "The information provided here is aggregated from the \\"Notified classification and labelling\\" from ECHA's C&L Inventory. Read more: https://echa.europa.eu/information-on-chemicals/cl-inventory-database", "LicenseNote": "Use of the information, documents and data from the ECHA website is subject to the terms and conditions of this Legal Notice, and subject to other binding limitations provided for under applicable law, the information, documents and data made available on the ECHA website may be reproduced, distributed and/or used, totally or in part, for non-commercial purposes provided that ECHA is acknowledged as the source: \\"Source: European Chemicals Agency, http://echa.europa.eu/\\". Such acknowledgement must be included in each copy of the material. ECHA permits and encourages organisations and individuals to create links to the ECHA website under the following cumulative conditions: Links can only be made to webpages that provide a link to the Legal Notice page.", "ReferenceNumber": 29}, {"URL": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/5268", "ANID": 3339, "Name": "1-METHYLNAPHTHALENE", "IsToxnet": true, "SourceID": "5268", "LicenseURL": "https://www.nlm.nih.gov/web_policies.html", "SourceName": "Hazardous Substances Data Bank (HSDB)", "Description": "The Hazardous Substances Data Bank (HSDB) is a toxicology database that focuses on the toxicology of potentially hazardous chemicals. It provides information on human exposure, industrial hygiene, emergency handling procedures, environmental fate, regulatory requirements, nanomaterials, and related areas. The information in HSDB has been assessed by a Scientific Review Panel.", "ReferenceNumber": 39}, {"URL": "https://www.nite.go.jp/chem/english/ghs/15-mhlw-0045e.html", "ANID": 39311682, "Name": "1-Methylnaphthalene - FY2015 (Revised classification)", "SourceID": "H27_B_024_C_045B_P", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 75}, {"URL": "https://www.nite.go.jp/chem/english/ghs/08-meti-0066e.html", "ANID": 39311683, "Name": "1-methylnaphthalene - FY2008 (New/original classication)", "SourceID": "1_438_1)", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 76}, {"URL": "https://www.nite.go.jp/chem/english/ghs/22-jniosh-0016e.html", "ANID": 39312581, "Name": "Methylnaphthalene - FY2022 (New/original classication)", "SourceID": "R04_A_016_JNIOSH,MOE", "SourceName": "NITE-CMC", "Description": "The chemical classification in this section was conducted by the Chemical Management Center (CMC) of Japan National Institute of Technology and Evaluation (NITE) in accordance with GHS Classification Guidance for the Japanese Government, and is intended to provide a reference for preparing GHS labelling and SDS for users.", "ReferenceNumber": 77}], "RecordType": "CID", "RecordTitle": "1-Methylnaphthalene", "RecordNumber": 7002}}}	2024-11-20 06:14:08.080107	2024-11-20 06:14:09.173464
-2	Sample	1	{"collection_labels": [{"id": 4}]}	2024-01-23 15:17:46.432546	2024-01-23 15:17:46.432546
-8	Sample	2	{"reaction_id": 1, "collection_labels": [{"id": 11}]}	2024-11-20 06:11:55.316893	2024-11-20 06:14:26.456684
-10	Sample	3	{"reaction_id": 1, "collection_labels": [{"id": 11}]}	2024-11-20 06:12:56.651298	2024-11-20 06:14:26.482592
-12	Sample	4	{"reaction_id": 1, "collection_labels": [{"id": 11}]}	2024-11-20 06:14:15.812668	2024-11-20 06:14:26.509198
-15	Sample	5	{"reaction_id": 2, "collection_labels": [{"id": 11}]}	2025-11-13 04:54:36.621388	2025-11-13 04:54:36.732637
-16	Sample	6	{"reaction_id": 2, "collection_labels": [{"id": 11}]}	2025-11-13 04:54:36.797966	2025-11-13 04:54:36.8375
-13	Reaction	1	{"user_labels": [], "collection_labels": [{"id": 11}]}	2024-11-20 06:14:26.384435	2024-11-20 06:15:17.621966
-14	Reaction	2	{"user_labels": [], "collection_labels": [{"id": 11}]}	2025-11-13 04:54:36.238245	2025-11-13 04:55:55.119739
-5	Labimotion::Element	3	{"collection_labels": [{"id": 11}]}	2024-03-21 10:32:02.045545	2024-03-21 10:32:02.045545
-6	Labimotion::Element	4	{"collection_labels": [{"id": 11}]}	2024-03-21 10:41:42.526193	2024-03-21 10:41:42.526193
-7	Labimotion::Element	5	{"collection_labels": [{"id": 11}]}	2024-03-21 12:13:25.247046	2024-03-21 12:13:25.247046
-\.
-
-
---
--- Data for Name: element_variations; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.element_variations (id, element_id, variations, created_at, updated_at, layout) FROM stdin;
+8	Sample	2	{"reaction_id": 1, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-11-20 06:11:55.316893	2024-11-20 06:14:26.456684
+10	Sample	3	{"reaction_id": 1, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-11-20 06:12:56.651298	2024-11-20 06:14:26.482592
+12	Sample	4	{"reaction_id": 1, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-11-20 06:14:15.812668	2024-11-20 06:14:26.509198
+13	Reaction	1	{"user_labels": [], "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2024-11-20 06:14:26.384435	2024-11-20 06:15:17.621966
+15	Sample	5	{"reaction_id": 2, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2025-11-13 04:54:36.621388	2025-11-13 04:54:36.732637
+16	Sample	6	{"reaction_id": 2, "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2025-11-13 04:54:36.797966	2025-11-13 04:54:36.8375
+14	Reaction	2	{"user_labels": [], "collection_labels": [{"id": 11, "name": "FIXED", "user_id": 7, "is_shared": false, "shared_by_id": null, "is_synchronized": false}]}	2025-11-13 04:54:36.238245	2025-11-13 04:55:55.119739
 \.
 
 
@@ -7700,14 +7410,6 @@ COPY public.elements_samples (id, element_id, sample_id, created_by, created_at,
 
 
 --
--- Data for Name: elements_wellplates; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.elements_wellplates (id, element_id, wellplate_id, created_at, updated_at, deleted_at, log_data) FROM stdin;
-\.
-
-
---
 -- Data for Name: experiments; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -7723,14 +7425,6 @@ COPY public.fingerprints (id, fp0, fp1, fp2, fp3, fp4, fp5, fp6, fp7, fp8, fp9, 
 1	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0	2024-01-23 15:17:46.387447	2024-01-23 15:17:46.387447	\N
 2	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000100000	1	2024-11-20 06:12:56.643615	2024-11-20 06:12:56.643615	\N
 3	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000010000000000000000000000010000001000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000100001000000	0000000000000000000000000000000001000000000000001000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000010000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000001000000000000000000000001000	0000000000000000000000000000000000000000010000000000000000000000	0000000000000000000000000000000010000000000000000000000000000000	0000000000000000000000000000000000000000000000000000000000000000	0000000000000000000000000000000000000000000000100000000000000000	0000000000000000000000000000000000000000000000000000000000000000	13	2024-11-20 06:14:15.798414	2024-11-20 06:14:15.798414	\N
-\.
-
-
---
--- Data for Name: info_support_links; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.info_support_links (id, label, url, "position", enabled, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -8019,7 +7713,7 @@ COPY public.matrices (id, name, enabled, label, include_ids, exclude_ids, config
 -- Data for Name: measurements; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.measurements (id, description, value, unit, deleted_at, well_id, sample_id, created_at, updated_at, source_type, source_id, metadata) FROM stdin;
+COPY public.measurements (id, description, value, unit, deleted_at, well_id, sample_id, created_at, updated_at, source_type, source_id) FROM stdin;
 \.
 
 
@@ -8136,15 +7830,15 @@ COPY public.private_notes (id, content, created_by, created_at, updated_at, note
 -- Data for Name: profiles; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.profiles (id, show_external_name, user_id, deleted_at, created_at, updated_at, data, curation, show_sample_name, show_sample_short_label, theme) FROM stdin;
-3	f	4	\N	2024-01-24 07:01:45.783739	2024-01-24 07:01:45.783739	{"inbox_auto": false, "inbox_manual": true}	2	f	f	0
-2	f	3	\N	2024-01-23 15:12:19.925682	2024-01-23 15:15:49.216912	{"inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "molecule_editor": true, "is_templates_moderator": true}	2	f	f	0
-7	f	8	\N	2024-02-16 08:53:15.389988	2024-02-16 08:53:15.389988	{"inbox_auto": false, "inbox_manual": true}	2	f	f	0
-4	f	5	2024-11-20 06:08:45.949671	2024-02-16 08:50:38.515631	2024-02-16 08:50:38.515631	{"inbox_auto": false, "inbox_manual": true}	2	f	f	0
-5	f	6	2024-11-20 06:08:45.949671	2024-02-16 08:51:22.3029	2024-02-16 08:51:22.3029	{"inbox_auto": false, "inbox_manual": true}	2	f	f	0
-1	f	2	\N	2024-01-23 15:12:02.27083	2026-07-02 17:40:23.461861	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": 2, "sample": 1, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": false, "layout_detail_try": {"TrySeg1": 2, "analyses": 3, "properties": 1, "attachments": 4}, "layout_detail_sample": {"results": 5, "analyses": 1, "properties": 3, "references": 4, "qc_curation": 2, "measurements": -1}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": false, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f	0
-6	f	7	\N	2024-02-16 08:52:48.565375	2026-07-02 17:40:23.47451	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": -2, "wrk": 1, "sample": 2, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": true, "layout_detail_sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": true, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f	0
-8	f	9	\N	2024-09-27 09:11:56.606768	2026-07-02 17:40:23.477677	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"sample": 1, "screen": 4, "reaction": 2, "cell_line": -1000, "wellplate": 3, "research_plan": 5, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "converter_admin": false, "molecule_editor": false, "is_templates_moderator": false}	2	f	f	0
+COPY public.profiles (id, show_external_name, user_id, deleted_at, created_at, updated_at, data, curation, show_sample_name, show_sample_short_label) FROM stdin;
+3	f	4	\N	2024-01-24 07:01:45.783739	2024-01-24 07:01:45.783739	{"inbox_auto": false, "inbox_manual": true}	2	f	f
+2	f	3	\N	2024-01-23 15:12:19.925682	2024-01-23 15:15:49.216912	{"inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "molecule_editor": true, "is_templates_moderator": true}	2	f	f
+7	f	8	\N	2024-02-16 08:53:15.389988	2024-02-16 08:53:15.389988	{"inbox_auto": false, "inbox_manual": true}	2	f	f
+4	f	5	2024-11-20 06:08:45.949671	2024-02-16 08:50:38.515631	2024-02-16 08:50:38.515631	{"inbox_auto": false, "inbox_manual": true}	2	f	f
+5	f	6	2024-11-20 06:08:45.949671	2024-02-16 08:51:22.3029	2024-02-16 08:51:22.3029	{"inbox_auto": false, "inbox_manual": true}	2	f	f
+1	f	2	\N	2024-01-23 15:12:02.27083	2026-07-02 17:40:23.461861	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": 2, "sample": 1, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": false, "layout_detail_try": {"TrySeg1": 2, "analyses": 3, "properties": 1, "attachments": 4}, "layout_detail_sample": {"results": 5, "analyses": 1, "properties": 3, "references": 4, "qc_curation": 2, "measurements": -1}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": false, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f
+6	f	7	\N	2024-02-16 08:52:48.565375	2026-07-02 17:40:23.47451	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"try": -2, "wrk": 1, "sample": 2, "screen": 5, "reaction": 3, "cell_line": -1, "wellplate": 4, "research_plan": 6, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "generic_admin": {"datasets": true, "elements": true, "segments": true}, "converter_admin": false, "molecule_editor": true, "layout_detail_sample": {"results": 5, "analyses": 2, "properties": 1, "references": 4, "qc_curation": 3}, "layout_detail_screen": {"analyses": 2, "properties": 1}, "is_templates_moderator": true, "layout_detail_reaction": {"scheme": 1, "analyses": 3, "properties": 2, "references": 4, "variations": 6, "green_chemistry": 5}, "layout_detail_wellplate": {"list": 4, "analyses": 2, "designer": 3, "properties": 1}, "default_structure_editor": "ketcher", "layout_detail_research_plan": {"analyses": 2, "references": 3, "attachments": 4, "research_plan": 1}}	2	f	f
+8	f	9	\N	2024-09-27 09:11:56.606768	2026-07-02 17:40:23.477677	{"chmo": [{"title": "1H nuclear magnetic resonance spectroscopy (1H NMR)", "value": " CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR)", "search": "CHMO:0000593 | 1H nuclear magnetic resonance spectroscopy (1H NMR,1H NMR spectroscopy,1H nuclear magnetic resonance spectrometry,1H-NMR,1H-NMR spectrometry,1H-NMR spectroscopy,proton NMR,proton nuclear magnetic resonance spectroscopy)", "synonym": "1H NMR", "term_id": "CHMO:0000593", "owl_name": "chmo", "synonyms": ["1H NMR", "1H NMR spectroscopy", "1H nuclear magnetic resonance spectrometry", "1H-NMR", "1H-NMR spectrometry", "1H-NMR spectroscopy", "proton NMR", "proton nuclear magnetic resonance spectroscopy"]}, {"title": "13C nuclear magnetic resonance spectroscopy (13C NMR)", "value": " CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR)", "search": "CHMO:0000595 | 13C nuclear magnetic resonance spectroscopy (13C NMR,13C NMR spectroscopy,13C nuclear magnetic resonance spectrometry,13C-NMR spectrometry,13C-NMR spectroscopy,C-NMR,carbon NMR)", "synonym": "13C NMR", "term_id": "CHMO:0000595", "owl_name": "chmo", "synonyms": ["13C NMR", "13C NMR spectroscopy", "13C nuclear magnetic resonance spectrometry", "13C-NMR spectrometry", "13C-NMR spectroscopy", "C-NMR", "carbon NMR"]}, {"title": "mass spectrometry (MS)", "value": " CHMO:0000470 | mass spectrometry (MS)", "search": "CHMO:0000470 | mass spectrometry (MS,mass spectroscopy)", "synonym": "MS", "term_id": "CHMO:0000470", "owl_name": "chmo", "synonyms": ["MS", "mass spectroscopy"]}, {"title": "elemental analysis (EA)", "value": " CHMO:0001075 | elemental analysis (EA)", "search": "CHMO:0001075 | elemental analysis (EA)", "synonym": "EA", "term_id": "CHMO:0001075", "owl_name": "chmo", "synonyms": ["EA"]}, {"title": "gas chromatography-mass spectrometry (GCMS)", "value": " CHMO:0000497 | gas chromatography-mass spectrometry (GCMS)", "search": "CHMO:0000497 | gas chromatography-mass spectrometry (GC MS,GC-MS,GC/MS,GCMS,gas chromatography mass spectrometry,gas chromatography mass spectroscopy,gas chromatography with mass spectrometric detection,gas chromatography-mass spectroscopy,gas chromatography/mass spectrometry)", "synonym": "GCMS", "term_id": "CHMO:0000497", "owl_name": "chmo", "synonyms": ["GC MS", "GC-MS", "GC/MS", "GCMS", "gas chromatography mass spectrometry", "gas chromatography mass spectroscopy", "gas chromatography with mass spectrometric detection", "gas chromatography-mass spectroscopy", "gas chromatography/mass spectrometry"]}, {"title": "high-performance liquid chromatography (HPLC)", "value": " CHMO:0001009 | high-performance liquid chromatography (HPLC)", "search": "CHMO:0001009 | high-performance liquid chromatography (HPLC,high performance liquid chromatography,high pressure liquid chromatography,high-pressure liquid chromatography)", "synonym": "HPLC", "term_id": "CHMO:0001009", "owl_name": "chmo", "synonyms": ["HPLC", "high performance liquid chromatography", "high pressure liquid chromatography", "high-pressure liquid chromatography"]}, {"title": "infrared absorption spectroscopy (IR)", "value": " CHMO:0000630 | infrared absorption spectroscopy (IR)", "search": "CHMO:0000630 | infrared absorption spectroscopy (IR,IR absorption spectrometry,IR absorption spectroscopy,IR spectrometry,IR spectrophotometry,IR spectroscopy,infra-red absorption spectrometry,infra-red absorption spectroscopy,infra-red spectrometry,infra-red spectrophotometry,infrared (IR) spectroscopy,infrared absorption spectrometry,infrared spectrometry,infrared spectrophotometry,infrared spectroscopy)", "synonym": "IR", "term_id": "CHMO:0000630", "owl_name": "chmo", "synonyms": ["IR", "IR absorption spectrometry", "IR absorption spectroscopy", "IR spectrometry", "IR spectrophotometry", "IR spectroscopy", "infra-red absorption spectrometry", "infra-red absorption spectroscopy", "infra-red spectrometry", "infra-red spectrophotometry", "infrared (IR) spectroscopy", "infrared absorption spectrometry", "infrared spectrometry", "infrared spectrophotometry", "infrared spectroscopy"]}, {"title": "thin-layer chromatography (TLC)", "value": " CHMO:0001007 | thin-layer chromatography (TLC)", "search": "CHMO:0001007 | thin-layer chromatography (TLC)", "synonym": "TLC", "term_id": "CHMO:0001007", "owl_name": "chmo", "synonyms": ["TLC"]}, {"title": "X-ray diffraction (XRD)", "value": " CHMO:0000156 | X-ray diffraction (XRD)", "search": "CHMO:0000156 | X-ray diffraction (X-Ray crystallographic analysis,X-ray analysis,X-ray crystallography,X-ray diffraction analysis,X-ray diffractometry,X-ray structure determination,XRD)", "synonym": "XRD", "term_id": "CHMO:0000156", "owl_name": "chmo", "synonyms": ["X-Ray crystallographic analysis", "X-ray analysis", "X-ray crystallography", "X-ray diffraction analysis", "X-ray diffractometry", "X-ray structure determination", "XRD"]}, {"title": "process", "value": " BFO:0000015 | process", "search": "BFO:0000015 | process", "synonym": null, "term_id": "BFO:0000015", "owl_name": "chmo", "synonyms": null}], "layout": {"sample": 1, "screen": 4, "reaction": 2, "cell_line": -1000, "wellplate": 3, "research_plan": 5, "sequence_based_macromolecule_sample": -1200}, "inbox_auto": false, "inbox_manual": true, "converter_admin": false, "molecule_editor": false, "is_templates_moderator": false}	2	f	f
 \.
 
 
@@ -8160,9 +7854,9 @@ COPY public.protein_sequence_modifications (id, modification_n_terminal, modific
 -- Data for Name: reactions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.reactions (id, name, created_at, updated_at, description, timestamp_start, timestamp_stop, observation, purification, dangerous_products, tlc_solvents, tlc_description, rf_value, temperature, status, reaction_svg_file, solvent, deleted_at, short_label, created_by, role, origin, rinchi_string, rinchi_long_key, rinchi_short_key, rinchi_web_key, duration, rxno, conditions, variations, plain_text_description, plain_text_observation, gaseous, vessel_size, log_data, weight_percentage, volume, use_reaction_volume, lock_reaction_volume, reaction_type, ph_operator, ph_value) FROM stdin;
-1		2024-11-20 06:14:26.377705	2024-11-20 06:15:51.753287	--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n			--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n	{}	{}			0	{"data": [], "userText": "", "valueUnit": "°C"}		ed612b54b097d204efc8df601ea8b808e3741b66b1ca286a3a9f32d781a71685.svg		\N	API-R1	7		{}	RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3<>BH3/h1H3/d-	Long-RInChIKey=SA-BUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N--UORVGPXVDQYIDP-UHFFFAOYSA-N	Short-RInChIKey=SA-BUHFF-QPUYECUOLP-QGZKDVFQNN-UORVGPXVDQ-NUHFF-NUHFF-NUHFF-ZZZ	Web-RInChIKey=QIYMARWDEZAJTNBIR-NUHFFFADPSCTJSA				[{"id": 2, "uuid": "2eaad41c-1bec-480c-89ef-eca2702e4933", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}, {"id": 1, "uuid": "5c7e6ff4-9caa-43e6-9805-af4ebba87e40", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}]			f	{"unit": "ml", "amount": null}	{"h": [{"c": {"id": 1, "name": "", "role": "", "rxno": "", "origin": "{}", "status": "", "gaseous": false, "solvent": "", "duration": "", "rf_value": "0", "conditions": "", "created_at": "2024-11-20T06:14:26.377705", "created_by": 7, "deleted_at": null, "updated_at": "2024-11-20T06:15:51.753287", "variations": [{"id": 1, "notes": "", "analyses": [], "products": {"4": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}, {"id": 2, "notes": "", "analyses": [], "products": {"4": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}], "description": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "observation": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "short_label": "API-R1", "temperature": "{\\"data\\": [], \\"userText\\": \\"\\", \\"valueUnit\\": \\"°C\\"}", "vessel_size": "{\\"unit\\": \\"ml\\", \\"amount\\": null}", "purification": [], "tlc_solvents": "", "rinchi_string": "RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3<>BH3/h1H3/d-", "rinchi_web_key": "Web-RInChIKey=QIYMARWDEZAJTNBIR-NUHFFFADPSCTJSA", "timestamp_stop": "", "rinchi_long_key": "Long-RInChIKey=SA-BUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N--UORVGPXVDQYIDP-UHFFFAOYSA-N", "timestamp_start": "", "tlc_description": "", "rinchi_short_key": "Short-RInChIKey=SA-BUHFF-QPUYECUOLP-QGZKDVFQNN-UORVGPXVDQ-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "ed612b54b097d204efc8df601ea8b808e3741b66b1ca286a3a9f32d781a71685.svg", "dangerous_products": [], "plain_text_description": "", "plain_text_observation": ""}, "v": 1, "ts": 1732083351753}, {"c": {"variations": "[{\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}]"}, "v": 2, "ts": 1761303981846}, {"c": {"variations": "[{\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}]"}, "m": {}, "v": 3, "ts": 1761303981876}, {"c": {"variations": "{\\"2eaad41c-1bec-480c-89ef-eca2702e4933\\": {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\": {\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}}"}, "v": 4, "ts": 1763009596649}, {"c": {"variations": "{\\"2eaad41c-1bec-480c-89ef-eca2702e4933\\": {\\"id\\": 2, \\"uuid\\": \\"2eaad41c-1bec-480c-89ef-eca2702e4933\\", \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\": {\\"id\\": 1, \\"uuid\\": \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\", \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}}"}, "v": 5, "ts": 1763009596657}, {"c": {"variations": [{"id": 2, "uuid": "2eaad41c-1bec-480c-89ef-eca2702e4933", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}, {"id": 1, "uuid": "5c7e6ff4-9caa-43e6-9805-af4ebba87e40", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}]}, "v": 6, "ts": 1783014023767}], "v": 6}	f	\N	f	f	standard	=	\N
-2		2025-11-13 04:54:36.226688	2025-11-13 04:55:55.215867	--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n			--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n	{}	{}			0	{"data": [], "userText": "", "valueUnit": "°C"}		779d62b419f418c49538e3c017b2ce65c5898ebff73c1fa1a3cf20d2755c90f9.svg		\N	API-R2	7		{}	RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3/d+	Long-RInChIKey=SA-FUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N	Short-RInChIKey=SA-FUHFF-QPUYECUOLP-QGZKDVFQNN-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ	Web-RInChIKey=ONFXTVIYXQQOERKPO-NUHFFFADPSCTJSA				[{"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}]			f	{"unit": "ml", "amount": null}	{"h": [{"c": {"id": 2, "name": "", "role": "", "rxno": "", "origin": null, "status": "", "gaseous": false, "solvent": "", "duration": "", "rf_value": "0", "conditions": "", "created_at": "2025-11-13T04:54:36.226688", "created_by": 7, "deleted_at": null, "updated_at": "2025-11-13T04:54:36.226688", "variations": "{}", "description": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "observation": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "short_label": "API-R2", "temperature": "{\\"data\\": [], \\"userText\\": \\"\\", \\"valueUnit\\": \\"°C\\"}", "vessel_size": "{\\"unit\\": \\"ml\\", \\"amount\\": null}", "purification": [], "tlc_solvents": "", "rinchi_string": "RInChI=1.00.1S//d+", "rinchi_web_key": "Web-RInChIKey=UHFFFADPSCTJAUYIS-NUHFFFADPSCTJSA", "timestamp_stop": "", "rinchi_long_key": "Long-RInChIKey=SA-FUHFF", "timestamp_start": "", "tlc_description": "", "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-UHFFFADPSC-UHFFFADPSC-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "12754d42c7c347783fa6b27c02608b97cefec1926c7be9ee965492601462b68eafbe5bee1d61a3236a245ddfe14ea3a95a5052ba4bc205f213c5b875450d5b08.svg", "dangerous_products": [], "plain_text_description": null, "plain_text_observation": null}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676227}, {"c": {"updated_at": "2025-11-13T04:54:36.335017", "reaction_svg_file": "297737d5fc116aa03b734d96c16dc64dd20ced292d141a043f8ce08034d913e8.svg"}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 2, "ts": 1763009676335}, {"c": {"updated_at": "2025-11-13T04:54:36.887903", "rinchi_string": "RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3/d+", "rinchi_web_key": "Web-RInChIKey=ONFXTVIYXQQOERKPO-NUHFFFADPSCTJSA", "rinchi_long_key": "Long-RInChIKey=SA-FUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N", "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-QPUYECUOLP-QGZKDVFQNN-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "779d62b419f418c49538e3c017b2ce65c5898ebff73c1fa1a3cf20d2755c90f9.svg"}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 3, "ts": 1763009676888}, {"c": {"plain_text_description": "", "plain_text_observation": ""}, "v": 4, "ts": 1763009679034}, {"c": {"origin": {}, "updated_at": "2025-11-13T04:55:55.201587", "variations": {"b3ba05e8-7855-4298-9797-e7cc5f6706a3": {"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, "bf7593ac-1b23-47df-b452-75b3f30f1b6a": {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}}}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 5, "ts": 1763009755202}, {"c": {"updated_at": "2025-11-13T04:55:55.215867"}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 6, "ts": 1763009755216}, {"c": {"variations": [{"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}]}, "v": 7, "ts": 1783014023772}], "v": 7}	f	\N	f	f	standard	=	\N
+COPY public.reactions (id, name, created_at, updated_at, description, timestamp_start, timestamp_stop, observation, purification, dangerous_products, tlc_solvents, tlc_description, rf_value, temperature, status, reaction_svg_file, solvent, deleted_at, short_label, created_by, role, origin, rinchi_string, rinchi_long_key, rinchi_short_key, rinchi_web_key, duration, rxno, conditions, variations, plain_text_description, plain_text_observation, gaseous, vessel_size, log_data, weight_percentage, volume, use_reaction_volume) FROM stdin;
+1		2024-11-20 06:14:26.377705	2024-11-20 06:15:51.753287	--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n			--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n	{}	{}			0	{"data": [], "userText": "", "valueUnit": "°C"}		ed612b54b097d204efc8df601ea8b808e3741b66b1ca286a3a9f32d781a71685.svg		\N	API-R1	7		{}	RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3<>BH3/h1H3/d-	Long-RInChIKey=SA-BUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N--UORVGPXVDQYIDP-UHFFFAOYSA-N	Short-RInChIKey=SA-BUHFF-QPUYECUOLP-QGZKDVFQNN-UORVGPXVDQ-NUHFF-NUHFF-NUHFF-ZZZ	Web-RInChIKey=QIYMARWDEZAJTNBIR-NUHFFFADPSCTJSA				[{"id": 2, "uuid": "2eaad41c-1bec-480c-89ef-eca2702e4933", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}, {"id": 1, "uuid": "5c7e6ff4-9caa-43e6-9805-af4ebba87e40", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}]			f	{"unit": "ml", "amount": null}	{"h": [{"c": {"id": 1, "name": "", "role": "", "rxno": "", "origin": "{}", "status": "", "gaseous": false, "solvent": "", "duration": "", "rf_value": "0", "conditions": "", "created_at": "2024-11-20T06:14:26.377705", "created_by": 7, "deleted_at": null, "updated_at": "2024-11-20T06:15:51.753287", "variations": [{"id": 1, "notes": "", "analyses": [], "products": {"4": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}, {"id": 2, "notes": "", "analyses": [], "products": {"4": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}], "description": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "observation": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "short_label": "API-R1", "temperature": "{\\"data\\": [], \\"userText\\": \\"\\", \\"valueUnit\\": \\"°C\\"}", "vessel_size": "{\\"unit\\": \\"ml\\", \\"amount\\": null}", "purification": [], "tlc_solvents": "", "rinchi_string": "RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3<>BH3/h1H3/d-", "rinchi_web_key": "Web-RInChIKey=QIYMARWDEZAJTNBIR-NUHFFFADPSCTJSA", "timestamp_stop": "", "rinchi_long_key": "Long-RInChIKey=SA-BUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N--UORVGPXVDQYIDP-UHFFFAOYSA-N", "timestamp_start": "", "tlc_description": "", "rinchi_short_key": "Short-RInChIKey=SA-BUHFF-QPUYECUOLP-QGZKDVFQNN-UORVGPXVDQ-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "ed612b54b097d204efc8df601ea8b808e3741b66b1ca286a3a9f32d781a71685.svg", "dangerous_products": [], "plain_text_description": "", "plain_text_observation": ""}, "v": 1, "ts": 1732083351753}, {"c": {"variations": "[{\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}]"}, "v": 2, "ts": 1761303981846}, {"c": {"variations": "[{\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}]"}, "m": {}, "v": 3, "ts": 1761303981876}, {"c": {"variations": "{\\"2eaad41c-1bec-480c-89ef-eca2702e4933\\": {\\"id\\": 2, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\": {\\"id\\": 1, \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}}"}, "v": 4, "ts": 1763009596649}, {"c": {"variations": "{\\"2eaad41c-1bec-480c-89ef-eca2702e4933\\": {\\"id\\": 2, \\"uuid\\": \\"2eaad41c-1bec-480c-89ef-eca2702e4933\\", \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.13540885967435787}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 2}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.2}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.011743622625733096}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}, \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\": {\\"id\\": 1, \\"uuid\\": \\"5c7e6ff4-9caa-43e6-9805-af4ebba87e40\\", \\"metadata\\": {\\"notes\\": \\"\\", \\"analyses\\": []}, \\"products\\": {\\"4\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"C11H10\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"products\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 142.19710000000003}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": null}, \\"yield\\": {\\"unit\\": null, \\"value\\": 0}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0}}}, \\"solvents\\": {}, \\"reactants\\": {\\"3\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"BH3\\", \\"coefficient\\": 1, \\"isReference\\": false, \\"materialType\\": \\"reactants\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 13.83482}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 0.022}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 0.0015901905481965069}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": 0.0013540885967435786}}}, \\"properties\\": {\\"duration\\": {\\"unit\\": \\"Second(s)\\", \\"value\\": 2}, \\"temperature\\": {\\"unit\\": \\"°C\\", \\"value\\": 1}}, \\"startingMaterials\\": {\\"2\\": {\\"aux\\": {\\"purity\\": 1, \\"density\\": 0, \\"gasType\\": \\"off\\", \\"loading\\": null, \\"molarity\\": 0, \\"sumFormula\\": \\"H3N\\", \\"coefficient\\": 1, \\"isReference\\": true, \\"materialType\\": \\"startingMaterials\\", \\"vesselVolume\\": 0, \\"molecularWeight\\": 17.03052}, \\"mass\\": {\\"unit\\": \\"g\\", \\"value\\": 20}, \\"amount\\": {\\"unit\\": \\"mol\\", \\"value\\": 1.1743622625733097}, \\"equivalent\\": {\\"unit\\": null, \\"value\\": null}}}}}"}, "v": 5, "ts": 1763009596657}, {"c": {"variations": [{"id": 2, "uuid": "2eaad41c-1bec-480c-89ef-eca2702e4933", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.13540885967435787}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 2}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 0.2}, "amount": {"unit": "mol", "value": 0.011743622625733096}, "equivalent": {"unit": null, "value": null}}}}, {"id": 1, "uuid": "5c7e6ff4-9caa-43e6-9805-af4ebba87e40", "metadata": {"notes": "", "analyses": []}, "products": {"4": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": false, "materialType": "products", "vesselVolume": 0, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": null}, "yield": {"unit": null, "value": 0}, "amount": {"unit": "mol", "value": 0}}}, "segments": {}, "solvents": {}, "reactants": {"3": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "BH3", "coefficient": 1, "isReference": false, "materialType": "reactants", "vesselVolume": 0, "molecularWeight": 13.83482}, "mass": {"unit": "g", "value": 0.022}, "amount": {"unit": "mol", "value": 0.0015901905481965069}, "equivalent": {"unit": null, "value": 0.0013540885967435786}}}, "properties": {"duration": {"unit": "Second(s)", "value": 2}, "temperature": {"unit": "°C", "value": 1}}, "startingMaterials": {"2": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "H3N", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": 0, "molecularWeight": 17.03052}, "mass": {"unit": "g", "value": 20}, "amount": {"unit": "mol", "value": 1.1743622625733097}, "equivalent": {"unit": null, "value": null}}}}]}, "v": 6, "ts": 1783014023767}], "v": 6}	f	\N	f
+2		2025-11-13 04:54:36.226688	2025-11-13 04:55:55.215867	--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n			--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\nops:\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\n  insert: "\\n"\n	{}	{}			0	{"data": [], "userText": "", "valueUnit": "°C"}		779d62b419f418c49538e3c017b2ce65c5898ebff73c1fa1a3cf20d2755c90f9.svg		\N	API-R2	7		{}	RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3/d+	Long-RInChIKey=SA-FUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N	Short-RInChIKey=SA-FUHFF-QPUYECUOLP-QGZKDVFQNN-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ	Web-RInChIKey=ONFXTVIYXQQOERKPO-NUHFFFADPSCTJSA				[{"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}]			f	{"unit": "ml", "amount": null}	{"h": [{"c": {"id": 2, "name": "", "role": "", "rxno": "", "origin": null, "status": "", "gaseous": false, "solvent": "", "duration": "", "rf_value": "0", "conditions": "", "created_at": "2025-11-13T04:54:36.226688", "created_by": 7, "deleted_at": null, "updated_at": "2025-11-13T04:54:36.226688", "variations": "{}", "description": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "observation": "--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\nops:\\n- !ruby/hash:ActiveSupport::HashWithIndifferentAccess\\n  insert: \\"\\\\n\\"\\n", "short_label": "API-R2", "temperature": "{\\"data\\": [], \\"userText\\": \\"\\", \\"valueUnit\\": \\"°C\\"}", "vessel_size": "{\\"unit\\": \\"ml\\", \\"amount\\": null}", "purification": [], "tlc_solvents": "", "rinchi_string": "RInChI=1.00.1S//d+", "rinchi_web_key": "Web-RInChIKey=UHFFFADPSCTJAUYIS-NUHFFFADPSCTJSA", "timestamp_stop": "", "rinchi_long_key": "Long-RInChIKey=SA-FUHFF", "timestamp_start": "", "tlc_description": "", "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-UHFFFADPSC-UHFFFADPSC-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "12754d42c7c347783fa6b27c02608b97cefec1926c7be9ee965492601462b68eafbe5bee1d61a3236a245ddfe14ea3a95a5052ba4bc205f213c5b875450d5b08.svg", "dangerous_products": [], "plain_text_description": null, "plain_text_observation": null}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 1, "ts": 1763009676227}, {"c": {"updated_at": "2025-11-13T04:54:36.335017", "reaction_svg_file": "297737d5fc116aa03b734d96c16dc64dd20ced292d141a043f8ce08034d913e8.svg"}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 2, "ts": 1763009676335}, {"c": {"updated_at": "2025-11-13T04:54:36.887903", "rinchi_string": "RInChI=1.00.1S/C11H10/c1-9-5-4-7-10-6-2-3-8-11(9)10/h2-8H,1H3<>H3N/h1H3/d+", "rinchi_web_key": "Web-RInChIKey=ONFXTVIYXQQOERKPO-NUHFFFADPSCTJSA", "rinchi_long_key": "Long-RInChIKey=SA-FUHFF-QPUYECUOLPXSFR-UHFFFAOYSA-N--QGZKDVFQNNGYKY-UHFFFAOYSA-N", "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-QPUYECUOLP-QGZKDVFQNN-UHFFFADPSC-NUHFF-NUHFF-NUHFF-ZZZ", "reaction_svg_file": "779d62b419f418c49538e3c017b2ce65c5898ebff73c1fa1a3cf20d2755c90f9.svg"}, "m": {"_r": 7, "uuid": "46077e12-4ee4-4109-8ede-93513188ba17"}, "v": 3, "ts": 1763009676888}, {"c": {"plain_text_description": "", "plain_text_observation": ""}, "v": 4, "ts": 1763009679034}, {"c": {"origin": {}, "updated_at": "2025-11-13T04:55:55.201587", "variations": {"b3ba05e8-7855-4298-9797-e7cc5f6706a3": {"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, "bf7593ac-1b23-47df-b452-75b3f30f1b6a": {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}}}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 5, "ts": 1763009755202}, {"c": {"updated_at": "2025-11-13T04:55:55.215867"}, "m": {"_r": 7, "uuid": "ffd31cb0-d827-412a-aec9-a3cd099d2db5"}, "v": 6, "ts": 1763009755216}, {"c": {"variations": [{"id": 2, "uuid": "b3ba05e8-7855-4298-9797-e7cc5f6706a3", "metadata": {"notes": "Test 2"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 4}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 5}, "amount": {"unit": "mol", "value": 0.03516246111910861}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}, {"id": 1, "uuid": "bf7593ac-1b23-47df-b452-75b3f30f1b6a", "metadata": {"notes": "Test\\n"}, "products": {}, "segments": {}, "solvents": {}, "reactants": {}, "properties": {"duration": {"unit": "Second(s)", "value": 3}}, "startingMaterials": {"5": {"aux": {"purity": 1, "density": 0, "gasType": "off", "loading": null, "molarity": 0, "sumFormula": "C11H10", "coefficient": 1, "isReference": true, "materialType": "startingMaterials", "vesselVolume": null, "molecularWeight": 142.19710000000003}, "mass": {"unit": "g", "value": 4}, "amount": {"unit": "mol", "value": 0.028129968895286888}, "volume": {"unit": "l", "value": 0}, "equivalent": {"unit": null, "value": 1}}}}]}, "v": 7, "ts": 1783014023772}], "v": 7}	f	\N	f
 \.
 
 
@@ -8238,7 +7932,7 @@ COPY public.research_plan_table_schemas (id, name, value, created_by, deleted_at
 -- Data for Name: research_plans; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.research_plans (id, name, created_by, deleted_at, created_at, updated_at, body, log_data, short_label) FROM stdin;
+COPY public.research_plans (id, name, created_by, deleted_at, created_at, updated_at, body, log_data) FROM stdin;
 \.
 
 
@@ -8744,33 +8438,6 @@ COPY public.schema_migrations (version) FROM stdin;
 20260304134252
 20260325085008
 20260417000000
-20250825064503
-20250825083741
-20250827121248
-20251014150000
-20260114100223
-20260121113000
-20260122000001
-20260127000000
-20260211000000
-20260312110500
-20260316120000
-20260417101400
-20260420075649
-20260422091000
-20260504120000
-20260521070729
-20260612000000
-20260625120000
-20260709140000
-20260709140001
-20260709150000
-20260713000000
-20260713120000
-20260806120000
-20260810120000
-20260811120000
-20260813120000
 \.
 
 
@@ -8857,6 +8524,14 @@ COPY public.sequence_based_macromolecules (id, uniprot_source, parent_id, sbmm_t
 --
 
 COPY public.subscriptions (id, channel_id, user_id, created_at, updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: sync_collections_users; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.sync_collections_users (id, user_id, collection_id, shared_by_id, permission_level, sample_detail_level, reaction_detail_level, wellplate_detail_level, screen_detail_level, fake_ancestry, researchplan_detail_level, label, created_at, updated_at, element_detail_level, celllinesample_detail_level, devicedescription_detail_level, sequencebasedmacromoleculesample_detail_level) FROM stdin;
 \.
 
 
@@ -8984,15 +8659,15 @@ COPY public.user_labels (id, user_id, title, description, color, access_level, "
 --
 
 COPY public.users (id, email, encrypted_password, reset_password_token, reset_password_sent_at, remember_created_at, sign_in_count, current_sign_in_at, last_sign_in_at, current_sign_in_ip, last_sign_in_ip, created_at, updated_at, name, first_name, last_name, deleted_at, counters, name_abbreviation, type, reaction_name_prefix, confirmation_token, confirmed_at, confirmation_sent_at, unconfirmed_email, layout, selected_device_id, failed_attempts, unlock_token, locked_at, account_active, matrix, providers, is_super_device, used_space, allocated_space, encrypted_otp_secret, encrypted_otp_secret_iv, encrypted_otp_secret_salt, consumed_timestep, otp_required_for_login, otp_backup_codes) FROM stdin;
-5	td@kit.edu	$2a$10$xOi1C7ptGdff4d1WpKYDR.knCqoqiTOv16IFpWKwkx9/0K/NL04WG	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:50:38.507891	2024-02-16 08:50:38.507891	\N	Test Device 1	T.D	2024-11-20 06:08:45.949671	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	TD	DeviceDeprecated	R	WZLhgByxwfLrutY8W6Zc	\N	2024-02-16 08:50:38.508079	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
-6	ad@git.edu	$2a$10$/7OAM1i0gfWHl3WVRLNbUurqrBHHXrlK9eTMHZRHJKzofLptZPHUy	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:51:22.295244	2024-02-16 08:51:24.672829	\N	Admin Device 2	A.Device	2024-11-20 06:08:45.949671	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	AD	DeviceDeprecated	R	Z4mD5X27fx6n7i6qfbSH	\N	2024-02-16 08:51:22.295298	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	100832	\N	t	0	0	\N	\N	\N	\N	\N	\N
-1	eln-admin@kit.edu	$2a$10$GOB7oYza93rPyErv.Z82we0GOV4ty04CNTp6rQcej2V4NgQTQDJRO	\N	\N	\N	2	2024-01-24 07:01:08.96201	2024-01-23 13:45:57.853152	127.0.0.1	127.0.0.1	2024-01-23 13:44:00.404024	2026-08-21 08:38:12.528294	\N	ELN	Admin	\N	"samples"=>"0", "celllines"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	ADM	Admin	R	\N	\N	\N	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	3	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
-2	max@mustermann.de	$2a$10$tmOhRvGd0j8sXyTi/77Q1OBZoSEwK4ZBY/sFma3qunpyqpazEiCwq	\N	\N	\N	9	2024-02-16 08:49:52.776908	2024-01-25 08:40:05.47299	127.0.0.1	127.0.0.1	2024-01-23 15:12:02.229711	2026-08-21 08:38:12.531133	\N	Max	Mustermann	\N	"try"=>"2", "samples"=>"1", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	MM	Person	R	Ecq4xYuU-MsBRThdweV3	2024-01-23 15:12:02.230011	2024-01-23 15:12:02.229988	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
-3	erika@musterfrau.de	$2a$10$.UYcXUvZGBKjuSaxeJeNT.XcpVQ8b4WhMlZ/uErM8umf47n4M7Blu	\N	\N	\N	1	2024-01-23 15:13:20.641783	2024-01-23 15:13:20.641783	127.0.0.1	127.0.0.1	2024-01-23 15:12:19.918834	2026-08-21 08:38:12.533419	\N	Erika	Musterfrau	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	MAS	Admin	R	xdBHzBM8ShSXkid_Wysz	2024-01-23 15:12:19.919039	2024-01-23 15:12:19.919011	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
-4	otto@normalverbraucher.de	$2a$10$aSkaE3pYacbS3tEcCbQV5uJCXvz9lJDflquJDTwH4UHcve4ZmAi5.	\N	\N	\N	5	2024-09-27 09:11:14.505259	2024-02-16 08:50:01.890402	172.19.0.1	127.0.0.1	2024-01-24 07:01:45.775235	2026-08-21 08:38:12.535345	\N	Otto	Normalverbraucher	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	MSA	Admin	R	ix5afEaByUe6Ccs4QWMS	2024-01-24 07:01:45.775487	2024-01-24 07:01:45.775465	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
-7	api@kit.edu	$2a$10$NBxTQxlsxbzg9gK4bKeX1.LuFcmWyVmmy.0LRR5eqqmU5df.dTNra	\N	\N	\N	4	2025-11-13 04:53:42.315766	2024-11-20 06:25:23.102417	172.23.0.1	172.19.0.1	2024-02-16 08:52:48.555419	2026-08-21 08:38:12.537192	\N	API	User	\N	"wrk"=>"3", "samples"=>"4", "reactions"=>"2", "wellplates"=>"0", "research_plans"=>"0"	API	Person	R	4yRJG5yc33Gq6qpjr-p3	2024-02-16 08:52:48.555698	2024-02-16 08:52:48.555671	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
-8	admin@kit.edu	$2a$10$jMhHb/.7V4CBehPehUmDmutb49mV5MeuFPnJVleYlZPvaUXlV2Qpa	\N	\N	\N	1	2024-11-20 06:20:14.569775	2024-11-20 06:20:14.569775	172.19.0.1	172.19.0.1	2024-02-16 08:53:15.375483	2026-08-21 08:38:12.539124	\N	Admin	User	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	ADI	Admin	R	iAfqy7KWJsZTX51WtYbF	2024-02-16 08:53:15.37572	2024-02-16 08:53:15.375696	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
-9	julia@neumann.de	$2a$10$eJ8Zs3jma5ZNaPnEnuMj0.XYe6vQKLcr5Jvh3fZI5NQNbAiPoDf4S	\N	\N	\N	0	\N	\N	\N	\N	2024-09-27 09:11:56.592927	2026-08-21 08:38:12.540932	\N	Julia	Neumann	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0", "research_plans"=>"0"	JNG	Person	R	K1TcbNdcGjZaEePsmXpc	2024-09-27 09:11:56.593003	2024-09-27 09:11:56.592979	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+3	erika@musterfrau.de	$2a$10$.UYcXUvZGBKjuSaxeJeNT.XcpVQ8b4WhMlZ/uErM8umf47n4M7Blu	\N	\N	\N	1	2024-01-23 15:13:20.641783	2024-01-23 15:13:20.641783	127.0.0.1	127.0.0.1	2024-01-23 15:12:19.918834	2024-01-23 15:13:20.642011	\N	Erika	Musterfrau	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	MAS	Admin	R	xdBHzBM8ShSXkid_Wysz	2024-01-23 15:12:19.919039	2024-01-23 15:12:19.919011	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+2	max@mustermann.de	$2a$10$tmOhRvGd0j8sXyTi/77Q1OBZoSEwK4ZBY/sFma3qunpyqpazEiCwq	\N	\N	\N	9	2024-02-16 08:49:52.776908	2024-01-25 08:40:05.47299	127.0.0.1	127.0.0.1	2024-01-23 15:12:02.229711	2024-02-16 08:49:52.777158	\N	Max	Mustermann	\N	"try"=>"2", "samples"=>"1", "reactions"=>"0", "wellplates"=>"0"	MM	Person	R	Ecq4xYuU-MsBRThdweV3	2024-01-23 15:12:02.230011	2024-01-23 15:12:02.229988	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+1	eln-admin@kit.edu	$2a$10$nbz9hbCgZyCyn6PEPbE9DeESwzbGZa5v0nr4Vzkc5aZdRuywgm6SK	\N	\N	\N	2	2024-01-24 07:01:08.96201	2024-01-23 13:45:57.853152	127.0.0.1	127.0.0.1	2024-01-23 13:44:00.404024	2024-01-24 07:01:08.962315	\N	ELN	Admin	\N	"samples"=>"0", "celllines"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADM	Admin	R	\N	\N	\N	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	3	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+4	otto@normalverbraucher.de	$2a$10$aSkaE3pYacbS3tEcCbQV5uJCXvz9lJDflquJDTwH4UHcve4ZmAi5.	\N	\N	\N	5	2024-09-27 09:11:14.505259	2024-02-16 08:50:01.890402	172.19.0.1	127.0.0.1	2024-01-24 07:01:45.775235	2024-09-27 09:11:14.509955	\N	Otto	Normalverbraucher	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	MSA	Admin	R	ix5afEaByUe6Ccs4QWMS	2024-01-24 07:01:45.775487	2024-01-24 07:01:45.775465	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+9	julia@neumann.de	$2a$10$eJ8Zs3jma5ZNaPnEnuMj0.XYe6vQKLcr5Jvh3fZI5NQNbAiPoDf4S	\N	\N	\N	0	\N	\N	\N	\N	2024-09-27 09:11:56.592927	2024-09-27 09:11:56.592927	\N	Julia	Neumann	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	JNG	Person	R	K1TcbNdcGjZaEePsmXpc	2024-09-27 09:11:56.593003	2024-09-27 09:11:56.592979	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+8	admin@kit.edu	$2a$10$YWTDz7U8uRRiWU48m7FGZ.XmTveW7XUgLqMNdTzs/uYudFnGfRsbG	\N	\N	\N	1	2024-11-20 06:20:14.569775	2024-11-20 06:20:14.569775	172.19.0.1	172.19.0.1	2024-02-16 08:53:15.375483	2024-11-20 06:20:14.569893	\N	Admin	User	\N	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	ADI	Admin	R	iAfqy7KWJsZTX51WtYbF	2024-02-16 08:53:15.37572	2024-02-16 08:53:15.375696	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+5	td@kit.edu	$2a$10$wpdr4XuOx7wjDsO09o2W2ekLCeuTYC5KIzSV3YAWHzaXcpvyU23p.	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:50:38.507891	2024-02-16 08:50:38.507891	\N	Test Device 1	T.D	2024-11-20 06:08:45.949671	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	TD	DeviceDeprecated	R	WZLhgByxwfLrutY8W6Zc	\N	2024-02-16 08:50:38.508079	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
+6	ad@git.edu	$2a$10$mKW2VscaA07geZIF1muZAesexkUR6taBmAelp8jIaPwE.kYltrQtG	\N	\N	\N	0	\N	\N	\N	\N	2024-02-16 08:51:22.295244	2024-02-16 08:51:24.672829	\N	Admin Device 2	A.Device	2024-11-20 06:08:45.949671	"samples"=>"0", "reactions"=>"0", "wellplates"=>"0"	AD	DeviceDeprecated	R	Z4mD5X27fx6n7i6qfbSH	\N	2024-02-16 08:51:22.295298	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	\N	100832	\N	t	0	0	\N	\N	\N	\N	\N	\N
+7	api@kit.edu	$2a$10$wDK1v3sNR65ZV4sy/FFX1uo3BWU5NjtUhdeb89OdbgV5cXd2kr09u	\N	\N	\N	4	2025-11-13 04:53:42.315766	2024-11-20 06:25:23.102417	172.23.0.1	172.19.0.1	2024-02-16 08:52:48.555419	2025-11-13 04:54:36.814753	\N	API	User	\N	"wrk"=>"3", "samples"=>"4", "reactions"=>"2", "wellplates"=>"0"	API	Person	R	4yRJG5yc33Gq6qpjr-p3	2024-02-16 08:52:48.555698	2024-02-16 08:52:48.555671	\N	"sample"=>"1", "screen"=>"4", "reaction"=>"2", "wellplate"=>"3", "research_plan"=>"5"	\N	0	\N	\N	t	100832	\N	f	0	0	\N	\N	\N	\N	\N	\N
 \.
 
 
@@ -9089,13 +8764,6 @@ SELECT pg_catalog.setval('public.analyses_experiments_id_seq', 1, false);
 
 
 --
--- Name: api_tokens_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.api_tokens_id_seq', 1, false);
-
-
---
 -- Name: attachments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -9149,13 +8817,6 @@ SELECT pg_catalog.setval('public.channels_id_seq', 24, true);
 --
 
 SELECT pg_catalog.setval('public.chemicals_id_seq', 1, false);
-
-
---
--- Name: collection_shares_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.collection_shares_id_seq', 1, false);
 
 
 --
@@ -9295,7 +8956,7 @@ SELECT pg_catalog.setval('public.datasets_revisions_id_seq', 1, false);
 -- Name: delayed_jobs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.delayed_jobs_id_seq', 199, true);
+SELECT pg_catalog.setval('public.delayed_jobs_id_seq', 181, true);
 
 
 --
@@ -9320,20 +8981,6 @@ SELECT pg_catalog.setval('public.devices_id_seq', 7, true);
 
 
 --
--- Name: dose_resp_outputs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.dose_resp_outputs_id_seq', 1, false);
-
-
---
--- Name: dose_resp_requests_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.dose_resp_requests_id_seq', 1, false);
-
-
---
 -- Name: element_klasses_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -9352,13 +8999,6 @@ SELECT pg_catalog.setval('public.element_klasses_revisions_id_seq', 15, true);
 --
 
 SELECT pg_catalog.setval('public.element_tags_id_seq', 16, true);
-
-
---
--- Name: element_variations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.element_variations_id_seq', 1, false);
 
 
 --
@@ -9397,13 +9037,6 @@ SELECT pg_catalog.setval('public.elements_samples_id_seq', 1, false);
 
 
 --
--- Name: elements_wellplates_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.elements_wellplates_id_seq', 1, false);
-
-
---
 -- Name: experiments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -9415,13 +9048,6 @@ SELECT pg_catalog.setval('public.experiments_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.fingerprints_id_seq', 3, true);
-
-
---
--- Name: info_support_links_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.info_support_links_id_seq', 1, false);
 
 
 --
@@ -9775,6 +9401,13 @@ SELECT pg_catalog.setval('public.subscriptions_id_seq', 1, false);
 
 
 --
+-- Name: sync_collections_users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.sync_collections_users_id_seq', 1, false);
+
+
+--
 -- Name: text_templates_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -9868,14 +9501,6 @@ ALTER TABLE ONLY public.analyses_experiments
 
 
 --
--- Name: api_tokens api_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.api_tokens
-    ADD CONSTRAINT api_tokens_pkey PRIMARY KEY (id);
-
-
---
 -- Name: ar_internal_metadata ar_internal_metadata_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -9953,14 +9578,6 @@ ALTER TABLE ONLY public.chemicals
 
 ALTER TABLE ONLY public.code_logs
     ADD CONSTRAINT code_logs_pkey PRIMARY KEY (id);
-
-
---
--- Name: collection_shares collection_shares_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.collection_shares
-    ADD CONSTRAINT collection_shares_pkey PRIMARY KEY (id);
 
 
 --
@@ -10156,22 +9773,6 @@ ALTER TABLE ONLY public.devices
 
 
 --
--- Name: dose_resp_outputs dose_resp_outputs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.dose_resp_outputs
-    ADD CONSTRAINT dose_resp_outputs_pkey PRIMARY KEY (id);
-
-
---
--- Name: dose_resp_requests dose_resp_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.dose_resp_requests
-    ADD CONSTRAINT dose_resp_requests_pkey PRIMARY KEY (id);
-
-
---
 -- Name: element_klasses element_klasses_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -10193,14 +9794,6 @@ ALTER TABLE ONLY public.element_klasses_revisions
 
 ALTER TABLE ONLY public.element_tags
     ADD CONSTRAINT element_tags_pkey PRIMARY KEY (id);
-
-
---
--- Name: element_variations element_variations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.element_variations
-    ADD CONSTRAINT element_variations_pkey PRIMARY KEY (id);
 
 
 --
@@ -10244,14 +9837,6 @@ ALTER TABLE ONLY public.elements_samples
 
 
 --
--- Name: elements_wellplates elements_wellplates_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.elements_wellplates
-    ADD CONSTRAINT elements_wellplates_pkey PRIMARY KEY (id);
-
-
---
 -- Name: experiments experiments_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -10265,14 +9850,6 @@ ALTER TABLE ONLY public.experiments
 
 ALTER TABLE ONLY public.fingerprints
     ADD CONSTRAINT fingerprints_pkey PRIMARY KEY (id);
-
-
---
--- Name: info_support_links info_support_links_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.info_support_links
-    ADD CONSTRAINT info_support_links_pkey PRIMARY KEY (id);
 
 
 --
@@ -10684,6 +10261,14 @@ ALTER TABLE ONLY public.subscriptions
 
 
 --
+-- Name: sync_collections_users sync_collections_users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sync_collections_users
+    ADD CONSTRAINT sync_collections_users_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: text_templates text_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -10998,20 +10583,6 @@ CREATE INDEX idx_sbmm_systematic_name ON public.sequence_based_macromolecules US
 
 
 --
--- Name: index_api_tokens_on_token_digest; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX index_api_tokens_on_token_digest ON public.api_tokens USING btree (token_digest);
-
-
---
--- Name: index_api_tokens_on_user_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_api_tokens_on_user_id ON public.api_tokens USING btree (user_id);
-
-
---
 -- Name: index_attachments_on_attachable_type_and_attachable_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -11086,27 +10657,6 @@ CREATE INDEX index_cellline_samples_on_ancestry ON public.cellline_samples USING
 --
 
 CREATE INDEX index_code_logs_on_source_and_source_id ON public.code_logs USING btree (source, source_id);
-
-
---
--- Name: index_collection_shares_on_collection_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_collection_shares_on_collection_id ON public.collection_shares USING btree (collection_id);
-
-
---
--- Name: index_collection_shares_on_collection_id_and_shared_with_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX index_collection_shares_on_collection_id_and_shared_with_id ON public.collection_shares USING btree (collection_id, shared_with_id);
-
-
---
--- Name: index_collection_shares_on_shared_with_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_collection_shares_on_shared_with_id ON public.collection_shares USING btree (shared_with_id);
 
 
 --
@@ -11446,48 +10996,6 @@ CREATE UNIQUE INDEX index_devices_on_name_abbreviation ON public.devices USING b
 
 
 --
--- Name: index_dose_resp_outputs_on_created_at; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_dose_resp_outputs_on_created_at ON public.dose_resp_outputs USING btree (created_at);
-
-
---
--- Name: index_dose_resp_outputs_on_deleted_at; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_dose_resp_outputs_on_deleted_at ON public.dose_resp_outputs USING btree (deleted_at);
-
-
---
--- Name: index_dose_resp_outputs_on_dose_resp_request_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_dose_resp_outputs_on_dose_resp_request_id ON public.dose_resp_outputs USING btree (dose_resp_request_id);
-
-
---
--- Name: index_dose_resp_requests_on_access_token; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX index_dose_resp_requests_on_access_token ON public.dose_resp_requests USING btree (access_token);
-
-
---
--- Name: index_dose_resp_requests_on_created_by; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_dose_resp_requests_on_created_by ON public.dose_resp_requests USING btree (created_by);
-
-
---
--- Name: index_dose_resp_requests_on_element_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_dose_resp_requests_on_element_id ON public.dose_resp_requests USING btree (element_id);
-
-
---
 -- Name: index_element_klasses_revisions_on_element_klass_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -11499,20 +11007,6 @@ CREATE INDEX index_element_klasses_revisions_on_element_klass_id ON public.eleme
 --
 
 CREATE INDEX index_element_tags_on_taggable_id ON public.element_tags USING btree (taggable_id);
-
-
---
--- Name: index_element_variations_on_element_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX index_element_variations_on_element_id ON public.element_variations USING btree (element_id);
-
-
---
--- Name: index_element_variations_on_variations; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_element_variations_on_variations ON public.element_variations USING gin (variations);
 
 
 --
@@ -11576,20 +11070,6 @@ CREATE INDEX index_elements_samples_on_element_id ON public.elements_samples USI
 --
 
 CREATE INDEX index_elements_samples_on_sample_id ON public.elements_samples USING btree (sample_id);
-
-
---
--- Name: index_elements_wellplates_on_element_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_elements_wellplates_on_element_id ON public.elements_wellplates USING btree (element_id);
-
-
---
--- Name: index_elements_wellplates_on_wellplate_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX index_elements_wellplates_on_wellplate_id ON public.elements_wellplates USING btree (wellplate_id);
 
 
 --
@@ -11842,13 +11322,6 @@ CREATE INDEX index_on_element_literature ON public.literals USING btree (element
 --
 
 CREATE INDEX index_on_literature ON public.literals USING btree (literature_id, element_type, element_id);
-
-
---
--- Name: index_personal_text_template; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX index_personal_text_template ON public.text_templates USING btree (user_id, name) WHERE ((type)::text = 'PersonalTextTemplate'::text);
 
 
 --
@@ -12188,6 +11661,27 @@ CREATE UNIQUE INDEX index_subscriptions_on_channel_id_and_user_id ON public.subs
 
 
 --
+-- Name: index_sync_collections_users_on_collection_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_sync_collections_users_on_collection_id ON public.sync_collections_users USING btree (collection_id);
+
+
+--
+-- Name: index_sync_collections_users_on_shared_by_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_sync_collections_users_on_shared_by_id ON public.sync_collections_users USING btree (shared_by_id, user_id, fake_ancestry);
+
+
+--
+-- Name: index_sync_collections_users_on_user_id_and_fake_ancestry; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX index_sync_collections_users_on_user_id_and_fake_ancestry ON public.sync_collections_users USING btree (user_id, fake_ancestry);
+
+
+--
 -- Name: index_text_templates_on_deleted_at; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -12405,13 +11899,6 @@ CREATE TRIGGER logidze_on_elemental_compositions BEFORE INSERT OR UPDATE ON publ
 
 
 --
--- Name: elements_wellplates logidze_on_elements_wellplates; Type: TRIGGER; Schema: public; Owner: postgres
---
-
-CREATE TRIGGER logidze_on_elements_wellplates BEFORE INSERT OR UPDATE ON public.elements_wellplates FOR EACH ROW WHEN ((COALESCE(current_setting('logidze.disabled'::text, true), ''::text) <> 'on'::text)) EXECUTE FUNCTION public.logidze_logger('null', 'updated_at');
-
-
---
 -- Name: reactions logidze_on_reactions; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -12544,22 +12031,6 @@ ALTER TABLE ONLY public.literals
 
 
 --
--- Name: dose_resp_outputs fk_rails_aa53a2b169; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.dose_resp_outputs
-    ADD CONSTRAINT fk_rails_aa53a2b169 FOREIGN KEY (dose_resp_request_id) REFERENCES public.dose_resp_requests(id);
-
-
---
--- Name: collection_shares fk_rails_b3b4ac95d2; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.collection_shares
-    ADD CONSTRAINT fk_rails_b3b4ac95d2 FOREIGN KEY (shared_with_id) REFERENCES public.users(id);
-
-
---
 -- Name: reactions_reactant_sbmm_samples fk_rails_b4b61c7f84; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -12573,14 +12044,6 @@ ALTER TABLE ONLY public.reactions_reactant_sbmm_samples
 
 ALTER TABLE ONLY public.report_templates
     ADD CONSTRAINT fk_rails_b549b8ae9d FOREIGN KEY (attachment_id) REFERENCES public.attachments(id);
-
-
---
--- Name: collection_shares fk_rails_cd18bf012f; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.collection_shares
-    ADD CONSTRAINT fk_rails_cd18bf012f FOREIGN KEY (collection_id) REFERENCES public.collections(id);
 
 
 --
@@ -12613,14 +12076,6 @@ ALTER TABLE ONLY public.sequence_based_macromolecule_samples
 
 ALTER TABLE ONLY public.collections
     ADD CONSTRAINT fk_rails_f05d27b2ca FOREIGN KEY (inventory_id) REFERENCES public.inventories(id);
-
-
---
--- Name: api_tokens fk_rails_f16b5e0447; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.api_tokens
-    ADD CONSTRAINT fk_rails_f16b5e0447 FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
