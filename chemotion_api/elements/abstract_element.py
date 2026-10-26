@@ -899,6 +899,15 @@ class AbstractElement:
         :raises jsonschema.exceptions.ValidationError: If the properties are not valid
         """
         self._load_if_partial()
+        if self._load_failed and not self.is_new:
+            # The full record never arrived, so `properties` is whatever the *list* payload
+            # carried. Saving from here either writes list-derived nulls over real values, or —
+            # if the refetch below now succeeds — re-parses over edits the caller has already
+            # made and discards them, with the PUT still reporting success. Both are silent data
+            # loss, so refuse instead. Re-fetch the element and retry.
+            raise ConnectionError(
+                f'The full record for {self.element_type} {self.id} could not be loaded, so '
+                f'saving it would discard data. Fetch the element again before saving.')
         if not self._data_loaded and not self.is_new:
             # `self.json_data = json_data` left `_properties` parsed from the *list* payload while
             # marking the element loaded, so the accessor-level fix could never fire for the rest

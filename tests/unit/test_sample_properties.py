@@ -313,3 +313,18 @@ def test_an_explicitly_set_yield_still_wins():
     data = reaction._clean_properties_data()
     assert data['materials']['products'][0]['equivalent'] == pytest.approx(0.25)
     assert data['yield'] == pytest.approx(25.0)
+
+
+def test_save_refuses_when_the_full_record_never_loaded():
+    """A failed lazy load must not become a silent overwrite.
+
+    `_ensure_loaded()` swallows the error, leaves `_data_loaded` False and still hands out an
+    editable `properties` built from the list payload. `save()` then refetched and re-parsed,
+    throwing those edits away while the PUT reported success.
+    """
+    sample = _sample(1)
+    sample._data_loaded = False
+    sample._load_failed = True
+
+    with pytest.raises(ConnectionError, match=r'could not be loaded.*would discard data'):
+        sample.save()
