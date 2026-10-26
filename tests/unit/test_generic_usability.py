@@ -67,7 +67,7 @@ def test_attachment_attribute_access():
 
 
 def _klass_json(**changes) -> dict:
-    with open(os.path.join(os.path.dirname(__file__), '..', 'GenericElement.json')) as f:
+    with open(os.path.join(os.path.dirname(__file__), '..', 'fixtures', 'GenericElement.json')) as f:
         json_data = json.load(f)
     return json_data | changes
 
