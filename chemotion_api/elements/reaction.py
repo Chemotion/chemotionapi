@@ -7,7 +7,8 @@ from requests import Response
 from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
 from datetime import datetime
 
-from chemotion_api.elements.sample import Sample, SampleVariationType
+from chemotion_api.elements.sample import Sample, SampleVariationType, GasPhaseObj
+from chemotion_api.elements.utils.converter import convert_value, TIME_UNITS, TEMPERATURE_UNITS
 from chemotion_api.elements.utils import QuantityUnit, GasType
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict
@@ -311,7 +312,7 @@ class SampleVariation:
         # TODO: [DONE] get density, molarity from sample (NOT only for new Variations)!!!!
         self._values['aux']['coefficient'] = self._sample.properties['coefficient']
         self._values['aux']['purity'] = self._sample.properties['purity']
-        self._values['aux']['isReference'] = self._sample.properties['reference']
+        self._values['aux']['isReference'] = bool(self._sample.properties['reference'])
         self._values['aux']['molecularWeight'] = self._sample.molecule['molecular_weight']
         self._values['aux']['sumFormula'] = self._sample.molecule['sum_formular']
         self._values['aux']['molarity'] = self._sample.properties['molarity']['value']
@@ -319,6 +320,51 @@ class SampleVariation:
         self._values['aux']['gasType'] = self._sample.properties['gas_type'].value
         self._values['aux']['vesselVolume'] = vessel_volume
         self._values['aux']['materialType'] = self._sample_type.value
+        self._ensure_gas_entries()
+
+    def _ensure_gas_entries(self):
+        # The frontend shows a gas product with extra entries (getMaterialEntries in
+        # ReactionVariationsMaterials.js) and reads each one as {'value', 'unit'}. A missing or null
+        # entry makes the variations tab crash, so fill them like the frontend does (getStandardValue).
+        if self._sample_type != SampleVariationType.PRODUCT or self._values['aux']['gasType'] != GasType.GAS.value:
+            return
+        for entry, default in self._new_gas_entries().items():
+            if not isinstance(self._values.get(entry), dict):
+                self._values[entry] = default
+
+    def _new_gas_entries(self) -> dict:
+        gas_phase_data = self._sample.properties.get('gas_phase_data')
+        gas_phase_data = gas_phase_data.to_dict() if gas_phase_data is not None else GasPhaseObj.default_val
+
+        def convert(value_unit: dict | None, out_unit: str):
+            value_unit = value_unit or {}
+            try:
+                return convert_value(value_unit.get('value'), value_unit.get('unit'), out_unit)
+            except ValueError:
+                return None
+
+        return {
+            "duration": {
+                "value": convert(gas_phase_data.get('time'), TIME_UNITS.SECONDS.value),
+                "unit": "Second(s)"
+            },
+            "temperature": {
+                "value": convert(gas_phase_data.get('temperature'), TEMPERATURE_UNITS.CELSIUS.value),
+                "unit": "°C"
+            },
+            "concentration": {
+                "value": gas_phase_data.get('part_per_million'),
+                "unit": "ppm"
+            },
+            "turnoverNumber": {
+                "value": gas_phase_data.get('turnover_number'),
+                "unit": None
+            },
+            "turnoverFrequency": {
+                "value": (gas_phase_data.get('turnover_frequency') or {}).get('value'),
+                "unit": None
+            }
+        }
 
     @property
     def sample(self) -> Sample:

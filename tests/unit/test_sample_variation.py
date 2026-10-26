@@ -102,3 +102,48 @@ def test_litres_accepted_for_a_sample_with_density_but_no_molarity():
     assert sv.get_amount() == pytest.approx(8.0)
     # and it round-trips back through the density branch of get_volume()
     assert sv.get_volume() == pytest.approx(2.0)
+
+
+def _gas_product(gas_phase_data=None):
+    sample = _sample()
+    sample.properties['gas_type'] = SimpleNamespace(value='gas')
+    sample.properties['reference'] = None
+    if gas_phase_data is not None:
+        sample.properties['gas_phase_data'] = SimpleNamespace(to_dict=lambda: gas_phase_data)
+    return sample
+
+
+GAS_ENTRIES = ['duration', 'temperature', 'concentration', 'turnoverNumber', 'turnoverFrequency']
+
+
+def test_a_gas_product_gets_the_gas_entries_of_the_frontend():
+    """The variations tab reads every gas product entry as {'value', 'unit'} and crashes on null."""
+    sv = SampleVariation(_gas_product({'time': {'value': 2, 'unit': 'h'},
+                                       'temperature': {'value': 300, 'unit': 'K'},
+                                       'part_per_million': 5, 'turnover_number': 3,
+                                       'turnover_frequency': {'value': 1.5, 'unit': 'TON/h'}}),
+                         SampleVariationType.PRODUCT, None)
+    values = sv.clean()
+    assert all(isinstance(values[entry], dict) for entry in GAS_ENTRIES)
+    assert values['duration'] == {'value': 7200, 'unit': 'Second(s)'}
+    assert values['temperature']['value'] == pytest.approx(26.85)
+    assert values['temperature']['unit'] == '°C'
+    assert values['concentration'] == {'value': 5, 'unit': 'ppm'}
+    assert values['turnoverNumber']['value'] == 3
+    assert values['turnoverFrequency']['value'] == 1.5
+    assert values['aux']['isReference'] is False
+
+
+def test_null_gas_entries_of_a_loaded_variation_are_repaired():
+    loaded = {'aux': {'gasType': 'gas'}, 'amount': {'value': 1e-5, 'unit': 'mol'},
+              'mass': {'value': 0, 'unit': 'g'}, 'volume': {'value': 0, 'unit': 'l'},
+              'yield': {'value': 0, 'unit': None}} | {entry: None for entry in GAS_ENTRIES}
+    values = SampleVariation(_gas_product(), SampleVariationType.PRODUCT, 20, loaded).clean()
+    assert all(isinstance(values[entry], dict) for entry in GAS_ENTRIES)
+    assert values['duration']['unit'] == 'Second(s)'
+    assert values['amount']['value'] == 1e-5
+
+
+def test_a_non_gas_product_has_no_gas_entries():
+    values = _variation(SampleVariationType.PRODUCT).clean()
+    assert not any(entry in values for entry in GAS_ENTRIES)
