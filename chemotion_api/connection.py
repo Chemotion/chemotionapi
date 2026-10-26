@@ -3,7 +3,7 @@ import re
 
 import requests
 from dateutil.parser import parse as parsedate
-from requests.exceptions import ConnectionError as CError, RequestException
+from requests.exceptions import ConnectionError as CError
 from chemotion_api.schema_manager import SchemaManager
 
 

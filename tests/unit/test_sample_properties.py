@@ -103,6 +103,18 @@ def test_append_material_without_amount():
     assert product.properties['real_amount']['unit'] == 'g'
 
 
+def test_a_nested_amount_write_keeps_the_coerced_value():
+    """PropertyDict.__setitem__ re-assigns the *caller's* object, so a handler that returns True
+    discards whatever pydantic coerced. The amount branch must apply the change itself."""
+    sample = _sample()
+    sample.properties['real_amount']['value'] = "3.7"
+    stored = sample.properties['real_amount']['value']
+    assert stored == 3.7 and isinstance(stored, float), f'stored {stored!r} ({type(stored).__name__})'
+    # and the validation that produced the coercion is still enforced
+    with pytest.raises(Exception):
+        sample.properties['real_amount']['value'] = "not-a-number"
+
+
 def test_unknown_unit_message():
     with pytest.raises(ValueError, match='Allowed units'):
         _sample().set_amount(1, QuantityUnit.Equivalent)

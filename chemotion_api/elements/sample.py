@@ -1206,7 +1206,12 @@ class Sample(AbstractElement):
                     # Unit not (yet) allowed for this sample: store the value as it is
                     pass
             if len(name) > 1:
-                return True
+                # Apply it here rather than returning True. PropertyDict.__setitem__ re-assigns the
+                # *caller's* original object, so a True would discard the value pydantic coerced
+                # above — `properties['real_amount']['value'] = "3.7"` stored the string. This is
+                # the same shape as the gas_phase_data branch below.
+                dict_obj[-1][name[-1]] = value[-1]
+                return False
             self._properties[name[0]] = UnitDict(unit=amount.get('unit'), value=amount.get('value'))
             return False
         if name[-1] == 'vessel_size':

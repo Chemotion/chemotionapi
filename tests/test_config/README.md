@@ -41,28 +41,34 @@ this layer exists to carry v3 and v4 forward.
 
 ## Choosing the server version
 
-The stack takes its images from the environment rather than pinning one, because v3 and v4 share
-it and each runs against the ELN it targets. The compose file therefore **has no default** — an
-unset variable makes `docker compose` refuse to start, which is the point. A stack that silently
+`compose.yml` names no images of its own, because the v3 and v4 lines share it and each must run
+against the ELN it targets. It reads three variables, and declares no defaults for them — an
+unset one makes `docker compose` refuse to start, which is the point: a stack that silently
 brings up the wrong server produces failures that look like client bugs.
 
+This branch supplies them from **`images.env`**, next to `compose.yml`:
+
+| variable | this branch (400.x) | the 312.x line |
+|---|---|---|
+| `CHEMOTION_ELN_IMAGE` | `complat/chemotion_eln_stage:next-release@sha256:3520ac2c…` | `ptrxyz/chemotion:eln-3.1.2` |
+| `CHEMOTION_DB_IMAGE` | `complat/dev:postgres16-rdkit@sha256:326d2ef0…` | `ptrxyz/chemotion:db-3.1.2` |
+| `CHEMOTION_STACK_SUFFIX` | `v4` | `v3` |
+
+The v4 images are **pinned by digest**: `next-release` is a rolling tag, rebuilt whenever the v4
+branch moves, and Docker Hub publishes no immutable v4 tag (its tags jump from `v3.1.1` straight
+to `next-release`). Without the digest, two runs a day apart can test different servers. Bumping
+a digest is a deliberate, reviewed change — record the new digest together with the `Version:`
+string that `/about` then reports. Pinned 2026-08-21 at **v4.0.0-rc-260818**.
+
+Every caller passes the file explicitly (`--env-file`), because `conftest.py` runs
+`tests/data/setup_chemotion_db.sh` directly and that script calls `docker compose` itself — so
+the values cannot come from the caller's shell. Note that `--env-file` replaces Compose's
+automatic `.env` lookup, so a local `.env` here is *not* read. To override an image for one run,
+set the variable in your shell: the shell environment still wins over `--env-file`.
+
 ```bash
-# ELN 3.1.2 (the v3 line)
-export CHEMOTION_DB_IMAGE=ptrxyz/chemotion:db-3.1.2
-export CHEMOTION_ELN_IMAGE=ptrxyz/chemotion:eln-3.1.2
-export CHEMOTION_STACK_SUFFIX=v3
-
-# ELN v4 (this branch). Pin by digest: `next-release` is a rolling tag, rebuilt whenever the v4
-# branch moves, and Docker Hub publishes no immutable v4 tag (its tags jump from v3.1.1 straight
-# to next-release). Without the digest, two runs a day apart can test different servers. Bumping
-# a digest is a deliberate, reviewed change: record the new digest together with the `Version:`
-# string that /about then reports. Pinned 2026-08-21 at v4.0.0-rc-260818.
-export CHEMOTION_DB_IMAGE=complat/dev:postgres16-rdkit@sha256:326d2ef0ee96cc7a8da7569a1637b1527abaa9cd0c1c680b7320223febfd254c
-export CHEMOTION_ELN_IMAGE=complat/chemotion_eln_stage:next-release@sha256:3520ac2cf46301f53eddf68b58971ca74ca8a2dd331c96765cad02c13b021343
-export CHEMOTION_STACK_SUFFIX=v4
+CHEMOTION_ELN_IMAGE=some/other:image just stack-up
 ```
-
-The release line's own branch sets these; see its `justfile` or CI workflow.
 
 ## Usage
 

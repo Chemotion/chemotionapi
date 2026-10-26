@@ -1,5 +1,4 @@
 import json
-import warnings
 from typing import Self
 from collections.abc import Callable
 
