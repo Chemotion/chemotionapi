@@ -65,3 +65,10 @@ variations yet.
     :members: sample, is_ref, potential_units, set_quantity, set_equivalent, set_yield, get_amount, get_mass, get_volume, get_equivalent_or_yield
 
 .. autoclass:: chemotion_api.elements.reaction.VariationSegments
+
+User labels
+-----------
+
+A reaction's user labels are exposed as bare ids in ``properties['user_labels']``. Use
+``reaction.user_labels_resolved`` to get :class:`~chemotion_api.user.UserLabel` objects with their
+titles — see :doc:`Instance` for details and the caching behaviour.
