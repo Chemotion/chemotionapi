@@ -1,68 +1,59 @@
 # Tests
 
-The suite is split by **memory footprint** and **dependencies** so the fast offline checks run
-anywhere, while the heavy and server-dependent tests are opt-in.
+The suite is split so the offline checks run anywhere, and the server-dependent ones are opt-in.
 
 ## Layout
 
-- **`tests/unit/`** — pure-logic, offline, tiny footprint (~60 MB peak, <0.5 s). No live server, no
-  RO-Crate serialization, no pyshacl. Covers: Pydantic models, the ontology registry + `.eln` patch
-  helper, the `Affiliation` model, `PropertyDict`, and author-node construction.
-- **`tests/*.py`** (top level) — everything else:
-  - `@pytest.mark.integration` — needs a live Chemotion server/DB (auto-applied to any test using the
-    `logged_in_instance` / `instance_with_*` fixtures).
-  - `@pytest.mark.heavy` — memory-heavy *offline* tests: a full `export_eln` (rdflib JSON-LD
-    serialization against the 2627-term RO-Crate context) or pyshacl validation over the 262 KB shapes.
-    Fine individually (~60 MB each); run them one file at a time rather than all at once.
+- **`tests/unit/`** — pure logic, offline, fast (114 tests, ~1 s). No live server and no network.
+  Covers the collection tree (walk, case-insensitive lookup, element membership), element URLs
+  and partial loading, sample and reaction properties, reaction variations and their segment
+  columns, generic-element usability and workflow handling, segment fields, the converter, and
+  the request-error classes.
+- **`tests/*.py`** (top level) — tests that talk to a Chemotion server. These are auto-marked
+  `@pytest.mark.integration` by `conftest.py`: any test whose fixtures reach one of the
+  `SERVER_FIXTURES` names (`logged_in_instance`, `instance_with_*`, …) gets the marker, directly
+  or transitively, so nothing server-dependent can leak into the offline gate by accident.
 
 ## Running
 
-The **default** (`addopts` in `pytest.ini`) runs **all offline tests, memory-safe**: `-m "not
-integration" --forked`. `--forked` (from `pytest-forked`) runs each test in its own subprocess
-*serially*, so peak memory stays at ~one test's worth and a runaway test dies alone instead of
-OOM-killing the whole run. Integration (live-server) tests are excluded by default because they need a
-server; that combo — heavy export **+** live server in one process — is what OOM-killed past runs.
+The **default** (`addopts` in `pytest.ini`) is `-m "not integration" --forked`: all offline
+tests, each in its own subprocess. `--forked` (from `pytest-forked`) runs them *serially*, so
+peak memory stays at roughly one test's worth and a runaway test dies alone rather than taking
+the run with it.
 
 ```bash
-# Default: ALL offline tests (incl. heavy export/pyshacl), each isolated → memory-safe. No server:
-.venv/bin/python -m pytest tests -q
+# Default: the offline suite. No server needed.
+just test                      # or: cd tests && python -m pytest -q
 
-# Pure-logic unit subset only (fastest; CI runs the full offline suite via `just check`):
-.venv/bin/python -m pytest tests/unit -q
+# The unit subset only (fastest).
+just test-unit
 
-# Skip the fork overhead (single process; only when memory is known-bounded):
-.venv/bin/python -m pytest tests -p no:forked -q
-
-# One heavy offline test on its own (CLI -m overrides the default filter):
-.venv/bin/python -m pytest tests/test_shacl_conformance.py -m heavy -q
+# Skip the fork overhead — single process, when memory is known-bounded.
+cd tests && python -m pytest -p no:forked -q
 
 # Integration suite — self-contained: NO_SETUP=0 boots the docker stack in tests/test_config/,
 # resets the DB from the committed seed (tests/data/test.sql) and waits for the ELN.
 # Docker is the only requirement; defaults (port 3579, seed users) live in conftest.py.
-NO_SETUP=0 .venv/bin/python -m pytest tests -m integration -q
+just test-integration
 
-# Against an already-running/external instance instead, skip the setup and override via env:
+# Against an already-running or external instance instead, skip the setup and override via env:
 ELN_URL=http://... ELN_USER=... ELN_PASS=... NO_SETUP=1 \
-.venv/bin/python -m pytest tests -m integration -q
+  python -m pytest -m integration -q
 ```
 
-See [test_config/README.md](./test_config/README.md) for the stack and seed-user details.
-A fresh seed reset per session matters: the tests mutate the instance (uploaded generic
-templates, collections), and some assertions rely on the seed's state.
+`just check` runs lint, types and the offline suite — no server involved.
 
-## Notes on memory (why past runs OOM'd, and what's fixed)
+See [test_config/README.md](./test_config/README.md) for the stack and seed-user details, and for
+which images each release line uses. A fresh seed reset per session matters: the tests mutate the
+instance (uploaded generic templates, collections), and some assertions rely on the seed's state.
 
-- **Root cause found & fixed:** `test_shacl_conformance.py` passed the 262 KB SHACL shapes *file path*
-  to `pyshacl.validate` on every call, which re-parsed and re-processed the shapes each time; that
-  memory was retained, so RSS climbed ~8 MB per validation (measured: 42→50→60→68→78 MB) and kept
-  growing across SHACL tests. The shapes graph is now parsed **once** and reused → peak RSS is flat
-  (~90 MB), measured over repeated validations.
-- **Default excludes the OOM combo:** the true blow-up was the heavy export tests running *with* the
-  live Chemotion server (Rails+Postgres, ~1–2 GB) in one process on a constrained host. Those tests
-  need the server so they carry `integration` and are excluded by default.
-- **Heavy offline tests are bounded:** repeated offline `export_eln` peaks flat at ~86 MB (the merged
-  LinkML `SchemaView` is cached process-wide in `collection.py`). `tests/unit` (67 tests, incl. the 4
-  heavy offline ones) passes under a hard 2.5 GB address-space cap.
-- `tests/conftest.py` imports `chemotion_api` **lazily** (inside the server fixtures) so collecting the
-  unit suite doesn't pull in rdflib/linkml. Live-CLI DEBUG logging is **off** in `pytest.ini` (it
-  floods memory).
+## Notes
+
+- `conftest.py` imports `chemotion_api` **lazily**, inside the server fixtures, so collecting the
+  offline suite stays light. Live-CLI DEBUG logging is off in `pytest.ini`, where it floods memory.
+- There is deliberately no session teardown that kills whatever holds port 3579. The stack is
+  docker and is meant to outlive a run: `setup_chemotion_db.sh` reseeds it at the start of each
+  session, and `just stack-down` is how you stop it.
+- `pytest.ini` also declares a `heavy` marker. Nothing carries it on this release line; it is
+  there for the memory-heavy offline tests (full `.eln` export, SHACL validation) that arrive
+  with the FAIR export work.
