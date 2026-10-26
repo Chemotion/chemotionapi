@@ -1125,13 +1125,17 @@ class Sample(AbstractElement):
         else:
             self._properties[key] = UnitDict(unit=str(cast(QuantityUnit, unit).value), value=value)
             self._properties[zero_key] = UnitDict(unit=str(cast(QuantityUnit, unit).value), value=None)
-            try:
-                self.reaction.update_equivalent()
-            except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError) as e:
-                # Was a bare `pass`. Failing to recompute equivalents is not fatal — the amount
-                # was still set — but it leaves the reaction's stoichiometry stale, and silence
-                # meant nobody found out until the numbers were wrong on the server.
-                logger.warning('The equivalents of the reaction could not be updated: %r', e)
+            # A standalone sample has no reaction to recompute, and that is not a failure —
+            # without this guard every set_amount() on one logged a warning about NoneType,
+            # burying the real equivalent failures this except clause exists to surface.
+            if self.reaction is not None:
+                try:
+                    self.reaction.update_equivalent()
+                except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError) as e:
+                    # Was a bare `pass`. Failing to recompute equivalents is not fatal — the amount
+                    # was still set — but it leaves the reaction's stoichiometry stale, and silence
+                    # meant nobody found out until the numbers were wrong on the server.
+                    logger.warning('The equivalents of the reaction could not be updated: %r', e)
 
     def on_properties_change(self, dict_obj, name, value):
         """
