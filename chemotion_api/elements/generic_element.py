@@ -1,7 +1,9 @@
+"""GenericElement: a LabIMotion user-defined element type backed by a dynamic schema."""
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.workflow_interface import WorkflowInterface
 from chemotion_api.elements.workflow_manager import Workflow
 from chemotion_api.utils import parse_generic_object_json, clean_generic_object_json, parse_generic_object_layer_json
+from typing import cast
 from chemotion_api.utils.segment_fields import SegmentField
 
 
@@ -80,6 +82,11 @@ class GenericElement(AbstractElement, WorkflowInterface):
         return [key for key, fields in self.properties.items() if len(fields) == 0]
 
     def save_url(self) -> str:
+        """
+        The API endpoint used to save this generic element (create or update).
+
+        :return: The save URL
+        """
         if not self.is_new:
             return f"/api/v1/generic_elements/{self.id}"
         return "/api/v1/generic_elements"
@@ -93,15 +100,16 @@ class GenericElement(AbstractElement, WorkflowInterface):
         return self._workflow
 
     def _parse_properties(self) -> dict:
-        self._workflow = Workflow(self.json_data['properties_release'])
+        self._workflow = Workflow(cast(dict, self.json_data)['properties_release'])
         self._workflow.init_wf(self.json_data)
-        data = parse_generic_object_json(self.json_data)
+        data = parse_generic_object_json(cast(dict, self.json_data))
         self._properties_mapping = data['obj_mapping']
         return data['values']
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
-        clean_generic_object_json(self.json_data, self.properties, self._properties_mapping)
-        return self.json_data
+        clean_generic_object_json(cast(dict, self.json_data), cast(dict, self.properties), self._properties_mapping)
+        return cast(dict, self.json_data)
+
 
     def field(self, layer: str, field: str) -> SegmentField:
         """
@@ -130,21 +138,25 @@ class GenericElement(AbstractElement, WorkflowInterface):
 
     def wf_tree(self) -> dict[str,list]:
         """
-        :return: the workflow defined by the template as tree of layer labels
+        The element's workflow graph as a nested tree of layer labels.
+
+        :return: The workflow tree keyed by layer label
         """
         wf_tree = self.workflow.wf_tree
 
         def reg_wf_tree(wf_tree):
             return {wf_tree['layer']['label']: [reg_wf_tree(x) for x in wf_tree['next'].values()]}
 
-        res = {}
+        res: dict = {}
         for node in wf_tree.values():
             res |= reg_wf_tree(node)
         return res
 
     def wf_current_workflow(self) -> list[list[str]]:
         """
-        :return: the workflows of the element, each as list of the labels of its layers
+        The layer labels of each workflow currently present on the element.
+
+        :return: A list of workflows, each as a list of its layer labels
         """
         current_wf = self.workflow.workflows
         wfs = []
@@ -206,7 +218,7 @@ class GenericElement(AbstractElement, WorkflowInterface):
         """
         return self.workflow.next_options(flat)
 
-    def wf_next(self, layer_id: None | str = None, wf_idx: int = 0, wf_id: str = None, **kwargs) -> str:
+    def wf_next(self, layer_id: None | str = None, wf_idx: int = 0, wf_id: str | None = None, **kwargs) -> str:
         """
         Adds the next layer of a workflow to the element (see :meth:`wf_next_options`).
 
@@ -217,7 +229,7 @@ class GenericElement(AbstractElement, WorkflowInterface):
         :param layer_id: id of the next layer. If None, the first option is used
         :param wf_idx: index of the workflow, used if wf_id is None
         :param wf_id: id of the workflow
-        :return: the key of the new layer in :attr:`properties`
+        :return: the name of the new layer in :attr:`properties`
 
         :raises ValueError: if the workflow does not exist, the layer is not a next step of the workflow or no
             next step is found
@@ -239,8 +251,8 @@ class GenericElement(AbstractElement, WorkflowInterface):
         Adds a layer of the template to the element, independent of the workflow.
 
         :param layer_label: label of the layer
-        :param pos: position of the layer
-        :return: the key of the new layer in :attr:`properties`
+        :param pos: position of the layer; if None it is placed after the existing layers
+        :return: the name of the new layer in :attr:`properties`
 
         :raises ValueError: if the layer is not found
         """

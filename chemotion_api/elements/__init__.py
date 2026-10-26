@@ -1,3 +1,4 @@
+"""Element subsystem: the :class:`ElementSet` paginated loader and the concrete element classes."""
 from datetime import datetime
 from typing import Optional
 
@@ -30,13 +31,12 @@ class ElementSet(list):
     """
 
     def __init__(self, session: Connection, element_type: dict,
-                 collection_id: int = None, collection_is_sync: bool = False, fixed_length:bool = False):
+                 collection_id: int | None = None, fixed_length: bool = False):
         super().__init__()
-        self._load_options = {}
+        self._load_options: dict = {}
         self._session = session
         self._element_type = element_type
         self._collection_id = collection_id
-        self._collection_is_sync = collection_is_sync
         self._page = 1
         self.max_page = 1
         self._per_page = 10
@@ -47,9 +47,9 @@ class ElementSet(list):
 
     def set_iri_filter(self, iri):
         """
-        Only elements of this JSON-LD type are returned when iterating.
+        Restrict iteration to elements whose JSON-LD ``@type`` matches the given IRI.
 
-        :param iri: JSON-LD type (``element.json_ld['@type']``)
+        :param iri: IRI string (``chemotion:xxx/xxx/xxx``) used to filter the elements
         """
         self._iri_filter = iri
 
@@ -103,12 +103,17 @@ class ElementSet(list):
     @property
     def page(self) -> int:
         """
-        The currently loaded page (starting at 1). Setting it loads the page.
+        The currently loaded page number (1-based).
+
+        :return: The current page number
         """
         return self._page
 
     @page.setter
     def page(self, page: int):
+        """
+        The currently loaded page number (1-based). Setting it loads that page from the server.
+        """
         self._set_page(page)
 
     def _set_page(self, page: int) -> bool:
@@ -123,9 +128,14 @@ class ElementSet(list):
 
     def iter_elements(self, start_page=1):
         """
-        Iterates over all elements, starting at a page.
+        Iterate over all elements across all pages, loading each page from the server on demand.
 
-        :param start_page: first page to be loaded
+        Starting at ``start_page``, every page is fetched and its elements yielded; if an IRI filter
+        is set only elements whose JSON-LD ``@type`` matches the filter are yielded.
+
+        :param start_page: page number to start iterating from (1-based)
+
+        :return: Generator over the elements
         """
         self._page = start_page - 1
         while self._set_page(self.page + 1):
@@ -135,7 +145,9 @@ class ElementSet(list):
 
     def iter_pages(self):
         """
-        Iterates over all pages. Each step loads the next page and yields the set itself.
+        Iterate over all pages, loading each from the server on demand.
+
+        :return: Generator yielding this ElementSet once per page (with that page loaded)
         """
         self._page = 0
         while self._set_page(self.page + 1):
@@ -143,18 +155,18 @@ class ElementSet(list):
 
     def next_page(self):
         """
-        Loads the next page if there is one.
+        Load the next page from the server.
 
-        :return: the set itself
+        :return: This ElementSet with the next page loaded
         """
         self._set_page(self.page + 1)
         return self
 
     def prev_page(self):
         """
-        Loads the previous page if there is one.
+        Load the previous page from the server.
 
-        :return: the set itself
+        :return: This ElementSet with the previous page loaded
         """
         self._set_page(self.page - 1)
         return self
@@ -162,16 +174,18 @@ class ElementSet(list):
     def load_elements(self, per_page: int | None = None, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None, product_only: bool = False):
         """
-        Loads the current page of elements from the server.
+        Load the current page of elements from the server into this ElementSet.
 
-        :param per_page: How many Elements per page
-        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
-        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
-        :param product_only: If True only samples which are products in a reaction are returned
+        Updates :attr:`max_page` and the total length from the server's ``X-Total-Pages`` and
+        ``X-Total`` response headers, then replaces the current contents with the page's elements.
 
-        :raises ValueError: if the set does not belong to a collection
-        :raises RequestException: if the request was not successful
-            (:class:`chemotion_api.connection.ChemotionRequestError`)
+        :param per_page: number of elements per page (kept for subsequent page loads)
+        :param updated_to_date: only fetch elements updated before this date/time
+        :param updated_from_date: only fetch elements updated after this date/time
+        :param product_only: if True only samples which are products in a reaction are returned
+
+        :raises ValueError: if no collection_id is set on this ElementSet
+        :raises RequestException: if the server responds with a non-200 status code
         """
         if per_page is not None:
             self._per_page = per_page
@@ -198,10 +212,11 @@ class ElementSet(list):
         if updated_to_date:
             payload['to_date'] = int(updated_to_date.timestamp())
 
-        if self._collection_is_sync:
-            payload['sync_collection_id'] = self._collection_id
-        else:
-            payload['collection_id'] = self._collection_id
+        # Always `collection_id`. v4 has no `sync_collection_id`: Grape ignored the unknown
+        # param and CollectionHelpers fell back to `klass.for_user(current_user.id)` — so reading
+        # a shared collection silently returned EVERYTHING THE CALLER OWNS instead. Measured on
+        # the seeded stack: collection_id=11 -> 4 samples, sync_collection_id=11 -> 193.
+        payload['collection_id'] = self._collection_id
         res = self._session.get(self._get_url() + '.json',
                                 data=payload)
         if res.status_code != 200:
@@ -223,10 +238,11 @@ class ElementSet(list):
 
     def load_element(self, id: int) -> AbstractElement:
         """
-        Loads one element by its database id and adds it to the set.
+        Create an element of this set's type for the given DB id and add it to the set.
 
-        :param id: Database ID of the element
-        :return: the element
+        :param id: DB id of the element to load
+
+        :return: The created element (loaded lazily on access)
         """
         segments = GenericSegments(self._session)
         s = self._get_element_class()(segments, self._session, id=id,
@@ -236,17 +252,19 @@ class ElementSet(list):
 
     def new_element(self, json_data: dict, **kwargs) -> AbstractElement:
         """
-        Creates an element from JSON data and adds it to the set. The element is not saved.
+        Create a new element of this set's type from JSON data and add it to the set.
 
-        :param json_data: JSON data of the element as sent by the server
-        :return: the element
+        :param json_data: JSON data used to initialize the element
+        :param kwargs: additional keyword arguments passed to the element constructor
+
+        :return: The newly created element
         """
         segments = GenericSegments(self._session)
         s = self._get_element_class()(segments, self._session, json_data=json_data, **kwargs)
         self.append(s)
         return s
 
-    def _get_element_class(self) -> AbstractElement.__class__:
+    def _get_element_class(self) -> type[AbstractElement]:
         if self._element_type['is_generic']:
             return GenericElement
         elif self._element_type['name'] == 'sample':

@@ -1,6 +1,12 @@
+"""JSON schema describing the validatable ``properties`` of a Research Plan element."""
+
+from chemotion_api.elements.schemas.reaction import PURIFICATION_OPTIONS
 
 schema = {
-    "$schema": "chemotion:type/research_plan/1.9.3/draft-01/schema#",
+    # See the note in reaction.py: `$schema` names the dialect, `$id` the document, and neither
+    # carries a server version — this schema ships with the client.
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "chemotion://type/research_plan/draft-01",
     "title": "Research plan Properties",
     "type": "object",
     "properties": {

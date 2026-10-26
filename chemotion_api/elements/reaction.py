@@ -1,6 +1,25 @@
+"""Reaction element and its helpers.
+
+Defines :class:`Reaction` (a Chemotion reaction, extending
+:class:`~chemotion_api.elements.abstract_element.AbstractElement`) together with the supporting
+:class:`MaterialList` (a role-bound list of :class:`~chemotion_api.elements.sample.Sample`\\ s) and
+:class:`Temperature` (a temperature-time profile). Reactions persist the product yield through an
+``equivalent`` cache.
+"""
+import logging
+import re
 from enum import Enum
-from typing import Optional, Literal
+from typing import Optional, Literal, cast
 from collections.abc import Callable, Iterator
+
+logger = logging.getLogger(__name__)
+
+
+#: Chemotion duration display units (e.g. "Hour(s)") mapped to seconds.
+_DURATION_UNIT_SECONDS = {
+    "second": 1, "minute": 60, "hour": 3600, "day": 86400, "week": 604800,
+}
+
 
 from requests import Response
 
@@ -56,12 +75,24 @@ class MaterialList(TypedList):
 
         return return_element
 
-    def _attach(self, element: Sample):
+    def _attach(self, element: Sample) -> None:
+        """Bind a sample to this reaction: back-reference, role and position.
+
+        Position is taken *before* the append, so it is the index the sample is about to occupy.
+        """
         element.reaction = self._reaction
         element.role_in_reaction = self._mat_type
         element.properties['position'] = len(self)
 
     def after_append(self, element: Sample):
+        """
+        Initializes the amount of a sample just added to the list.
+
+        Falls back to a zero amount in the first allowed unit if the sample's current amount cannot
+        be set.
+
+        :param element: The sample that was appended
+        """
         try:
 
             element.set_amount(**element.get_amount())
@@ -69,14 +100,16 @@ class MaterialList(TypedList):
             element.set_amount(0, element.allowed_quantity_units()[0])
 
     def append_no_split(self, element: Sample):
-        """
-        Add a Sample without splitting or copying it. The reaction, role and position are set,
-        the amount is initialized and the equivalents are updated.
+        """Add a Sample to this reaction without splitting or copying it.
+
+        The sample is bound to the reaction (back-reference, role, position) and its amount is
+        initialised, exactly as the splitting path does, and the equivalents are updated.
+        Previously this only type-checked and appended, so the sample arrived detached: no
+        reaction, no role, no position and no amount — and it was then saved that way.
 
         :param element: Sample to be added
         :return: the added sample
         """
-
         self._check_element(element)
         self._attach(element)
         super(TypedList, self).append(element)
@@ -854,9 +887,15 @@ class Reaction(AbstractElement):
     >>> rea.save()
     """
 
+    # Narrowed from the base class's `dict | None`: a Reaction always has its
+    # json_data/_properties populated via _set_json_data/load before any method
+    # that reads them runs. Annotation-only.
+    json_data: dict
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._variations = None
+        self._variations: Variations | None = None
+        self._yield_value_cache = None
 
     datetime_format = '%m/%d/%Y %H:%M:%S'
 
@@ -940,41 +979,64 @@ class Reaction(AbstractElement):
             self._variations = Variations(self.analyses, **mat_samples,
                                           vessel_size=lambda: self.properties.get('vessel_size'),
                                           segment_klasses=self._variation_segment_klasses)
-            self._variations.populate(self.json_data['variations'])
+            # offline-reconstructed reactions carry no 'variations' key at all
+            self._variations.populate(self.json_data.get('variations') or {})
 
         return self._variations
 
     @property
     def starting_materials(self) -> MaterialList:
-        """Same as ``properties['starting_materials']``"""
+        """
+        The starting materials of the reaction.
+
+        :return: The :class:`MaterialList` of starting material samples
+        """
         return self.properties['starting_materials']
 
     @property
     def reactants(self) -> MaterialList:
-        """Same as ``properties['reactants']``"""
+        """
+        The reactants of the reaction.
+
+        :return: The :class:`MaterialList` of reactant samples
+        """
         return self.properties['reactants']
 
     @property
     def products(self) -> MaterialList:
-        """Same as ``properties['products']``"""
+        """
+        The products of the reaction.
+
+        :return: The :class:`MaterialList` of product samples
+        """
         return self.properties['products']
 
     @property
     def solvents(self) -> MaterialList:
-        """Same as ``properties['solvents']``"""
+        """
+        The solvents of the reaction.
+
+        :return: The :class:`MaterialList` of solvent samples
+        """
         return self.properties['solvents']
 
     @property
     def purification_solvents(self) -> MaterialList:
-        """Same as ``properties['purification_solvents']``"""
+        """
+        The purification solvents of the reaction.
+
+        :return: The :class:`MaterialList` of purification solvent samples
+        """
         return self.properties['purification_solvents']
 
     @property
     def reference_sample(self) -> Sample | None:
         """
         The reference material of the reaction, a starting material or reactant. Equivalents and yields
-        are relative to it. If none is set, the first starting material or reactant becomes the reference.
-        Setting it to None removes the reference.
+        are relative to it. If none is set, the **first** starting material or reactant becomes the
+        reference. Setting it to None removes the reference.
+
+        :return: The reference :class:`Sample`, or ``None`` if there are no candidates
         """
         first_sample = None
         for mat in [*self.starting_materials, *self.reactants]:
@@ -999,13 +1061,15 @@ class Reaction(AbstractElement):
     @property
     def gas_schema(self) -> bool:
         """
-        True for a gas-phase reaction. Turning it off resets the gas type of all materials.
+        Whether the reaction uses the gas (gaseous) schema.
+
+        :return: ``True`` if the reaction is a gas-schema reaction
         """
-        return self._properties.get('gaseous', False)
+        return cast(dict, self._properties).get('gaseous', False)
 
     @gas_schema.setter
     def gas_schema(self, gaseous: bool):
-        self._properties['gaseous'] = gaseous
+        cast(dict, self._properties)['gaseous'] = gaseous
         if not gaseous:
             for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
                         *self.purification_solvents]:
@@ -1014,20 +1078,27 @@ class Reaction(AbstractElement):
 
     def get_feedstock(self) ->  Sample | None:
         """
-        :return: the feedstock material of a gas-phase reaction, or None
+        Returns the sample acting as feedstock in this gas-schema reaction.
+
+        :return: The feedstock :class:`Sample`, or ``None`` if there is none
         """
         return self.get_gas_component(GasType.FEEDSTOCK)
 
     def get_catalyst(self) -> Sample | None:
         """
-        :return: the catalyst material of a gas-phase reaction, or None
+        Returns the sample acting as catalyst in this gas-schema reaction.
+
+        :return: The catalyst :class:`Sample`, or ``None`` if there is none
         """
         return self.get_gas_component(GasType.CATALYST)
 
     def get_gas_component(self, gt: GasType) -> Sample | None:
         """
-        :param gt: gas type
-        :return: the starting material or reactant with this gas type in a gas-phase reaction, or None
+        Returns the starting material or reactant carrying the given gas type.
+
+        :param gt: The gas type to look for
+        :return: The matching :class:`Sample`, or ``None`` if the reaction is not a gas schema or no
+            sample carries the gas type
         """
         if self.gas_schema:
             for mat in [*self.starting_materials, *self.reactants]:
@@ -1038,7 +1109,7 @@ class Reaction(AbstractElement):
 
     def update_amount(self):
         """
-        Resets the amount of all materials whose unit is no longer allowed.
+        Recomputes the amount of every material (sample) of the reaction.
         """
         for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
                     *self.purification_solvents]:
@@ -1046,7 +1117,7 @@ class Reaction(AbstractElement):
 
     def update_equivalent(self):
         """
-        Recomputes the equivalents of all materials.
+        Recomputes the molar equivalent of every material (sample) of the reaction.
         """
         for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
                     *self.purification_solvents]:
@@ -1061,62 +1132,161 @@ class Reaction(AbstractElement):
                 sample_obj = Sample(self._generic_segments, self._session, sample)
                 sample_obj.reaction = self
                 temp.append(sample_obj)
-            reaction_elements[reaction_elm_names] = MaterialList(self, reaction_elm_names, temp)
+            reaction_elements[reaction_elm_names] = MaterialList(self, cast(Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'], reaction_elm_names), temp)
 
         try:
-            timestamp_start = datetime.strptime(self.json_data.get('timestamp_start'), self.datetime_format)
-        except:
+            timestamp_start = datetime.strptime(cast(str, self.json_data.get('timestamp_start')), self.datetime_format)
+        except (ValueError, TypeError):
             timestamp_start = None
         try:
-            timestamp_stop = datetime.strptime(self.json_data.get('timestamp_stop'), self.datetime_format)
-        except:
+            timestamp_stop = datetime.strptime(cast(str, self.json_data.get('timestamp_stop')), self.datetime_format)
+        except (ValueError, TypeError):
             timestamp_stop = None
-        return reaction_elements | {
+
+        raw_dict = {
+            'name': self.json_data.get('name'),
+            'short_label': self.json_data.get('short_label'),
+            'status': self.json_data.get('status'),
+            'duration': self.json_data.get('duration'),
+            'temperature': self.json_data.get('temperature', {}),
+            'vessel_size': self.json_data.get('vessel_size', {}).get('amount') if isinstance(self.json_data.get('vessel_size'), dict) else self.json_data.get('vessel_size'),
+            'yield_value': self.json_data.get('yield') if self.json_data.get('yield') is not None else (
+                float(self.json_data['products'][0]['equivalent']) * 100.0 if (
+                    self.json_data.get('products') and self.json_data['products'][0].get('equivalent') is not None
+                ) else getattr(self, '_yield_value_cache', None)
+            ),
+            'tlc_description': self.json_data.get('tlc_description'),
+            'dangerous_products': self.json_data.get('dangerous_products'),
+            'description': self.json_data.get('description'),
+            'reaction_description': self.json_data.get('reaction_description') or self.json_data.get('description'),
+            'observation': self.json_data.get('observation'),
+            'user_labels': self.json_data.get('user_labels', []),
+            'vessel': self.json_data.get('vessel'),
+            'gas_schema': self.json_data.get('gaseous', False),
+            'position': self.json_data.get('position'),
+            'show_label': self.json_data.get('show_label'),
+            'rxno': self.json_data.get('rxno'),
+            'conditions': self.json_data.get('conditions'),
+            'purification': self.json_data.get('purification'),
+            'tlc_solvents': self.json_data.get('tlc_solvents'),
+            'rf_value': self.json_data.get('rf_value'),
+            'volume': self.json_data.get('volume'),
+            'use_reaction_volume': self.json_data.get('use_reaction_volume'),
+            'concentration_mode': self.json_data.get('concentration_mode'),
+            'weight_percentage': self.json_data.get('weight_percentage'),
+            'rinchi_string': self.json_data.get('rinchi_string'),
+            'rinchi_web_key': self.json_data.get('rinchi_web_key'),
+            'variations': self.json_data.get('variations')
+        }
+
+        from chemotion_api.models import ReactionPropertiesModel, UnitDictModel
+        validated = ReactionPropertiesModel.model_validate(raw_dict)
+
+        res = reaction_elements | {
             'timestamp_start': timestamp_start,
             'timestamp_stop': timestamp_stop,
-            'description': self.json_data.get('description'),
-            'name': self.json_data.get('name'),
-            'observation': self.json_data.get('observation'),
-            'purification': self.json_data.get('purification'),
-            'dangerous_products': self.json_data.get('dangerous_products'),
-            'conditions': self.json_data.get('conditions'),
+            'description': validated.description or validated.reaction_description or self.json_data.get('description'),
+            'name': validated.name,
+            'observation': validated.observation or self.json_data.get('observation'),
+            'purification': validated.purification or self.json_data.get('purification'),
+            'dangerous_products': validated.dangerous_products,
+            'conditions': validated.conditions or self.json_data.get('conditions'),
             'rinchi_long_key': self.json_data.get('rinchi_long_key'),
-            'rinchi_web_key': self.json_data.get('rinchi_web_key'),
+            'rinchi_web_key': validated.rinchi_web_key or self.json_data.get('rinchi_web_key'),
             'rinchi_short_key': self.json_data.get('rinchi_short_key'),
-            'duration': self.json_data.get('duration'),
-            'rxno': self.json_data.get('rxno'),
-            'temperature': Temperature(**self.json_data.get('temperature', {})),
-            'status': self.json_data.get('status'),
-            'vessel_size': self.json_data.get('vessel_size'),
-            'gaseous': self.json_data.get('gaseous')
-            # 'tlc_solvents': self.jreaction.properties['reactants']son_data.get('tlc_solvents'),
-            # 'tlc_description': self.json_data.get('tlc_description'),
-            # 'rf_value': self.json_data.get('rf_value'),
+            'rinchi_string': validated.rinchi_string or self.json_data.get('rinchi_string'),
+            'duration': validated.duration.to_dict() if isinstance(validated.duration, UnitDictModel) else (validated.duration or self.json_data.get('duration')),
+            'rxno': validated.rxno or self.json_data.get('rxno'),
+            'concentration_mode': validated.concentration_mode,
+            # `.get('temperature', {})` covers a missing key but not an explicit null, which
+            # would make this `Temperature(**None)` -> TypeError and abort the whole parse.
+            'temperature': Temperature(**(validated.temperature.to_dict() if validated.temperature
+                                          else (self.json_data.get('temperature') or {}))),
+            'status': validated.status,
+            'vessel_size': {'amount': validated.vessel_size, 'unit': self.json_data.get('vessel_size', {}).get('unit', 'ml')} if isinstance(self.json_data.get('vessel_size'), dict) else {'amount': validated.vessel_size, 'unit': 'ml'},
+            'gaseous': validated.gas_schema,
+            'yield': validated.yield_value,
+            'yield_value': validated.yield_value,
+            'tlc_solvents': validated.tlc_solvents or self.json_data.get('tlc_solvents'),
+            'rf_value': validated.rf_value or self.json_data.get('rf_value'),
+            'volume': validated.volume or self.json_data.get('volume'),
+            'use_reaction_volume': validated.use_reaction_volume or self.json_data.get('use_reaction_volume'),
+            'weight_percentage': validated.weight_percentage or self.json_data.get('weight_percentage'),
+            'variations': validated.variations or self.json_data.get('variations')
         }
+        return res
+
+
+    def _current_yield(self):
+        """The reaction yield in percent, preferring ``yield_value`` over ``yield``.
+
+        None-aware on purpose: ``0.0`` is a legitimate yield (failed reaction) and must not be
+        dropped the way an ``or``-chain would drop it.
+        """
+        yield_value = self.properties.get('yield_value')
+        return yield_value if yield_value is not None else self.properties.get('yield')
+
+    def save(self, load_after_save: bool = False):
+        """Save the reaction, first bringing the equivalents in line with the current amounts.
+
+        ``update_equivalent()`` deliberately runs here rather than in
+        :meth:`_clean_properties_data`: serialising must stay side-effect free, so that merely
+        inspecting or exporting a reaction does not alter the in-memory model.
+
+        :param load_after_save: If true, the element is reloaded from the server after saving
+        """
+        self.update_equivalent()
+        return super().save(load_after_save)
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         if serialize_data is None:
             serialize_data = {}
-        # The equivalents are sent to the server, make sure they fit the current amounts
-        self.update_equivalent()
+        reaction_yield = self._current_yield()
+        if reaction_yield is not None:
+            # Chemotion has no explicit yield field; it is persisted as the first product's
+            # `equivalent` (yield / 100). Multi-product reactions only carry yield on product[0].
+            products = self.properties.get('products') or []
+            if not products:
+                logger.warning("Reaction %s has no products; its yield (%r%%) cannot be persisted "
+                               "(Chemotion stores yield as product[0].equivalent) and will be lost on save.",
+                               getattr(self, 'id', '?'), reaction_yield)
+            else:
+                if len(products) > 1:
+                    logger.warning("Reaction %s has %d products; yield is stored only on the first product.",
+                                   getattr(self, 'id', '?'), len(products))
         serialize_data['materials'] = {}
         for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
             temp_json_sample = self.json_data[reaction_elm_names]
             serialize_data['materials'][reaction_elm_names] = []
             for sample in self.properties[reaction_elm_names]:
-                origen = next((x for x in temp_json_sample if x['id'] == sample.id), {})
-                serialize_data['materials'][reaction_elm_names].append(origen | sample.clean_data())
+                origen: dict = next((x for x in temp_json_sample if x['id'] == sample.id), {})
+                clean_s = sample.clean_data()
+                if 'attachments' in clean_s:
+                    del clean_s['attachments']
+                serialize_data['materials'][reaction_elm_names].append(origen | clean_s)
+
+        if reaction_yield is not None and serialize_data['materials']['products']:
+            # Applied to the serialised product rather than to `products[0]._properties`, which is
+            # a live object: writing there made *serialising* a reaction change the in-memory
+            # model, so inspecting or exporting one silently altered it. The wire format is
+            # unchanged — index 0 here is `self.properties['products'][0]`.
+            try:
+                serialize_data['materials']['products'][0]['equivalent'] = \
+                    float(reaction_yield) / 100.0
+            except (ValueError, TypeError) as e:
+                logger.warning("Could not persist reaction yield onto product[0].equivalent: %s", e)
 
         try:
-            timestamp_start = self.properties.get('timestamp_start').strftime(self.datetime_format)
-        except:
+            timestamp_start = cast(datetime, self.properties.get('timestamp_start')).strftime(self.datetime_format)
+        except (AttributeError, ValueError, TypeError):
             timestamp_start = ''
         try:
-            timestamp_stop = self.properties.get('timestamp_stop').strftime(self.datetime_format)
-        except:
+            timestamp_stop = cast(datetime, self.properties.get('timestamp_stop')).strftime(self.datetime_format)
+        except (AttributeError, ValueError, TypeError):
             timestamp_stop = ''
         serialize_data['name'] = self.properties.get('name')
-        serialize_data['description'] = quill_hedging(self.properties.get('description'), 'Description')
+        serialize_data['yield'] = self._current_yield()
+        serialize_data['description'] = quill_hedging(cast('str | dict', self.properties.get('description')), 'Description')
         serialize_data['dangerous_products'] = self.properties.get('dangerous_products')
         serialize_data['conditions'] = self.properties.get('conditions')
         serialize_data['duration'] = self.properties.get('duration')
@@ -1124,7 +1294,7 @@ class Reaction(AbstractElement):
         serialize_data['timestamp_start'] = timestamp_start
         serialize_data['timestamp_stop'] = timestamp_stop
         serialize_data['temperature'] = self.properties.get('temperature')
-        serialize_data['observation'] = quill_hedging(self.properties.get('observation'), 'Observation')
+        serialize_data['observation'] = quill_hedging(cast('str | dict', self.properties.get('observation')), 'Observation')
 
         serialize_data['status'] = self.properties.get('status')
         if self.properties.get('status') in STATUS_OPTIONS:
@@ -1132,23 +1302,40 @@ class Reaction(AbstractElement):
         else:
             serialize_data['status'] = self.json_data.get('status')
 
-        if isinstance(self.properties.get('purification'), list):
-            serialize_data['purification'] = [x for x in self.properties.get('purification') if
-                                              x in PURIFICATION_OPTIONS]
+        purif = self.properties.get('purification')
+        if isinstance(purif, list):
+            serialize_data['purification'] = [x for x in purif if x in PURIFICATION_OPTIONS]
         else:
-            serialize_data['purification'] = self.json_data.get('purification')
+            serialize_data['purification'] = purif if purif is not None else self.json_data.get('purification')
 
         if self.properties.get('vessel_size') is not None:
             serialize_data['vessel_size'] = self.properties.get('vessel_size')
 
         serialize_data['role'] = self.properties.get('role', '')
         serialize_data['gaseous'] = self.properties.get('gaseous')
-        serialize_data['tlc_solvents'] = self.json_data.get('tlc_solvents')
+        
+        def get_prop_or_json(name, default=None):
+            val = self.properties.get(name)
+            if val is not None:
+                return val
+            val_json = self.json_data.get(name)
+            if val_json is not None:
+                return val_json
+            return default
+
+        serialize_data['tlc_solvents'] = get_prop_or_json('tlc_solvents')
         serialize_data['tlc_description'] = self.json_data.get('tlc_description')
         serialize_data['reaction_svg_file'] = self.json_data.get('reaction_svg_file')
 
-        serialize_data['rf_value'] = self.json_data.get('rf_value')
-        serialize_data['rxno'] = self.json_data.get('rxno', '')
+        serialize_data['rf_value'] = get_prop_or_json('rf_value')
+        serialize_data['rxno'] = get_prop_or_json('rxno', '')
+        # v4 derives concentration_mode from `use_reaction_volume` only when the mode is
+        # absent, so sending the mode wins and the legacy boolean stays for older servers.
+        # Without this the client could never select 'combined' — the boolean has no value
+        # that maps to it.
+        _mode = get_prop_or_json('concentration_mode')
+        if _mode:
+            serialize_data['concentration_mode'] = _mode
         serialize_data['short_label'] = self.json_data.get('short_label')
         serialize_data['literatures'] = self.json_data.get('literatures')
 
@@ -1156,7 +1343,12 @@ class Reaction(AbstractElement):
         serialize_data['user_labels'] = self.json_data.get('user_labels')
         serialize_data['solvent'] = self.json_data.get('solvent')
 
-        serialize_data['variations'] = self._clean_variations()
+        serialize_data['volume'] = get_prop_or_json('volume')
+        serialize_data['use_reaction_volume'] = get_prop_or_json('use_reaction_volume', False)
+        serialize_data['weight_percentage'] = get_prop_or_json('weight_percentage', False)
+        serialize_data['rinchi_string'] = get_prop_or_json('rinchi_string')
+        serialize_data['rinchi_web_key'] = get_prop_or_json('rinchi_web_key')
+        serialize_data['variations'] = get_prop_or_json('variations') or self._clean_variations()
 
         return serialize_data
 
@@ -1194,6 +1386,100 @@ class Reaction(AbstractElement):
                 }
 
     def on_properties_change(self, dict_obj, name, value):
+        """
+        Validates and applies a change to one of the reaction's properties.
+
+        The proposed value is validated and coerced via ``ReactionPropertiesModel`` (with the
+        material lists excluded) and then dispatched to the appropriate side-effect handler (gas
+        schema, vessel size or yield cache).
+
+        :param dict_obj: The chain of dicts leading to the changed value
+        :param name: The chain of keys identifying the changed value
+        :param value: The chain of values, the last being the new value
+        :return: ``False``, as the handler applies the change itself
+        """
+        import copy
+        from pydantic import BaseModel
+        from chemotion_api.models import ReactionPropertiesModel
+
+        # 1. Build proposed dictionary state
+        current_dict = {}
+        for k, v in self._properties.items():
+            if k in ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
+                continue
+            if hasattr(v, 'to_dict'):
+                current_dict[k] = v.to_dict()
+            elif isinstance(v, list):
+                current_dict[k] = list(v)
+            else:
+                current_dict[k] = v
+
+        pydantic_dict = {
+            'name': current_dict.get('name'),
+            'short_label': current_dict.get('short_label'),
+            'status': current_dict.get('status'),
+            'duration': current_dict.get('duration'),
+            'temperature': current_dict.get('temperature'),
+            'vessel_size': current_dict.get('vessel_size', {}).get('amount') if isinstance(current_dict.get('vessel_size'), dict) else current_dict.get('vessel_size'),
+            'yield_value': current_dict.get('yield_value') if current_dict.get('yield_value') is not None else current_dict.get('yield'),
+            'tlc_description': current_dict.get('tlc_description'),
+            'dangerous_products': current_dict.get('dangerous_products'),
+            'description': current_dict.get('description'),
+            'reaction_description': current_dict.get('reaction_description') or current_dict.get('description'),
+            'observation': current_dict.get('observation'),
+            'user_labels': current_dict.get('user_labels'),
+            'vessel': current_dict.get('vessel'),
+            'gas_schema': current_dict.get('gaseous'),
+            'position': current_dict.get('position'),
+            'show_label': current_dict.get('show_label')
+        }
+
+        proposed_dict = copy.deepcopy(pydantic_dict)
+        pyd_name = list(name)
+        if pyd_name[0] == 'gaseous':
+            pyd_name[0] = 'gas_schema'
+        elif pyd_name[0] == 'yield':
+            pyd_name[0] = 'yield_value'
+        elif pyd_name[0] == 'vessel_size' and len(pyd_name) > 1 and pyd_name[1] == 'amount':
+            pyd_name = ['vessel_size']
+
+        temp = proposed_dict
+        for key in pyd_name[:-1]:
+            if key not in temp:
+                temp[key] = {}
+            temp = temp[key]
+        temp[pyd_name[-1]] = value[-1]
+
+        # Validate proposed dict using ReactionPropertiesModel
+        validated = ReactionPropertiesModel.model_validate(proposed_dict)
+
+        # Get coerced value
+        coerced_val = validated
+        for key in pyd_name:
+            if isinstance(coerced_val, BaseModel):
+                coerced_val = getattr(coerced_val, key)
+            elif isinstance(coerced_val, dict):
+                coerced_val = coerced_val[key]
+            else:
+                coerced_val = getattr(coerced_val, key)
+
+        from chemotion_api.models import UnitDictModel
+        from chemotion_api.utils import UnitDict
+        if isinstance(coerced_val, UnitDictModel):
+            if name[0] == 'temperature':
+                coerced_val = Temperature(**coerced_val.model_dump())
+            else:
+                coerced_val = UnitDict(unit=coerced_val.unit, value=coerced_val.value)
+
+        # Write coerced value to dict_obj[-1]
+        dict_obj[-1][name[-1]] = coerced_val
+        value[-1] = coerced_val
+        if name[0] in ['yield', 'yield_value']:
+            dict_obj[-1]['yield'] = coerced_val
+            dict_obj[-1]['yield_value'] = coerced_val
+            self._yield_value_cache = coerced_val
+
+        # Execute original handlers
         if name[-1] == 'gaseous':
             self.gas_schema = value[-1]
             return False
@@ -1201,7 +1487,9 @@ class Reaction(AbstractElement):
             self._properties['vessel_size'] = value[-1]
             self.update_amount()
             return False
-        return True
+
+        return False
+
 
     def _variation_segment_klasses(self) -> dict[str, dict]:
         return {klass.get('label'): klass for klass in self._generic_segments.all_classes

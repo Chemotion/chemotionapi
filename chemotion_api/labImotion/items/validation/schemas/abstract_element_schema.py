@@ -51,6 +51,10 @@ generic_element_schema = {
         "updated_at": {
             "type": "string"
         },
+        # ELN v4 / LabIMotion 2.3 additions.
+        "metadata": {
+            "type": ["object", "null"]
+        },
     },
     "additionalProperties": False,
     "required": [
@@ -66,6 +70,8 @@ generic_element_schema = {
         "released_at",
         "identifier",
         "sync_time",
+        # created_by / updated_by are deliberately NOT required: ELN v4 stopped exposing them on
+        # klass entities. Requiring a field the server no longer sends would reject every klass.
         "created_at",
         "updated_at",
     ]

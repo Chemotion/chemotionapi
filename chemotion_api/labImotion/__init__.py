@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 import re
 import string
 from collections.abc import Callable
@@ -331,7 +332,15 @@ class GenericManager:
             file_path = unquote(parsed_url.path)
             if file_path.startswith('/'):
                 file_path = file_path[1:]  # Remove leading slash
-            file_path = os.path.join(cwd, 'schemas', file_path)
+            # `unquote` decodes %2e%2e%2f, so a schema key containing `..` would escape the
+            # output directory. The keys come from the in-repo SchemaRegistry today, so this is
+            # not reachable from untrusted data — but it is the only write site in the package
+            # that does not enforce containment, and it is the obvious regression if schema keys
+            # ever become loadable from a crate or a server.
+            base = Path(cwd) / 'schemas'
+            file_path = str((base / file_path).resolve())
+            if not Path(file_path).is_relative_to(base.resolve()):
+                raise ValueError(f"Schema key {schema_key!r} escapes the output directory")
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path + '.json', 'w', encoding='utf-8') as f:
                 f.write(json.dumps(schema_entry.contents, indent=4))
