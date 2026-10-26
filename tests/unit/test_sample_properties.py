@@ -328,3 +328,19 @@ def test_save_refuses_when_the_full_record_never_loaded():
 
     with pytest.raises(ConnectionError, match=r'could not be loaded.*would discard data'):
         sample.save()
+
+
+def test_a_nested_write_into_a_flattened_field_explains_itself():
+    """`vessel_size` is kept as a scalar amount, so `['unit']` has nowhere to go.
+
+    This used to walk into the float and raise
+    `TypeError: argument of type 'float' is not iterable`, which says nothing about the mistake.
+    """
+    reaction = _reaction([_sample(1)])
+    reaction._properties['description'] = {'ops': []}
+    reaction._properties['observation'] = {'ops': []}
+    # set underneath the handler: the model keeps vessel_size as the scalar amount
+    reaction._properties['vessel_size'] = {'amount': 2.0, 'unit': 'l'}
+
+    with pytest.raises(ValueError, match=r"'vessel_size' is stored as a single value"):
+        reaction.properties['vessel_size']['unit'] = 'ml'

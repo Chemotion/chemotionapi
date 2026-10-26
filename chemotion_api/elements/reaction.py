@@ -858,6 +858,15 @@ class Temperature(dict):
             {'time': f'{str(hour).zfill(2)}:{str(minute).zfill(2)}:{str(second).zfill(2)}', 'value': str(temperature)})
 
 
+def _flattened_field_error(pyd_name: list[str]) -> ValueError:
+    """Explain a nested write into a field the model keeps as a scalar."""
+    field = pyd_name[0]
+    return ValueError(
+        f"{field!r} is stored as a single value, not a mapping, so "
+        f"properties[{field!r}][{pyd_name[-1]!r}] cannot be set. Assign the whole field instead, "
+        f"e.g. properties[{field!r}] = <value>.")
+
+
 class Reaction(AbstractElement):
     """
     A chemotion Reaction object.
@@ -1472,9 +1481,17 @@ class Reaction(AbstractElement):
 
         temp = proposed_dict
         for key in pyd_name[:-1]:
+            if not isinstance(temp, dict):
+                raise _flattened_field_error(pyd_name)
             if key not in temp:
                 temp[key] = {}
             temp = temp[key]
+        if not isinstance(temp, dict):
+            # The model stores some fields flattened to a scalar — `vessel_size` is its amount,
+            # not a {value, unit} mapping. Walking into one used to end in
+            # `TypeError: argument of type 'float' is not iterable`, which says nothing about
+            # what the caller did wrong.
+            raise _flattened_field_error(pyd_name)
         temp[pyd_name[-1]] = value[-1]
 
         # Validate proposed dict using ReactionPropertiesModel
