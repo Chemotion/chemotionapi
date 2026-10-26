@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ['*']
+    # Release tags only. The repo also carries non-release tags (0.3.x from the old history,
+    # and backup refs), and every tag that matches here reaches the publish job below.
+    tags: ['v*']
   pull_request:
 
 jobs:
@@ -70,6 +72,20 @@ jobs:
         with:
           enable-cache: true
 
+      # Fail here, loudly, rather than at upload. PyPI rejects a re-upload of an existing
+      # version, so a tag that does not match pyproject.toml otherwise dies several minutes
+      # later with "File already exists" — which reads like a PyPI problem, not a tagging one.
+      - name: Tag must match the project version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(uv version --short)"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag '${GITHUB_REF_NAME}' does not match pyproject version '${version}'"
+            echo "Retag, or correct the version, so the two agree before releasing."
+            exit 1
+          fi
+          echo "tag ${GITHUB_REF_NAME} matches version ${version}"
+
       - name: Build
         run: uv build
 
@@ -107,7 +123,6 @@ jobs:
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
 
-# NOTE: no test job yet. The suite currently in tests/ needs a live Chemotion server
-# (tests/conftest.py boots one via test_config/), so it cannot run on a clean runner. The
-# offline suite and its dockerized integration environment arrive with the test-environment
-# change, which adds the test job here.
+# NOTE: the integration suite is not run here. It needs a live Chemotion ELN stack
+# (tests/test_config/compose.yml) and a reseeded database, which is a ~2 GB pull — too heavy
+# for every push. Run it locally with `just test-integration`.

@@ -41,6 +41,12 @@ docs = [
     "enum-tools[sphinx]>=0.12",
 ]
 
+[tool.uv]
+# A floor, not a dependency: we never import certifi, it arrives through requests. Earlier
+# releases ship the emSign root that was distrusted after the eMudhra key compromise
+# (2026-10-20), so a resolve must not quietly pick one up again.
+constraint-dependencies = ["certifi>=2026.10.19"]
+
 [tool.ruff]
 target-version = "py314"
 
