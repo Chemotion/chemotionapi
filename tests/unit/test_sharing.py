@@ -97,13 +97,13 @@ def test_unshare_revokes_only_the_named_users():
     assert calls[1][1] == "/api/v1/collection_shares/12"
 
 
-def test_unshare_with_no_users_revokes_everything():
+def test_unshare_all_revokes_everything():
     col, calls = _collection([
         _shares_response((11, 1), (12, 2)),
         types.SimpleNamespace(status_code=204, text=""),
         types.SimpleNamespace(status_code=204, text=""),
     ])
-    assert col.unshare() == 2
+    assert col.unshare(all=True) == 2
     assert [c[1] for c in calls if c[0] == "DELETE"] == [
         "/api/v1/collection_shares/11", "/api/v1/collection_shares/12"]
 
@@ -113,7 +113,7 @@ def test_unshare_treats_an_already_gone_share_as_revoked():
         _shares_response((11, 1)),
         types.SimpleNamespace(status_code=404, text="not found"),
     ])
-    assert col.unshare() == 1
+    assert col.unshare(all=True) == 1
 
 
 def test_unshare_raises_on_a_real_failure():
@@ -122,7 +122,7 @@ def test_unshare_raises_on_a_real_failure():
         types.SimpleNamespace(status_code=403, text="Forbidden"),
     ])
     with pytest.raises(ConnectionError, match="403"):
-        col.unshare()
+        col.unshare(all=True)
 
 
 def test_dead_sharing_attributes_are_gone():
@@ -254,3 +254,21 @@ def test_update_share_maps_the_documented_failures(status, exc):
     session = _RecordingSession(status=status, body=b"nope")
     with pytest.raises(exc):
         _collection_with_session(session).update_share(7, detail_level=1)
+
+
+def test_unshare_with_no_users_refuses_instead_of_revoking_everything():
+    """`col.unshare(*to_remove)` with an empty list must not mean "revoke everyone".
+
+    An empty list is an ordinary result of filtering, and `share()` already refuses one. The
+    destructive inverse should be at least as hard to trigger by accident.
+    """
+    col, calls = _collection([])
+    with pytest.raises(ValueError, match=r'unshare\(all=True\)'):
+        col.unshare()
+    assert [c for c in calls if c[0] == "DELETE"] == []
+
+
+def test_unshare_rejects_users_and_all_together():
+    col, _ = _collection([])
+    with pytest.raises(ValueError, match="not both"):
+        col.unshare(_User(2), all=True)

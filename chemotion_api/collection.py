@@ -1077,12 +1077,14 @@ class Collection(AbstractEditableCollection):
             raise ConnectionError(f"{res.status_code} -> {res.text}")
         return res.json().get('collection_shares', [])
 
-    def unshare(self, *users: Person | Group) -> int:
+    def unshare(self, *users: Person | Group, all: bool = False) -> int:
         """Revoke this collection's shares — the counterpart to :meth:`share`.
 
-        :param users: the users and/or groups to revoke. With none given, **every** share on this
-            collection is revoked.
+        :param users: the users and/or groups to revoke.
+        :param all: revoke **every** share on this collection. Required when no users are given.
         :return: how many shares were removed.
+
+        :raises ValueError: if called with no users and without ``all=True``.
 
         :raises ConnectionError: if listing or deleting fails.
 
@@ -1090,6 +1092,15 @@ class Collection(AbstractEditableCollection):
         listed first and matched on ``shared_with_id``. A share that is already gone (404) counts
         as revoked.
         """
+        if not users and not all:
+            # `col.unshare(*to_remove)` with an empty list is an ordinary result of filtering, and
+            # used to mean "revoke everything". `share()` already refuses an empty target list;
+            # the destructive inverse should be at least as hard to trigger by accident.
+            raise ValueError(
+                'unshare() with no users does nothing by default. Pass the users to revoke, or '
+                'unshare(all=True) to revoke every share on this collection.')
+        if users and all:
+            raise ValueError('Pass either users or all=True, not both.')
         wanted = {user.id for user in users}
         session = self.get_root()._session
         removed = 0
