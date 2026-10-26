@@ -40,7 +40,6 @@ class GenericElement(AbstractElement, WorkflowInterface):
     ``elem.segments.available()``.
 
 
-
     """
 
     def _set_json_data(self, json_data: dict):

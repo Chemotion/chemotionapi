@@ -273,7 +273,6 @@ class Analyses(AttrAccessMixin, dict):
             d.json_data['is_new'] = False
 
 
-
 class AnalysesList(list):
     """
     List of :class:`chemotion_api.elements.abstract_element.Analyses`.

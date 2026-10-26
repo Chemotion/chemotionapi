@@ -17,13 +17,21 @@ sync:
 test:
     cd tests && uv run pytest -q
 
-# run the pure-logic unit subset (what CI runs); NO_SETUP=1 keeps the test ELN untouched
+# run the pure-logic unit subset only (CI runs the whole offline suite via `just test`);
+# NO_SETUP=1 keeps the test ELN untouched
 test-unit:
     cd tests && NO_SETUP=1 uv run pytest unit -q
 
 # NO_SETUP=0 boots the docker stack and resets the DB from the committed seed, then runs the integration suite
 test-integration:
     cd tests && NO_SETUP=0 uv run pytest -m integration -q
+
+# offline-suite coverage report, gated at the floor in pyproject.toml.
+# addopts is overridden on purpose: pytest.ini defaults to --forked, which runs each test in its
+# own subprocess, so coverage would see only import-time execution (it reported 27.7% that way).
+cov:
+    uv run coverage run -m pytest tests -q -o 'addopts=-m "not integration"'
+    uv run coverage report
 
 # static type checking
 mypy:
@@ -40,9 +48,8 @@ lint-fix:
 # ruff + mypy — the static gate, and exactly what CI enforces on every push and PR
 static: lint mypy
 
-# The local gate: lint + types + the offline suite. Needs no server — conftest.py defaults to
-# NO_SETUP=1 and tests/pytest.ini deselects the integration tests. Run those separately against
-# a stack with `just test-integration`.
+# the local gate: lint + types + the offline suite. Needs no server — tests/pytest.ini sets
+# `addopts = -m "not integration"` and conftest auto-marks the server-dependent tests.
 check: lint mypy test
 
 # build the Sphinx documentation → docs/_build/html/index.html

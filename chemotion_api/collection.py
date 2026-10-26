@@ -778,7 +778,6 @@ class RootCollection(AbstractCollection):
     collections and creating new collections
 
 
-
     Usage::
 
     >>> from chemotion_api import Instance
