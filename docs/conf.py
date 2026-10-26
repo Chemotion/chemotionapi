@@ -44,9 +44,9 @@ templates_path = ['_templates']
 # __init__ docstring.
 autodoc_member_order = 'bysource'
 autoclass_content = 'both'
-# Let the docs build without rdflib installed; autodoc only needs to import the modules to read
-# signatures and docstrings.
-autodoc_mock_imports = ['rdflib']
+# Nothing in this half needs mocking: autodoc imports the package in the project environment,
+# and every runtime dependency is installed there.
+autodoc_mock_imports = []
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
