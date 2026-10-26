@@ -1,6 +1,9 @@
 import json
+import warnings
 from typing import Self
 from collections.abc import Callable
+
+from jsonschema.exceptions import ValidationError
 
 from chemotion_api.connection import Connection
 from chemotion_api.labImotion.items.genericproperties import GenericProperties
@@ -29,11 +32,11 @@ class GenericObj(ChemotionSerializable):
         self._label = json_data['label']
         self._desc = json_data['desc']
         self._is_generic = json_data.get('is_generic', True)
-        sr = StructureRegistry(self)
+        self._sr = StructureRegistry(self)
         self._properties = None
+        self._release: GenericProperties | None = None
         if self.is_generic:
-            self._properties = GenericProperties(json_data['properties_template'], self.element_type, sr)
-            self._release = GenericProperties(json_data['properties_release'], self.element_type, sr)
+            self._properties = GenericProperties(json_data['properties_template'], self.element_type, self._sr)
 
     def to_dict(self):
         if self.is_generic:
@@ -138,6 +141,12 @@ class GenericObj(ChemotionSerializable):
 
     @property
     def release(self) -> GenericProperties | None:
+        """
+        The released version of the template (read only). It is parsed on first access, so a template
+        with an invalid release copy can still be loaded and repaired by releasing it again.
+        """
+        if self._release is None and self.is_generic and self._json_data.get('properties_release'):
+            self._release = GenericProperties(self._json_data['properties_release'], self.element_type, self._sr)
         return self._release
 
     @property
@@ -159,7 +168,14 @@ class GenericObj(ChemotionSerializable):
         raise NotImplementedError()
 
     @classmethod
-    def load_all(cls, con: Connection) -> list[Self]:
+    def load_all(cls, con: Connection, strict: bool = False) -> list[Self]:
+        """
+        Loads all templates of this kind.
+
+        :param con: the connection
+        :param strict: if True, an invalid template raises an error. Otherwise, it is skipped with a warning
+        :return: all (valid) templates
+        """
         if cls.url is None:
             return []
         res = con.get(cls.url)
@@ -168,7 +184,12 @@ class GenericObj(ChemotionSerializable):
         return_val = list()
         klass_list = res.json()['klass']
         for obj in klass_list:
-            return_val.append(cls(obj, con))
+            try:
+                return_val.append(cls(obj, con))
+            except (ValidationError, KeyError, TypeError, ValueError) as e:
+                if strict:
+                    raise
+                warnings.warn(f"Skipped invalid {cls.__name__} '{obj.get('label')}' (id={obj.get('id')}): {e}")
         return return_val
 
     @classmethod

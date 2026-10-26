@@ -4,20 +4,21 @@ Getting Started
 
 Installation/Usage:
 *******************
-The package has been published on PyPi, it can be install using pip.
+The package has been published on PyPi, it can be installed using pip. It needs Python 3.13 or 3.14.
 
 .. code-block:: bash
 
     pip install chemotion-api
 
-``imagemagick`` & ``PostgreSQL`` must also be installed.
-For instructions about how to install, as well as the full documentation of, ``imagemagick`` please refer `here <https://imagemagick.org/index.php>`__.
-For instructions about how to install, as well as the full documentation of, ``PostgreSQL`` please refer `here <https://www.postgresql.org/>`__.
+The package uses `python-magic <https://pypi.org/project/python-magic/>`__ to detect the type of uploaded files,
+so the ``libmagic`` library must also be installed (see below).
 
-Installing imagemagick
+The instance CLI (Example 4) additionally needs `Docker <https://docs.docker.com/>`__ with Docker Compose,
+and the PostgreSQL client tools (``pg_dump``, ``pg_restore``, ``createdb``, ``dropdb``) for ``backup`` and ``restore``.
+For instructions about how to install ``PostgreSQL`` please refer `here <https://www.postgresql.org/>`__.
+
+Installing libmagic
 _________________________
-
-To prevent problems!
 
 **Debian/Ubuntu**
 
@@ -39,7 +40,7 @@ You'll need DLLs for libmagic. @julian-r maintains a pypi package with the DLLs,
 * When using Homebrew: brew install libmagic
 * When using macports: port install file
 
-Example 1) Create a new Reacton
+Example 1) Create a new Reaction
 **************************************************
 .. code-block:: python
 
@@ -48,8 +49,8 @@ Example 1) Create a new Reacton
 
     1) We will login to a locally running Instance of chemotion
     2) We will create a new collection
-    3) We will create 2 new samples and add some sample Properties
-    4) We finally crate a new Reaction.
+    3) We will create 3 new samples and add some sample Properties
+    4) We finally create a new Reaction.
     """
     import datetime
 
@@ -91,15 +92,16 @@ Example 1) Create a new Reacton
         sample_res: Sample = project_col.new_sample_smiles('[Cu+2]([NH3])([NH3])([NH3])([NH3])[Cl-].[Cl-]')
         sample_res.save()
 
-        # Create a new Reacton
+        # Create a new Reaction
         reaction: Reaction = project_col.new_reaction()
 
-        # Add sample to the Reacton
+        # Add samples to the Reaction. Starting materials and reactants are added as splits,
+        # products as copies of the samples.
         reaction.properties['starting_materials'].append(sample_amm)
         reaction.properties['reactants'].append(sample_copper)
         reaction.properties['products'].append(sample_res)
 
-        # Add temperature profile to the Reacton
+        # Add temperature profile to the Reaction
         reaction.properties['temperature'].add_time_point(hour=0,minute=0,second=0, temperature=50)
         reaction.properties['temperature'].add_time_point(hour=1,minute=0,second=0, temperature=100)
         # Save reaction
@@ -114,7 +116,7 @@ Example 2) Share a Collection
     This Example shows all necessary steps to share a collection.
 
     1) Create a group
-    2) Find all user
+    2) Find all users
     3) Share collection
     """
 
@@ -145,8 +147,6 @@ Example 2) Share a Collection
         stg.add_users(*users)
         # Share collection with STG
         instance.get_root_collection().get_collection('Main Test').share(SyncPermission.Write, stg)
-        # Save reaction
-        reaction.save()
 
 Example 3) Upload/Load Attachment
 **************************************************
@@ -154,15 +154,13 @@ Example 3) Upload/Load Attachment
 .. code-block:: python
 
     """
-    In This example we load a Research Plan and add an attachment
+    In this example we load a Research Plan and add an attachment
 
     1) Load a Research Plan
     2) Add an attachment
     3) Save an attachment as file
     """
-
-    from chemotion_api.collection import SyncPermission
-    from chemotion_api.user import Person, Group
+    import os
 
     from chemotion_api import Instance
 
@@ -178,13 +176,15 @@ Example 3) Upload/Load Attachment
         except PermissionError:
             # Exit if Login fails
             exit(2)
-        # Get your user data
+        # Load the research plan with ID 1
         s = instance.get_research_plan(1)
 
         s.attachments.add_file('./GeneralSetup.png')
-        s.save()
+        # Save and reload the research plan. New attachments can only be loaded after reloading.
+        s.save(load_after_save=True)
 
-        f = s.attachments.load_attachment(filename="./GeneralSetup.png")
+        # Attachments are found by their file name, without the directory
+        f = s.attachments.load_attachment(filename="GeneralSetup.png")
         os.makedirs('./TEST_TO_DEL', exist_ok=True)
         f.save_file('./TEST_TO_DEL')
 
@@ -209,7 +209,7 @@ THE CLI tool is only for development & test usages. For Productive Instances ple
 
 .. code-block:: sh
 
-    # This Example shows all necessary steps to share a collection.
+    # This Example shows all necessary steps to create, back up and restore an instance.
     #
     # 1) Create a Instance
     # 2) Make a backup
@@ -224,23 +224,24 @@ THE CLI tool is only for development & test usages. For Productive Instances ple
     Commands:
       available-versions    Fetch all available Version of Chemotion
       backup                Make a dump of the Chemotion PostgreSQL
-      change-port           Change the from the host system available port of...
-      change-postgres-port  Update the Chemotion version in a docker compose...
+      change-port           Change the port on which the ELN can be reached...
+      change-postgres-port  Change the port on which the ELN DB can be...
       check                 Check all running containers
-      down                  Same as docker-compose down <services>
-      new                   Create a new docker-compose file and all needed...
+      down                  Same as docker compose down <services>
+      insert-dataset        Insert a dataset.
+      new                   Create a new docker-compose file with all...
       restore               Restore a ProstgreSQL dump.
-      stop                  Same as docker-compose stop <services>
-      up                    Same as docker-compose up <services>
-      update-version        Updated the version of a docker-compose file
+      stop                  Same as docker compose stop <services>
+      up                    Same as docker compose up <services>
+      update-version        Updated the version of Chemotion instance
 
-    # Create a new Instance
+    # Create a new Instance (the first prompt asks for the docker compose file path)
     > chemotion_api new
     Your name [./docker-compose.yml]:
-    Specify a version [latest]: 1.9.3
+    Specify a version [latest]:
     Public ELN url [http://localhost:<ELN_PORT>]:
     Port on which the ELN can be reached [4000]:
-    Port on which the PostgreSQL can be reached [5432]:
+    Port on which the Postgres DB can be reached [5432]:
     Port on which the Adminer can be reached [8080]:
 
     # Run Instance
@@ -248,10 +249,12 @@ THE CLI tool is only for development & test usages. For Productive Instances ple
 
     # Make a DB backup
     > chemotion_api backup
-    Your tar dump file [<db_name>_<time_stamp>.tar]: test_dump.tar
+    Output tar dump file [<db_name>_<time_stamp>.tar]: test_dump.tar
 
 
     # Restore a DB backup
-    > chemotion_api chemotion_api restore
+    > chemotion_api restore
     Your tar dump file: test_dump.tar
+
+Every command has a ``--help`` option listing all of its options, e.g. ``chemotion_api backup --help``.
 

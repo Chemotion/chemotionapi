@@ -1,6 +1,4 @@
 import copy
-import re
-import string
 import uuid
 from enum import Enum
 
@@ -9,7 +7,7 @@ from chemotion_api.labImotion.items.layer import Layer
 from chemotion_api.labImotion.items.validation import validate_selection_options, validate_generic_properties, \
     validate_generic_dataset_properties, validate_generic_segment_properties
 from chemotion_api.labImotion.structure import StructureRegistry
-from chemotion_api.labImotion.utils import ChemotionSerializable
+from chemotion_api.labImotion.utils import ChemotionSerializable, generate_key
 from chemotion_api.utils import FixedDict
 
 
@@ -48,7 +46,7 @@ class GenericProperties(ChemotionSerializable):
             json_data = self._json_data
         if self._element_type == ElementType.DATASET:
             validate_generic_dataset_properties(json_data)
-        if self._element_type == ElementType.SEGMENT:
+        elif self._element_type == ElementType.SEGMENT:
             validate_generic_segment_properties(json_data)
         else:
             validate_generic_properties(json_data)
@@ -147,18 +145,37 @@ class GenericProperties(ChemotionSerializable):
         validate_selection_options(value)
         self._select_options = value
 
-    def add_select_option(self, key: str, vals: list[str]):
-        self.select_options[key] = {'options': [{'key': val, 'label': val} for val in vals]}
+    def add_select_option(self, key: str, vals: list[str]) -> str:
+        """
+        Adds a select option list (option layer) that SELECT fields can use via ``field.option_layers``.
+
+        :param key: the name of the option list. It is turned into a valid key (3-12 letters or '_') and
+            made unique
+        :param vals: the options
+        :return: the key of the new option list
+        """
+        if not isinstance(vals, list) or not all(isinstance(v, str) for v in vals):
+            raise TypeError('vals must be a list of strings')
+        key = generate_key(key, list(self.select_options), max_len=12, fallback='opt')
+        self.select_options = self.select_options | {key: {'options': [{'key': val, 'label': val} for val in vals]}}
+        return key
 
     def add_new_layer(self, label: str, key: str = '', idx: int = -1) -> Layer:
+        """
+        Adds a new layer to the template.
+
+        :param label: the label shown in Chemotion
+        :param key: the key of the layer (3-22 letters or '_'). If empty, it is generated from the label
+        :param idx: the position of the layer. Negative values append the layer
+        :return: the new layer
+
+        :raises ValueError: if the key is already used
+        """
         all_keys = [l.key for l in self.layers]
         if key == '':
-            key = re.sub(r'[^a-z]', '_', label.lower())
-        t_key = key
-        i = 0
-        while key in all_keys or key.endswith('_'):
-            key = t_key + string.ascii_lowercase[i]
-            i += 1
+            key = generate_key(label, all_keys, fallback='layer')
+        elif key in all_keys:
+            raise ValueError(f'A layer with the key "{key}" already exists')
         new_layer = Layer.generate_new_layer(self._sr, key, label)
         if idx < 0 :
             self.layers.append(new_layer)

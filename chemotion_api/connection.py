@@ -1,9 +1,59 @@
 import json
+import re
 
 import requests
 from dateutil.parser import parse as parsedate
-from requests.exceptions import ConnectionError as CError
+from requests.exceptions import ConnectionError as CError, RequestException
 from chemotion_api.schema_manager import SchemaManager
+
+
+class ChemotionRequestError(RequestException):
+    """
+    Raised if the Chemotion server rejects a request. It extends ``requests.exceptions.RequestException``.
+
+    :ivar status_code: HTTP status of the response
+    :ivar method: HTTP method of the request
+    :ivar url: URL of the request
+    :ivar context: description of the object the request was about (e.g. ``sample 12``), or None
+    :ivar snippet: short version of the response body (the title of an HTML error page)
+    """
+
+    def __init__(self, response: requests.Response, context: str | None = None):
+        self.status_code = response.status_code
+        self.method = response.request.method if response.request is not None else None
+        self.url = response.request.url if response.request is not None else response.url
+        self.context = context
+        self.snippet = self._snippet(response)
+        message = f'{self.status_code} -> {self.snippet} [{self.method} {self.url}]'
+        if context:
+            message += f' ({context})'
+        super().__init__(message, response=response)
+
+    @staticmethod
+    def _snippet(response: requests.Response, max_length: int = 500) -> str:
+        text = response.text or ''
+        if '<html' in text[:200].lower():
+            title = re.search(r'<title>(.*?)</title>', text, re.IGNORECASE | re.DOTALL)
+            return title.group(1).strip() if title else 'HTML error page'
+        return text if len(text) <= max_length else text[:max_length] + '...'
+
+
+class ChemotionServerError(ChemotionRequestError):
+    """
+    Raised if the Chemotion server fails with a 5xx status. This is usually a server-side bug triggered by
+    invalid data, e.g. a sample without a valid molecule.
+    """
+
+
+def request_error(response: requests.Response, context: str | None = None) -> ChemotionRequestError:
+    """
+    :param response: the failed response
+    :param context: description of the object the request was about
+    :return: a :class:`ChemotionServerError` for 5xx responses, otherwise a :class:`ChemotionRequestError`
+    """
+    if response.status_code >= 500:
+        return ChemotionServerError(response, context)
+    return ChemotionRequestError(response, context)
 
 
 class Connection(requests.Session):

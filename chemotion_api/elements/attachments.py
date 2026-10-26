@@ -9,12 +9,14 @@ import requests
 
 from chemotion_api.connection import Connection
 from chemotion_api.elements.analyses_manager import AnalysesManager
+from chemotion_api.utils import AttrAccessMixin
 
 
-class Attachment(dict):
+class Attachment(AttrAccessMixin, dict):
     """
-    Attachment are a dict object to read one attachment of an element.
-    It allows to load Attachments as bytes or save it to a file.
+    An Attachment is a dict object to read one attachment of an element.
+    It allows to load Attachments as bytes or save it to a file. Its keys (e.g. ``id``, ``filename``) can be
+    read as attributes as well: ``att.filename`` is ``att['filename']``.
 
     Usage::
 
@@ -52,9 +54,11 @@ class Attachment(dict):
         """
         Loads an attachment file to your local filesystem
 
-        :param directory: path to the directory where the file shell be saved
+        :param directory: path to the directory where the file shall be saved
 
         :return: full path to the file
+
+        :raises NotADirectoryError: if the directory does not exist
         """
         if not os.path.isdir(directory):
             raise NotADirectoryError(f"{directory} is not a directory")
@@ -71,9 +75,9 @@ class Attachment(dict):
 class Attachments(Sequence):
     """
     Attachments is a container object to manage (read/write) all attachments of an element.
-    Each attachemnt is a :class:`chemotion_api.elements.attachments.Attachment`.
+    Each attachment is a :class:`chemotion_api.elements.attachments.Attachment`.
     It allows to load Attachments or add new ones.
-    Attachment can be iterated!
+    Attachments can be iterated and indexed!
 
 
     Usage::
@@ -121,8 +125,9 @@ class Attachments(Sequence):
     def load_attachment(self, id: str | int | None = None, identifier: str | None = None,
                         filename: str | None = None) -> Attachment:
         """
-        Loads an attachment from the server. One of the parameters Id, Identifier or filename must be set in order to find the desired attachment.
+        Finds an attachment. One of the parameters Id, Identifier or filename must be set in order to find the desired attachment.
         If Id is set, all other parameters are ignored; if Identifier is set, filename is ignored.
+        Only saved attachments are found: reload the element after adding a file (``element.save(True)``).
 
         :param id: DB id of the attachment
         :param identifier: UUID of the attachment
@@ -150,7 +155,7 @@ class Attachments(Sequence):
 
     def add_file(self, file_path: str) -> dict:
         """
-        Adds a file to the elements attachment container
+        Adds a file to the elements attachment container. The file is uploaded when the element is saved.
 
         :param file_path: Path to the file to be uploaded on your device
 
@@ -195,7 +200,7 @@ class Attachments(Sequence):
         Updates or creates the Attachments of an Element after saving it!
 
         :param id: ID of the element
-        :param element_type: must be in 'Element' or 'ResearchPlan'
+        :param element_type: attachable type in CamelCase, e.g. 'Element' (generic elements), 'ResearchPlan' or 'Sample'
 
         :return: response of the request
         """
@@ -221,7 +226,8 @@ class Attachments(Sequence):
 
 class MutableAttachments(Attachments):
     """
-    Same as :class:`chemotion_api.elements.attachments.Attachments` only add File is not allowed.
+    Attachments of an analysis dataset. Same as :class:`chemotion_api.elements.attachments.Attachments`, but
+    files can only be added through :meth:`chemotion_api.elements.abstract_element.Analyses.add_dataset`.
     """
 
     def __init__(self, con: Connection, attachment_data: list[dict] = None, *file_paths: str):

@@ -18,7 +18,6 @@ class DummyField(BaseField):
         self._parse_json()
 
 
-
 class CheckboxField(BaseField):
     field_type = FieldType.CHECKBOX
 
@@ -33,18 +32,7 @@ class DatetimeField(BaseField):
     def __init__(self, sr: StructureRegistry, layer_key: str, json_data: dict):
         super().__init__(sr, layer_key, json_data)
         self._readonly = False
-        self._required = False
         self._parse_json()
-
-    @property
-    def required(self) -> bool:
-        return self._required
-
-    @required.setter
-    def required(self, value: bool):
-        if not isinstance(value, bool):
-            raise TypeError(f"required {type(value)} not supported")
-        self._required = value
 
     @property
     def readonly(self) -> bool:
@@ -193,18 +181,7 @@ class IntegerField(BaseField):
 
     def __init__(self, sr: StructureRegistry, layer_key: str, json_data: dict):
         super().__init__(sr, layer_key, json_data)
-        self._required = False
         self._parse_json()
-
-    @property
-    def required(self) -> bool:
-        return self._required
-
-    @required.setter
-    def required(self, value: bool):
-        if not isinstance(value, bool):
-            raise TypeError(f"required {type(value)} not supported")
-        self._required = value
 
 
 class SelectField(BaseField, Select):
@@ -288,18 +265,7 @@ class TextField(BaseField):
 
     def __init__(self, sr: StructureRegistry, layer_key: str, json_data: dict):
         super().__init__(sr, layer_key, json_data)
-        self._required = False
         self._parse_json()
-
-    @property
-    def required(self) -> bool:
-        return self._required
-
-    @required.setter
-    def required(self, value: bool):
-        if not isinstance(value, bool):
-            raise TypeError(f"required {type(value)} not supported")
-        self._required = value
 
 
 class TextareaField(BaseField):

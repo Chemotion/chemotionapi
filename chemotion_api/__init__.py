@@ -20,11 +20,13 @@ TInstance = TypeVar("TInstance", bound="Instance")
 class Instance:
     """
     The instance object is the core object of the Chemotion API. In order for the API to work,
-    a connection to a chemotion must first be established.
-    an Instance object manges such a connection. To initializes an instance it needs
-    the host URL of the chemotion server as a string.
+    a connection to a Chemotion server must first be established.
+    An Instance object manages such a connection. To initialize an instance it needs
+    the host URL of the Chemotion server as a string.
 
-    :param host_url: URL for the new :class:`Request` object
+    :param host_url: URL of the Chemotion server (e.g. ``'http://localhost:3000'``) or an existing
+        :class:`chemotion_api.connection.Connection`
+    :param verify_ssl: If False, the SSL certificate of the server is not verified
 
     Usage::
 
@@ -59,7 +61,7 @@ class Instance:
     @property
     def token(self) -> str:
         """
-        The token property returns the JWT (java web token)
+        The token property returns the JWT (JSON Web Token) of the current login
 
         :return: JWT
         """
@@ -88,8 +90,8 @@ class Instance:
 
     def test_connection(self) -> TInstance:
         """
-        This test_connection methode simply test if the connection to a chemotion instance can be established.
-        The instance does not need to be logged in to use this methode.
+        This test_connection method simply tests if the connection to a Chemotion instance can be established.
+        The instance does not need to be logged in to use this method.
 
         :return: the instance self
 
@@ -103,22 +105,23 @@ class Instance:
 
     def get_all_types(self) -> list[str]:
         """
-        Generates a list af all JSON LD types in the system.
-        :return: List of JSON LD types
+        Generates a list of all JSON-LD types (IRIs) in the system.
+
+        :return: List of JSON-LD types
         """
         return self.element_manager.all_types
 
     def login(self, user: str, password: str) -> TInstance:
         """
-        This login methode allows you to log in to a chemotion instance.
-         To do this, you need a valid chemotion user (abbreviation name or e-mail) and password.
+        This login method allows you to log in to a Chemotion instance.
+        To do this, you need a valid Chemotion user (name abbreviation or e-mail) and password.
 
-        :param user: abbreviation name or e-mail of a chemotion user
+        :param user: name abbreviation or e-mail of a Chemotion user
         :param password: The password of the user
 
         :return: the instance itself
 
-        :raise ConnectionError: if the logging was not successful.
+        :raise PermissionError: if the login was not successful.
         """
 
         payload = {'username': user, 'password': password}
@@ -136,25 +139,32 @@ class Instance:
     def login_token(self, jwt_token: str) -> TInstance:
         """
         You can use this login_token method to log in to a Chemotion instance.
-        To do this, you need a valid Chemotion jwt token. This token can be generated using the
-        get_token method.
+        To do this, you need a valid Chemotion JWT. The token of a logged-in instance can be read
+        with the :attr:`token` property; a token for a device can be generated with the
+        :attr:`device_manager`.
 
-        :param jwt_token: a Java Web Token.
+        The token is not checked by this method. An invalid token causes the following requests to fail.
+
+        :param jwt_token: a JSON Web Token.
 
         :return: the instance itself
-
-        :raise ConnectionError: if the logging was not successful.
         """
 
         self._con.set_bearer_token(jwt_token)
         return self
 
-    def get_profile_manager(self):
+    def get_profile_manager(self) -> ProfileManager:
+        """
+        Returns a ProfileManager used to list, create and delete converter profiles.
+        Converter profiles are needed to fill the metadata of a dataset automatically on upload.
+
+        :return: a ProfileManager
+        """
         return ProfileManager(self._con)
 
     def get_user(self) -> Admin | Person | Group | Device:
         """
-        This get_user methode initializes a new User object. The user object allows you to read and edit your user data.
+        This get_user method initializes a new User object. The user object allows you to read and edit your user data.
 
         :return: a new User instance
 
@@ -165,10 +175,10 @@ class Instance:
 
     def find_user_by_name(self, name: str) -> list[Person]:
         """
-        This find_user_by_name methode finds all user by name and returns the three top matches.
+        This find_user_by_name method finds all users by name and returns the three top matches.
 
         :param name: Potential name or name snippet of a user
-        :return: list u matching user
+        :return: list of matching users
 
         :raise PermissionError: if the userdata cannot be fetched. Make sure that you are logged in.
         """
@@ -177,12 +187,12 @@ class Instance:
 
     def get_root_collection(self, reload=True) -> RootCollection:
         """
-        The root collection can be compared to the all collection in the web client of Chemotion.
-        Within this python client it is needed to navigate through all collections. A collection is foundtion of fetching
+        The root collection can be compared to the 'All' collection in the web client of Chemotion.
+        Within this python client it is needed to navigate through all collections. A collection is the foundation for fetching
         and creating new elements.
 
-        :param reload: If ture caned information are ignored
-        :return:
+        :param reload: If true, cached information is ignored and the collection tree is fetched again
+        :return: the root collection
         """
         if reload or self._root_col is None:
             self._root_col = RootCollection(self._con)
@@ -194,22 +204,26 @@ class Instance:
     def get_collection_by_id(self, collection_id: int) -> Collection:
         """
         Find a collection by its id.
-        Within this python client it is needed to navigate through all sub collections. A collection is foundtion of fetching
+        Within this python client it is needed to navigate through all sub collections. A collection is the foundation for fetching
         and creating new elements.
 
         :param collection_id: DB id of the collection
-        :return:
+        :return: the collection
+
+        :raises IndexError: if no owned collection has this id
         """
         return self.get_root_collection().find(id=collection_id)[0]
 
     def get_collection_of_element(self, element: AbstractElement):
         """
-        Find a collection from its element.
-        Within this python client it is needed to navigate through all sub collections. A collection is foundtion of fetching
+        Find a collection from its element. If the element is in several collections, the first one is returned.
+        Within this python client it is needed to navigate through all sub collections. A collection is the foundation for fetching
         and creating new elements.
 
-        :param element: A element (Sample, Reaction, ...) aliasable by your account (needs to be saved!)
-        :return:
+        :param element: An element (Sample, Reaction, ...) accessible by your account (needs to be saved!)
+        :return: the collection of the element
+
+        :raises KeyError: if the collection cannot be found
         """
         try:
             try:
@@ -267,7 +281,7 @@ class Instance:
         >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
         >>> except ConnectionError as e:
         >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
-        >>> (instance.ReactionSearcher().
+        >>> (instance.search_reaction().
         >>>  add_search_condition(EnumMatch.LIKE, EnumConnector.OR, name='My Sample', private_note="My note").
         >>>  add_search_condition(EnumMatch.EXACT, EnumConnector.AND, short_label="USER").
         >>>  add_search_condition(EnumMatch.BIGGER_THAN, EnumConnector.AND, temperature_in_c=30).
@@ -298,7 +312,7 @@ class Instance:
         are accessible via the Collection objects
 
         :param id: The Database ID of the desired Element
-        :return: a Reacton object
+        :return: a Reaction object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         e = ElementSet(self._con, self.all_element_classes.get('reaction'))
@@ -312,7 +326,7 @@ class Instance:
         are accessible via the Collection objects
 
         :param id: The Database ID of the desired Element
-        :return: a Reacton object
+        :return: a Wellplate object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         e = ElementSet(self._con, self.all_element_classes.get('wellplate'))
@@ -348,15 +362,17 @@ class Instance:
 
     def get_generic_by_name(self, name: str, id: int) -> GenericElement:
         """
-        Fetches data of one Generic object from the Chemotion server. Which generic element type
+        Fetches data of one Generic object from the Chemotion server. The generic element type is
+        given by its system-internal name.
         It automatically parses the data into a Python-Generic-Object. However, you need to know the correct internally used ID
         of the Generic element to be able to fetch it. Other methods to get Elements from Chemotion
         are accessible via the Collection objects
 
-        :param name: The name of the Genetic Element
+        :param name: The name of the Generic Element type
         :param id: The Database ID of the desired Element
-        :return: a Sample object
+        :return: a GenericElement object
 
+        :raises ValueError: if no generic element type has this name
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         elem = self.all_element_classes.get(name)
@@ -367,15 +383,17 @@ class Instance:
 
     def get_generic_by_label(self, label: str, id: int) -> GenericElement:
         """
-        Fetches data of one Generic object from the Chemotion server. Which generic element type
+        Fetches data of one Generic object from the Chemotion server. The generic element type is
+        given by its human-readable label.
         It automatically parses the data into a Python-Generic-Object. However, you need to know the correct internally used ID
         of the Generic element to be able to fetch it. Other methods to get Elements from Chemotion
         are accessible via the Collection objects
 
-        :param label: The label of the Genetic Element
+        :param label: The label of the Generic Element type
         :param id: The Database ID of the desired Element
-        :return: a Sample object
+        :return: a GenericElement object
 
+        :raises ValueError: if no generic element type has this label
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         for (elem_name, elem) in self.all_element_classes.items():
@@ -385,8 +403,9 @@ class Instance:
 
     def get_json_ld_id(self, id: str) -> AbstractElement:
         """
-        Use python client internal JSON LD id to fetch element from Chemtion.
-        :param id: JSON LD ID string starting with host url of the element
+        Use the python client internal JSON-LD id (``element.json_ld['@id']``) to fetch an element from Chemotion.
+
+        :param id: JSON-LD ID string starting with the host url of the element
         :return: the requested element
 
         :raises ValueError: if the information cannot be fetched. Make sure that your connection is active and the ID is correct.
@@ -404,21 +423,27 @@ class Instance:
     def molecule(self) -> MoleculeManager:
         """
         Returns a MoleculeManager instance. This instance allows to create and
-        fetch Molecules form the instance
+        fetch Molecules from the instance
+
         :return: a MoleculeManager instance
         """
         return MoleculeManager(self._con)
 
     def get_solvent_list(self) -> list[str]:
         """
-        Returns a list of all pre implemented solvents.
-        :return: a list of all pre implemented solvents
+        Returns a list of all predefined solvents. The names can be used with
+        :meth:`chemotion_api.collection.Collection.new_solvent` and
+        :meth:`chemotion_api.elements.sample.SolventList.add_new_name`.
+
+        :return: a list of all predefined solvent names
         """
         return list(ElementManager.get_solvent_list().keys())
 
     def generic_manager(self) -> GenericManager:
         """
-        Returns a GenericManager used to load, edit write generic elements.
+        Returns a GenericManager used to load, edit and write the templates (LabIMotion) of
+        generic elements, segments and datasets.
+
         :return: a GenericManager
         """
-        return GenericManager(self._con)
+        return GenericManager(self._con, self.element_manager)

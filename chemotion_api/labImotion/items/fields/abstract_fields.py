@@ -17,11 +17,13 @@ class Select:
     def option_layers(self, value: str | None):
         options = self._sr.get_select_options_list()
         if value is None:
-            value = options[0]
+            # Without any option list the field stays unlinked until option_layers is set
+            value = options[0] if len(options) > 0 else ''
         if not isinstance(value, str):
             raise TypeError(f"option_layers {type(value)} not supported")
         if value != '' and value not in options:
-            raise ValueError(f"option no in {self._sr.get_select_options_list()}")
+            raise ValueError(f"option_layers '{value}' not in {options}. Add it with "
+                             f"properties.add_select_option(key, values)")
         self._option_layers = value
 
 class SystemDefined:

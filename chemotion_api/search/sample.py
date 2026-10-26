@@ -65,6 +65,9 @@ def field_details(field_name: Literal['name', 'short_label', 'external_label', '
 
 
 class SampleSearcher(SearchHelperBase):
+    """
+    Advanced search for samples. Use :meth:`chemotion_api.Instance.search_sample` to create one.
+    """
     element_type_res = "samples"
     element_type = "sample"
 
@@ -72,6 +75,20 @@ class SampleSearcher(SearchHelperBase):
                              short_label: str | None = None, external_label: str | None = None,
                              inventory_label: str | None = None, cas: str | None = None,
                              private_note: str | None = None):
+        """
+        Adds a condition for each given field. Fields set to None are ignored.
+
+        :param match: how the field is compared with the value
+        :param connector: how the condition is connected with the conditions before it
+        :param name: sample name
+        :param short_label: short label
+        :param external_label: external label
+        :param inventory_label: inventory label
+        :param cas: CAS number
+        :param private_note: private note
+
+        :return: the searcher itself
+        """
         field_values = {"name": name, "short_label": short_label, "external_label": external_label,
                         "inventory_label": inventory_label, "xref": cas, "content": private_note}
         return super().add_search_condition(match, connector, **field_values)

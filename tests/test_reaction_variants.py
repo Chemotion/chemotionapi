@@ -71,7 +71,7 @@ def test_add_variations(instance_with_test_reaction):
                                                                         'purity': 1.0, 'sumFormula': 'H3N',
                                                                         'vesselVolume': None},
                                                                 'equivalent': {'unit': None, 'value': 1.0},
-                                                                'mass': {'unit': 'g', 'value': 0.006895633618781516},
+                                                                'mass': {'unit': 'g', 'value': 2.0},
                                                                 'volume': {'unit': 'l', 'value': 0}}]
     assert [x.sample.id for x in variant.reactants] == [3]
     assert [x.clean() for x in variant.reactants] == [{'amount': {'unit': 'mol', 'value': 0.0015901905481965069},
@@ -82,8 +82,8 @@ def test_add_variations(instance_with_test_reaction):
                                                                'molecularWeight': 13.83482, 'purity': 1.0,
                                                                'sumFormula': 'BH3', 'vesselVolume': None},
                                                        'equivalent': {'unit': None, 'value': 0.013540885967435785},
-                                                       'mass': {'unit': 'g', 'value': 0.00011494118088970488},
-                                                       'volume': {'unit': 'l', 'value': 1.1494118088970488e-07}}]
+                                                       'mass': {'unit': 'g', 'value': 0.022},
+                                                       'volume': {'unit': 'l', 'value': 2.2e-05}}]
     assert [x.sample.id for x in variant.products] == [4]
     assert [x.clean() for x in variant.products] == [{'amount': {'unit': 'mol', 'value': 0.0},
                                                       'aux': {'coefficient': 1.0, 'gasType': 'off',

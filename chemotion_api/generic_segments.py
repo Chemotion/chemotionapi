@@ -1,3 +1,4 @@
+import copy
 import uuid
 from chemotion_api.connection import Connection
 
@@ -25,7 +26,7 @@ class GenericSegments:
             'is_new': True,
             'id': uuid.uuid4().__str__()
         }
-        a['properties'] = base_segment.get('properties_release', {}).copy()
-        a['properties_release'] = base_segment.get('properties_release', {}).copy()
+        a['properties'] = copy.deepcopy(base_segment.get('properties_release', {}))
+        a['properties_release'] = copy.deepcopy(base_segment.get('properties_release', {}))
 
         return a

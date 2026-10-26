@@ -3,6 +3,7 @@ from enum import Enum
 
 from chemotion_api.labImotion.items.condition_handler import ConditionHandler
 from chemotion_api.labImotion.items.options import FieldType
+from chemotion_api.labImotion.ontology import clean_term, get_term
 from chemotion_api.labImotion.structure import StructureRegistry
 
 from chemotion_api.labImotion.utils import all_instances_of, ChemotionSerializable
@@ -11,7 +12,7 @@ from chemotion_api.labImotion.utils import all_instances_of, ChemotionSerializab
 class BaseField(ChemotionSerializable, ConditionHandler):
     _default_required_fields = ["field_type", "field", "required", "label", "default", "position", "sub_fields",
                                 "text_sub_fields"]
-    _default_optional_fields = ["cols", "cond_fields", "cond_operator"]
+    _default_optional_fields = ["cols", "cond_fields", "cond_operator", "ontology"]
     required_fields = []
     optional_fields = []
     field_type = FieldType.TEXT
@@ -23,10 +24,12 @@ class BaseField(ChemotionSerializable, ConditionHandler):
         self._label = None
         self._json_data = json_data
         self._default = ""
+        self._required = False
         self._position = 1
         self._sr = sr
         self._layer_key = layer_key
         self._cols = None
+        self._ontology: dict | None = None
 
     def _parse_json(self):
         for key, value in self._json_data.items():
@@ -74,12 +77,33 @@ class BaseField(ChemotionSerializable, ConditionHandler):
         self._cols = value
 
     @property
+    def ontology(self) -> dict | None:
+        """
+        The ontology term linked to the field (as set in the template designer), or None. It can be set to a
+        term dict (e.g. from :func:`chemotion_api.labImotion.ontology.search_terms`), to a term ID
+        ('CHMO:0000593', 'CHMO_0000593' or the IRI), which is looked up in the TIB Terminology Service, or to
+        None to remove the link.
+        """
+        return self._ontology
+
+    @ontology.setter
+    def ontology(self, value: dict | str | None):
+        if value is None or value == {}:
+            self._ontology = None
+        elif isinstance(value, str):
+            self._ontology = get_term(value)
+        else:
+            self._ontology = clean_term(value)
+
+    @property
     def default(self):
         return self._default
 
     @default.setter
     def default(self, value: str):
-        pass
+        if not isinstance(value, str):
+            raise TypeError(f"default {type(value)} not supported")
+        self._default = value
 
     @property
     def field(self) -> str | None:
@@ -116,11 +140,13 @@ class BaseField(ChemotionSerializable, ConditionHandler):
 
     @property
     def required(self) -> bool:
-        return False
+        return self._required
 
     @required.setter
     def required(self, value: bool):
-        pass
+        if not isinstance(value, bool):
+            raise TypeError(f"required {type(value)} not supported")
+        self._required = value
 
     @property
     def sub_fields(self) -> list:

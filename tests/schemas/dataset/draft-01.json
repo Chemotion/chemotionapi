@@ -48,6 +48,12 @@
             ]
         },
         "sync_time": {},
+        "metadata": {
+            "type": [
+                "object",
+                "null"
+            ]
+        },
         "created_by": {
             "type": "number"
         },
@@ -81,8 +87,6 @@
         "released_at",
         "identifier",
         "sync_time",
-        "created_by",
-        "updated_by",
         "created_at",
         "updated_at",
         "ols_term_id"

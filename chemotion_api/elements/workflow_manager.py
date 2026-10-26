@@ -44,8 +44,24 @@ class Workflow:
         while key in properties_layers:
             i = i + 1
             key = f"{new_layer['key']}.{i}"
+        if key != new_layer['key']:
+            # Like the ELN: the copy carries its own key and its conditions refer to it
+            self._rename_cond_fields(new_layer, new_layer['key'], key)
+            new_layer['key'] = key
         properties_layers[key] = new_layer
         return (key, new_layer)
+
+    @staticmethod
+    def _rename_cond_fields(layer, old_key, new_key):
+        for field in layer.get('fields', []):
+            conds = field.get('cond_fields')
+            if not conds or all(not x.get('field') for x in conds):
+                continue
+            conds = [x | {'layer': new_key} for x in conds if x.get('layer') == old_key]
+            if conds:
+                field['cond_fields'] = conds
+            else:
+                del field['cond_fields']
 
     def _prepare_layer(self, tree_entry, wf_id=None, source_layer_id=None, wf_pos=1, pos=None):
         layer = copy.deepcopy(tree_entry['layer'])
@@ -58,8 +74,8 @@ class Workflow:
             layer['position'] = pos
         if layer['wf']:
             layer['wf_info'] = {'node_id': tree_entry['id']}
-        if source_layer_id is not None:
-            layer['source_layer'] = source_layer_id
+            if source_layer_id is not None:
+                layer['wf_info']['source_layer'] = source_layer_id
         if 'next' in tree_entry:
             max_pos = max(0, -1, *[x['position'] for x in layer['fields']])
             layer['fields'].append(
@@ -70,6 +86,33 @@ class Workflow:
                                                                                     tree_entry['next'].items()],
                  'text_sub_fields': []})
         return layer
+
+    @staticmethod
+    def _wf_next_value(layer):
+        return next((x.get('value') for x in layer.get('fields', []) if x.get('type') == 'wf-next'), None)
+
+    def _repair_legacy_layers(self, prop_layers):
+        """
+        Earlier versions of this API stored the source layer outside of ``wf_info`` and kept the template key in
+        duplicated layers (``three`` in slot ``three.1``). The ELN cannot follow such chains, so they are converted
+        to the ELN format; the next save writes them back.
+        """
+        for key, layer in prop_layers.items():
+            if 'wf_info' in layer and layer.get('key') != key:
+                layer['key'] = key
+        for key, layer in prop_layers.items():
+            if 'source_layer' not in layer:
+                continue
+            source = layer.pop('source_layer')
+            wf_info = layer.get('wf_info')
+            if wf_info is None or 'source_layer' in wf_info:
+                continue
+            # The source is the closest previous step of the same workflow (same position) which points to this layer
+            candidates = sorted((x.get('wf_position', 0), k) for k, x in prop_layers.items() if
+                                x.get('position') == layer.get('position') and
+                                x.get('wf_position', 0) < layer.get('wf_position', 0) and
+                                self._wf_next_value(x) == wf_info.get('node_id'))
+            wf_info['source_layer'] = candidates[-1][1] if candidates else source
 
     def _read_wf(self, wf_tree_id, prev_id, prop_layers):
         if wf_tree_id is not None:
@@ -91,6 +134,7 @@ class Workflow:
         return results
 
     def init_wf(self, json_data):
+        self._repair_legacy_layers(json_data['properties']['layers'])
         max_pos = max(-1, 0, *[elm['position'] for k, elm in json_data['properties']['layers'].items()])
         self._wfs = []
         for (id, entry) in self.wf_tree.items():
@@ -114,17 +158,23 @@ class Workflow:
 
     def next_options(self, flat = True):
         result = []
-        for wf in self._wfs:
+        for wf_idx, wf in enumerate(self._wfs):
             layer = wf['layers'][-1]
             field = next(iter(x for x in layer['fields'] if x['type'] == 'wf-next'), None)
             if field is not None:
                 options = copy.deepcopy(field['wf_options'])
                 for option in options:
                     option['wf_id'] = wf['id']
+                    option['wf_idx'] = wf_idx
                     option['layer_id'] = option['key']
+                    template_layer = self._node_registery.get(option['key'], {}).get('layer', {})
+                    option['layer_key'] = template_layer.get('key')
+                    option['layer_label'] = template_layer.get('label')
+                    option['source_key'] = layer['key']
                     del option['key']
                 result.append({
                     'label': ' -> '.join([x['label'] for x in wf['layers']]),
+                    'wf_idx': wf_idx,
                     'options': options
                 })
         if flat:
@@ -149,15 +199,24 @@ class Workflow:
 
     def next(self, json_data, layer_id=None, wf_idx=0, wf_id=None, **kwargs) -> tuple[int,dict] | tuple[None,None]:
         if wf_id is not None:
-            wf = next(x for x in self._wfs if x['id'] == wf_id)
-        else:
+            wf = next((x for x in self._wfs if x['id'] == wf_id), None)
+            if wf is None:
+                raise ValueError(f'No workflow with id "{wf_id}". Workflows: {self._describe_wfs()}')
+        elif -len(self._wfs) <= wf_idx < len(self._wfs):
             wf = self._wfs[wf_idx]
+        else:
+            raise ValueError(f'No workflow with index {wf_idx}. Workflows: {self._describe_wfs()}')
 
         layer = wf['layers'][-1]
         field = next(iter(x for x in layer['fields'] if x['type'] == 'wf-next'), None)
+        options = field['wf_options'] if field is not None else []
 
-        if layer_id is None and field is not None and len(field['wf_options']) > 0:
-            layer_id = field['wf_options'][0]['key']
+        if layer_id is None and len(options) > 0:
+            layer_id = options[0]['key']
+        elif layer_id is not None and layer_id not in [x['key'] for x in options]:
+            labels = ', '.join(f'"{x["label"]}" ({x["key"]})' for x in options) or 'none'
+            raise ValueError(f'Layer id "{layer_id}" is not a next step of workflow '
+                             f'"{" -> ".join(x["label"] for x in wf["layers"])}". Options: {labels}')
 
         entry = self._node_registery.get(layer_id, None)
         if entry is not None:
@@ -174,3 +233,7 @@ class Workflow:
             return key, layer
 
         return None, None
+
+    def _describe_wfs(self):
+        return ', '.join(f'{idx}: {" -> ".join(x["label"] for x in wf["layers"])} ({wf["id"]})'
+                         for idx, wf in enumerate(self._wfs))

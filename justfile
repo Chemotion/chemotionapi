@@ -11,11 +11,11 @@ sync:
 
 # run the offline test suite (no server needed; memory-safe defaults from pytest.ini)
 test:
-    uv run pytest tests -q
+    cd tests && uv run pytest -q
 
-# run the pure-logic unit subset (what CI runs)
+# run the pure-logic unit subset (what CI runs); NO_SETUP=1 keeps the test ELN untouched
 test-unit:
-    uv run pytest tests/unit -q
+    cd tests && NO_SETUP=1 uv run pytest unit -q
 
 # NO_SETUP=0 boots the docker stack and resets the DB from the committed seed, then runs the integration suite
 test-integration:

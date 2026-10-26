@@ -3,6 +3,9 @@ from typing import Optional
 
 
 class GasType(Enum):
+    """
+    Gas type of a sample in a gas-phase reaction
+    """
     OFF = 'off'
     GAS = 'gas'
     CATALYST = 'catalyst'
@@ -10,6 +13,9 @@ class GasType(Enum):
 
 
 class QuantityUnit(Enum):
+    """
+    Units in which the amount of a sample can be given
+    """
     Liter = 'l'
     Mole = 'mol'
     Gram = 'g'
@@ -18,6 +24,12 @@ class QuantityUnit(Enum):
 
     @classmethod
     def from_string(cls, input_string: str):
+        """
+        :param input_string: unit value, e.g. 'g' (case insensitive)
+        :return: the matching unit or None
+        """
+        if not isinstance(input_string, str):
+            return None
         for unit in list(cls):
             if unit.value.lower() == input_string.lower():
                 return unit
