@@ -289,6 +289,7 @@ class Analyses(AttrAccessMixin, dict):
             d.json_data['is_new'] = False
 
 
+
 class AnalysesList(list):
     """
     List of :class:`chemotion_api.elements.abstract_element.Analyses`.
@@ -510,7 +511,8 @@ class AbstractElement:
         self._name: str = ''
         # Last update of the element
         self.last_update: datetime | None = None
-        # When the element was created. Some payloads carry no timestamps at all.
+        # When the element was created. Absent from offline export dumps, which carry no
+        # timestamps at all — see the export manifest note in Collection.export_eln.
         self.created_at: datetime | None = None
         self._element_type = element_type
         self.json_ld: dict = {}
@@ -777,6 +779,18 @@ class AbstractElement:
         """
         return {}
 
+    def eln_node_content(self) -> dict:
+        """Extra RO-Crate ``Dataset`` properties for elements without a ``to_dcat_ap`` mapping.
+
+        Elements not (yet) mapped to chem-dcat-ap (Wellplate / ResearchPlan / GenericElement) are
+        exported as RO-Crate ``Dataset`` nodes. Subclasses override this to enrich that node with
+        real structured content (a ``description`` and/or schema.org ``PropertyValue`` entries for
+        ``variableMeasured``) instead of an empty dataset. Returns ``{}`` by default.
+
+        :return: dict with optional ``"description"`` (str) and ``"variableMeasured"`` (list of
+            ``PropertyValue`` dicts) keys.
+        """
+        return {}
 
     def load(self):
         """
@@ -853,8 +867,8 @@ class AbstractElement:
 
     def _set_json_data(self, json_data):
         self.json_data = json_data
-        # Only overwrite when a value actually parses, so a payload without them leaves what we
-        # already knew intact.
+        # Both timestamps feed the .eln export (dateCreated / dateModified). Only overwrite when a
+        # value actually parses, so a payload without them leaves what we already knew intact.
         updated = self._parse_timestamp(json_data.get('updated_at'))
         if updated is not None:
             self.last_update = updated

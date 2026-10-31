@@ -277,6 +277,30 @@ class Wellplate(AbstractElement):
             'description': self.properties.get('description'),
         }
 
+    def eln_node_content(self) -> dict:
+        """Emit each occupied well as a schema.org ``PropertyValue`` (position → sample label)."""
+        property_values: list[dict] = []
+        for x, col in enumerate(self.wells or []):
+            for y, sample in col.items():
+                if sample is None:
+                    continue
+                try:
+                    label = (sample.properties.get('short_label') or sample.name
+                             or sample.molecule.get('cano_smiles'))
+                except Exception:
+                    label = None
+                property_values.append({
+                    "@type": "PropertyValue",
+                    "name": f"well {y}{x + 1}",
+                    "value": label or "occupied",
+                })
+        content: dict = {}
+        if property_values:
+            content["variableMeasured"] = property_values
+        desc = self.properties.get('description') if self._properties is not None else None
+        if isinstance(desc, str) and desc.strip():
+            content["description"] = desc
+        return content
 
     def save(self):
         """

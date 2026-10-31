@@ -3,14 +3,16 @@
 Defines :class:`Reaction` (a Chemotion reaction, extending
 :class:`~chemotion_api.elements.abstract_element.AbstractElement`) together with the supporting
 :class:`MaterialList` (a role-bound list of :class:`~chemotion_api.elements.sample.Sample`\\ s) and
-:class:`Temperature` (a temperature-time profile). Reactions persist the product yield through an
-``equivalent`` cache.
+:class:`Temperature` (a temperature-time profile). Reactions map their starting materials, reactants,
+products and solvents to chem-dcat-ap via :meth:`Reaction.to_dcat_ap`, and persist the product yield
+through an ``equivalent`` cache.
 """
 import logging
 import re
 from enum import Enum
 from typing import Optional, Literal, cast
 from collections.abc import Callable, Iterator
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,43 @@ logger = logging.getLogger(__name__)
 _DURATION_UNIT_SECONDS = {
     "second": 1, "minute": 60, "hour": 3600, "day": 86400, "week": 604800,
 }
+
+
+def _chemotion_duration_to_iso8601(text) -> str | None:
+    """Convert a Chemotion duration display string to an ISO-8601 duration.
+
+    Chemotion stores a reaction duration as a human string such as ``"3.5 Hour(s)"`` or
+    ``"3 Day(s)"``. chem-dcat-ap emits it as an ``xsd:duration`` literal, which must be ISO-8601
+    (e.g. ``PT3H30M`` / ``P3D``) — a raw display string produces an invalid literal. Fractional
+    amounts are normalised into whole H/M/S (``xsd:duration`` only allows a fraction on seconds).
+
+    :param text: the Chemotion duration display string.
+    :return: an ISO-8601 duration string, or ``None`` if it cannot be parsed (so callers omit the
+        field rather than emit an invalid literal).
+    """
+    if not text:
+        return None
+    m = re.match(r"\s*([0-9]*\.?[0-9]+)\s*([A-Za-z]+)", str(text))
+    if not m:
+        return None
+    unit = re.sub(r"[^a-z]", "", m.group(2).lower())
+    if unit.endswith("s"):
+        unit = unit[:-1]
+    if unit not in _DURATION_UNIT_SECONDS:
+        return None
+    total = int(round(float(m.group(1)) * _DURATION_UNIT_SECONDS[unit]))
+    if total < 0:
+        return None
+    days, rem = divmod(total, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, secs = divmod(rem, 60)
+    date_part = f"{days}D" if days else ""
+    time_part = "".join(p for p in (f"{hours}H" if hours else "",
+                                    f"{minutes}M" if minutes else "",
+                                    f"{secs}S" if secs else ""))
+    if not date_part and not time_part:
+        return "PT0S"
+    return f"P{date_part}{'T' + time_part if time_part else ''}"
 
 
 from requests import Response
@@ -1534,6 +1573,147 @@ class Reaction(AbstractElement):
 
         return False
 
+    def to_dcat_ap(self) -> BaseModel:
+        """
+        Maps the reaction to a chem-dcat-ap ``ChemicalReaction``.
+
+        Aggregates the chem-dcat-ap mappings of the reaction's starting materials, reactants,
+        products and solvents and enriches them with the reaction's duration (ISO 8601), yield,
+        temperature profile and status.
+
+        :return: A chem-dcat-ap ``ChemicalReaction`` pydantic model describing the reaction
+        """
+        from chem_dcat_ap.datamodel.chem_dcat_ap_pydantic import (
+            ChemicalReaction,
+            Yield,
+            Temperature,
+            DefinedTerm
+        )
+        from pydantic import BaseModel
+
+        reaction_id = self.json_ld.get('@id') or f"{self._session._host_url}/api/v1/reactions/{self.id}"
+
+        def get_plain_text(q) -> str:
+            import collections.abc
+            if isinstance(q, str):
+                return q
+            if isinstance(q, collections.abc.Mapping) and 'ops' in q:
+                ops = q['ops']
+                if isinstance(ops, collections.abc.Iterable):
+                    return "".join(op.get('insert', '') for op in ops if isinstance(op, collections.abc.Mapping)).strip()
+            return str(q) if q is not None else ""
+
+        used_starting_material = [s.to_dcat_ap() for s in self.starting_materials]
+        used_reactant = [s.to_dcat_ap() for s in self.reactants]
+        generated_product = [s.to_dcat_ap() for s in self.products]
+        used_solvent = [s.to_dcat_ap() for s in self.solvents]
+
+        has_duration = None
+        start = self.properties.get('timestamp_start')
+        stop = self.properties.get('timestamp_stop')
+        if isinstance(start, datetime) and isinstance(stop, datetime):
+            diff = stop - start
+            seconds = int(diff.total_seconds())
+            if seconds >= 0:
+                hours = seconds // 3600
+                minutes = (seconds % 3600) // 60
+                secs = seconds % 60
+                has_duration = f"PT{hours}H{minutes}M{secs}S"
+        if not has_duration and self.properties.get('duration'):
+            # Chemotion stores a display string like "3.5 Hour(s)"; convert to ISO-8601 so the
+            # xsd:duration literal is valid (a raw string like "4 Hour(s)" is not parseable).
+            has_duration = _chemotion_duration_to_iso8601(self.properties.get('duration'))
+
+        has_yield = None
+        yield_val = self._current_yield()
+        if yield_val is not None:
+            try:
+                has_yield = [Yield(
+                    value=float(yield_val),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/Dimensionless",
+                    unit="http://qudt.org/vocab/unit/PERCENT",
+                    title="Yield [%]"
+                )]
+            except (ValueError, TypeError) as e:
+                logger.warning("Skipping yield in DCAT-AP mapping (value=%r): %s", yield_val, e)
+
+        has_temperature = None
+        temp_prop = self.properties.get('temperature')
+        def get_qudt_unit(unit_str: str) -> str:
+            if not unit_str:
+                return "http://qudt.org/vocab/unit/UNITLESS"
+            u = unit_str.strip().lower()
+            if u in ('°c', 'c', 'deg_c', 'deg c'): return "http://qudt.org/vocab/unit/DEG_C"
+            if u in ('k', 'kelvin'): return "http://qudt.org/vocab/unit/K"
+            return f"http://qudt.org/vocab/unit/{unit_str}"
+
+        if temp_prop and temp_prop.get('data'):
+            temp_list = []
+            for tp in temp_prop.get('data'):
+                val_str = tp.get('value')
+                if val_str:
+                    try:
+                        temp_list.append(Temperature(
+                            value=float(val_str),
+                            has_quantity_type="http://qudt.org/vocab/quantitykind/Temperature",
+                            unit=get_qudt_unit(temp_prop.get('valueUnit', '°C')),
+                            title="Temperature step"
+                        ))
+                    except (ValueError, TypeError) as e:
+                        logger.warning("Skipping temperature step in DCAT-AP mapping (value=%r): %s", val_str, e)
+            if temp_list:
+                has_temperature = temp_list
+        elif temp_prop and str(temp_prop.get('userText') or '').strip():
+            # A single temperature typed into the field rather than a time-series profile. This is
+            # the common case, and mapping only `data` silently dropped it.
+            user_text = str(temp_prop.get('userText')).strip()
+            try:
+                has_temperature = [Temperature(
+                    value=float(user_text),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/Temperature",
+                    unit=get_qudt_unit(temp_prop.get('valueUnit', '\u00b0C')),
+                    title="Temperature"
+                )]
+            except (ValueError, TypeError) as e:
+                logger.warning("Skipping temperature in DCAT-AP mapping (value=%r): %s", user_text, e)
+
+        status_val = self.properties.get('status')
+        has_qualitative_attribute = None
+        if status_val:
+            from chem_dcat_ap.datamodel.chem_dcat_ap_pydantic import QualitativeAttribute
+            has_qualitative_attribute = [QualitativeAttribute(
+                value=str(status_val),
+                title="Status",
+                description="The status of the reaction",
+                rdf_type=DefinedTerm(id="SIO:001326", title="status descriptor")
+            )]
+
+        # RInChI: the reaction's structure-derived identifier. The ELN stores the long key, the
+        # short key and the web key; all three are carried so a consumer can match on whichever it
+        # indexes. Previously none of them reached the crate at all.
+        other_identifier = []
+        for prop, label in (('rinchi_long_key', 'RInChI'),
+                            ('rinchi_short_key', 'RInChI short key'),
+                            ('rinchi_web_key', 'RInChI web key')):
+            value = self.properties.get(prop) or self.json_data.get(prop)
+            if isinstance(value, str) and value.strip():
+                from chem_dcat_ap.datamodel.chem_dcat_ap_pydantic import Identifier
+                other_identifier.append(Identifier(notation=value.strip(), title=label))
+
+        return ChemicalReaction(
+            id=reaction_id,
+            other_identifier=other_identifier or None,
+            title=[self.name] if self.name else [f"Reaction-{self.id}"],
+            description=[get_plain_text(self.properties.get('description') or self.properties.get('reaction_description'))] if (self.properties.get('description') or self.properties.get('reaction_description')) else None,
+            used_starting_material=used_starting_material or None,
+            used_reactant=used_reactant or None,
+            generated_product=generated_product or None,
+            used_solvent=used_solvent or None,
+            has_duration=has_duration,
+            has_yield=has_yield,
+            has_temperature=has_temperature,
+            has_qualitative_attribute=has_qualitative_attribute
+        )
 
     def _variation_segment_klasses(self) -> dict[str, dict]:
         return {klass.get('label'): klass for klass in self._generic_segments.all_classes

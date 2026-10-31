@@ -317,6 +317,20 @@ class ResearchPlan(AbstractElement):
         """
         return self.properties['body']
 
+    def eln_node_content(self) -> dict:
+        """Emit the plan's name + rich-text body as ``description`` for the RO-Crate Dataset node."""
+        texts: list[str] = []
+        try:
+            for element in self.body:
+                value = getattr(element, "value", None)
+                if isinstance(value, list):  # RichText: a list of Quill delta ops
+                    txt = "".join(op.get("insert", "") for op in value if isinstance(op, dict))
+                    if txt.strip():
+                        texts.append(txt.strip())
+        except Exception:
+            pass
+        description = "\n".join(texts).strip()
+        return {"description": description} if description else {}
 
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
