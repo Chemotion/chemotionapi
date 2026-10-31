@@ -4,7 +4,7 @@ The suite is split so the offline checks run anywhere, and the server-dependent 
 
 ## Layout
 
-- **`tests/unit/`** — pure logic, offline, fast (321 tests, a few seconds). No live server and no network.
+- **`tests/unit/`** — pure logic, offline, fast (445 tests, a few seconds). No live server and no network.
   Covers the collection tree (walk, case-insensitive lookup, element membership), element URLs
   and partial loading, sample and reaction properties, reaction variations and their segment
   columns, generic-element usability and workflow handling, segment fields, the converter, and
@@ -54,6 +54,6 @@ instance (uploaded generic templates, collections), and some assertions rely on 
 - There is deliberately no session teardown that kills whatever holds port 3579. The stack is
   docker and is meant to outlive a run: `setup_chemotion_db.sh` reseeds it at the start of each
   session, and `just stack-down` is how you stop it.
-- `pytest.ini` also declares a `heavy` marker. Nothing carries it yet; it is there for the
-  memory-heavy offline tests (full `.eln` export, SHACL validation) that arrive with the FAIR
-  export work, which is a separate pull request on this line.
+- `pytest.ini` also declares a `heavy` marker for the memory-heavy offline tests that arrive
+  with the FAIR export work — full `.eln` export and SHACL validation. They run in the default
+  offline suite; the marker exists so they can be deselected on a constrained machine.
