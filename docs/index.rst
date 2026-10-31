@@ -28,10 +28,13 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    ``211.x.y`` ↔ ELN 2.1.1.
 
 .. note::
-   **Not every element type is equally supported.** Samples and reactions are first-class:
-   they are read and written over the API and carry typed element data. Wellplates, research
-   plans and LabIMotion generic elements are read and written over the API. Screens, cell lines,
-   device descriptions and vessels are not supported by any part of this client.
+   **Not every element type is equally supported.** Samples and reactions are first-class
+   everywhere: they are read and written over the API, reconstructed by the offline ingester, and
+   mapped to typed chem-dcat-ap metadata on export. Wellplates, research plans and LabIMotion
+   generic elements are read and written over the API, but the offline ingester cannot reconstruct
+   them and the ``.eln`` export records them as untyped datasets. Screens, cell lines, device
+   descriptions and vessels are not supported by any part of this client. See
+   :doc:`FairExport` and :doc:`OfflineIngestion` for the details that matter per workflow.
 
 .. toctree::
    :maxdepth: 2
@@ -48,6 +51,8 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    Segments
    Attachments
    Analyses
+   FairExport
+   OfflineIngestion
    Search
    Admin
 

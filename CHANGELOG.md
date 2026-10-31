@@ -1,0 +1,808 @@
+# Changelog
+
+## 🚨 400.0.0 — Chemotion ELN v4 only
+
+**Breaking: this release supports ELN v4 exclusively.** ELN 3.x and older are not supported and
+cannot be, in any meaningful sense — v4 rewrote collections and sharing from the ground up.
+**Stay on the `312.x` line for an ELN 3.1.x server.** The version scheme tracks the server:
+`400.x.y` ↔ ELN 4.0, `312.x.y` ↔ ELN 3.1.2, `211.x.y` ↔ ELN 2.1.1.
+
+Developed against `v4.0.0-rc-20260902` and tested on a local digest-pinned
+`complat/chemotion_eln_stage:next-release` stack (`v4.0.0-rc-260818`).
+
+**ELN v4.0.0 was released on 2026-10-13, and the client is aligned with it by source inspection,
+not by a live run.** No v4 Docker image is published — the tags still jump `v3.1.1` →
+`next-release` — so the integration suite necessarily runs an older release candidate. The API
+delta between the rc and the release (55 files) was worked from the tagged source; where that
+found breakage, it is fixed and noted below. The LabIMotion gem in v4.0.0 is **2.3.2** (the rc
+carried 2.3.0.rc4); our unit and field-type tables are verified in sync with it.
+
+### Version gate
+
+- `Instance.test_connection()` now refuses any server whose major version is not 4, raising
+  `UnsupportedServerVersion` and naming both the detected version and the release line to use
+  instead. The check reads `/about`, which is unauthenticated, so it fires **before** credentials
+  are sent.
+- Version parsing no longer degrades silently. It previously fell back to the literal string
+  `'TEST'`, which then appeared in every built-in element's JSON-LD `@type` IRI with no error.
+- Built-in `@type` IRIs now carry `major.minor` (`chemotion:type/sample/4.0`). Deployments track
+  dated release candidates, so a patch-level segment made an unchanged element's semantic type
+  churn on every server rebuild.
+
+### Collections and sharing (the bulk of the v4 delta)
+
+- `GET /collections/roots.json` is gone — it now answers **400 `id is invalid`**, because v4 routes
+  it to `/collections/:id` whose id pattern rejects `"roots.json"`. Replaced by
+  `GET /api/v1/collections/`, which returns `{own, shared_with_me}` as flat lists; the tree is
+  rebuilt from each entry's `ancestry` materialized path.
+- `PATCH /collections` (whole tree + `deleted_ids`, now 405) is split into per-collection
+  `POST`/`DELETE` plus `PUT /collections/bulk_update_own_collections`.
+- The entire `/syncCollections` namespace is removed (a genuine 404). Collections shared with you
+  arrive in `shared_with_me` from the same listing, so no extra request is made.
+- Sharing moves to `/api/v1/collection_shares`. `user_ids` is now a flat list of integers (it was a
+  list of `{value: …}` hashes), and the create endpoint's per-type detail levels grew from five to
+  nine. Only one of the nine is a *rename* — `research_plan_detail_level` → `researchplan_detail_level`;
+  `celllinesample` and `sequencebasedmacromoleculesample` are newly exposed (they already carried
+  those spellings in the old `sync_collections_users` table).
+- **`SyncPermission` is replaced by `CollectionSharePermission`, and the same integer now grants a
+  different permission.** The ladder still runs 0-5 — nothing was renumbered — but the capabilities
+  were **reassigned to different levels**: share administration moved from 2 to 4
+  (`ManageShares`), and adding/importing elements moved from 4 to 2 (`AddElements`). Level 3 stayed
+  put (`Delete` → `RemoveElements`). Port call sites **by name, not by number**.
+- `PUT /collections/elements` (the single-call "move elements between collections" verb) was removed
+  server-side. The replacement is the `POST` / `DELETE /api/v1/collection_elements` pair — i.e.
+  add-then-remove, as two calls. **This client does not wrap either yet**: it has no
+  move-elements API at all, so use the endpoints directly.
+
+### LabIMotion 2.3
+
+- The bundled validation schemas accept LabIMotion 2.3 klass payloads: all 49 generic klasses on the
+  reference instance validate, where previously none did. New optional keys (`metadata`,
+  `placeholder`, `ontology`, `hasOwnRow`, `condition`, `desc`, `released_at`, `_checksum`, `is_new`),
+  `eln.current_revision` corrected from `number` to a string, and `cols: 1` accepted.
+- Layer-key and option-set-name regexes were dropped: real templates use names they rejected
+  (trailing digits, spaces). Requirements were relaxed only where the server genuinely omits a
+  field — audited against every klass rather than loosened wholesale.
+
+### LabIMotion: surviving klasses the client does not fully understand
+
+- **One unparseable klass no longer takes the whole generic API down.** `load_all()` skips it with a
+  warning naming it; before, every accessor (`get_element`/`get_segment`/`get_dataset`) routed
+  through it and raised — so a single legacy klass made `generic_manager()` return nothing usable,
+  including for klasses that parse perfectly. On a real instance this was 5 of 29 klasses failing
+  and taking the other 24 with them.
+- **Parsing a server payload no longer inherits user-assignment strictness.** `BaseField._parse_json`
+  assigns through the property setters, which validate — right for user code, wrong for parsing, and
+  it made values the server is perfectly happy with unreadable here. A rejected value is now kept
+  verbatim and reported once. This is also what makes the unit-table leniency below actually work on
+  the real parse path.
+- `FieldType` gains `select-multi` (which the server emits but the gem deliberately does not declare)
+  plus `date`, `wf-next`, `sys-reaction`, `drag`, `drag_reaction`. Unmodelled types are kept opaque
+  and round-trippable rather than fatal.
+- The unit table is re-synced with the gem: it was 25 of 65 unit types behind, so a klass using
+  `kg`, `kWh`, `mpa`, or a `mass_flow` field raised on load. `scripts/sync_labimotion_units.py`
+  regenerates or checks it from rubygems; a `.gem` is a plain tar, so this needs no Ruby toolchain.
+- Five real failing klasses are committed as fixtures, because the seeded test stack's klasses are
+  too clean to reproduce any of this — the integration suite stayed green over a dead feature area.
+
+### User labels (helpdesk #501526)
+
+- `Instance.get_user_labels()` returns the id-to-title map that reading `user_labels` off an element
+  never provided, and `AbstractElement.user_labels_resolved` turns an element's bare ids into
+  titles. The label list is fetched **once per connection**, so resolving across 500 samples is one
+  request; the cache is dropped on every bearer-token change, since serving one user's private
+  labels to another after a re-login would be a cross-user leak rather than mere staleness.
+- A label owned by another user resolves to a placeholder carrying only the id — never an error.
+- Write support (`save_label`, `bulk`) is deliberately absent: `save_label` has no ownership check
+  server-side, so wrapping it would ship a method capable of hijacking another user's label.
+
+### RO-Crate 1.2 and `.eln` 1.2+20260923 (breaking crate-shape change)
+
+- Crates are now **RO-Crate 1.2** and declare the `.eln` profile
+  `https://purl.archive.org/purl/elnconsortium/eln-spec/1.2+20260923`. Both are listed in the root
+  Dataset's `conformsTo` and present in the graph as `Profile` entities. The old
+  `additionalType: …/eln-spec/1.1` is gone — that IRI 404s.
+- **Crates written by earlier builds of this client are rejected by the current consortium
+  checker.** Every chem-dcat-ap predicate we use as a JSON-LD key — `qudt:unit`,
+  `sio:SIO_000008`, `obo:BFO_0000051`, `adms:identifier`, `skos:notation` — was left as a bare
+  absolute IRI, which RO-Crate 1.2 refuses outright. The `@context` is now **generated from the
+  finished document**: namespace prefixes plus an explicit definition for every key the RO-Crate
+  context does not already define, so a newly mapped predicate cannot silently invalidate a crate.
+- `sha256` is no longer defined locally; RO-Crate 1.2's context carries it.
+- Molecule `cas` / `names` were raw Chemotion column names used as JSON-LD keys. They are now
+  `identifier` / `alternateName` — same data, terms the context actually defines.
+- Elements with no attachments now get a directory entry in the ZIP. A Dataset data entity that
+  exists only in the metadata is a REQUIRED violation under 1.2 (`ro-crate-1.2_18.1`).
+- `SoftwareApplication` requires `url` and `version` under 1.2. The producer node gained a `url`.
+  The source-ELN node is typed `SoftwareApplication` only when its version is known; offline,
+  where there is no `/about` to read, it stays a `CreativeWork` rather than inventing a version.
+- `just conformance` validates against **two** `roc-validator` versions, 0.11.3 (what
+  TheELNFileFormat's CI pins, and the stricter on compact IRIs) and 0.13.0. The gate previously
+  pinned 0.5.0, which reported no issues on crates the consortium rejects.
+
+### Caught up with ELN v4.0.0
+
+Two things were **broken against the released server** and are fixed:
+
+- **Groups.** `POST /groups/create` and `PUT /groups/upd/:id` no longer exist; the endpoints moved
+  into a new `group_api.rb` with flat params and REST sub-resources. `Person.create_group()` and
+  `Group.add_users()` are retargeted, and the previously unwrapped operations are now available:
+  `Group.remove_users()`, `promote_admin()`, `demote_admin()`, `delete()`, and
+  `Person.get_groups()`. Failures map to `PermissionError` (401) and `ValueError` (404/422)
+  instead of a blanket `ConnectionError`.
+- **Wellplate dimensions.** v4 removed `width`/`height` from the ordinary wellplate `PUT`, so
+  assigning them and calling `save()` was a **silent no-op**. Use the new
+  `Wellplate.resize(width, height)`. Growing always works; shrinking is refused when a well that
+  would fall outside the new grid still holds data, and the server names the blocking positions.
+
+New surface:
+
+- **`Collection.assign_elements()` / `remove_elements()` / `move_elements()`** — put an element in
+  another collection, take it out, or both. `move_elements()` is **not atomic**: v4 has no move
+  endpoint, so it adds and then removes, and returns the ids of anything left in both. A sample
+  belonging to a reaction or wellplate still in the collection cannot be removed alone — v4
+  reports that as **200 with `locked_sample_ids`**, a 2xx that is not success. Scoped to samples,
+  reactions and research plans.
+- **`Collection.update_share()`** — edit one share, and the only route accepting
+  `include_new_subcollections`, which cascades into sub-collections *not previously shared*. That
+  grants access rather than adjusting it, so it is off by default and refused without
+  `apply_to_subcollections`. Note `share()` now **sends mail**: v4 added a share notifier.
+- **`element.can_update`** and **`attachment.previewable`** — read-only server hints. `None` means
+  the server did not say, which is not `False`.
+- **`reaction.properties['concentration_mode']`** — replaces the `use_reaction_volume` boolean,
+  whose two values could not express `combined`.
+- **`sample.molecule.molecular_weight`** — molecule fields are readable as attributes.
+
+Fixes to existing behaviour:
+
+- `create_molecule_by_smiles()` no longer defaults `density` to `0.0` and write it back, which
+  silently replaced the server's real density for every caller that omitted one. An unresolvable
+  SMILES now raises instead of producing an empty molecule that fails later with a 500.
+- Products can be expressed in **mol** (gas products excepted — their amount is derived).
+- `append_no_split()` now binds the sample to the reaction (role, position, amount) as the
+  splitting path does; it previously added a detached sample and saved it that way.
+- A missing reference amount yields `equivalent = None` instead of raising out of a getter, and a
+  failed equivalent update is logged rather than silently swallowed.
+- Unknown solvent names suggest near matches.
+- Richer request errors (`ChemotionRequestError`, `ChemotionServerError`) carry the status, method,
+  URL and a readable snippet instead of an entire HTML error page. They also subclass the builtin
+  `ConnectionError`, so existing `except ConnectionError` handlers keep working.
+
+Dependency: **chem-dcat-ap `0.1.0rc3` → `0.1.0rc4`** (with linkml-runtime 1.12.1). The crate's
+`softwareRequirements` records it, so it is the vocabulary version the metadata claims; the
+generated output is unchanged apart from that string.
+
+### Collections are entities, not folders (breaking crate-shape change)
+
+- **An element in two collections used to lose one of them.** Its crate path was derived from the
+  collection it was reached through and only one collection was recorded per element, so the second
+  traversal overwrote the first: the crate asserted the element lived in whichever collection
+  happened to be walked last, and the other membership was not merely unstated but unrepresentable.
+- Collections are now contextual `Collection` entities (`#collection-<id>`) that the root
+  `mentions`, and elements sit at collection-independent paths `./<plural>/<name>_<id>/` with
+  `isPartOf` naming every collection they belong to. Each collection's `hasPart` is the exact
+  inverse. An element in several collections is stored **once**, with its attachments.
+- Typing collections as `Dataset` would not have worked: RO-Crate 1.1 treats a `Dataset` as a Data
+  Entity Directory, which must have a path-shaped `@id` ending in `/` and be reachable from a
+  `hasPart` — i.e. it would put the element back inside exactly one folder.
+- **ZIP entry paths move with the elements**, since the crate no longer nests them under a
+  collection folder. Anything that consumed the old nesting needs updating.
+- Generic elements now carry their element type in the path (`./generics/<type>/<name>_<id>/`):
+  every generic type shared one `generics/` folder, so two types with the same id collided.
+- Reading them back: `ElnCrate.collections`, `ElnCollection.elements`/`.parent` and
+  `ElnDataset.collections`. Membership was previously unreportable by the reader at all.
+
+### `.eln` crates say much more about themselves
+
+- Elements now carry `identifier`, `genre`, `keywords`, `text` and, from a live server,
+  `dateCreated`/`dateModified`; files carry `identifier`, `description`, timestamps and a `sha256`
+  computed from the bytes as they stream into the archive. ELN fields with no chem-dcat-ap home are
+  carried as `variableMeasured` `PropertyValue`s instead of being dropped.
+- **Reaction temperature and RInChI were being silently dropped** although the data was there: only
+  a time-series temperature was mapped (never a single typed value), and RInChI was never mapped at
+  all. Both are now emitted.
+- The root's `isBasedOn` names the **source ELN**: its URL, its version exactly as `/about` reports
+  it (`v4.0.0-rc-20260902` — the build suffix is the only thing separating two rolling builds), and
+  the build revision. Export provenance moved to a `CreateAction` whose `instrument` is this client,
+  carrying the chem-dcat-ap / dcat-ap-plus versions alongside its own.
+- `export_eln(disclose_host=False)` records the ELN version while replacing the hostname with
+  `https://offline.chemotion.invalid`, for an archive leaving the institution.
+- Offline exports omit timestamps and the server version rather than inventing them — a Chemotion
+  export dump records neither — and say so in the log and the manifest.
+- `User.get_affiliations()` was documented, exported and **raised `AttributeError`**: no `User`
+  subclass ever defined it. Implemented, with tests.
+
+### ORCID and ROR identifiers are validated
+
+- **Breaking:** `Author.orcid` and `AuthorAffiliation.ror` are now checked for syntax, and an ORCID
+  additionally for its ISO 7064 MOD 11-2 check digit and a ROR for its MOD 97-10 check digits. `orcid="banana"` and a mistyped iD are refused at
+  `validate_authors()` rather than being published as somebody else's identity. Identifiers are
+  rebuilt from their validated bare form, so `orcid="http://evil.example/ada"` can no longer become
+  the crate's authorship `@id` (with the first affiliation promoted to `sdPublisher`).
+- Reading a crate no longer launders foreign identifiers. The ORCID fallback was a *substring*
+  test, so `https://evil.example/orcid.org/fake` came back as the author's ORCID and an
+  `import_eln` → `set_authors` → `export_eln` round-trip republished it. A claimed identifier is
+  now reported only when it really is one; otherwise the field is empty.
+
+### Sharing: the caller chooses how much to disclose
+
+- **Breaking: `Collection.share()` now requires `detail_level`.** It defaulted to `10`
+  (`OWNER_LEVEL`), granting recipients every field of all nine element types and unlocking
+  `POST /collections/export` for them. Maximum disclosure is not a default anyone should get by
+  omission, so the level is now an explicit decision. `0` discloses least, `10` most; a value
+  outside that range raises. (The web client's share dialog does default to 10.)
+- **Added `Collection.unshare(*users)`** — the missing counterpart to `share()`. With no users
+  given it revokes every share on the collection. The v4 endpoint deletes by *share* id rather
+  than by collection and user, so `Collection.get_shares()` was added alongside it and is what
+  `unshare()` matches against; a share that is already gone counts as revoked.
+- **Removed `is_shared`, `is_synchronized`, the five `*_detail_level` attributes and
+  `sync_collections_users`** from `Collection`. Nothing ever assigned them — v4 has no
+  `sync_collections_users` table at all — so they read as `None` on every collection whether
+  shared or not, which is worse than absent.
+- **`Collection` now captures the fields the server actually sends.** `set_json` assigns a key
+  only `if hasattr(self, key)`, so eleven fields were being silently discarded. Added `shared`
+  (the real "has at least one share" flag, free with the listing, where `get_shares()` costs a
+  request and needs admin rights), `ancestry`, `position`, `tabs_segment`, `inventory_id`,
+  `inventory_name`, `inventory_prefix`, and — on collections shared *with* you — `owner`,
+  `owner_name`, `collection_share_id` and `shared_via_group`.
+
+### Ontology lookup contacts EBI, and is on by default
+
+`export_eln(ontology_lookup=True)` sends every analysis name without an embedded `CHMO:…` code to
+EBI's OLS service. This is **independent of `disclose_host`** — withholding the hostname does not
+withhold the analysis names — and it happens when exporting an offline dump too. The default is
+unchanged, but the outbound request is now documented prominently in the docstring and in
+`docs/FairExport.rst`, with `ontology_lookup=False` (no network call at all) and `ols_cache=<path>`
+(resolve once, reuse) as the ways out.
+
+### Silent omissions, duplicates and mutations found in the pre-release review
+
+- **Offline export dropped samples whose only reaction belongs to another collection.** "Is part
+  of a reaction" was judged against the whole dump, before collection scoping, so such a sample
+  appeared in neither list — not as a reaction material (the reaction is out of scope) nor as a
+  standalone sample — and vanished from the crate with a success exit.
+- **Retrying a failed save duplicated a new analysis.** `_clean_analyses_data` appended to the
+  live list inside `json_data`, and `is_new` only clears after a successful PUT, so the retry
+  appended a second copy and two identical analyses were created server-side.
+- **`Sample.to_dcat_ap` swallowed six conversion failures with bare `except: pass`,** exporting a
+  sample with no quantity at all and no log line. They now warn, naming the sample and the
+  quantity. This immediately surfaced a real one in the offline path: a sample's volume was being
+  silently omitted from every crate.
+- **`Wellplate._clean_properties_data` mutated the element it was serialising** and returned
+  `json_data` itself, so after a failed PUT the in-memory wellplate held serialised payloads where
+  the server's raw records had been.
+- **A failed element load no longer marks the element as loaded** (which made the next save write
+  list-derived nulls back), and is attempted once rather than on every property access.
+
+### Footguns and packaging
+
+- **Runtime dependencies pin release candidates** (`chem_dcat_ap` 0.1.0rc3, `dcat_ap_plus`
+  0.1.0rc4). No `--pre` flag is needed — PEP 440 allows pre-releases for a requirement whose own
+  specifier names one, which both of these do. The caveat is stability, not installability: both
+  are pre-1.0 and may break between compatible-looking versions, which is why each is pinned
+  `<0.2.0`.
+- `tests/data/setup_chemotion_db.sh` runs `DROP DATABASE … WITH (FORCE)` against a target whose
+  every connection setting is env-overridable. It now refuses anything but the `test_config` stack
+  (`localhost:54320/chemotion`) unless `CONFIRM_DESTRUCTIVE_DB_RESET=yes` is set.
+- `chemotion restore` dropped the named database with no confirmation. It now prompts; pass
+  `--yes` to skip.
+- `export_eln` wrote to `{path}.part` and would clobber whatever was already there — an unrelated
+  file, or a concurrent export's scratch file. It now refuses.
+- `Reaction._clean_properties_data` wrote the yield onto `products[0]._properties`, so
+  *serialising* a reaction mutated the in-memory model: inspecting or exporting one silently
+  altered it. The value now goes onto the serialised product; the wire format is unchanged.
+- `find_user_by_name` and `all_version_of_generic_class` interpolated values straight into a query
+  string, so a name containing `&`, `#` or a space was misread. Both use `params=` now.
+
+### Wellplates are not all 12 x 8
+
+- The client hardcoded 12 columns and rows `A`-`H`. v4 accepts any `width`/`height` in `1..100`,
+  so a larger plate raised `IndexError` on load, and `_clean_properties_data` walks every well —
+  meaning even an untouched save crashed. Dimensions are now read from the server, with new
+  `Wellplate.width`/`.height`/`.size`, and row labels follow the web client's `A`-`Z`, `AA`-`AZ`,
+  `BA`-… sequence. A well outside the plate is skipped with a warning instead of aborting the load.
+- **Reading a wellplate no longer writes to the server.** Placing a sample in a well goes through
+  `Sample.split()` — correct when a user assigns one, but the *parsing* path used it too, and
+  `split()` calls `save()`. Loading a plate therefore issued a PUT per occupied well and then held
+  new, unsaved `…-NaN` subsamples rather than the samples actually on the plate, which a later
+  save wrote back over them.
+- `wells` is now loaded lazily, like `properties`. v4 gates it behind `unless: :displayed_in_list`,
+  so a wellplate obtained from a collection listing had an empty grid; saving it wiped the plate.
+- Removed `wells[:json_data.get('size')]`, which was always `[:None]`: `size` is a method on the
+  Rails model (`width * height`), not a column, and `WellplateEntity` never exposes it.
+
+### Malformed dumps and crates are parsed, not crashed on
+
+A Rails export dump and a foreign `.eln` are untrusted documents. Structurally wrong input is now
+refused with a message that says what is wrong; a single bad row is dropped with a warning rather
+than aborting an import somebody is running precisely to salvage the rest.
+
+- `"position": null` in a reaction-material join (routine in a Rails dump) raised `TypeError` and
+  aborted the whole import; `.get("position", 0)` covered a *missing* key but not an explicit null.
+- `"Sample": {"s1": null}` and a list where a table is expected raised `TypeError`/`ValueError`
+  from deep inside the adapter. Tables are now shape-checked at the edge.
+- A sample referencing a molecule **absent from the dump** still got a derived integer id, which
+  `to_dcat_ap()` published as `chemotion://molecule/<id>` for a molecule that does not exist. The
+  id is now `None` and the dangling reference is logged.
+- `ElnDataset.source_id` used `isdigit()`: `"²"` raised, and `"٩"` returned a **wrong** id of 9.
+  Only ASCII digits are accepted (`isdecimal()` and `\d` have the same Unicode hole).
+- A truncated `.eln` download was reported as "neither a ZIP archive nor a crate directory",
+  pointing at the wrong problem; it is now identified as truncated. `ro-crate-metadata.json`
+  containing a JSON array instead of an object raised `AttributeError`.
+- A malformed entry in a caller-supplied OLS cache file raised during export; it is now treated as
+  a cache miss and re-looked-up. A deliberate `null` negative-cache entry is still a hit.
+- `patch_metadata_dict` called `.get()` on every `@graph` member, assuming each is an object.
+- `_clean_segments_data` did `res_list[len(res_list)]` — a guaranteed `IndexError` — when a segment
+  had no entry in the element's `json_data`. It now raises with an explanation.
+
+### Also
+
+- A missing offline attachment now reports what is wrong instead of
+  `AttributeError: '_OfflineResponse' object has no attribute 'text'`.
+- Element schemas no longer carry a stale `1.9.3` server version in `$schema` (which also misused
+  the keyword — it names the dialect, not the document).
+- Fixed: search wrote its payload to `./test.json` on every call; `SubBaseField.id`'s setter stored
+  the builtin `id`; `TSDragSample.value`'s setter discarded its filtered token list;
+  `AdminMenu.greate_device` is now `create_device` (old name warns and delegates).
+
+## 📚 Recovered & modernized Sphinx docs — 2026-07-01
+
+Restored the `docs/` Sphinx suite that upstream had deleted (commit "remove docs") and brought it up to
+date against the current API. It now builds cleanly (`sphinx-build`, 0 warnings) as autodoc API
+reference + curated guides.
+
+- Recovered `conf.py`, `index.rst`, `Makefile`, and the hand-written guides (`Examples`, `Elements`,
+  `Collection`, `Sample/Reaction/Wellplate/ResearchPlan` details, `Analyses`, `Attachments`,
+  `GenericElements`) from git history.
+- New pages: **`FairExport.rst`** (mandatory ORCID+ROR authors, `export_eln`, ontology placeholder +
+  `ontology_patch`) and **`OfflineIngestion.rst`** (`import_export_zip` / `OfflineCollection`).
+- `conf.py`: refreshed project metadata; `autoclass_content='both'`, `autodoc_member_order='bysource'`,
+  and `autodoc_mock_imports` for the heavy scientific stack so docs build without the full runtime.
+- `Examples.rst`: placeholder host `https://chemotion.dept.uni.de`, an export-deps note, and two new
+  examples (FAIR `.eln` export with authors; offline export from an export-collection ZIP).
+- `docs/requirements.txt` trimmed to `sphinx>=7,<9` (enum_tools isn't Sphinx-9-ready yet),
+  `sphinx-rtd-theme`, `enum-tools[sphinx]`.
+- Fixed a reST field-list glitch in `Sample.properties` (`:key gas_type` was missing its colon).
+- Build: `pip install -r docs/requirements.txt` then `cd docs && make html` (output under
+  `docs/_build/`, gitignored). The old built wheels in `dist/` stay deleted; `dist/`/`build/`/`*.egg-info/`
+  are now gitignored.
+
+## ⚡ Segment-cache reuse + export progress callback — 2026-07-01
+
+Two improvements from an external code review (validated against the source first):
+
+- **Generic segment classes are now fetched once per connection.** `GenericSegments` used to keep its
+  `klasses.json` cache on a throwaway instance created per page load / element fetch, so paginating or
+  loading elements across several calls re-requested `/api/v1/segments/klasses.json` each time (the
+  request is lazy — on first `.all_classes` access — not at construction). The cache now lives on the
+  shared `Connection` (`Connection._generic_segment_classes`), mirroring the existing `schema_manager`
+  pattern, so it is fetched a single time per session. (`connection.py`, `generic_segments.py`.)
+- **`Collection.export_eln` accepts an optional `progress_callback`.** Called once per element during
+  the mapping phase as `progress_callback(processed_count, total_count, current_item_name)` for progress
+  bars in notebooks/GUIs; a callback that raises is caught and logged so it never aborts the export.
+
+`mypy` clean (79 files), 67 unit tests pass (new `tests/unit/test_segment_cache.py`).
+
+## 🐛 Bug-fix pass — 2026-06-30
+
+Fixed six issues surfaced during the docstring/typing work (logged in [AI/BUGS.md](./AI/BUGS.md)):
+
+- **Search no longer writes `test.json`.** Removed a leftover debug write in
+  [chemotion_api/search/search_helper.py](./chemotion_api/search/search_helper.py) that dumped the query
+  payload to the working directory on every search (and dropped the now-unused `json` import).
+- **`MaterialList.after_append` catches `KeyError`.** `except ValueError or KeyError:` (which only ever
+  caught `ValueError`) → `except (ValueError, KeyError):` in
+  [chemotion_api/elements/reaction.py](./chemotion_api/elements/reaction.py).
+- **`AdminMenu.greate_device` → `create_device`.** Renamed the misspelled public method; a deprecated
+  `greate_device` alias (emits `DeprecationWarning`) preserves backward compatibility.
+- **Spelling:** "dose not" → "does not" in two error messages (`__init__.py`, `commands/__init__.py`).
+- **LabIMotion `id` setter** used the builtin `id` instead of its `value` argument — now stores/validates
+  `value`.
+- **LabIMotion `TSDragSample.value` setter** discarded the computed display tokens and stored the raw
+  input — now stores the assembled `text_display`.
+
+`mypy` clean (79 files), 61 unit tests pass.
+
+## 👤 Explicit `.eln` authors (ORCID + ROR), no logged-in-user default — 2026-06-29
+
+`.eln` export no longer takes authorship from the logged-in user. Authors must be set **manually**,
+each with an ORCID iD and one or more ROR-identified affiliations.
+
+- New [chemotion_api/authors.py](./chemotion_api/authors.py): `Author(name, orcid, affiliations, email?)`
+  and `AuthorAffiliation(name, ror)`. ORCID/ROR accept bare ids or full URLs (normalized to
+  `https://orcid.org/…` / `https://ror.org/…`). Both exported from `chemotion_api`.
+- Set authors via `Collection.set_authors([...])` (also on `OfflineCollection`) or pass `authors=[...]`
+  to `export_eln`. **Required**: if neither is given, `export_eln` raises a `ValueError` with a copy-paste
+  example; per-author errors flag a missing ORCID, missing affiliation, or an affiliation missing its ROR.
+- Crate output: each author → a `Person` whose `@id`/`identifier` is the ORCID URL; affiliations →
+  `Organization` nodes whose `@id`/`identifier` is the ROR URL (deduped across authors). Every `Dataset`
+  references all authors via `author`; the descriptor's `sdPublisher` is the first affiliation.
+- `_build_author_nodes` is now a module-level function (was a method) so offline collections use it too.
+- Recorded in [DEFERRED.md](./DEFERRED.md): author entry is a natural fit for the future export CLI.
+
+## 📦 Offline ingestion, OLS lookup, richer typing — 2026-06-29
+
+`chemotionapi/` (formerly `created/`) now covers the full Chemotion export→`.eln` conversion path
+natively, keeping chem-dcat-ap as the semantic core. Three additions, all behind their own
+offline tests (`tests/unit/`), `mypy` clean, no integration regressions.
+
+- **Offline ingestion from a Chemotion *export collection* ZIP** (no live server). New package
+  [chemotion_api/offline/](./chemotion_api/offline/): `ExportArchive` + `ExportAdapter` reshape the
+  relational `export.json` dump (model tables + join tables + Container hierarchy + attachments) into the
+  **same per-element `json_data` the REST API returns**, then instantiate the regular `Sample`/`Reaction`
+  objects so the **unchanged `export_eln`** runs offline. `OfflineCollection`/`OfflineConnection` serve
+  attachment bytes straight from the archive. Entry point:
+  `Instance.import_export_zip(path).export_eln("out.eln")`. Verified end-to-end against a real
+  export fixture (131-node chem-dcat-ap crate, full reaction with 8 materials).
+- **Ontology resolution with an OLS fallback.** New [chemotion_api/ontology/ols_lookup.py](./chemotion_api/ontology/ols_lookup.py):
+  resolves an analysis' measurement-technique IRI in order — chem-dcat-ap typed mapping →
+  the `CHMO:…` code already embedded in the analysis `extended_metadata.kind` → an **EBI OLS4** query
+  (cached, with a negative cache, fully offline-safe) → placeholder. `export_eln` gained
+  `ontology_lookup=True` / `ols_cache=<path>` and now emits `measurementTechnique` `DefinedTerm` nodes.
+- **Richer typing for un-typed elements.** `Wellplate`/`ResearchPlan`/`GenericElement` gained
+  `eln_node_content()`: their RO-Crate `Dataset` node now carries real content (wells / body text /
+  segment fields as schema.org `PropertyValue`s) instead of an empty dataset. The forward-compatible
+  ontology **type placeholder is preserved** (IRIs still patchable via `ontology_patch`).
+
+ARC / ISA-XLSX output and new CLI subcommands were scoped out for now and recorded in
+[DEFERRED.md](./DEFERRED.md). A web app / ORCID / Postgres / React surface is out of scope.
+
+## 🐞 Latent-bug fixes (from the typing pass) — 2026-06-29
+
+Fixed the three behavior bugs surfaced (but only masked) during the typing pass. All masking
+`# type: ignore` comments were removed; mypy stays at **0** and the whole package still compiles.
+
+- **`RootCollection.id` made read-write again.** It overrode the read-write `AbstractCollection.id`
+  with a read-only property (only the lazy-loading getter), breaking the parent's contract. Added the
+  matching `@id.setter` (`self._id = id`). No existing path assigned `root.id` (`load_collection` sets
+  `self._id` directly), so this is purely additive — it just restores the inherited settable behavior.
+
+- **`raise NotImplemented` → `raise NotImplementedError`** in `elements/abstract_element.py`
+  (`_parse_properties`, `_clean_properties_data`) and `elements/attachments.py`
+  (`MutableAttachments.add_file`). `NotImplemented` is not an exception, so these previously raised an
+  opaque `TypeError`; they now raise the intended `NotImplementedError`. New offline test
+  [tests/unit/test_attachments.py](./tests/unit/test_attachments.py) asserts the `MutableAttachments`
+  case (unit suite now 37/37).
+- **`except ZeroDivisionError or AttributeError:` → `except (ZeroDivisionError, AttributeError):`** in
+  `elements/utils/equivalent.py` (both product and starting-material branches). The `or` form evaluates
+  to just `except ZeroDivisionError:`, so an `AttributeError` (e.g. a missing `reference_sample`) used to
+  propagate instead of yielding the intended `None`. Core reaction/gas/sample integration re-run vs the
+  playground: unchanged (no regression).
+
+## ✅ Package-wide typing — complete (mypy 0) — 2026-06-29
+
+Finished the **full-package behavior-preserving typing pass** begun in the earlier "safe pass" entry below.
+Scope was strictly type-level (annotations, `Optional`-narrowing, `typing.cast`, coded `# type: ignore`) — **no
+runtime/logic changes**.
+
+- **mypy errors: 405 → 0.** `Success: no issues found in 73 source files`
+  (`--ignore-missing-imports --follow-imports=silent --python-version 3.11`). Whole package compiles clean.
+- **Final round cleared:** `collection.py` + `elements/abstract_element.py` (70→0); `labImotion/**` (88→0, no
+  `# type: ignore` needed); elements + core (12 files, 71→0); `elements/attachments.py` (6→0); and the
+  dead-module `NameError` in `elements/schemas/research_plan.py` (added the missing
+  `from chemotion_api.elements.schemas.reaction import PURIFICATION_OPTIONS`).
+- **No regressions:** unit **36/36**; export + core integration **26 passed / 3 failed** (vs the playground) —
+  identical to the pre-typing baseline; the 3 are the known seeded-data molar-mass/collection cases.
+- **Latent bugs found, flagged not silently fixed** (masked with a coded `# type: ignore`, listed in
+  [DEFERRED.md](./DEFERRED.md) for a separate behavior-changing fix): `raise NotImplemented(...)`
+  (→`TypeError`) in `abstract_element.py:673,676` and `attachments.py:250`; `except ZeroDivisionError or
+  AttributeError:` (never catches `AttributeError`) in `elements/utils/equivalent.py:36,41`;
+  `RootCollection.id` read-only override of a read-write property (`collection.py:1182`).
+
+## 👥 Users & Author Export — 2026-06-24
+
+- **Affiliations brought into the client.** New [`Affiliation`](./chemotion_api/user.py) dataclass
+  (organization, department, group, country, from/to + a readable `.name`) and
+  `User.get_affiliations()`/`.affiliations` (lazy, cached) backed by Grape's `/api/v1/affiliations`.
+  Convenience `Instance.get_affiliations()` added; `Affiliation` re-exported from `chemotion_api.user`.
+  (Affiliations were previously absent from the `Person` model; upstream `chemotionapi` has no affiliation
+  support at all.)
+- **Author + affiliation now exported to `.eln`.** `export_eln` adds the logged-in user as an RO-Crate
+  `Person` contextual entity (name, email, `identifier`) referenced via `author` on the root and every element
+  `Dataset`, with their affiliations emitted as `Organization` entities linked through `Person.affiliation`
+  and the descriptor's `sdPublisher` (per TheELNFileFormat / RO-Crate). New helper
+  [`_build_author_nodes`](./chemotion_api/collection.py); author metadata is best-effort and never breaks an
+  export. *Note:* Chemotion elements do not expose a per-element creator, so the **exporting user** is recorded
+  as author. Live-verified end-to-end against the playground (Person→Organization graph produced correctly).
+  New offline [tests/test_author_export.py](./tests/test_author_export.py) (4 tests, incl. graceful-failure).
+
+## 🧱 Package-wide typing (safe pass) — 2026-06-24
+
+Extended typing/best-practices to the **inherited** code too (not just the recreation's modules), verified with
+mypy. Scope was the **behavior-preserving** subset (per decision): annotations only, no runtime logic changes.
+
+- **mypy errors: 483 → 405.** All *cleanly-safe* categories cleared to **0**: `valid-type` (19), `var-annotated`
+  (40), `type-arg` (11), `override` (13).
+- **Real bugs fixed (invalid annotations):** `dict[str:str]`-style slice annotations (should be `dict[str, str]`)
+  in `user.py`, `utils/__init__.py`, `commands/updater.py`, `labImotion/structure.py`, `elements/attachments.py`,
+  `inbox/__init__.py`; `any` (the builtin) used as a type instead of `Any` in `utils/__init__.py`,
+  `search/search_helper.py`, `elements/research_plan.py`; `AbstractElement.__class__` as a return type →
+  `type[AbstractElement]`; `UniqueDict[...]` subscripts on a non-generic class.
+- **Annotations added:** empty-collection attributes/locals across `collection.py`, `reaction.py`,
+  `attachments.py`, `genericproperties.py`, `layer.py`, `fields/*`, `elements/__init__.py`, etc.; `get_root()`
+  now returns the concrete `RootCollection` (fixed 8 inference errors at once); `Optional[...]` on `None`-defaulted
+  params/attrs; `# type: ignore[override]` on intentional `requests.Session`/`MutableSequence`/search-helper
+  signature overrides.
+- **Deferred (behavior-affecting — needs the test suite):** the remaining 405 are `union-attr` (143),
+  `assignment` (77), `arg-type` (55), `index` (47), `return-value` (40), `attr-defined` (18) — mostly `Optional`
+  access (`self.json_data.get(...)`) whose correct fix is runtime None-guards/narrowing. Tracked in
+  [DEFERRED.md](./DEFERRED.md).
+- **Fixed** pre-existing invalid-regex-escape `SyntaxWarning`s in `elements/schemas/research_plan.py`
+  (lines 62, 66): the `pattern` strings made raw (`r"..."`); the file now compiles `-W error::SyntaxWarning`
+  clean. (The double-backslash pattern in `labImotion/.../schema_field.py` is correctly escaped — not a bug.)
+- Added `mypy` dev dep + `[tool.mypy]` config so this is reproducible.
+
+## 💧 Streaming attachment downloads — 2026-06-24
+
+- `export_eln` no longer loads each attachment fully into memory. New
+  [`Attachment.iter_file()`](./chemotion_api/elements/attachments.py) streams the download in 1 MiB chunks
+  (`stream=True` + `iter_content`), and `_write_crate_zip` copies those chunks directly into the crate entry
+  via `ZipFile.open(..., 'w', force_zip64=True)` (handles >2 GiB files). Falls back to `load_file()` for
+  objects without `iter_file`. Verified: full export suite **6/6 vs the playground** (real attachments) plus
+  the mocked streaming + download-failure tests.
+
+## ✅ Measured verification + PyPI deps — 2026-06-24
+
+Ran the previously-deferred verification against the playground (in memory-safe batches):
+
+- **`chem-dcat-ap` confirmed on PyPI** (latest `0.1.0rc3`); installed the release (replacing the local
+  dev build) — the `^0.1.0rc3` pin in `pyproject.toml` is correct. Unit + SHACL-offline still green (37 passed).
+- **`export_eln`: 6/6 export tests pass; `collection.py` coverage = 79 %** (`pytest-cov`). Replaces the old
+  unsubstantiated "100 % coverage" claim with a measured figure (the misses are mostly the unrelated
+  editable-collection CRUD methods + error branches, not `export_eln`).
+- **Recreation core (dcat mapping, sample, reaction, gas): 20/23 pass.** The 3 failures are seeded-data,
+  not code: one expects reaction 1 in a specific collection id; two (`test_extended_reaction_amount`,
+  `test_FEEDSTOCK_amount`) are off by an identical ~8.58× factor in **mass/equivalent** while `mol` matches
+  exactly — i.e. the playground's seeded molecule molar masses differ from the tests' hard-coded values.
+- **Full integration suite: ~56 passed / 37 failed** (run in batches). Failures are dominated by unseeded
+  playground data (generic/workflow/segment definitions absent, default user `MM` vs expected `API`), the
+  by-design `Variations` `NotImplementedError`, and the 2 molar-mass tests above. Consistent with the
+  pre-fix baseline (57/35) — **no regressions** from this session's changes.
+- Added `pytest-cov` (dev). The molar-mass discrepancy is logged in DEFERRED for a check against a seeded instance.
+
+## 🧪 Test-suite restructure (memory + coverage) — 2026-06-24
+
+Reassessed the suite after the pytest OOMs. Root cause: **not a leak** (plain `python` import+export
+peaks ~52 MB) — the full run executed all memory-heavy tests (RO-Crate serialization, pyshacl) in one
+process under the sandbox's memory cgroup. Restructured for a small, reliable footprint:
+
+- **`tests/unit/`** — new pure-logic offline layer: `test_models.py` (Pydantic validation:
+  `yield` alias, `duration` union→`UnitDictModel` coercion, `extra='allow'`, defaults, `clean()`),
+  `test_ontology.py` (registry + `.eln` patch round-trip), `test_affiliation.py`, `test_property_dict.py`
+  (moved), `test_author_nodes.py` (moved). **36 tests, 63 MB peak, 0.23 s** — runs reliably anywhere.
+- **`tests/conftest.py`** imports `chemotion_api` **lazily** (inside the server fixtures) so collecting
+  the unit suite doesn't pull in rdflib/linkml.
+- **Markers**: `heavy` (memory-heavy offline: full `export_eln` serialization / pyshacl) added to
+  `test_eln_export.py` mocked tests, `test_export_manifest.py`, `test_shacl_conformance.py`, and the
+  `export_emits_placeholder` test; `integration` already auto-applied via server fixtures. Heavy tests
+  run fine individually (~57 MB each).
+- Added [tests/README.md](./tests/README.md) documenting the layout + run commands
+  (`pytest tests/unit` for CI; heavy/integration opt-in).
+
+Coverage of the recreation's offline-testable logic is now comprehensive and CI-friendly; full
+server-backed + heavy runs remain available but opt-in (see [DEFERRED.md](./DEFERRED.md)).
+
+## 🔎 Code review + typing pass — 2026-06-24
+
+Scoped to the recreation's **new/modified** code (not the inherited upstream tree). Verified with **mypy**
+(`mypy --ignore-missing-imports`), which type-checks statically without executing the heavy scientific stack —
+the right verifier given pytest is memory-constrained here. mypy added as a dev dependency + `[tool.mypy]` config.
+
+- **Type-clean now (mypy: 0 issues):** `ontology_map.py`, `ontology_patch.py`, `models.py`, `connection.py`, and
+  all helpers authored this session in `collection.py` (`_get_export_schemaview`, `_write_crate_zip`,
+  `_build_author_nodes`, `export_eln`) plus the `Affiliation` additions in `user.py`.
+- **Fixes from the review:** annotated `Connection._bearer_token`/`_schema_manager` as `Optional[...]`; marked the
+  intentional `requests.Session` method overrides with `# type: ignore[override]`; tightened `ontology_patch`
+  None-handling (`kind` guard, provable `target: str`); annotated `_SCHEMAVIEW_CACHE`; added return types
+  (`export_eln -> str`, `_build_author_nodes -> tuple[Optional[dict], Optional[dict]]`, `_write_crate_zip -> None`)
+  and parameter types on the export helpers; flagged the known-incomplete `Variation.populate` call with a coded
+  `# type: ignore`.
+- **Recorded (NOT fixed — inherited upstream, no test coverage; behavior-preserving scope):**
+  - `user.py` uses the invalid annotation `dict[str:str]` (should be `dict[str, str]`) in several `Person` fields
+    (a real typo); `User.factor_user` assigns `Admin`/`Group`/`Person` to a var inferred as `Device`; `devices`/
+    `groups` lack annotations.
+  - `reaction.py`/`collection.py` pervasively call `self.json_data.get(...)` where `json_data` is `Optional[dict]`
+    (no None-guard); `Variations.remove` returns `bool` against `MutableSequence.remove -> None`.
+  These are pre-existing and should be addressed with a runnable test suite in place.
+
+## 🧹 Quality pass (improvements #5–#8) — 2026-06-24
+
+- **#5 SchemaView caching.** The merged chem-dcat-ap `SchemaView` (expensive to parse/merge) is now built once
+  and cached module-level (`_get_export_schemaview`, keyed by schema path + importmap) instead of rebuilt on every
+  `export_eln` call. (collection.py)
+- **#6 Library logging hygiene.** Added a `NullHandler` to the `chemotion_api` logger in the package `__init__`, so
+  importing the library never emits log output unless the application configures handlers. (Pairs with the earlier
+  `pytest.ini` change that stopped forcing `log_cli=DEBUG`.)
+- **#7 Reaction variations resolved (fail-safe + fail-loud).** The feature is incompletely implemented here and
+  upstream (`clone_init_args`/`set_aux` undefined, `populate` arity mismatch). Now: reading a reaction that carries
+  variations no longer crashes — `Variations.populate` skips them with a clear warning and the rest of the reaction
+  stays usable (saving round-trips the raw variation payload untouched); `Variations.add_new()` raises an explicit
+  `NotImplementedError` instead of a cryptic `TypeError`. (reaction.py)
+- **#8 Connection robustness.** `Connection` now mounts an `HTTPAdapter` with `urllib3` `Retry` (total=3,
+  backoff_factor=0.5, retries 502/503/504 + connection errors) on http/https. Only idempotent methods
+  (GET/HEAD/OPTIONS/PUT/DELETE) are retried, so POST/PATCH are never re-sent (no duplicate writes). The default
+  request timeout `(2, 500)` was already present. (connection.py)
+- Verified at import level (NullHandler attached, retry adapter configured, schemaview cache present, `add_new`
+  raises); full pytest verification remains **deferred** (sandbox OOMs pytest — see note below).
+
+## 🧹 Quality pass (improvements #1–#4) — 2026-06-24
+
+- **#1 Export observability.** `export_eln` no longer silently drops elements. A `skipped` manifest records every
+  retrieve/load failure, `to_dcat_ap` mapping failure, and attachment-download failure; a `logger.warning` summary
+  is emitted, and a new `strict: bool = False` parameter raises `RuntimeError` instead of producing a partial
+  crate. (collection.py; new [tests/test_export_manifest.py](./tests/test_export_manifest.py).)
+- **#2 `export_eln` refactor.** Reduced 443 → 382 lines: the five near-identical per-kind traversal blocks collapse
+  into one `_index(...)` helper (which also centralises manifest recording); zip-writing extracted to a module-level
+  `_write_crate_zip(...)`; author logic already in `_build_author_nodes(...)`. (Verified earlier: the 10-test offline
+  export/ontology/author batch passed after these extractions.)
+- **#3 Test markers.** Server-dependent tests are now auto-marked `integration` via a `pytest_collection_modifyitems`
+  hook in [tests/conftest.py](./tests/conftest.py) (keyed on the live-server fixtures), so the offline subset runs
+  with `pytest -m "not integration"`. `pytest.ini` registers the marker and **disables `log_cli`/DEBUG logging**
+  (was `log_cli=true, log_level=DEBUG`) and ignores DeprecationWarnings — the DEBUG/warning flood was amplifying
+  memory use in constrained runs.
+- **#4 Stale-package footgun fixed.** Ran `pip install -e . --no-deps`; `import chemotion_api` now resolves to the
+  local source (`created/chemotion_api`, via `chemotion_api.pth`) and `chemotion_api.models` imports cleanly —
+  scripts no longer pick up the old site-packages copy that lacked `models.py`.
+- **Note on verification:** the test *suite* could not be re-run to green here — pytest's process tree is being
+  SIGKILLed by the sandbox memory cgroup (the box has free RAM; plain `python` import+export peaks at ~52 MB and
+  is leak-free, so this is environmental, not a code leak). #1's `strict`/manifest test and a full suite run are
+  **pending** an environment with more headroom; #2 was verified before the environment degraded, and #4 was
+  verified directly.
+
+## 🌐 Offline-capable export — 2026-06-24
+
+- **`export_eln` no longer requires network.** It previously fetched the `dcat_ap_plus` schema (via
+  `SchemaView(merge_imports=True)`) and the RO-Crate JSON-LD `@context` from `w3id.org` on every export
+  (~2 min, broke offline). Now:
+  - `SchemaView` resolves `dcat_ap_plus` from the locally installed package via an `importmap`
+    ([collection.py](./chemotion_api/collection.py)); falls back to remote if the package is absent.
+    (Install with `pip install dcat-ap-plus chem-dcat-ap`.)
+  - **Dependencies now come from PyPI, not a local checkout:** `chem_dcat_ap` changed from
+    `{ path = "../chem-dcat-ap" }` to `^0.1.0rc3` in [pyproject.toml](./pyproject.toml) (alongside `dcat_ap_plus`
+    `^0.1.0rc4`); `pyshacl` added as a dev dep. The pin is keyed off the installed release base `0.1.0rc3` —
+    egress was down to confirm the exact published version, so adjust if PyPI differs. (The dev-only SHACL test
+    still references the local shapes file and skips when absent.)
+  - The RO-Crate context is **vendored** at [chemotion_api/data/ro-crate-context.jsonld](./chemotion_api/data/ro-crate-context.jsonld)
+    and used for JSON-LD compaction instead of the remote URL (output `@context` stays the canonical URL).
+- **Fixed a latent serialization crash** that the network failure had been masking: a fallback Dataset node's
+  `description` could be a `PropertyDict` (not JSON-serializable). `export_eln` now serializes with a `default`
+  handler that unwraps `PropertyDict`/`UnitDict` via `.to_dict()`.
+- **Author metadata is now hard-guarded** so the author step can never break an export (covers odd inputs and
+  keeps the mocked export tests green).
+- **Verified end-to-end with network blocked:** a full export of a sample + reaction + wellplate produced a valid
+  `.eln` whose `ro-crate-metadata.json` contains `author` → `#person_2` (name/email/identifier),
+  `Person.affiliation` → `#organization_1` ("KIT, IBG, NFDI4Chem", Germany), descriptor `sdPublisher`, and the
+  wellplate ontology placeholders. The previously network-flaky `test_eln_export.py` suite now runs offline and
+  deterministically.
+
+## 🛠️ Fix & Hardening Pass — 2026-06-24
+
+Goal: make the FAIR `.eln` export correct, robust, and
+forward-compatible for ontology annotation. Entries added per step as work lands.
+
+**Net effect on the regression suite (changed areas):** the 5 gas-test setup ERRORS are gone and all 8 new
+tests pass (4 ontology + 3 PropertyDict + 1 SHACL-offline), with **no new regressions**. The 4 still-failing
+tests (`test_get_collection_from_reaction`, `test_extended_reaction_amount`, `test_FEEDSTOCK_amount`,
+`test_debug_feedstock`) are pre-existing `AssertionError`s — they were duration-crash failures in the baseline and
+now run but assert against data the unseeded playground doesn't have; not introduced by this work and not yet
+root-caused. The broader environment failures (users/workflows/generics/segments) remain out of scope.
+
+- **Baseline** (playground `localhost:5000`, unseeded): 57 passed / 35 failed / 5 errors. Most failures are
+  environment/data mismatches (test fixtures, users, generic/segment/workflow defs not present on the playground)
+  — out of scope for that pass. Real code issues isolated below.
+- **Fixed: `duration.to_dict()` crash on string durations** ([reaction.py:368](./chemotion_api/elements/reaction.py#L368)).
+  `ReactionPropertiesModel.duration` is `Union[UnitDictModel, str, Dict]`; a string duration hit `.to_dict()` and
+  raised `AttributeError: 'str' object has no attribute 'to_dict'`. Guarded with `isinstance(..., UnitDictModel)`.
+  Cleared all 5 gas-test setup ERRORS; `test_to_gas_model`, `test_gas_amount`, `test_CAT_amount` now pass.
+- **Confirmed [runtime]:** the inherited `Variation`/`SampleVariation` defects DO fire (`test_reaction_variants`
+  → `TypeError`/`IndexError`); will fix in Tier 5. The `PropertyDict` recursion worry does NOT reproduce
+  (`test_usability` passes) — dropped.
+- **Forward-compatible ontology annotation for non-chemical entities** (Tier 1.2). Wellplate / ResearchPlan /
+  GenericElement have no `to_dcat_ap` mapping and were exported with a bare `["Dataset", "<ClassName>"]` type
+  (`"Wellplate"` is not an ontology term). Changed the export ([collection.py:644](./chemotion_api/collection.py#L644))
+  to emit a spec-conformant `@type: "Dataset"` node carrying a **forward-compatible ontology placeholder** — a
+  `variableMeasured` `PropertyValue` (per TheELNFileFormat spec) whose `identifier` is the ontology IRI slot,
+  left empty until the term is defined.
+  - New [ontology_map.py](./chemotion_api/ontology_map.py): single source of truth (`{element_kind: IRI}`, all
+    `None`/TBD for now) read by both the exporter and the patch helper — defining a term later is a one-line edit.
+  - New [ontology_patch.py](./chemotion_api/ontology_patch.py): `patch_eln_ontology(eln, {kind: IRI})` rewrites an
+    existing `.eln`'s `ro-crate-metadata.json`, filling the placeholder's `identifier` and adding the IRI as an
+    additional `@type` — so already-exported files can be upgraded without re-export.
+  - Added [tests/test_ontology_annotation.py](./tests/test_ontology_annotation.py) (4 offline tests, all pass):
+    placeholder shape, metadata patching, unmapped-kind skip, and a full `.eln` patch round-trip.
+- **Cleanup** (Tier 5): simplified `_col_path_join` ([collection.py:26](./chemotion_api/collection.py#L26)) —
+  removed dead `reverse()` and the redundant double `.replace('//','/')` (now collapses all `//`, behavior-preserving).
+- **Documentation honesty**: removed the unsubstantiated "**100% line and branch coverage**" claim from
+  [documentation.md](./documentation.md) (replaced with an honest note + pointer to the measured baseline); fixed
+  README "Internal References" links that pointed at a machine-specific `.gemini/antigravity-ide/brain/...` path so
+  they reference the in-repo guides.
+- **Known gap, NOT fixed (documented):** the reaction **variations** feature (`Variation`/`SampleVariation`/
+  `Variations`) is inherited from upstream and **incomplete in both packages** — `clone_init_args` and `set_aux`
+  are referenced but undefined, and `Variations.add_new`/`populate` call `Variation.populate` with 2 args where 7
+  are required. `test_reaction_variants.py` fails accordingly. A correct fix is a feature reconstruction that can't
+  be verified without a seeded reaction carrying variations, so it is recorded as a known inherited gap rather than
+  half-fixed.
+- **Robustness** (Tier 3): narrowed all 6 bare `except:` clauses in
+  [reaction.py](./chemotion_api/elements/reaction.py) to specific exception types (timestamp parses, yield/temperature
+  DCAT mapping) and replaced silent `pass` with `logger.warning`; added a module logger. Hardened the yield save
+  ([reaction.py:389](./chemotion_api/elements/reaction.py#L389)): documents the single-product assumption and warns
+  on multi-product reactions instead of silently writing only `products[0]`.
+  - **Discovered limitation (documented):** `export_eln` makes two **remote network calls** — `SchemaView(merge_imports=True)`
+    fetches the `dcat_ap_plus` schema, and rdflib's JSON-LD serialization fetches the RO-Crate `@context`
+    (`https://w3id.org/ro/crate/1.1/context`). This makes export slow (~2 min) and fail offline. Noted as a known
+    robustness gap (fix = vendor both locally); the e2e ontology export test skips gracefully when offline.
+- **Ergonomics** (Tier 4): added `PropertyDict.__dir__`
+  ([utils/__init__.py](./chemotion_api/utils/__init__.py)) so dot-access keys (`sample.properties.purity`) show up in
+  REPL/IDE autocomplete; `AttributeError` now suggests close matches ("Did you mean: purity?"); `export_eln` now
+  returns the written path and logs a one-line summary. New offline
+  [tests/test_property_dict.py](./tests/test_property_dict.py) (3 tests, pass).
+- **SHACL conformance baseline captured** (Tier 1.1). `to_dcat_ap` output validated against
+  `chem-dcat-ap/project/shacl/chem_dcat_ap.shacl.ttl` (same schema version — no skew): **conforms=False, 103
+  violations** for a SubstanceSample + ChemicalEntity + ChemicalReaction. The mapping is semantically correct
+  (CHEBI/SIO/CHMO/CHEMINF/QUDT classes + values all present); violations are dominated by chem-dcat-ap
+  *schema-profile strictness* (AP wrapper classes on `SIO_000008` attribute nodes ×52, `DefinedTerm`/`Identifier`
+  wrapping ×20, single-datatype `prov:value` + max-1 `rdf:type` ×20) — which live in the **sibling chem-dcat-ap
+  project (left unchanged)**, not in `created/`'s pipeline. Recorded as documented known gaps, not bugs.
+  Added [tests/test_shacl_conformance.py](./tests/test_shacl_conformance.py) (+ committed
+  [tests/data/dcat_baseline.ttl](./tests/data/dcat_baseline.ttl)) as a **regression guard**: offline test pins the
+  baseline count; live test asserts a fresh export produces no *more* violations.
+
+---
+
+## 🚀 Pydantic v2 & Data Validation Models
+*   **Added [models.py](./chemotion_api/models.py)**: Introduced Pydantic v2 models representing core domain concepts for validation and serialization.
+    *   Added [MoleculeModel](./chemotion_api/models.py#L30) to parse, check, and clean molecule attributes (e.g., density, melting point, boiling point).
+    *   Added [SamplePropertiesModel](./chemotion_api/models.py#L54) and [ReactionPropertiesModel](./chemotion_api/models.py#L90) with strict and flexible validation config (`extra='allow'`).
+*   **Refactored [Sample](./chemotion_api/elements/sample.py)**:
+    *   Migrated the internal dict storage of `Molecule` to validate properties through [MoleculeModel](./chemotion_api/models.py#L30).
+    *   Modernized range parsers for melting/boiling points to handle ranges dynamically.
+*   **Refactored [Reaction](./chemotion_api/elements/reaction.py)**:
+    *   Migrated reaction properties loading and validation to use [ReactionPropertiesModel](./chemotion_api/models.py#L90).
+
+---
+
+## ⚡ Usability & Accessor Enhancements
+*   **Inline Login Credentials & Context Manager**:
+    *   Updated the constructor of [Instance](./chemotion_api/__init__.py#L38) to support optional `username` and `password` parameters for auto-login.
+    *   Implemented `__enter__` and `__exit__` context manager protocols on [Instance](./chemotion_api/__init__.py#L38) to auto-close HTTP connections.
+*   **Direct Collection Retrieval**:
+    *   Added helper methods [Instance.get_collection](./chemotion_api/__init__.py#L215) and [Instance.get_or_create_collection](./chemotion_api/__init__.py#L226) on the root client level.
+*   **Attribute Dot-Access for Properties**:
+    *   Modified the [PropertyDict](./chemotion_api/utils/__init__.py#L55) class using custom `__getattr__` and `__setattr__` behaviors to allow dot-attribute access for fields (e.g. `sample.properties.purity` instead of key access).
+*   **String Representations**:
+    *   Added `__str__` and `__repr__` implementations to [AbstractElement](./chemotion_api/elements/abstract_element.py#L663) and `AbstractCollection` for cleaner debug logging.
+
+---
+
+## 🔬 RO-Crate 1.1 `.eln` Exporting
+*   **Implemented [AbstractCollection.export_eln](./chemotion_api/collection.py#L393)**:
+    *   Introduced a recursive collection traversal algorithm writing to a `.eln` ZIP archive.
+    *   Mapped and converted Chemotion properties to RDF Graphs using the `chem_dcat_ap` schema specification.
+    *   Serialized compliant `ro-crate-metadata.json` graphs mapping `hasPart` relations and metadata details.
+    *   Implemented file sanitization against directory traversal attacks (e.g. Zip Slip) when writing file outputs.
+
+---
+
+## 🐛 Bug Fixes
+*   **Grape Nested Updates Constraint**:
+    *   Modified [reaction.py](./chemotion_api/elements/reaction.py) to strip the `'attachments'` field from nested sample dictionary payloads, resolving a Rails backend 500 error on nested sample validation.
+*   **Empty Attachments Helper**:
+    *   Modified the getter of `.attachments` on [AbstractElement](./chemotion_api/elements/abstract_element.py#L425) to return an empty `Attachments` list/wrapper instead of `None` if no attachments exist.
+*   **Name Synchronization**:
+    *   Fixed getter and setter properties for `.name` on [AbstractElement](./chemotion_api/elements/abstract_element.py#L373) to correctly fallback to properties dictionaries.
+
+---
+
+## 🔧 Dependencies & Documentation
+*   **Project Config ([pyproject.toml](./pyproject.toml))**:
+    *   Added `pydantic` and local path dependency `chem_dcat_ap`.
+    *   Removed unused dev dependency packages like `sphinx` and `enum-tools`.
+*   **Updated [README.md](./README.md)**:
+    *   Replaced placeholder client documentation with a detailed quickstart guide, feature descriptions, test runner execution guides, and direct local documentation links.
+
+---
+
+## 🧪 Testing (Untracked Files)
+*   Added [test_usability.py](./tests/test_usability.py) verifying dot access, inline credentials, and context managers.
+*   Added [test_eln_export.py](./tests/test_eln_export.py) validating the full export traversal, dataset attachments, and path structures.
+*   Added [test_dcat_mapping.py](./tests/test_dcat_mapping.py) verifying substance/reaction DCAT-AP schema validation.
