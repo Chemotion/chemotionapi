@@ -1,7 +1,7 @@
 """Sample element handling for the Chemotion API.
 
 Defines the :class:`Sample` element together with its molecule, solvent and gas-phase helpers,
-and its quantity/equivalent calculations.
+quantity/equivalent calculations, and the mapping of a sample to chem-dcat-ap entities.
 """
 import json
 import logging
@@ -10,6 +10,7 @@ import copy
 import warnings
 from enum import Enum
 from typing import Any, Literal, Optional, Self, cast
+from pydantic import BaseModel
 
 
 from requests import Response
@@ -271,6 +272,7 @@ class Molecule(MutableMapping):
         :return: The cleaned molecule data
         """
         return self._model.clean()
+
 
 
 class MoleculeManager:
@@ -1264,4 +1266,255 @@ class Sample(AbstractElement):
 
         return False
 
+    def to_dcat_ap(self) -> BaseModel:
+        """
+        Maps the sample to its chem-dcat-ap substance entity.
+
+        The concrete class is chosen from the sample's role in its reaction: ``starting_materials``
+        becomes a ``StartingMaterial``, ``reactants`` a ``Reagent``, ``products`` a
+        ``ChemicalProduct``, solvents a ``DissolvingSubstance`` and everything else a
+        ``SubstanceSample``. The sample's molecule is mapped to a ``ChemicalEntity`` (SMILES, InChI,
+        InChIKey, formula, IUPAC name, molar mass and identifiers), and its amount is expressed as
+        mass, volume, amount of substance, density, molar equivalent and concentration where
+        available.
+
+        :return: A chem-dcat-ap pydantic model describing the sample
+        """
+        from chem_dcat_ap.datamodel.chem_dcat_ap_pydantic import (
+            SubstanceSample,
+            StartingMaterial,
+            Reagent,
+            ChemicalProduct,
+            DissolvingSubstance,
+            AmountOfSubstance,
+            Mass,
+            Volume,
+            Density,
+            MolarEquivalent,
+            Concentration,
+            ChemicalEntity,
+            SMILES,
+            InChi,
+            InChIKey,
+            MolecularFormula,
+            IUPACName,
+            MolarMass,
+            DefinedTerm,
+            Identifier
+        )
+
+        sample_id = self.json_ld.get('@id') or f"{self._session._host_url}/api/v1/samples/{self.id}"
+
+        role = getattr(self, 'role_in_reaction', None)
+        if role == 'starting_materials':
+            target_cls = StartingMaterial
+        elif role == 'reactants':
+            target_cls = Reagent
+        elif role == 'products':
+            target_cls = ChemicalProduct
+        elif role == 'solvents' or self._is_solvent:
+            target_cls = DissolvingSubstance
+        else:
+            target_cls = SubstanceSample
+
+        composed_of = []
+        if self.molecule:
+            mol_db_id = self.molecule.id or self.molecule.get('id')
+            if mol_db_id:
+                mol_id = f"chemotion://molecule/{mol_db_id}"
+            else:
+                mol_id = f"{sample_id}#EvaluatedCompound"
+            smiles_list = []
+            if self.molecule.get('cano_smiles'):
+                smiles_list.append(SMILES(value=self.molecule.get('cano_smiles'), title="assigned SMILES"))
+            
+            inchi_list = []
+            if self.molecule.get('inchistring'):
+                inchi_list.append(InChi(value=self.molecule.get('inchistring'), title="assigned InChi"))
+                
+            inchikey_list = []
+            if self.molecule.get('inchikey'):
+                inchikey_list.append(InChIKey(value=self.molecule.get('inchikey'), title="assigned InChiKey"))
+                
+            formula_list = []
+            formula_val = self.molecule.get('sum_formular') or self.properties.get('sum_formula')
+            if formula_val:
+                formula_list.append(MolecularFormula(value=formula_val, title="assigned molecular formula"))
+                
+            iupac_list = []
+            iupac_val = self.molecule.get('iupac_name')
+            if iupac_val:
+                iupac_list.append(IUPACName(value=iupac_val, description="Chemotion IUPAC name"))
+                
+            molar_mass_list = []
+            molar_mass_val = self.molecule.get('molecular_weight') or self.properties.get('molecular_mass')
+            if molar_mass_val:
+                molar_mass_list.append(MolarMass(
+                    value=float(molar_mass_val),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/MolarMass",
+                    unit="http://qudt.org/vocab/unit/GM-PER-MOL",
+                    description="Molar mass as specified in the Chemotion repository."
+                ))
+            
+            other_ids = []
+            cas = self.molecule.get('cas')
+            # Chemotion stores CAS as a JSON array. str() on it emitted "['64-17-5']" — a Python
+            # list repr as the notation of an identifier, which no consumer can use. Emit one
+            # Identifier per number instead.
+            for cas_number in (cas if isinstance(cas, list | tuple) else [cas] if cas else []):
+                text = str(cas_number).strip()
+                if text:
+                    other_ids.append(Identifier(notation=text, title="CAS Registry Number"))
+            if self.molecule.get('names'):
+                names_val = self.molecule.get('names')
+                if isinstance(names_val, str):
+                    names_val = [names_val]
+                if isinstance(names_val, list):
+                    for name in names_val:
+                        if name:
+                            other_ids.append(Identifier(notation=str(name), title="Synonym"))
+
+            chem_entity = ChemicalEntity(
+                id=mol_id,
+                description=f"compound assigned to {sample_id}",
+                smiles=smiles_list or None,
+                inchi=inchi_list or None,
+                inchikey=inchikey_list or None,
+                molecular_formula=formula_list or None,
+                iupac_name=iupac_list or None,
+                has_molar_mass=molar_mass_list or None,
+                other_identifier=other_ids or None
+            )
+            composed_of.append(chem_entity)
+
+        def get_qudt_unit(unit_str: str) -> str:
+            if not unit_str:
+                return "http://qudt.org/vocab/unit/UNITLESS"
+            u = unit_str.strip().lower()
+            if u in ('g', 'gram', 'grams'): return "http://qudt.org/vocab/unit/GM"
+            if u in ('mg', 'milligram', 'milligrams'): return "http://qudt.org/vocab/unit/MilliGM"
+            if u in ('ug', 'µg', 'microgram', 'micrograms'): return "http://qudt.org/vocab/unit/MicroGM"
+            if u in ('kg', 'kilogram', 'kilograms'): return "http://qudt.org/vocab/unit/KiloGM"
+            
+            if u in ('mol', 'mole', 'moles'): return "http://qudt.org/vocab/unit/MOL"
+            if u in ('mmol', 'millimole', 'millimoles'): return "http://qudt.org/vocab/unit/MilliMOL"
+            if u in ('umol', 'µmol', 'micromole', 'micromoles'): return "http://qudt.org/vocab/unit/MicroMOL"
+            
+            if u in ('l', 'liter', 'liters'): return "http://qudt.org/vocab/unit/L"
+            if u in ('ml', 'milliliter', 'milliliters'): return "http://qudt.org/vocab/unit/MilliL"
+            if u in ('ul', 'µl', 'microliter', 'microliters'): return "http://qudt.org/vocab/unit/MicroL"
+            
+            if u in ('m', 'mol/l', 'mol-per-l'): return "http://qudt.org/vocab/unit/MOL-PER-L"
+            
+            if u in ('°c', 'c', 'deg_c', 'deg c'): return "http://qudt.org/vocab/unit/DEG_C"
+            if u in ('k', 'kelvin'): return "http://qudt.org/vocab/unit/K"
+            
+            if u in ('h', 'hr', 'hour', 'hours', 'hour(s)'): return "http://qudt.org/vocab/unit/HR"
+            if u in ('s', 'sec', 'second', 'seconds', 'second(s)'): return "http://qudt.org/vocab/unit/SEC"
+            if u in ('min', 'minute', 'minutes', 'minute(s)'): return "http://qudt.org/vocab/unit/MIN"
+            
+            if u in ('%', 'percent', 'percentage'): return "http://qudt.org/vocab/unit/PERCENT"
+            
+            return f"http://qudt.org/vocab/unit/{unit_str}"
+
+        has_mass = None
+        has_volume = None
+        has_amount = None
+        has_density = None
+        has_molar_equivalent = None
+        has_concentration = None
+
+        try:
+            if self.gram is not None and self.gram > 0:
+                has_mass = [Mass(
+                    value=float(self.gram * 1000.0),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/Mass",
+                    unit="http://qudt.org/vocab/unit/MilliGM",
+                    title="Mass [mg]"
+                )]
+        except Exception as e:
+            logger.warning("Sample %s: could not express its mass in the crate, so it is exported without one: %s", getattr(self, 'id', '?'), e)
+
+        try:
+            if self.liter is not None and self.liter > 0:
+                has_volume = [Volume(
+                    value=float(self.liter * 1000.0),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/Volume",
+                    unit="http://qudt.org/vocab/unit/MilliL",
+                    title="Volume [mL]"
+                )]
+        except Exception as e:
+            logger.warning("Sample %s: could not express its volume in the crate, so it is exported without one: %s", getattr(self, 'id', '?'), e)
+
+        try:
+            if self.mol is not None and self.mol > 0:
+                has_amount = [AmountOfSubstance(
+                    value=float(self.mol * 1000.0),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/AmountOfSubstance",
+                    unit="http://qudt.org/vocab/unit/MilliMOL",
+                    title="Amount [mmol]"
+                )]
+        except Exception as e:
+            logger.warning("Sample %s: could not express its amount of substance in the crate, so it is exported without one: %s", getattr(self, 'id', '?'), e)
+
+        density_val = self.properties.get('density')
+        if density_val:
+            try:
+                has_density = [Density(
+                    value=float(density_val),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/Density",
+                    unit="http://qudt.org/vocab/unit/GM-PER-MilliL",
+                    title="Density [g/mL]"
+                )]
+            except Exception as e:
+                logger.warning("Sample %s: could not express its density in the crate, so it is exported without one: %s", getattr(self, 'id', '?'), e)
+
+        eq_val = self.properties.get('equivalent')
+        if eq_val is not None:
+            try:
+                has_molar_equivalent = [MolarEquivalent(
+                    value=float(eq_val),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/Dimensionless",
+                    # NOT percent: an equivalent of 1.0 tagged PERCENT reads as 1 % — 0.01 — to a
+                    # unit-aware consumer, a hundredfold error. It is a pure ratio.
+                    unit="http://qudt.org/vocab/unit/UNITLESS",
+                    title="Molar Equivalent"
+                )]
+            except Exception as e:
+                logger.warning("Sample %s: could not express its molar equivalent in the crate, so it is exported without one: %s", getattr(self, 'id', '?'), e)
+
+        molarity_val = self.properties.get('molarity')
+        if molarity_val and molarity_val.get('value') is not None:
+            try:
+                has_concentration = [Concentration(
+                    value=float(molarity_val.get('value')),
+                    has_quantity_type="http://qudt.org/vocab/quantitykind/AmountOfSubstanceConcentration",
+                    unit=get_qudt_unit(molarity_val.get('unit')),
+                    title=f"Molarity [{molarity_val.get('unit')}]"
+                )]
+            except Exception as e:
+                logger.warning("Sample %s: could not express its concentration in the crate, so it is exported without one: %s", getattr(self, 'id', '?'), e)
+
+        other_identifier = None
+        if self.id:
+            other_identifier = [Identifier(notation=f"https://www.chemotion-repository.net/pid/{self.id}")]
+
+        kwargs = {
+            "id": sample_id,
+            "title": self.properties.get('short_label') or self.name or f"Sample-{self.id}",
+            "description": self.properties.get('description'),
+            "rdf_type": DefinedTerm(id="CHEBI:59999", title="chemical substance"),
+            "other_identifier": other_identifier,
+            "composed_of": composed_of or None,
+            "has_mass": has_mass,
+            "has_volume": has_volume,
+            "has_amount": has_amount,
+            "has_density": has_density,
+            "has_concentration": has_concentration,
+        }
+
+        if target_cls in (StartingMaterial, Reagent) and has_molar_equivalent is not None:
+            kwargs["has_molar_equivalent"] = has_molar_equivalent
+
+        return target_cls(**kwargs)
 

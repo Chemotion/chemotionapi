@@ -48,6 +48,25 @@ lint-fix:
 # ruff + mypy — the static gate, and exactly what CI enforces on every push and PR
 static: lint mypy
 
+# export a fixture .eln (no server needed) and check it against RO-Crate 1.2
+# The validator runs on 3.13 in a throwaway env: its dependencies cannot build on 3.14.
+# Two validator versions on purpose. 0.11.3 is what TheELNFileFormat's CI pins, and it is the
+# STRICTER of the two here: it rejects a compact IRI whose prefix alone is declared, where 0.13.0
+# accepts it. Passing only the newer one let a crate through that their CI rejects. 0.13.0 is kept
+# because it carries rules 0.11.3 does not have.
+conformance:
+    uv run python scripts/export_conformance_crate.py conformance.eln
+    uv run python scripts/export_conformance_crate.py --shared conformance-shared.eln
+    uv run --python 3.13 --no-project --with roc-validator==0.11.3 --with rocrate==0.14.0 \
+        python scripts/check_crate_conformance.py conformance.eln
+    uv run --python 3.13 --no-project --with roc-validator==0.11.3 --with rocrate==0.14.0 \
+        python scripts/check_crate_conformance.py conformance-shared.eln
+    uv run --python 3.13 --no-project --with roc-validator==0.13.0 --with rocrate==0.14.0 \
+        python scripts/check_crate_conformance.py conformance.eln
+    uv run --python 3.13 --no-project --with roc-validator==0.13.0 --with rocrate==0.14.0 \
+        python scripts/check_crate_conformance.py conformance-shared.eln
+    rm -f conformance.eln conformance-shared.eln
+
 # the local gate: lint + types + the offline suite. Needs no server — tests/pytest.ini sets
 # `addopts = -m "not integration"` and conftest auto-marks the server-dependent tests.
 check: lint mypy test
