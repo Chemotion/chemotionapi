@@ -148,9 +148,10 @@ Which ELN the data came from
 
 The root dataset's ``isBasedOn`` points at a ``SoftwareApplication`` node describing the source
 notebook: its URL as ``@id`` and ``url``, its ``version`` exactly as ``/about`` reports it
-(``v4.0.0-rc-20260902`` — the build suffix, not just ``4.0.0``, because v4 ships under a moving
-tag and the dotted version alone cannot tell two builds months apart), and the build ``identifier``
-when the server reports a revision.
+(``v4.0.0-rc-260818`` on the build this client is tested against — the suffix is kept verbatim
+and its shape varies between builds, so do not parse it; what matters is that it is recorded,
+because v4 ships under a moving tag and the dotted ``4.0.0`` alone cannot tell two builds months
+apart), and the build ``identifier`` when the server reports a revision.
 
 So a crate states four versions in total: the RO-Crate spec, the ``.eln`` spec, this client (plus
 its metadata models), and the ELN that produced the data.
@@ -167,9 +168,16 @@ Two cases where the host is not a real one:
 
 .. warning::
    **Ontology lookup contacts EBI, and is on by default.** ``export_eln(ontology_lookup=True)``
-   is the default, so every analysis whose ``kind`` carries no embedded ``CHMO:…`` code has its
-   **name sent to EBI's OLS service** at ``www.ebi.ac.uk`` to resolve a ``measurementTechnique``
-   term.
+   is the default, so every analysis whose ``kind`` carries no embedded ``CHMO:…`` code, **and**
+   no match among the instance's own terms, has its **name sent to EBI's OLS service** at
+   ``www.ebi.ac.uk`` to resolve a ``measurementTechnique`` term.
+
+   The instance is asked first. A Chemotion instance publishes its own CHMO/RXNO/BAO trees at
+   ``/api/v1/ols_terms/list``, and an admin can edit and extend them, so a resolved term is the
+   one the ELN itself displays rather than a public-ontology near-match for the same words. That
+   vocabulary is fetched once per export, from the instance you are already talking to, and is
+   deliberately **not** written to ``ols_cache``: an instance-specific label must not be replayed
+   against a different instance. Exporting from a dump has no instance to ask.
 
    This is independent of ``disclose_host``: withholding the hostname does **not** withhold the
    analysis names, and the lookup still happens when exporting an offline dump. If analysis names

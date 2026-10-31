@@ -7,8 +7,8 @@ cannot be, in any meaningful sense — v4 rewrote collections and sharing from t
 **Stay on the `312.x` line for an ELN 3.1.x server.** The version scheme tracks the server:
 `400.x.y` ↔ ELN 4.0, `312.x.y` ↔ ELN 3.1.2, `211.x.y` ↔ ELN 2.1.1.
 
-Developed against `v4.0.0-rc-20260902` and tested on a local digest-pinned
-`complat/chemotion_eln_stage:next-release` stack (`v4.0.0-rc-260818`).
+Developed against the tagged `v4.0.0` ELN source and tested on a local digest-pinned
+`complat/chemotion_eln_stage:next-release` stack, which reports `v4.0.0-rc-260818`.
 
 **ELN v4.0.0 was released on 2026-10-13, and the client is aligned with it by source inspection,
 not by a live run.** No v4 Docker image is published — the tags still jump `v3.1.1` →
@@ -202,7 +202,8 @@ generated output is unchanged apart from that string.
   a time-series temperature was mapped (never a single typed value), and RInChI was never mapped at
   all. Both are now emitted.
 - The root's `isBasedOn` names the **source ELN**: its URL, its version exactly as `/about` reports
-  it (`v4.0.0-rc-20260902` — the build suffix is the only thing separating two rolling builds), and
+  it (`v4.0.0-rc-260818` on the pinned test stack — the build suffix, kept verbatim, is the only
+  thing separating two rolling builds), and
   the build revision. Export provenance moved to a `CreateAction` whose `instrument` is this client,
   carrying the chem-dcat-ap / dcat-ap-plus versions alongside its own.
 - `export_eln(disclose_host=False)` records the ELN version while replacing the hostname with
@@ -254,6 +255,23 @@ withhold the analysis names — and it happens when exporting an offline dump to
 unchanged, but the outbound request is now documented prominently in the docstring and in
 `docs/FairExport.rst`, with `ontology_lookup=False` (no network call at all) and `ols_cache=<path>`
 (resolve once, reuse) as the ways out.
+
+### The instance's own ontology terms come before EBI's
+
+New [chemotion_api/ontology/instance_terms.py](./chemotion_api/ontology/instance_terms.py):
+`export_eln` now asks the instance for its own CHMO/RXNO/BAO vocabulary
+(`GET /api/v1/ols_terms/list?name=…&edited=false`, the full tree it publishes) and resolves
+analysis names against that **before** falling back to EBI. An admin can edit and extend those
+trees, so a free-text technique could previously resolve to an EBI label differing from the one
+the ELN displays for the very same term. Resolution order is now: embedded `CHMO:…` code → the
+instance's terms → EBI OLS4 → placeholder — the first two both being "what this ELN says".
+
+Labels, the displayed `label (synonym)` form, and every listed synonym all resolve, case- and
+whitespace-insensitively. The vocabulary is fetched once per ontology per export (a failure is
+remembered, so a down or older server is asked once, not once per analysis) and is deliberately
+**not** written to `ols_cache`, which is portable between instances. An offline export from a
+dump has no instance to ask and goes straight to EBI as before; `ontology_lookup=False` still
+makes no request of any kind.
 
 ### Silent omissions, duplicates and mutations found in the pre-release review
 
