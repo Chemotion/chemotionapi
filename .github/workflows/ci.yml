@@ -66,6 +66,44 @@ jobs:
   # the client requires 3.14 — so the crate is exported by the project env and validated by a
   # throwaway 3.13 env. No Chemotion server needed: the crate is built from a committed fixture
   # through the offline ingester.
+  conformance:
+    name: .eln RO-Crate conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+
+      - name: Install dependencies (locked)
+        run: uv sync --frozen --all-groups
+
+      # Deliberately `just conformance` rather than inlined steps: the exporter targets
+      # RO-Crate 1.2, and this job used to pin roc-validator 0.5.0 against "RO-Crate 1.1" —
+      # which cannot even load the 1.2 profile, so the gate was red and gating nothing. One
+      # recipe now defines the check, so the local gate and CI cannot drift apart again.
+      # It validates BOTH fixtures (plain and shared) against roc-validator 0.11.3 — the version
+      # TheELNConsortium's own CI pins, which rejects compact IRIs that newer ones accept — and
+      # 0.13.0, which carries rules 0.11.3 does not have.
+      - name: Conformance (both fixtures, both validator versions)
+        run: just conformance
+
+      - name: Upload the crate for inspection
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: non-conformant-crate
+          path: |
+            conformance.eln
+            conformance-shared.eln
+
+  # Release artefacts only: a wheel is worth building when we are actually cutting a version,
+  # not on every merge. Tag pushes only — skipped for branch pushes and pull requests.
   build:
     name: build sdist + wheel
     if: startsWith(github.ref, 'refs/tags/')
