@@ -1,7 +1,8 @@
+"""Research plan element and its rich-text/table body model."""
 import uuid
 from enum import Enum
 from string import ascii_lowercase
-from typing import Optional, Literal
+from typing import Optional, Literal, Any, cast
 from collections.abc import Generator
 
 from typing import Self
@@ -12,9 +13,7 @@ from chemotion_api.elements.abstract_element import AbstractElement
 
 
 class BodyElements(Enum):
-    """
-    Types of the entries in the body of a research plan
-    """
+    """The supported research-plan body element types (richtext, ketcher, table, image, sample, reaction)."""
     richtext = 'richtext'
     ketcher = 'ketcher'
     table = 'table'
@@ -64,7 +63,11 @@ class Table(dict):
 
     @property
     def id(self) -> str:
-        """ID of the body entry"""
+        """
+        The table's unique id.
+
+        :return: The table id
+        """
         return self['id']
 
     def _get_col_id(self):
@@ -91,10 +94,15 @@ class Table(dict):
         :param labels: Labels of the columns
 
         :return: Column ids in the order of the labels
+        :raises KeyError: if no column carries one of the labels
         """
 
         for l in labels:
-            yield next(x['field'] for x in self['value']['columns'] if x['headerName'] == l)
+            # an inner StopIteration would surface as an opaque RuntimeError (PEP 479)
+            match = next((x['field'] for x in self['value']['columns'] if x['headerName'] == l), None)
+            if match is None:
+                raise KeyError(f"Table has no column labeled {l!r}")
+            yield match
 
     def add_columns(self, *labels: str) -> list[str]:
         """
@@ -133,19 +141,19 @@ class Table(dict):
         """
 
         new_row = {}
-        entries = list(entries)
+        entries = list(entries)  # type: ignore[assignment]  # narrowing *entries tuple to list, value unchanged
         for idx, colId in enumerate(x['field'] for x in self['value']['columns']):
             if colId in placed_entries:
                 new_row[colId] = placed_entries[colId]
             elif len(entries) != 0:
-                new_row[colId] = entries.pop(0)
+                new_row[colId] = entries.pop(0)  # type: ignore[attr-defined]  # entries reassigned to list above
             else:
                 new_row[colId] = ''
 
         self['value']['rows'].append(new_row)
         return self
 
-    def set_entry(self, row: int, column_id: str, value: any) -> Self:
+    def set_entry(self, row: int, column_id: str, value: Any) -> Self:
         """
         Sets an entry to the table
 
@@ -178,11 +186,13 @@ class Table(dict):
 
 class RichText(dict):
     """
-    A text entry in the body of a research plan. The text is stored in the Quill.js delta format
-    (https://quilljs.com/docs/delta).
+    A research-plan rich-text body element backed by a Quill delta (a list of ``ops``).
+
+    Use :meth:`add_text` to append formatted text fragments.
     """
 
     class HeaderType(Enum):
+        """Header levels (H1-H3) usable when adding rich text via :meth:`RichText.add_text`."""
         H1 = 1
         H2 = 2
         H3 = 3
@@ -200,12 +210,20 @@ class RichText(dict):
 
     @property
     def id(self) -> str:
-        """ID of the body entry"""
+        """
+        The rich-text element's unique id.
+
+        :return: The element id
+        """
         return self['id']
 
     @property
     def value(self) -> list[dict]:
-        """The Quill.js operations of the text"""
+        """
+        The underlying list of Quill delta operations (``ops``).
+
+        :return: The list of delta operations
+        """
         return self['value']['ops']
 
     def add_text(self, text: str,
@@ -215,18 +233,20 @@ class RichText(dict):
                  list: Literal['bullet', 'ordered'] | None = None,
                  header: HeaderType | None = None) -> Self:
         """
-        Appends text. Lists and headers apply to the line, so end the text with a line break (``\\n``).
+        Append a (optionally formatted) text fragment to the rich-text element.
 
-        :param text: text to be added
-        :param bold: bold text
-        :param underline: underlined text
-        :param italic: italic text
-        :param list: 'bullet' or 'ordered' list
-        :param header: header level
+        Lists and headers apply to the whole line, so end the text with a line break (``\\n``).
 
-        :return: self
+        :param text: the text to append
+        :param bold: render the text bold
+        :param underline: render the text underlined
+        :param italic: render the text italic
+        :param list: wrap the text as a ``'bullet'`` or ``'ordered'`` list
+        :param header: apply a header level (see :class:`RichText.HeaderType`)
+
+        :return: Self
         """
-        attributes = {}
+        attributes: dict[str, Any] = {}
         if bold is not None:
             attributes['bold'] = bold
         if underline is not None:
@@ -297,6 +317,7 @@ class ResearchPlan(AbstractElement):
         """
         return self.properties['body']
 
+
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
 
@@ -353,17 +374,17 @@ class ResearchPlan(AbstractElement):
         return value
 
     def _parse_properties(self) -> dict:
-        body = self.json_data.get('body')
+        body = cast(dict, self.json_data).get('body')
         return {
-            'body': [self._parse_body_element(x) for x in body]
+            'body': [self._parse_body_element(x) for x in cast(list, body)]
         }
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
-        self.json_data['body'] = []
+        cast(dict, self.json_data)['body'] = []
         for elem in self.body:
-            self.json_data['body'].append(self._reparse_body_element(elem))
+            cast(dict, self.json_data)['body'].append(self._reparse_body_element(elem))
 
-        return self.json_data
+        return cast(dict, self.json_data)
 
     def add_richtext(self, text: str | None = None, at_idx: int | None = None) -> RichText:
         """

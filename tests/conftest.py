@@ -73,7 +73,9 @@ def pytest_sessionstart(session):
         path = os.path.join(os.getcwd(), 'data/setup_chemotion_db.sh')
         path_dir = os.path.join(os.getcwd(), 'data')
 
-        CHEMOTION_PROCESS = subprocess.Popen(path, shell=True, executable='/bin/bash', cwd=path_dir,
+        # argv list, not shell=True: `path` is built from os.getcwd(), so a shell would give any
+        # metacharacter in the checkout path (a space, a `$`, a `;`) the run of the machine.
+        CHEMOTION_PROCESS = subprocess.Popen(['/bin/bash', path], cwd=path_dir,
                                              env=dict(os.environ, **CONFIG),
                                              stdout=subprocess.PIPE,
                                              stderr=subprocess.PIPE)

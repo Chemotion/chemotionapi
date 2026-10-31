@@ -23,17 +23,26 @@ and returns an :class:`chemotion_api.elements.ElementSet`.
                  .add_search_condition(EnumMatch.BIGGER_THAN, EnumConnector.AND, temperature_in_c=30)
                  .request())
 
+Conditions are combined with the connector (``AND`` / ``OR``); the connector is applied only
+*between* conditions (the first condition's connector is ignored). Restrict the search to one
+collection with ``in_collection(...)`` and cap the number of results with ``find_max(...)``.
+
 API Classes
 ------------
 
 .. autoclass:: chemotion_api.search.sample.SampleSearcher
-    :members: add_search_condition
+    :members:
+    :inherited-members:
 
 .. autoclass:: chemotion_api.search.reaction.ReactionSearcher
-    :members: add_search_condition
+    :members:
+    :inherited-members:
 
 .. autoclass:: chemotion_api.search.search_helper.SearchHelperBase
     :members: in_collection, find_max, request
+
+Match and connector options
+---------------------------
 
 .. autoenum:: chemotion_api.search.utils.EnumMatch
 

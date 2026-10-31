@@ -169,14 +169,13 @@ generic_schema = {
                     }
                 },
                 "additionalProperties": False,
+                # width/height/positionAbsolute are rendering hints the client (React Flow) fills
+                # in; v4 stores nodes without them, so requiring them rejected valid workflows.
                 "required": [
                     "id",
                     "data",
                     "type",
-                    "width",
-                    "height",
-                    "position",
-                    "positionAbsolute"
+                    "position"
                 ]
             }
         },

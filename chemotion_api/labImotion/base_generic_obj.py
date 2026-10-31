@@ -1,9 +1,8 @@
 import json
-import warnings
 from typing import Self
 from collections.abc import Callable
 
-from jsonschema.exceptions import ValidationError
+import logging
 
 from chemotion_api.connection import Connection
 from chemotion_api.labImotion.items.genericproperties import GenericProperties
@@ -11,6 +10,8 @@ from chemotion_api.labImotion.items.options import SaveActionType
 from chemotion_api.labImotion.structure import StructureRegistry
 from chemotion_api.labImotion.utils import ChemotionSerializable, generate_pkg_info
 
+
+logger = logging.getLogger(__name__)
 
 class GenericObj(ChemotionSerializable):
     url = None
@@ -186,10 +187,18 @@ class GenericObj(ChemotionSerializable):
         for obj in klass_list:
             try:
                 return_val.append(cls(obj, con))
-            except (ValidationError, KeyError, TypeError, ValueError) as e:
+            except Exception as e:
+                # One klass this client cannot parse must not take the rest down with it. Real
+                # instances carry klasses authored years ago by older chem-generic-ui versions;
+                # before this, a single such klass made get_element/get_segment/get_dataset — and
+                # therefore the whole generic API — raise, including for klasses that parse fine.
                 if strict:
                     raise
-                warnings.warn(f"Skipped invalid {cls.__name__} '{obj.get('label')}' (id={obj.get('id')}): {e}")
+                name = obj.get('name') or obj.get('label') or obj.get('id')
+                logger.warning(
+                    "skipping LabIMotion klass %r: it could not be parsed (%s: %s). Elements using "
+                    "this klass will not be available; every other klass is unaffected.",
+                    name, type(e).__name__, e)
         return return_val
 
     @classmethod

@@ -2,6 +2,7 @@ import copy
 from enum import Enum
 
 from chemotion_api.labImotion.items.condition_handler import ConditionHandler
+from chemotion_api.labImotion.items.fields.abstract_fields import _report_unknown_unit as _report_unknown_value
 from chemotion_api.labImotion.items.options import FieldType
 from chemotion_api.labImotion.ontology import clean_term, get_term
 from chemotion_api.labImotion.structure import StructureRegistry
@@ -32,10 +33,31 @@ class BaseField(ChemotionSerializable, ConditionHandler):
         self._ontology: dict | None = None
 
     def _parse_json(self):
+        """Populate this field from its server payload.
+
+        Assignment goes through the property setters, which validate — that is what we want for
+        user code. But it means *parsing* inherits that strictness, and a klass the server is
+        perfectly happy with then becomes unreadable here: an unmodelled unit, a select field
+        pointing at an option set the klass no longer defines, a formula naming a missing layer.
+        Klasses authored by older chem-generic-ui versions do all three.
+
+        So a rejected value is kept verbatim on the backing attribute instead, and reported once.
+        Degrading loses a validation guarantee we never had over someone else's data; raising
+        loses the whole element.
+        """
         for key, value in self._json_data.items():
             key = self.mapping.get(key, key)
-            if hasattr(self, key):
+            if not hasattr(self, key):
+                continue
+            try:
                 setattr(self, key, value)
+            except (ValueError, TypeError, KeyError) as e:
+                private = f'_{key}'
+                if hasattr(self, private):
+                    object.__setattr__(self, private, value)
+                _report_unknown_value(
+                    f"{type(self).__name__}.{key} rejected the server's value {value!r} "
+                    f"({type(e).__name__}: {e})")
 
     @property
     def layer_key(self) -> str:

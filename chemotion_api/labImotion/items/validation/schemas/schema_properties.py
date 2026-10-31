@@ -51,12 +51,13 @@ properties_schema = {
         },
         "layers": {
             "type": "object",
-            "patternProperties": {
-                "^[a-z][a-zA-Z_]{1,20}[a-z]$": {
-                    "$ref": "chemotion://generic/layer/draft-01"
-                }
-            },
-            "additionalProperties": False
+            # Layer keys are whatever the template author typed — real v4 templates carry keys with
+            # spaces ('printing parameters') and digits ('liste1'), which the previous
+            # `^[a-z][a-zA-Z_]{1,20}[a-z]$` pattern rejected outright. Validate the layer bodies and
+            # leave key spelling to the server.
+            "additionalProperties": {
+                "$ref": "chemotion://generic/layer/draft-01"
+            }
         },
         "version": {
             "type": "string"
@@ -221,14 +222,13 @@ properties_schema = {
                                 ]
                             }
                         },
+                        # Same as in schema_flow_obj: width/height/positionAbsolute are React Flow
+                        # rendering hints that v4 does not persist, so they cannot be required.
                         "required": [
                             "id",
                             "data",
                             "type",
-                            "width",
-                            "height",
-                            "position",
-                            "positionAbsolute"
+                            "position"
                         ]
                     }
                 },
@@ -268,25 +268,39 @@ properties_schema = {
             "type": "object",
             "properties": {
                 "version": {
-                    "type": "string"
+                    "type": ["string", "null"]
                 },
                 "base_revision": {
-                    "type": "string"
+                    "type": ["string", "null"]
                 },
+                # Declared "number" before, but the server sends a git SHA — and sends it with a
+                # trailing newline it never strips ('75f3702e…59\n'). Worth reporting upstream.
                 "current_revision": {
-                    "type": "number"
+                    "type": ["string", "number", "null"]
+                },
+                "describe_tag": {
+                    "type": ["string", "null"]
+                },
+                "branch": {
+                    "type": ["string", "null"]
                 }
             },
             "required": [
-                "version",
-                "base_revision",
-                "current_revision"
+                "version"
             ]
+        },
+        # ELN v4 / LabIMotion 2.3 additions.
+        "labimotion": {
+            "type": ["string", "null"]
+        },
+        "released_at": {
+            "type": ["string", "null"]
         }
     },
     "additionalProperties": False,
+    # `pkg` only: v4 omits it on 31 of 107 property templates in the reference instance.
+    # layers/select_options are present on all of them, so they stay required.
     "required": [
-        "pkg",
         "uuid",
         "klass",
         "layers",

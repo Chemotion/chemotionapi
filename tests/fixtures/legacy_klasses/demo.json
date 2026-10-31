@@ -1,0 +1,325 @@
+{
+  "created_at": "2025-03-18T14:35:35+0000",
+  "desc": "",
+  "icon_name": "fa fa-wpexplorer",
+  "id": 8,
+  "identifier": "e3c74b5a-2bf4-4295-8b30-249fc60b32b7",
+  "is_active": true,
+  "is_generic": true,
+  "klass_prefix": "D",
+  "label": "Demo BY CLAIRE",
+  "metadata": {},
+  "name": "demo",
+  "place": 100,
+  "properties_release": {
+    "identifier": "e3c74b5a-2bf4-4295-8b30-249fc60b32b7",
+    "klass": "ElementKlass",
+    "layers": {
+      "test": {
+        "color": "primary",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "sample",
+            "label": "sample",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "drag_sample"
+          },
+          {
+            "default": "",
+            "field": "molecule",
+            "label": "molecule",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "drag_molecule"
+          },
+          {
+            "default": "",
+            "field": "table",
+            "label": "molecule table",
+            "position": 3,
+            "required": false,
+            "sub_fields": [
+              {
+                "col_name": "Molecule",
+                "id": "22173e75-91bd-4b5a-b941-d5ec42bd02a5",
+                "type": "drag_molecule",
+                "value": "inchikey;smiles;iupac;molecular_weight;"
+              }
+            ],
+            "text_sub_fields": [],
+            "type": "table"
+          },
+          {
+            "default": "",
+            "field": "stable",
+            "label": "sample table",
+            "position": 4,
+            "required": false,
+            "sub_fields": [
+              {
+                "col_name": "Sample",
+                "id": "25f390a5-3fbc-447b-8ed9-95776452341e",
+                "type": "drag_sample",
+                "value": "name;external_label;molecular_weight;"
+              }
+            ],
+            "text_sub_fields": [],
+            "type": "table"
+          },
+          {
+            "default": "",
+            "field": "elm",
+            "label": "Element",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "drag_element"
+          },
+          {
+            "default": "",
+            "field": "info",
+            "formula": "a + b",
+            "label": "Information",
+            "position": 6,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "formula-field"
+          },
+          {
+            "default": "",
+            "field": "a",
+            "label": "a",
+            "position": 7,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "integer"
+          },
+          {
+            "default": "",
+            "field": "b",
+            "label": "b",
+            "position": 8,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "integer"
+          },
+          {
+            "default": "",
+            "field": "xx",
+            "label": "xx",
+            "option_layers": "field_select",
+            "position": 9,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select-multi"
+          }
+        ],
+        "key": "test",
+        "label": "Test",
+        "position": 10,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      }
+    },
+    "pkg": {
+      "eln": {
+        "base_revision": "6ca226bd9ae12be1b79f9b61f51eba00591d92fa",
+        "current_revision": null,
+        "version": "post-v1.10.5(v1.10.3)"
+      },
+      "labimotion": "2.0.0.rc8",
+      "name": "chem-generic-ui",
+      "version": "2.0.0-rc18"
+    },
+    "select_options": {
+      "field_select": {
+        "options": [
+          {
+            "key": "A",
+            "label": "A"
+          },
+          {
+            "key": "B",
+            "label": "B"
+          },
+          {
+            "key": "C",
+            "label": "C"
+          }
+        ]
+      }
+    },
+    "uuid": "8f91bef7-30c3-48fe-809d-fa8dab1577c4",
+    "version": "0.7"
+  },
+  "properties_template": {
+    "identifier": "e3c74b5a-2bf4-4295-8b30-249fc60b32b7",
+    "klass": "ElementKlass",
+    "layers": {
+      "test": {
+        "color": "primary",
+        "cols": 1,
+        "fields": [
+          {
+            "default": "",
+            "field": "sample",
+            "label": "sample",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "drag_sample"
+          },
+          {
+            "default": "",
+            "field": "molecule",
+            "label": "molecule",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "drag_molecule"
+          },
+          {
+            "default": "",
+            "field": "table",
+            "label": "molecule table",
+            "position": 3,
+            "required": false,
+            "sub_fields": [
+              {
+                "col_name": "Molecule",
+                "id": "22173e75-91bd-4b5a-b941-d5ec42bd02a5",
+                "type": "drag_molecule",
+                "value": "inchikey;smiles;iupac;molecular_weight;"
+              }
+            ],
+            "text_sub_fields": [],
+            "type": "table"
+          },
+          {
+            "default": "",
+            "field": "stable",
+            "label": "sample table",
+            "position": 4,
+            "required": false,
+            "sub_fields": [
+              {
+                "col_name": "Sample",
+                "id": "25f390a5-3fbc-447b-8ed9-95776452341e",
+                "type": "drag_sample",
+                "value": "name;external_label;molecular_weight;"
+              }
+            ],
+            "text_sub_fields": [],
+            "type": "table"
+          },
+          {
+            "default": "",
+            "field": "elm",
+            "label": "Element",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "drag_element"
+          },
+          {
+            "default": "",
+            "field": "info",
+            "formula": "a + b",
+            "label": "Information",
+            "position": 6,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "formula-field"
+          },
+          {
+            "default": "",
+            "field": "a",
+            "label": "a",
+            "position": 7,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "integer"
+          },
+          {
+            "default": "",
+            "field": "b",
+            "label": "b",
+            "position": 8,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "integer"
+          },
+          {
+            "default": "",
+            "field": "xx",
+            "label": "xx",
+            "option_layers": "field_select",
+            "position": 9,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select-multi"
+          }
+        ],
+        "key": "test",
+        "label": "Test",
+        "position": 10,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      }
+    },
+    "pkg": {
+      "eln": {
+        "base_revision": "6ca226bd9ae12be1b79f9b61f51eba00591d92fa",
+        "current_revision": null,
+        "version": "post-v1.10.5(v1.10.3)"
+      },
+      "labimotion": "2.0.0.rc8",
+      "name": "chem-generic-ui",
+      "version": "2.0.0-rc18"
+    },
+    "select_options": {
+      "field_select": {
+        "options": [
+          {
+            "key": "A",
+            "label": "A"
+          },
+          {
+            "key": "B",
+            "label": "B"
+          },
+          {
+            "key": "C",
+            "label": "C"
+          }
+        ]
+      }
+    },
+    "uuid": "8f91bef7-30c3-48fe-809d-fa8dab1577c4",
+    "version": "0.7"
+  },
+  "released_at": "2025-03-18T14:35:35+0000",
+  "sync_time": null,
+  "updated_at": "2025-03-18T14:35:38+0000",
+  "uuid": "8f91bef7-30c3-48fe-809d-fa8dab1577c4",
+  "version": "0.7"
+}

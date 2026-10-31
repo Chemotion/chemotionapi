@@ -76,18 +76,26 @@ def test_solvent_list_loads_and_caches():
 def test_schema_manager_parses_version_and_builds_iris():
     from chemotion_api.schema_manager import SchemaManager
 
-    sm = SchemaManager(SimpleNamespace(text="... Version: v3.1.2 ..."))
-    assert sm.version == '3.1.2'
-    assert sm.generate_model_type('Sample', None) == 'chemotion:type/sample/3.1.2'
+    sm = SchemaManager(SimpleNamespace(text="... Version: v4.0.0 ...", status_code=200))
+    assert sm.version == '4.0.0'
+    assert sm.generate_model_type('Sample', None) == 'chemotion:type/sample/4.0'  # major.minor
     assert sm.generate_model_type('Wrk', '2.0') == 'chemotion:generic_type/wrk/2.0'
 
 
-def test_schema_manager_falls_back_without_version():
-    from chemotion_api.schema_manager import SchemaManager
+def test_schema_manager_refuses_an_unreadable_version():
+    """No 'TEST' fallback on this line: an unreadable version silently poisoned every @type IRI."""
+    from chemotion_api.schema_manager import SchemaManager, UnsupportedServerVersion
 
-    sm = SchemaManager(SimpleNamespace(text="no version here"))
-    assert sm.version == 'TEST'
-    assert sm.generate_model_type('Reaction', None) == 'chemotion:type/reaction/TEST'
+    with pytest.raises(UnsupportedServerVersion, match='Could not read the Chemotion version'):
+        SchemaManager(SimpleNamespace(text="no version here", status_code=200))
+
+
+def test_schema_manager_refuses_a_v3_server():
+    """This is the 400.x line; an ELN 3.1.x server belongs to the 312.x line."""
+    from chemotion_api.schema_manager import SchemaManager, UnsupportedServerVersion
+
+    with pytest.raises(UnsupportedServerVersion, match='312.x release line'):
+        SchemaManager(SimpleNamespace(text="... Version: v3.1.2 ...", status_code=200))
 
 
 # --- labImotion/items/conditions.py -----------------------------------------------------------

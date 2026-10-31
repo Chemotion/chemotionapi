@@ -1,0 +1,55 @@
+{
+  "id": 226,
+  "is_restricted": false,
+  "products": [],
+  "purification_solvents": [],
+  "reactants": [],
+  "reactant_sbmm_samples": [],
+  "role": "",
+  "solvents": [],
+  "starting_materials": [],
+  "type": "reaction",
+  "comment_count": 0,
+  "user_labels": [],
+  "code_log": null,
+  "container": null,
+  "name": "Synthesis of water",
+  "origin": null,
+  "reaction_svg_file": "f783a7a223817a77d36e8ea40d80a81f848122286d864e4ea91da3d76d7e0dac.svg",
+  "rinchi_long_key": "Long-RInChIKey=SA-FUHFF-UFHFLCQGNIYNRP-UHFFFAOYSA-N--XLYOFNOQVPJJNP-UHFFFAOYSA-N--MYMOFIZGZYHOMD-UHFFFAOYSA-N",
+  "rinchi_short_key": "Short-RInChIKey=SA-FUHFF-UFHFLCQGNI-XLYOFNOQVP-MYMOFIZGZY-NUHFF-NUHFF-NUHFF-ZZZ",
+  "rinchi_web_key": "Web-RInChIKey=VGKQJEYRGYHSRNDIJ-NUHFFFADPSCTJSA",
+  "rxno": "",
+  "segments": [],
+  "short_label": "MM-R226",
+  "status": "",
+  "tag": {
+    "taggable_data": {
+      "collection_labels": [
+        {
+          "id": 354,
+          "name": "API_TEST_007bafdb-1de7-4e5e-83da-3e7fddcaad4c",
+          "user_id": 2,
+          "is_shared": false,
+          "shared_by_id": null,
+          "is_synchronized": false
+        }
+      ]
+    },
+    "taggable_id": 226,
+    "taggable_type": "Reaction",
+    "created_at": "29.06.2026, 06:06:35 +0000",
+    "updated_at": "29.06.2026, 06:06:38 +0000"
+  },
+  "variations": [],
+  "vessel_size": {
+    "unit": "ml",
+    "amount": null
+  },
+  "volume": null,
+  "use_reaction_volume": false,
+  "gaseous": false,
+  "weight_percentage": false,
+  "created_at": "29.06.2026, 06:06:35 +0000",
+  "updated_at": "29.06.2026, 06:06:37 +0000"
+}
