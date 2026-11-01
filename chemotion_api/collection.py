@@ -195,9 +195,11 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
             f"{tmp_path} already exists. export_eln writes there before renaming to {file_path}; "
             "remove it, or export to a different path.")
     try:
-        _write_crate_zip_inner(tmp_path, root_folder, metadata_dict, elem_files, elem_paths,
-                               skipped, progress, _json_default, strict,
-                               declare_skipped, mask_host)
+        orphans = _write_crate_zip_inner(tmp_path, root_folder, metadata_dict, elem_files,
+                                         elem_paths, skipped, progress, _json_default, strict,
+                                         declare_skipped, mask_host)
+        if orphans:
+            _purge_zip_members(tmp_path, orphans)
     except BaseException:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -205,12 +207,50 @@ def _write_crate_zip(file_path: str, root_folder: str, metadata_dict: dict, elem
     os.replace(tmp_path, file_path)
 
 
+def _purge_zip_members(zip_path: str, entries: set[str]) -> None:
+    """Rewrite ``zip_path`` without ``entries``, keeping their directories present.
+
+    A download that fails partway leaves a member in the archive: the entry is already open and
+    closing it commits whatever arrived. Withdrawing the *File node* stops the crate describing
+    content it lacks, but the bytes stay in the payload — so the archive ships a file nothing
+    describes, which is its own defect (and what RO-Crate's `66.1` surfaces as an element
+    directory with an empty ``hasPart``).
+
+    Rewriting is O(archive), so it runs only when something actually failed; a clean export never
+    reaches here and keeps streaming straight into the final zip.
+    """
+    import zipfile
+
+    staging = f"{zip_path}.purge"
+    kept_dirs: set[str] = set()
+    with zipfile.ZipFile(zip_path) as src:
+        survivors = [i for i in src.infolist() if i.filename not in entries]
+        for info in survivors:
+            if info.filename.endswith("/"):
+                kept_dirs.add(info.filename)
+        # Removing the only file in an element's directory would remove the directory with it, and
+        # RO-Crate requires every Dataset data entity to be present in the payload. Re-create the
+        # directory entry so the element keeps a home, empty.
+        needed_dirs = {e.rsplit("/", 1)[0] + "/" for e in entries if "/" in e}
+        with zipfile.ZipFile(staging, "w", zipfile.ZIP_DEFLATED) as dst:
+            for info in survivors:
+                dst.writestr(info, src.read(info.filename))
+            for d in sorted(needed_dirs - kept_dirs):
+                if not any(s.filename.startswith(d) for s in survivors):
+                    dst.writestr(zipfile.ZipInfo(d), b"")
+    os.replace(staging, zip_path)
+    logger.warning(
+        "export_eln: removed %d orphaned archive member(s) whose bytes did not fully arrive, so "
+        "the payload contains nothing the metadata does not describe: %s",
+        len(entries), ", ".join(sorted(entries)[:5]))
+
+
 def _write_crate_zip_inner(file_path: str, root_folder: str, metadata_dict: dict, elem_files: dict,
                            elem_paths: dict,
                            skipped: list[dict],
                            progress: Callable[[str], None] | None,
                            _json_default, strict: bool = False, declare_skipped: bool = True,
-                           mask_host: str | None = None) -> None:
+                           mask_host: str | None = None) -> set[str]:
     import zipfile
 
     import hashlib
@@ -337,8 +377,29 @@ def _write_crate_zip_inner(file_path: str, root_folder: str, metadata_dict: dict
                     # The manifest is assembled after export_eln's scrub ran, so it needs its own.
                     _replace_host(metadata_dict, mask_host, OFFLINE_HOST)
 
+        # Last word on `@type` ordering. The flattening pass sorts these too, because it needs a
+        # deterministic first member to name blank nodes from — but several later passes append
+        # to `@type` (contextual-entity polishing, the reaction's RXNO term, a device's own
+        # terms), so the final order is only settled here, immediately before serialisation.
+        for node in metadata_dict.get("@graph", []):
+            if not isinstance(node, dict):
+                continue
+            if isinstance(node.get("@type"), list):
+                node["@type"] = sorted(node["@type"], key=str)
+        # Multi-valued *reference* arrays (`sio:SIO_000008` listing a molecule's identifier
+        # entities, say) also come out of rdflib in arbitrary order, so two exports of one input
+        # still differ on those. Ordering them is valid — a JSON-LD array is unordered unless the
+        # property is declared `@list`, which none of ours are — but it is not free: it reorders
+        # `conformsTo` and `author`, where the sequence is read by people even though a parser
+        # treats it as a set. Left alone deliberately; the ids, which is what made regenerated
+        # crates unreadable to diff, are stable. See AI/DEFERRED.md.
+
         metadata_json = json.dumps(metadata_dict, indent=2, ensure_ascii=False, default=_json_default)
         zip_file.writestr(f"{root_folder}/ro-crate-metadata.json", metadata_json)
+
+    # The withdrawn File nodes leave their partial bytes behind in the archive; name those members
+    # so the caller can strip them once the zip is closed.
+    return {f"{root_folder}/{fid.lstrip('./')}" for fid in failed_ids}
 
 
 def _build_author_nodes(metadata_dict: dict, graph_nodes: dict,
@@ -1033,19 +1094,80 @@ def flatten_crate_graph(metadata_dict: dict) -> int:
     if not isinstance(graph, list):
         return 0
 
-    # Blank-node labels are only unique within one document, so a positional counter is a stable
-    # enough basis for the replacement id; the type suffix keeps it readable.
-    renames: dict[str, str] = {}
+    # The replacement id carries a counter, so its value depends on the order the blank nodes are
+    # visited in. That order comes from rdflib's JSON-LD serialisation, which labels blank nodes
+    # randomly (`_:Nabc…`) and iterates its store set-wise: the same input produced different
+    # numbering on every run, so a regenerated crate always diffed even when nothing had changed.
+    #
+    # Numbering a *content-sorted* order fixes that. The sort key deliberately ignores the `_:`
+    # label — that is the random part — and uses the node's type and its literal content, which is
+    # stable for identical input. Ties keep their original relative order, which only matters for
+    # nodes whose content is identical, and those are interchangeable by definition.
+    #
+    # This holds only because chem-dcat-ap's blank nodes are *leaves*: the CHEMINF identifier
+    # entities, `adms:Identifier` and `qudt:Quantity` carry literals plus stable IRI references,
+    # never a pointer to another blank node. If that ever stops being true, a content key is no
+    # longer stable either (it would contain the random label of whatever it points at) and the
+    # general fix is RDF dataset canonicalisation. The guard below says so out loud rather than
+    # leaving it to be discovered through mysteriously churning ids.
+    blank_nodes = [n for n in graph
+                   if isinstance(n, dict) and isinstance(n.get("@id"), str)
+                   and n["@id"].startswith("_:")]
+    blank_ids = {n["@id"] for n in blank_nodes}
+
+    def _canonical(obj):
+        """The node's content with its own id dropped and blank references neutralised.
+
+        References to *named* entities (QUDT units, quantity kinds, ontology IRIs) are stable
+        and must stay in the key: two quantities can be identical in every literal and differ
+        only by their unit, and keying on literals alone made those tie — leaving their relative
+        order to the random graph order, which is the very thing this is fixing.
+        """
+        if isinstance(obj, dict):
+            if set(obj) == {"@id"}:
+                return {"@id": "_:blank" if obj["@id"] in blank_ids else obj["@id"]}
+            return {k: _canonical(v) for k, v in obj.items() if k != "@id"}
+        if isinstance(obj, list):
+            return [_canonical(v) for v in obj]
+        return obj
+
+    def _sort_key(node: dict) -> str:
+        return json.dumps(_canonical(node), sort_keys=True, default=str)
+
+    # `@type` is a *set* in JSON-LD, and rdflib emits its members in a random order. Two
+    # consequences, both of which made a regenerated crate differ from its predecessor for no
+    # reason: the slug below is taken from the first member, and the sort key above sees a
+    # different list. Sorting the arrays settles both, and settles the crate's own bytes with
+    # them — nothing reads these positionally.
     for node in graph:
-        if not isinstance(node, dict):
-            continue
-        node_id = node.get("@id")
-        if isinstance(node_id, str) and node_id.startswith("_:"):
-            node_type = node.get("@type") or "entity"
-            if isinstance(node_type, list):
-                node_type = node_type[0] if node_type else "entity"
-            slug = re.sub(r"[^A-Za-z0-9]+", "_", str(node_type).rsplit("/", 1)[-1]).strip("_")
-            renames[node_id] = f"#{slug.lower() or 'entity'}-{len(renames) + 1}"
+        if isinstance(node, dict) and isinstance(node.get("@type"), list):
+            node["@type"] = sorted(node["@type"], key=str)
+
+    def _references(obj) -> set[str]:
+        if isinstance(obj, dict):
+            if set(obj) == {"@id"} and isinstance(obj["@id"], str):
+                return {obj["@id"]}
+            return set().union(*(_references(v) for k, v in obj.items() if k != "@id")) \
+                if len(obj) > 1 or "@id" not in obj else set()
+        if isinstance(obj, list):
+            return set().union(*(_references(v) for v in obj)) if obj else set()
+        return set()
+
+    nested = [n["@id"] for n in blank_nodes if _references(n) & blank_ids]
+    if nested:
+        logger.warning(
+            "export_eln: %d blank node(s) reference other blank nodes (%s). Their crate ids are "
+            "numbered from content that now includes a random label, so they will not be stable "
+            "between exports; RDF dataset canonicalisation would be needed to fix that.",
+            len(nested), ", ".join(sorted(nested)[:3]))
+
+    renames: dict[str, str] = {}
+    for node in sorted(blank_nodes, key=_sort_key):
+        node_type = node.get("@type") or "entity"
+        if isinstance(node_type, list):
+            node_type = node_type[0] if node_type else "entity"
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", str(node_type).rsplit("/", 1)[-1]).strip("_")
+        renames[node["@id"]] = f"#{slug.lower() or 'entity'}-{len(renames) + 1}"
 
     def _rewrite(obj):
         if isinstance(obj, dict):
@@ -2278,6 +2400,13 @@ class AbstractCollection:
                     "@id": file_id,
                     "@type": "File",
                     "name": safe_filename,
+                    # RO-Crate asks data entities to describe themselves (`ro-crate-1.2_60.2`).
+                    # The attachment's own description if the ELN has one, else a plain statement
+                    # of what the file is and which record it came from — which is more than the
+                    # filename says once the file is out of its folder.
+                    "description": (str(att.get('description')).strip()
+                                    if str(att.get('description') or '').strip()
+                                    else f"Attachment of {elem_id[0]} {elem_id[1]}."),
                     "encodingFormat": mime,
                 }
                 # FILE_SUGGESTED in TheELNFileFormat's checker is
@@ -2518,6 +2647,19 @@ class AbstractCollection:
         root_node.setdefault("datePublished", datetime.now(UTC).date().isoformat())
         # The collection's own id, so a re-export is recognisably the same collection.
         if self.id is not None:
+            # A plain string, because the two specifications this crate claims disagree here and
+            # only one of them is binding.
+            #
+            # RO-Crate 1.2 RECOMMENDS the Science On Schema.org shape — `identifier` pointing at
+            # a `PropertyValue` entity (`ro-crate-1.2_53.0`) — so a consumer can tell what kind
+            # of identifier it is. But TheELNFileFormat's own JSON schema REQUIRES the root's
+            # `identifier` to be a string, and rejects the object outright:
+            #
+            #     Node './', property 'identifier': {'@id': …} is not of type 'string'
+            #
+            # A REQUIRED rule in the profile we declare conformance to outranks a RECOMMENDED one
+            # in the profile beneath it, so the literal stays and `53.0` is accepted as a
+            # permanent warning. Reported upstream; see AI/DEFERRED.md.
             root_node.setdefault("identifier", str(self.id))
         # The root Dataset is what declares the profiles: RO-Crate 1.2 *and* the `.eln` version.
         # `tests/checks/versions.py` reads the ELN version from here and nowhere else — a crate
@@ -2557,7 +2699,21 @@ class AbstractCollection:
                     is_dataset = (node_type == "Dataset")
                 elif isinstance(node_type, list):
                     is_dataset = ("Dataset" in node_type)
-                if is_dataset:
+                is_file = (node_type == "File" if isinstance(node_type, str)
+                           else "File" in node_type if isinstance(node_type, list) else False)
+                # Files as well as Datasets. RO-Crate lets a data entity be reached from the root
+                # transitively — ours are listed by the element folder that contains them — but
+                # py-rocrate, one of TheELNFileFormat's five checks, requires every data entity to
+                # be linked from the *root* and raises otherwise:
+                #
+                #     './…/product_1H.jdx' is a data entity but it's not linked to from the root
+                #     dataset's hasPart
+                #
+                # This never showed up in any gate because no fixture we validate has an
+                # attachment with real bytes: the one that exists fails to download, so its File
+                # node is withdrawn before anything checks it. Every export carrying an actual
+                # file was failing that check unnoticed.
+                if is_dataset or is_file:
                     root_has_part.append({"@id": other_id})
         root_node["hasPart"] = root_has_part
         # `hasPart` carries data entities only. The collection entities are contextual, so the

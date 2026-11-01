@@ -22,6 +22,25 @@ from chemotion_api.offline import import_export_zip
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "tests" / "fixtures" / "mini_export.json"
 
+#: Bytes for the fixture's attachment, so the gate validates a crate that really contains a file.
+#: Kept here rather than beside the dump because the committed fixture's missing bytes are
+#: themselves under test (tests/unit/test_crate_determinism.py exercises the withdrawal path).
+JCAMP_FIXTURE = """##TITLE=Ethanol 1H NMR (synthetic fixture data)
+##JCAMP-DX=4.24
+##DATA TYPE=NMR SPECTRUM
+##ORIGIN=chemotion-api conformance fixture
+##OWNER=public domain
+##.OBSERVE NUCLEUS=1H
+##XUNITS=HZ
+##YUNITS=ARBITRARY UNITS
+##FIRSTX=0
+##LASTX=4
+##NPOINTS=5
+##XYDATA=(X++(Y..Y))
+0 12 48 31 7
+##END=
+"""
+
 
 def _shared_membership_dump() -> dict:
     """The fixture dump plus join tables putting one sample in two collections.
@@ -59,6 +78,18 @@ def main(out_path: str, shared: bool = False) -> int:
                 json.dumps(_shared_membership_dump()), encoding="utf-8")
         else:
             shutil.copyfile(FIXTURE, export_dir / "export.json")
+
+        # Give the fixture's attachment real bytes.
+        #
+        # Without this the gate never validated a crate that actually contains a file: the
+        # attachment fails to download, its File node is withdrawn, and every file-related rule
+        # goes untested. That hid a real defect — py-rocrate requires each data entity to be
+        # linked from the *root* dataset's `hasPart`, and ours were linked only from the element
+        # folder containing them, so every export carrying an attachment failed one of
+        # TheELNFileFormat's five checks while this gate stayed green.
+        attachments = export_dir / "attachments"
+        attachments.mkdir()
+        (attachments / "att-1-uuid.jdx").write_text(JCAMP_FIXTURE, encoding="utf-8")
 
         collection = import_export_zip(export_dir)
         collection.export_eln(
