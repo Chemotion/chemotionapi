@@ -20,6 +20,14 @@ logger = logging.getLogger(__name__)
 #: one of them (PR review finding 1).
 ElementKey = tuple[str, Any]
 
+#: Built-in element types this client models, each indexed by its own accessor above. Anything
+#: else in the instance's class list goes through the generic path; a LabIMotion generic type
+#: loads fine there, while a *built-in* type we do not model raises in
+#: ``ElementSet._get_element_class`` and is recorded as a declared omission in the export
+#: manifest. v4 adds three of those (cell_line, screen,
+#: sequence_based_macromolecule_sample) -- see AI/DEFERRED.md §0b.
+_MODELLED_KINDS = ('sample', 'reaction', 'wellplate', 'research_plan', 'device_description')
+
 
 @dataclass
 class ElementIndex:
@@ -141,11 +149,14 @@ def build_element_index(root_collection: Any, sanitize_filename: Callable[[str],
         _index(col_id, lambda: col.get_wellplates(per_page=100), "wellplates", "wellplate", "wellplate")
         _index(col_id, lambda: col.get_research_plans(per_page=100), "research_plans",
                "research_plan", "research_plan")
+        if hasattr(col, "get_device_descriptions"):
+            _index(col_id, lambda: col.get_device_descriptions(per_page=100),
+                   "device_descriptions", "device_description", "device_description")
 
         root_col = col.get_root()
         if hasattr(root_col, "_element_manager") and root_col._element_manager:
             for type_name in root_col._element_manager.all_classes.keys():
-                if type_name not in ('sample', 'reaction', 'wellplate', 'research_plan'):
+                if type_name not in _MODELLED_KINDS:
                     def _generic_getter(tn: str = type_name) -> Any:
                         return col.get_generics_by_name(tn, per_page=100)
                     # Every generic element type shares the plural "generics", so two elements of

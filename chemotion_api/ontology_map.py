@@ -18,6 +18,10 @@ ELEMENT_TYPE_PROPERTY_ID = "chemotion:elementType"
 ELEMENT_TYPE_IRI: dict[str, str | None] = {
     "wellplate": None,
     "research_plan": None,
+    # A device description often carries its own TIB-sourced terms, which the exporter adds as
+    # additional @types. This placeholder is for the *element kind* itself ("this record is a
+    # device description"), which is a different statement and still has no agreed term.
+    "device_description": None,
     # Generic LabIMotion element types share a single placeholder until typed individually.
     "generic": None,
 }

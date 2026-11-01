@@ -1806,6 +1806,25 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
+    def get_device_descriptions(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                                updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all device descriptions.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of device descriptions
+        """
+
+        root = self.get_root()
+        e = ElementSet(root._session,
+                       typing.cast(dict, root._element_manager.all_classes.get('device_description')),
+                       typing.cast(int, self.id))
+        e.load_elements(per_page, updated_to_date, updated_from_date)
+        return e
+
     def get_wellplates(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
         """
@@ -2018,6 +2037,36 @@ class AbstractCollection:
                 if term is None:
                     continue
                 _add_technique(node, term.iri, term.label)
+
+        def _annotate_device_ontologies(elem, node):
+            """Type a device description from its own ontology annotations (best-effort).
+
+            Alone among the ELN's ontology stores, these are picked from the **TIB Terminology
+            Service** and stored with a full IRI, so there is nothing to resolve — the term is
+            carried verbatim. That also means a device keeps its annotations in an offline
+            export and with ``ontology_lookup=False``.
+            """
+            getter = getattr(elem, "ontology_terms", None)
+            if not callable(getter):
+                return
+            try:
+                terms = getter()
+            except Exception as e:  # never break export on annotation
+                logger.debug("Device ontology annotation failed: %s", e)
+                return
+            for term in terms or []:
+                iri, label = term.get("iri"), term.get("label")
+                if not iri:
+                    continue
+                types = node.get("@type", [])
+                types = types if isinstance(types, list) else [types]
+                if iri not in types:
+                    node["@type"] = [*types, iri]
+                if iri not in _defined_terms_seen:
+                    _defined_terms_seen.add(iri)
+                    metadata_dict["@graph"].append({
+                        "@id": iri, "@type": "DefinedTerm", "name": label or iri,
+                    })
 
         def _annotate_reaction_type(elem, node):
             """Type a reaction with its RXNO term (best-effort).
@@ -2301,6 +2350,7 @@ class AbstractCollection:
             # the name is unbound here. The helper no-ops on anything without an `rxno` property,
             # which is every element kind but a reaction.
             _annotate_reaction_type(elem, node)
+            _annotate_device_ontologies(elem, node)
             annotate_element_metadata(elem, node, _undated_elements)
 
             # Which collections this element belongs to. An element in two collections used to be

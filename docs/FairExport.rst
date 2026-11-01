@@ -200,15 +200,29 @@ The ELN records ontology terms in four places. Three reach the crate:
    * - A generic dataset's LabIMotion klass
      - ``klass_ols`` + ``klass_label``
      - ``measurementTechnique`` → ``DefinedTerm``
-   * - ``device_descriptions.ontologies``
-     - TIB Terminology Service entries
-     - **not exported** — this client does not support that element type
+   * - A device description's ``ontologies``
+     - TIB Terminology Service entries, each with a full IRI
+     - additional ``@type`` on the device, plus a ``DefinedTerm``
 
-The dataset klass is the one case needing **no lookup of any kind**: its payload already
-carries both the code and the instance's own label, so it resolves during an offline export
-and with ``ontology_lookup=False``. Every LabIMotion dataset klass has one — ``ols_term_id``
+Two of these need **no lookup of any kind**. A dataset klass's payload carries the code and
+the instance's own label together, and every LabIMotion dataset klass has one — ``ols_term_id``
 is ``NOT NULL`` in the ELN schema — so a generic dataset's *type* is an ontology term by
-construction.
+construction. A device description's terms are picked from the **TIB Terminology Service** and
+stored with a resolvable IRI already attached. Both therefore survive an offline export and
+``ontology_lookup=False``. Annotations an editor has removed are kept in the ELN's column so
+the UI can offer an undo; those are dropped rather than exported.
+
+Element types that are not exported
+------------------------------------
+
+A v4 instance lists twelve element types. This client models five —
+``sample``, ``reaction``, ``wellplate``, ``research_plan`` and ``device_description`` — plus
+every LabIMotion generic type. The remaining three are built-in v4 types it does not model:
+``cell_line``, ``screen`` and ``sequence_based_macromolecule_sample``.
+
+A collection holding one of them still exports. The element is recorded in the crate's
+``#export-manifest`` as a declared omission naming the type, so a crate never quietly loses
+one — it says what it could not carry.
 
 Terms the crate references are named, not just cited
 -----------------------------------------------------

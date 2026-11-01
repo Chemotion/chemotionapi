@@ -290,9 +290,30 @@ ontology terms in four places, and we were carrying one and a half of them.
   constraint — and it reached the crate not at all. The container payload already carries both
   halves (`klass_ols`, `klass_label`), so this is the one branch of the chain that needs **no
   lookup**: it resolves offline and with `ontology_lookup=False`.
-- **Device descriptions remain unsupported**, and the docs now say so rather than leaving it
-  implicit. Their `ontologies` field is populated from the TIB Terminology Service — a third
-  resolution source, which our documented chain does not cover.
+- **Device descriptions are now a supported element type.** New
+  [chemotion_api/elements/device_description.py](./chemotion_api/elements/device_description.py)
+  and `Collection.get_device_descriptions()`. They are the one element carrying ontology terms
+  of their own: an admin picks them from the **TIB Terminology Service** and the ELN stores a
+  full IRI, so — like a dataset klass — nothing needs resolving, and the annotations survive an
+  offline export and `ontology_lookup=False`. Each becomes an additional `@type` on the device
+  plus a described `DefinedTerm`; terms an editor has removed (`is_deleted`, kept in the column
+  so the UI can undo) are not exported.
+
+  Listing had to be fixed to reach them at all: `get_url`/`get_response_key` fell through to
+  `/api/v1/generic_elements` for every unmodelled type, so a device description listed as a
+  generic and came back empty rather than erroring.
+
+### Element types that are not exported now say so
+
+A v4 instance lists twelve element types; this client models five plus LabIMotion generics.
+The other three — `cell_line`, `screen`, `sequence_based_macromolecule_sample` — are built-in
+v4 types it does not model. A collection holding one still exports, and the element is recorded
+in the `#export-manifest` as a declared omission.
+
+That was already the behaviour, but the message read `Generic type "cell_line" cannot be
+found`, which describes a lookup bug rather than a scope boundary. It now names the type and
+lists what *is* supported, because that text is what reaches a reader through the manifest.
+Full support for the three is scoped as follow-up work, not `.eln` work.
 
 ### Referenced ontology terms are named
 
