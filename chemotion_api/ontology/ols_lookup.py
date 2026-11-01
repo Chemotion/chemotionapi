@@ -12,7 +12,10 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:  # import only for typing: instance_terms is built on this module
+    from chemotion_api.ontology.instance_terms import InstanceVocabulary
 
 logger = logging.getLogger(__name__)
 
@@ -140,18 +143,33 @@ def resolve_ontology_term(
     ontology: str = "chmo",
     cache: OlsCache | None = None,
     enable_ols: bool = True,
+    vocabulary: InstanceVocabulary | None = None,
 ) -> OntologyTerm | None:
     """Resolve a technique/analysis label to an ontology term.
 
-    Order: (1) an ontology code embedded in ``embedded_kind`` → (2) OLS lookup on
-    ``label`` (or the kind's label) when ``enable_ols`` → (3) ``None`` (caller uses a
-    placeholder). chem-dcat-ap typed mapping is handled upstream by ``to_dcat_ap`` and
-    is not repeated here.
+    Order: (1) an ontology code embedded in ``embedded_kind`` → (2) the instance's own
+    ``ols_terms`` vocabulary, when one was supplied → (3) an EBI OLS4 lookup on ``label``
+    (or the kind's label) when ``enable_ols`` → (4) ``None`` (caller uses a placeholder).
+    chem-dcat-ap typed mapping is handled upstream by ``to_dcat_ap`` and is not repeated here.
+
+    Steps 1 and 2 are both "what this ELN says": an embedded code came from the instance, and
+    an instance may edit or extend its term trees, so its answer outranks the public ontology
+    service for the same text.
+
+    :param vocabulary: optional :class:`~chemotion_api.ontology.InstanceVocabulary` for the
+        instance being exported. ``None`` (an offline export from a dump, say) simply skips
+        step 2.
     """
     embedded = parse_embedded_kind(embedded_kind)
     if embedded is not None:
         return embedded
     query = label or (embedded_kind.split("|", 1)[-1].strip() if embedded_kind else None)
-    if enable_ols and query:
+    if not query:
+        return None
+    if vocabulary is not None:
+        own = vocabulary.lookup(query, ontology=ontology)
+        if own is not None:
+            return own
+    if enable_ols:
         return query_ols(query, ontology=ontology, cache=cache)
     return None

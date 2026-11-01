@@ -1874,11 +1874,16 @@ class AbstractCollection:
             longer taken from the logged-in user.
         :param ontology_lookup: annotate each analysis with a ``measurementTechnique`` ontology
             term. Resolution order: the ``CHMO:…`` code embedded in the analysis ``kind`` →
-            (when no code) an EBI OLS lookup.
+            (when no code) this instance's own ``ols_terms`` vocabulary, which an admin can edit
+            and extend → (when still unresolved) an EBI OLS lookup. The instance's answer comes
+            first so the crate records the term the ELN itself shows, not a public-ontology
+            near-match for the same words. Exporting from a dump has no instance to ask and goes
+            straight to EBI.
 
             .. warning::
                **This makes outbound requests to a third party, and defaults to on.** Every
-               analysis name that carries no embedded CHMO code is sent to EBI's OLS service at
+               analysis name that carries no embedded CHMO code, and no match in the instance's
+               own vocabulary, is sent to EBI's OLS service at
                ``www.ebi.ac.uk``. Analysis names can themselves be sensitive, and this happens
                independently of ``disclose_host`` — withholding the hostname does not
                withhold the analysis names. It also happens during an otherwise offline export
@@ -1918,9 +1923,19 @@ class AbstractCollection:
         # Manifest of items omitted from the crate so export never silently loses data.
         skipped: list[dict] = []
 
-        # Ontology resolution for analysis measurement techniques (embedded CHMO code → OLS).
-        from chemotion_api.ontology import OlsCache, resolve_ontology_term
+        # Ontology resolution for analysis measurement techniques
+        # (embedded CHMO code → the instance's own terms → EBI OLS).
+        from chemotion_api.ontology import InstanceVocabulary, OlsCache, resolve_ontology_term
         _ols_cache = OlsCache(ols_cache)
+        # The instance's own vocabulary outranks EBI's: an admin can edit and extend these trees,
+        # so this is what the ELN actually shows for the name being resolved. Built from the same
+        # session the host/version are read from below; None when there is no instance to ask (an
+        # offline export from a dump), and skipped entirely when lookups are turned off, since
+        # `ontology_lookup=False` promises no request at all.
+        _vocab_session = getattr(self, "_session", None)
+        if _vocab_session is None:
+            _vocab_session = getattr(self.get_root(), "_session", None)
+        _vocabulary = InstanceVocabulary.from_session(_vocab_session) if ontology_lookup else None
         _defined_terms_seen: set[str] = set()
 
         def _annotate_analyses(elem, node):
@@ -1933,7 +1948,8 @@ class AbstractCollection:
                     kind = ana.get("kind") if hasattr(ana, "get") else None
                     name = ana.get("name") if hasattr(ana, "get") else None
                     term = resolve_ontology_term(name, embedded_kind=kind,
-                                                 cache=_ols_cache, enable_ols=ontology_lookup)
+                                                 cache=_ols_cache, enable_ols=ontology_lookup,
+                                                 vocabulary=_vocabulary)
                 except Exception as e:  # never break export on annotation
                     logger.debug("Analysis ontology annotation failed: %s", e)
                     continue

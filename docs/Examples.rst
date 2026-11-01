@@ -302,7 +302,8 @@ Example 5) Export a Collection to a ``.eln`` (RO-Crate)
                                                    ror='https://ror.org/05gq02987')]),
         ])
 
-        # Analyses are annotated with measurement-technique ontology terms (embedded CHMO code -> OLS)
+        # Analyses are annotated with measurement-technique ontology terms
+        # (embedded CHMO code -> this instance's own terms -> EBI OLS)
         col.export_eln('my_project.eln')
 
 
