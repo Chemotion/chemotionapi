@@ -137,6 +137,67 @@ def query_ols(label: str, ontology: str = "chmo",
     return term
 
 
+#: Cache bucket for IRI->label lookups. Not an ontology name: it keeps these out of the
+#: label->term buckets, which are keyed the other way round and would otherwise collide.
+_IRI_LABEL_BUCKET = "_iri_labels"
+
+
+def query_ols_label(iri: str, cache: OlsCache | None = None,
+                    timeout: float = 10.0) -> str | None:
+    """Ask OLS4 for the label of a term we have an IRI for; cached and error tolerant."""
+    if not iri:
+        return None
+    if cache is not None:
+        cached_hit, cached_term = cache.get(_IRI_LABEL_BUCKET, iri)
+        if cached_hit:
+            return cached_term.label if cached_term else None
+    label: str | None = None
+    try:
+        import requests
+        resp = requests.get(
+            OLS_SEARCH_URL,
+            params={"q": iri, "queryFields": "iri", "exact": "true", "rows": "1"},
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        docs = (resp.json().get("response", {}) or {}).get("docs", []) or []
+        for doc in docs:
+            found = doc.get("label")
+            if doc.get("iri") == iri and isinstance(found, str) and found.strip():
+                label = found.strip()
+                break
+    except Exception as exc:  # network/HTTP/JSON — never fatal
+        logger.warning("OLS label lookup failed for %s: %s", iri, exc)
+        label = None
+    if cache is not None:
+        cache.put(_IRI_LABEL_BUCKET, iri,
+                  OntologyTerm(iri=iri, label=label) if label else None)
+    return label
+
+
+def resolve_term_label(
+    iri: str | None,
+    cache: OlsCache | None = None,
+    enable_ols: bool = True,
+    vocabulary: InstanceVocabulary | None = None,
+) -> str | None:
+    """Find a human-readable label for an ontology IRI.
+
+    Same precedence as :func:`resolve_ontology_term`, for the same reason: the instance's own
+    wording outranks the public service. Returns ``None`` when neither source knows it, and
+    the caller keeps whatever fallback it had.
+    """
+    if not iri:
+        return None
+    if vocabulary is not None:
+        own = vocabulary.label_for_iri(iri)
+        if own:
+            return own
+    if enable_ols:
+        return query_ols_label(iri, cache=cache)
+    return None
+
+
 def resolve_ontology_term(
     label: str | None,
     embedded_kind: str | None = None,

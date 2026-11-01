@@ -761,14 +761,28 @@ def _expand_iri(term: str, prefixes: dict) -> str:
     return term
 
 
+#: An IRI whose local part is a bare accession (``CHMO_0002820``, ``AFR_0002409``, and the
+#: letter-prefixed ``NCIT_C48810``). Splitting such an IRI yields "CHMO 0002820", which names
+#: nothing — unlike ``qudt:…/MolarMass`` or ``dct:description``, where the local part *is* the
+#: label and needs no lookup. Units such as ``MOL-PER-L`` carry no digit run and are left alone.
+_OPAQUE_ACCESSION_RE = re.compile(r"^[A-Za-z]+[_-][A-Za-z]?\d{3,}$")
+
+
 def _term_label(iri: str) -> str:
     """A readable label for a vocabulary IRI we reference but do not otherwise describe."""
     local = iri.rstrip("/").rsplit("/", 1)[-1].rsplit("#", 1)[-1]
     return local.replace("-", " ").replace("_", " ") or iri
 
 
+def _has_opaque_accession(iri: str) -> bool:
+    """True when :func:`_term_label` would produce an accession rather than a name."""
+    local = iri.rstrip("/").rsplit("/", 1)[-1].rsplit("#", 1)[-1]
+    return bool(_OPAQUE_ACCESSION_RE.match(local))
+
+
 def _polish_contextual_entities(metadata_dict: dict, root_node: dict,
-                                base_context: dict) -> None:
+                                base_context: dict,
+                                label_for: typing.Callable[[str], str | None] | None = None) -> None:
     """Satisfy RO-Crate's RECOMMENDED rules about contextual entities, in place.
 
     Three rules, all of which make a crate more readable rather than merely more compliant:
@@ -862,7 +876,16 @@ def _polish_contextual_entities(metadata_dict: dict, root_node: dict,
         iri = _expand_iri(term, prefixes)
         if iri in present or not iri.startswith(("http://", "https://")):
             continue
-        stub = {"@id": iri, "@type": "DefinedTerm", "name": _term_label(iri)}
+        # RO-Crate only asks that a referenced IRI be *described* (`76.1`); a stub named
+        # "CHMO 0002820" satisfies that and tells a reader nothing. Where the local part is a
+        # bare accession, ask the ontology sources for the real label first.
+        name = None
+        if label_for is not None and _has_opaque_accession(iri):
+            try:
+                name = label_for(iri)
+            except Exception as exc:  # a labelling miss must never fail an export
+                logger.debug("Could not label %s: %s", iri, exc)
+        stub = {"@id": iri, "@type": "DefinedTerm", "name": name or _term_label(iri)}
         graph.append(stub)
         present.add(iri)
 
@@ -1925,7 +1948,8 @@ class AbstractCollection:
 
         # Ontology resolution for analysis measurement techniques
         # (embedded CHMO code → the instance's own terms → EBI OLS).
-        from chemotion_api.ontology import InstanceVocabulary, OlsCache, resolve_ontology_term
+        from chemotion_api.ontology import (InstanceVocabulary, OlsCache, obo_code_to_iri,
+                                            resolve_ontology_term, resolve_term_label)
         _ols_cache = OlsCache(ols_cache)
         # The instance's own vocabulary outranks EBI's: an admin can edit and extend these trees,
         # so this is what the ELN actually shows for the name being resolved. Built from the same
@@ -1938,12 +1962,50 @@ class AbstractCollection:
         _vocabulary = InstanceVocabulary.from_session(_vocab_session) if ontology_lookup else None
         _defined_terms_seen: set[str] = set()
 
+        def _add_technique(node, iri, label):
+            """Reference ``iri`` as a measurementTechnique, describing it once in the graph."""
+            node.setdefault("measurementTechnique", [])
+            if {"@id": iri} not in node["measurementTechnique"]:
+                node["measurementTechnique"].append({"@id": iri})
+            if iri not in _defined_terms_seen:
+                _defined_terms_seen.add(iri)
+                metadata_dict["@graph"].append({
+                    "@id": iri, "@type": "DefinedTerm", "name": label,
+                })
+
+        def _annotate_dataset_klasses(ana, node):
+            """Type generic datasets from their LabIMotion klass (best-effort).
+
+            Every LabIMotion dataset klass is bound to an ontology term — ``ols_term_id`` is
+            ``NOT NULL`` and uniquely indexed — so a generic dataset's *type* is an ontology
+            term by schema constraint. The container payload carries both halves already
+            (``klass_ols`` is the code, ``klass_label`` the instance's own wording for it), so
+            unlike every other branch of the chain this one needs **no lookup**: it resolves
+            offline and with ``ontology_lookup=False``.
+            """
+            for ds in (getattr(ana, "datasets", None) or []):
+                try:
+                    klass = ds.get("dataset") if hasattr(ds, "get") else None
+                    code = klass.get("klass_ols") if hasattr(klass, "get") else None
+                    label = klass.get("klass_label") if hasattr(klass, "get") else None
+                except Exception as e:  # pragma: no cover - defensive
+                    logger.debug("Could not read dataset klass: %s", e)
+                    continue
+                iri = obo_code_to_iri(code) if isinstance(code, str) else None
+                if iri is None:
+                    continue
+                _add_technique(node, iri, label if isinstance(label, str) and label else code)
+
         def _annotate_analyses(elem, node):
             """Attach measurementTechnique DefinedTerm refs for each analysis (best-effort)."""
             analyses = getattr(elem, "analyses", None)
             if not analyses:
                 return
             for ana in analyses:
+                try:
+                    _annotate_dataset_klasses(ana, node)
+                except Exception as e:  # never break export on annotation
+                    logger.debug("Dataset klass annotation failed: %s", e)
                 try:
                     kind = ana.get("kind") if hasattr(ana, "get") else None
                     name = ana.get("name") if hasattr(ana, "get") else None
@@ -1955,14 +2017,46 @@ class AbstractCollection:
                     continue
                 if term is None:
                     continue
-                node.setdefault("measurementTechnique", [])
-                if {"@id": term.iri} not in node["measurementTechnique"]:
-                    node["measurementTechnique"].append({"@id": term.iri})
-                if term.iri not in _defined_terms_seen:
-                    _defined_terms_seen.add(term.iri)
-                    metadata_dict["@graph"].append({
-                        "@id": term.iri, "@type": "DefinedTerm", "name": term.label,
-                    })
+                _add_technique(node, term.iri, term.label)
+
+        def _annotate_reaction_type(elem, node):
+            """Type a reaction with its RXNO term (best-effort).
+
+            A reaction's ``rxno`` is picked from the same tree widget, and stored in the same
+            ``"RXNO:0000123 | label"`` form, as an analysis' ``kind`` — so it resolves through
+            the same chain. It was previously carried as a plain string alongside ``conditions``
+            and ``rf_value``: the one ontology term a chemist chooses for a reaction was the one
+            the crate left unresolved. The raw string stays (it holds the instance's wording);
+            this adds the identifier the string only names.
+            """
+            raw = None
+            try:
+                props = getattr(elem, "properties", None)
+                raw = props.get("rxno") if hasattr(props, "get") else None
+            except Exception as e:  # pragma: no cover - defensive
+                logger.debug("Could not read rxno: %s", e)
+            if not isinstance(raw, str) or not raw.strip():
+                return
+            try:
+                term = resolve_ontology_term(None, embedded_kind=raw, ontology="rxno",
+                                             cache=_ols_cache, enable_ols=ontology_lookup,
+                                             vocabulary=_vocabulary)
+            except Exception as e:  # never break export on annotation
+                logger.debug("Reaction type annotation failed: %s", e)
+                return
+            if term is None:
+                return
+            # An additional @type, the way chem-dcat-ap already types a sample CHEBI/PROCO and
+            # the way ontology_patch fills an element-type placeholder — not a bespoke predicate.
+            types = node.get("@type", [])
+            types = types if isinstance(types, list) else [types]
+            if term.iri not in types:
+                node["@type"] = [*types, term.iri]
+            if term.iri not in _defined_terms_seen:
+                _defined_terms_seen.add(term.iri)
+                metadata_dict["@graph"].append({
+                    "@id": term.iri, "@type": "DefinedTerm", "name": term.label,
+                })
 
         # Elements whose timestamps were unavailable, so the manifest can say so once rather than
         # leaving a reader to wonder whether the data or the source was missing them.
@@ -2203,6 +2297,10 @@ class AbstractCollection:
                 graph_nodes[node_id] = node
 
             _annotate_analyses(elem, node)
+            # No isinstance check: `Reaction` is imported locally further down this function, so
+            # the name is unbound here. The helper no-ops on anything without an `rxno` property,
+            # which is every element kind but a reaction.
+            _annotate_reaction_type(elem, node)
             annotate_element_metadata(elem, node, _undated_elements)
 
             # Which collections this element belongs to. An element in two collections used to be
@@ -2610,7 +2708,27 @@ class AbstractCollection:
 
         # Names, schema.org types, descriptions for referenced vocabulary IRIs, and reachability.
         # Runs before the @context is declared because it adds nodes (but no new keys).
-        _polish_contextual_entities(metadata_dict, root_node, _base_ctx)
+        # Name the ontology terms the crate references. The instance first, as everywhere else.
+        #
+        # The instance alone is not enough here, and measurably so: of the 19 bare-accession
+        # IRIs in a representative crate its vocabulary named exactly one. The rest are the
+        # *structural* terms chem-dcat-ap emits — BFO `has part`, SIO `has attribute`, the
+        # CHEMINF identifier classes, Allotrope `molar mass` — which no analysis-method tree
+        # carries. OLS4 knows all of them.
+        #
+        # EBI is therefore asked, but only when exporting from a live instance: a dump has no
+        # server behind it, is offline by nature, and must not start making network calls to
+        # decorate identifiers. That keeps the guarantee that an offline export resolving
+        # wholly from embedded codes touches the network not at all. Results go through
+        # `ols_cache`, so a caller who sets one pays for these once, ever.
+        _label_via_ols = ontology_lookup and _vocabulary is not None
+
+        def _label_for_iri(iri: str) -> str | None:
+            return resolve_term_label(iri, cache=_ols_cache, enable_ols=_label_via_ols,
+                                      vocabulary=_vocabulary)
+
+        _polish_contextual_entities(metadata_dict, root_node, _base_ctx,
+                                    label_for=_label_for_iri)
 
         # Declare every key the RO-Crate context does not already define. This must run *last*:
         # element, file, collection, profile and provenance nodes are all appended above, so a

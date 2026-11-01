@@ -82,6 +82,25 @@ def _term_of(node: dict) -> OntologyTerm | None:
     return OntologyTerm(iri=term.iri, label=label)
 
 
+def index_terms_by_iri(payload: Any) -> dict[str, OntologyTerm]:
+    """Flatten an ``ols_terms/list`` payload into ``IRI -> term``.
+
+    The reverse of :func:`index_instance_terms`, for naming a term we hold an identifier for
+    but no label — which is every ontology IRI chem-dcat-ap emits. Note the instance's trees
+    are not confined to the ontology they are filed under (the ``chmo`` tree carries ``BFO``
+    terms, the ``rxno`` tree carries ``CHEBI`` ones), so a caller should search all of them
+    rather than inferring the file from the IRI prefix.
+    """
+    index: dict[str, OntologyTerm] = {}
+    if not isinstance(payload, dict):
+        return index
+    for node in _iter_nodes(payload.get("ols_terms")):
+        term = _term_of(node)
+        if term is not None:
+            index.setdefault(term.iri, term)
+    return index
+
+
 def index_instance_terms(payload: Any) -> dict[str, OntologyTerm]:
     """Flatten an ``ols_terms/list`` payload into ``normalised text -> term``.
 
@@ -125,6 +144,7 @@ class InstanceVocabulary:
         self._session = session
         self._timeout = timeout
         self._indexes: dict[str, dict[str, OntologyTerm]] = {}
+        self._iri_indexes: dict[str, dict[str, OntologyTerm]] = {}
 
     @classmethod
     def from_session(cls, session: Any) -> InstanceVocabulary | None:
@@ -144,6 +164,7 @@ class InstanceVocabulary:
         if key in self._indexes:
             return self._indexes[key]
         index: dict[str, OntologyTerm] = {}
+        by_iri: dict[str, OntologyTerm] = {}
         if key in SUPPORTED_ONTOLOGIES:
             try:
                 res = self._session.get(
@@ -152,13 +173,25 @@ class InstanceVocabulary:
                     timeout=self._timeout,
                 )
                 res.raise_for_status()
-                index = index_instance_terms(res.json())
+                payload = res.json()
+                index = index_instance_terms(payload)
+                by_iri = index_terms_by_iri(payload)
             except Exception as exc:  # HTTP/JSON/transport — never fatal
                 logger.warning("Could not read the instance's %s terms: %s", key, exc)
-                index = {}
+                index, by_iri = {}, {}
             else:
                 logger.debug("Instance %s vocabulary: %d searchable names.", key, len(index))
+        elif key:
+            # Not a silent miss: the server hard-restricts `name` to chmo|rxno|bao, so asking
+            # for anything else can only mean the caller expected an ontology this client does
+            # not yet know about (MOP is requested upstream in ComPlat/chemotion_ELN#1633).
+            # Falling through to EBI without a word would look exactly like "the instance has
+            # no such term".
+            logger.info(
+                "Ontology %r is not one the instance publishes (%s); using the public lookup "
+                "instead.", key, "/".join(SUPPORTED_ONTOLOGIES))
         self._indexes[key] = index
+        self._iri_indexes[key] = by_iri
         return index
 
     def lookup(self, text: str | None, ontology: str = "chmo") -> OntologyTerm | None:
@@ -167,3 +200,20 @@ class InstanceVocabulary:
         if not key:
             return None
         return self._index(ontology).get(key)
+
+    def label_for_iri(self, iri: str | None) -> str | None:
+        """Name a term we hold an IRI for, searching every ontology the instance publishes.
+
+        The trees are not confined to the ontology they are filed under — the instance's
+        ``chmo`` tree carries ``BFO`` terms and its ``rxno`` tree carries ``CHEBI`` ones — so
+        the IRI prefix is not a reliable guide to which file holds it. Each tree is fetched at
+        most once, so searching all of them costs no extra requests after the first miss.
+        """
+        if not iri:
+            return None
+        for ontology in SUPPORTED_ONTOLOGIES:
+            self._index(ontology)  # ensure fetched; populates the IRI index alongside
+            term = self._iri_indexes.get(ontology, {}).get(iri)
+            if term is not None:
+                return term.label
+        return None

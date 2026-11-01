@@ -20,6 +20,7 @@ from __future__ import annotations
 from chemotion_api.ontology.instance_terms import (
     InstanceVocabulary,
     index_instance_terms,
+    index_terms_by_iri,
 )
 from chemotion_api.ontology.ols_lookup import (
     OntologyTerm,
@@ -27,7 +28,9 @@ from chemotion_api.ontology.ols_lookup import (
     obo_code_to_iri,
     parse_embedded_kind,
     query_ols,
+    query_ols_label,
     resolve_ontology_term,
+    resolve_term_label,
 )
 
 __all__ = [
@@ -35,8 +38,11 @@ __all__ = [
     "OntologyTerm",
     "OlsCache",
     "index_instance_terms",
+    "index_terms_by_iri",
     "obo_code_to_iri",
     "parse_embedded_kind",
     "query_ols",
+    "query_ols_label",
     "resolve_ontology_term",
+    "resolve_term_label",
 ]

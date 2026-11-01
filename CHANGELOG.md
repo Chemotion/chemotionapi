@@ -273,6 +273,48 @@ remembered, so a down or older server is asked once, not once per analysis) and 
 dump has no instance to ask and goes straight to EBI as before; `ontology_lookup=False` still
 makes no request of any kind.
 
+### Every ontology-bearing ELN field now reaches the crate
+
+An audit of the v4 source against this exporter (`AI/ONTOLOGY_AUDIT.md`) found the ELN keeps
+ontology terms in four places, and we were carrying one and a half of them.
+
+- **A reaction's `rxno` is resolved, not stringified.** It is picked from the same tree widget
+  and stored in the same `"RXNO:0000087 | aldol condensation"` form as an analysis `kind`, but
+  was carried as a plain string beside `conditions` and `rf_value` — the one ontology term a
+  chemist explicitly chooses for a reaction was the one the crate left unresolved. It now adds
+  an additional `@type` to the reaction node and a described `DefinedTerm`, the same way
+  chem-dcat-ap types a sample and `ontology_patch` fills an element-type placeholder. The raw
+  string stays, since it holds the instance's own wording.
+- **Generic datasets carry their LabIMotion klass term.** `dataset_klasses.ols_term_id` is
+  `NOT NULL` and uniquely indexed, so a generic dataset's type *is* an ontology term by schema
+  constraint — and it reached the crate not at all. The container payload already carries both
+  halves (`klass_ols`, `klass_label`), so this is the one branch of the chain that needs **no
+  lookup**: it resolves offline and with `ontology_lookup=False`.
+- **Device descriptions remain unsupported**, and the docs now say so rather than leaving it
+  implicit. Their `ontologies` field is populated from the TIB Terminology Service — a third
+  resolution source, which our documented chain does not cover.
+
+### Referenced ontology terms are named
+
+RO-Crate asks only that a referenced IRI be *described*; a stub named `"CHMO 0002820"` met the
+letter of that and told a reader nothing. Measured on a representative crate: **19 of 46
+`DefinedTerm`s carried a bare accession instead of a label** — all of them the structural terms
+chem-dcat-ap emits (`BFO` *has part*, `SIO` *has attribute*, the `CHEMINF` identifier classes,
+Allotrope *molar mass*).
+
+Those IRIs are now labelled — instance first, then OLS4 — taking the same crate to **0 of 46**:
+`has part`, `has attribute`, `SMILES string`, `percentage yield`, `starting material for
+synthesis`. Terms whose IRI already reads as a label (`qudt:…/MolarMass`) are untouched, and
+the labelling runs only when exporting from a live instance, so an offline export resolving
+wholly from embedded codes still makes no network call.
+
+### An unsupported ontology says so
+
+`InstanceVocabulary` is restricted to `chmo|rxno|bao`, mirroring the server's own allowlist.
+Asking for anything else returned an empty index — indistinguishable from "the instance has no
+such term". It now logs once. MOP is requested upstream (ComPlat/chemotion_ELN#1633, #567) and
+would otherwise have fallen through to EBI silently.
+
 ### Silent omissions, duplicates and mutations found in the pre-release review
 
 - **Offline export dropped samples whose only reaction belongs to another collection.** "Is part

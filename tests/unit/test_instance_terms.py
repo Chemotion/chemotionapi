@@ -5,6 +5,7 @@ from chemotion_api.eln_producer import OFFLINE_HOST
 from chemotion_api.ontology import (
     InstanceVocabulary,
     index_instance_terms,
+    index_terms_by_iri,
     resolve_ontology_term,
 )
 
@@ -174,3 +175,49 @@ def test_embedded_code_still_wins_over_the_instance_vocabulary():
     term = resolve_ontology_term("1H NMR", embedded_kind="CHMO:0000228 | spectroscopy",
                                  vocabulary=vocab)
     assert term.iri.endswith("CHMO_0000228")
+
+
+def test_reverse_index_names_a_term_from_its_iri():
+    index = index_terms_by_iri(PAYLOAD)
+    assert index["http://purl.obolibrary.org/obo/CHMO_0000595"].label == "house 1H NMR"
+    assert index_terms_by_iri({"ols_terms": None}) == {}
+
+
+def test_label_for_iri_searches_every_published_tree():
+    """The trees are not confined to their own ontology, so the IRI prefix is no guide."""
+    session = _Session()
+    vocab = InstanceVocabulary(session)
+    assert vocab.label_for_iri("http://purl.obolibrary.org/obo/CHMO_0000228") == "spectroscopy"
+    assert vocab.label_for_iri("http://purl.obolibrary.org/obo/NOPE_9999999") is None
+    assert vocab.label_for_iri(None) is None
+    # chmo answered first, so rxno/bao were still fetched for the miss — but only once each.
+    assert len(session.calls) <= len(("chmo", "rxno", "bao"))
+
+
+def test_unsupported_ontology_is_reported_not_silently_empty(caplog):
+    """A silent empty index is indistinguishable from 'the instance has no such term'."""
+    import logging
+    session = _Session()
+    with caplog.at_level(logging.INFO, logger="chemotion_api.ontology.instance_terms"):
+        assert InstanceVocabulary(session).lookup("spectroscopy", ontology="mop") is None
+    assert session.calls == []
+    assert any("mop" in r.getMessage() for r in caplog.records), \
+        "an unknown ontology must say so"
+
+
+def test_resolve_term_label_prefers_the_instance_over_ebi():
+    from chemotion_api.ontology import resolve_term_label
+    vocab = InstanceVocabulary(_Session())
+    with patch("requests.get") as ebi:
+        label = resolve_term_label("http://purl.obolibrary.org/obo/CHMO_0000228",
+                                   vocabulary=vocab)
+        ebi.assert_not_called()
+    assert label == "spectroscopy"
+
+
+def test_resolve_term_label_makes_no_request_when_lookups_are_off():
+    from chemotion_api.ontology import resolve_term_label
+    with patch("requests.get") as ebi:
+        assert resolve_term_label("http://purl.obolibrary.org/obo/BFO_0000051",
+                                  enable_ols=False) is None
+        ebi.assert_not_called()

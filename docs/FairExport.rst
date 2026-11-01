@@ -179,6 +179,55 @@ Two cases where the host is not a real one:
    deliberately **not** written to ``ols_cache``: an instance-specific label must not be replayed
    against a different instance. Exporting from a dump has no instance to ask.
 
+Which ELN fields carry an ontology term
+---------------------------------------
+
+The ELN records ontology terms in four places. Three reach the crate:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 34 38
+
+   * - Where
+     - Stored as
+     - In the crate
+   * - An analysis' ``kind``
+     - ``"CHMO:0000595 | 13C NMR"``
+     - ``measurementTechnique`` → ``DefinedTerm``
+   * - A reaction's ``rxno``
+     - the same form, same picker
+     - an additional ``@type`` on the reaction, plus a ``DefinedTerm``
+   * - A generic dataset's LabIMotion klass
+     - ``klass_ols`` + ``klass_label``
+     - ``measurementTechnique`` → ``DefinedTerm``
+   * - ``device_descriptions.ontologies``
+     - TIB Terminology Service entries
+     - **not exported** — this client does not support that element type
+
+The dataset klass is the one case needing **no lookup of any kind**: its payload already
+carries both the code and the instance's own label, so it resolves during an offline export
+and with ``ontology_lookup=False``. Every LabIMotion dataset klass has one — ``ols_term_id``
+is ``NOT NULL`` in the ELN schema — so a generic dataset's *type* is an ontology term by
+construction.
+
+Terms the crate references are named, not just cited
+-----------------------------------------------------
+
+RO-Crate asks only that a referenced IRI also be *described* in the graph. Satisfying that
+with a name derived from the IRI yields entries like ``"CHMO 0002820"``, which identify a
+term without saying what it is — and a crate references a few dozen such IRIs, because
+chem-dcat-ap types its own structure with them (``BFO`` *has part*, ``SIO`` *has attribute*,
+the ``CHEMINF`` identifier classes, Allotrope *molar mass*).
+
+Where the local part of an IRI is a bare accession, the real label is looked up — the
+instance first, then OLS4 — and the mechanical name is used only if neither answers. Terms
+whose IRI already reads as a label (``qudt:…/MolarMass``, ``dct:description``) are left alone.
+
+This lookup runs **only when exporting from a live instance**. A dump has no server behind
+it, is offline by nature, and must not begin making network calls to decorate identifiers;
+an offline export whose terms all resolve from embedded codes still touches the network not
+at all. Results go through ``ols_cache``, so setting one pays this cost once.
+
    This is independent of ``disclose_host``: withholding the hostname does **not** withhold the
    analysis names, and the lookup still happens when exporting an offline dump. If analysis names
    are sensitive in your setting, or the export must make no outbound connection at all, pass
