@@ -242,7 +242,14 @@ def test_extended_reaction_amount(instance_with_test_reaction: dict):
     assert reaction.reactants[0].liter == 1.703052
     assert isnan(reaction.products[0].liter)
 
-    assert [mat.properties['equivalent'] for mat in mats] == [0.5, 1, 0]
+    # Nothing is flagged as the reference, so there is nothing for an equivalent to be relative
+    # to. This read [0.5, 1, 0] only because the getter silently picked the last candidate — the
+    # reactant — which the ELN never chooses.
+    assert [mat.properties['equivalent'] for mat in mats] == [None, None, None]
+
+    reaction.reference_sample = reaction.starting_materials[0]
+    reaction.update_equivalent()
+    assert [mat.properties['equivalent'] for mat in mats] == [1, 2, 0]
 
     reaction.products[0].set_amount(1000, 'g')
     reaction.products[0].properties['coefficient'] = 2
@@ -259,13 +266,10 @@ def test_extended_reaction_amount(instance_with_test_reaction: dict):
     assert isnan(reaction.products[0].liter)
 
     assert [mat.properties['equivalent'] for mat in
-            [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [0.5, 1,
-                                                                                         0.07568895110857066]
+            [*reaction.starting_materials, *reaction.reactants, *reaction.products]] == [1, 2.0,
+                                                                                         0.1513779022171413]
 
 
-@pytest.mark.skip(reason="Reaction-level yield is not modelled on this line: _parse_properties "
-                         "carries no 'yield' or 'yield_value', so the value cannot survive a "
-                         "reload. Implemented on the 400.x line; see AI/DEFERRED.md.")
 def test_reaction_yield_properties(instance_with_test_reaction: dict):
     logged_in_instance = instance_with_test_reaction['instance']
     col = instance_with_test_reaction['main_collection']

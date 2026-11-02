@@ -33,7 +33,6 @@ class SearchHelperBase(ABC):
             "collection_id": self._collection_id,
             "page": 1,
             "per_page": self._per_page,
-            "is_sync": False,
             "molecule_sort": True,
             "is_public": False
         }
@@ -76,6 +75,8 @@ class SearchHelperBase(ABC):
         self._payload['selection']['page_size'] = self._per_page
         self._payload['per_page'] = self._per_page
         self._payload['collection_id'] = self._collection_id
+        # (Leftover debug code here used to dump the payload to ./test.json on every search,
+        # littering the caller's working directory.)
         res = self._connection.post('/api/v1/search/advanced', json=self._payload)
         if res.status_code != 201:
             raise ConnectionError(res.status_code)

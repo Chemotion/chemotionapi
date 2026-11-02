@@ -57,7 +57,35 @@ class PropertyDict(MutableMapping):
         return self.to_dict()
 
     def to_dict(self):
+        """:return: The underlying plain ``dict`` backing this mapping."""
         return self.data
+
+    def _attr_error(self, name):
+        import difflib
+        keys = [k for k in self.data.keys() if isinstance(k, str)]
+        hint = difflib.get_close_matches(name, keys, n=3)
+        suffix = f" Did you mean: {', '.join(hint)}?" if hint else (
+            f" Available keys: {', '.join(sorted(keys))}" if keys else "")
+        return AttributeError(f"'PropertyDict' object has no property '{name}'.{suffix}")
+
+    def __getattr__(self, name):
+        if name.startswith('_') or name in ('data', 'on_change', 'to_dict'):
+            raise AttributeError(f"'PropertyDict' object has no attribute '{name}'")
+        try:
+            return self[name]
+        except KeyError:
+            raise self._attr_error(name) from None
+
+    def __setattr__(self, name, value):
+        if name.startswith('_') or name in ('data', 'on_change'):
+            super().__setattr__(name, value)
+        elif hasattr(self.__class__, name) and isinstance(getattr(self.__class__, name), property):
+            super().__setattr__(name, value)
+        else:
+            try:
+                self[name] = value
+            except KeyError:
+                raise AttributeError(f"'PropertyDict' object has no attribute '{name}'") from None
 
 
 def resource_path(file_path):
@@ -400,3 +428,112 @@ def quill_hedging(input: str | dict, name: str) -> dict[str:list]:
     if not isinstance(input, (dict, PropertyDict)) or 'ops' not in input or not isinstance(input['ops'], list):
         raise ValueError(f'{name} must be in the Quill.js format. (https://quilljs.com/docs/delta)')
     return input
+
+
+def quill_to_text(value) -> str:
+    """Flatten a Chemotion rich-text value to plain text.
+
+    Chemotion stores descriptions and observations as Quill deltas
+    (``{"ops": [{"insert": "..."}]}``), not strings. Anything that only accepts ``str`` therefore
+    silently drops exactly the fields whose narrative matters.
+
+    :param value: a delta mapping, a plain string, or ``None``.
+    :return: the text, or ``""`` when there is none.
+    """
+    from collections.abc import Iterable, Mapping
+
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, Mapping) and "ops" in value:
+        ops = value["ops"]
+        if isinstance(ops, Iterable):
+            return "".join(op.get("insert", "") for op in ops
+                           if isinstance(op, Mapping)).strip()
+    return ""
+
+
+def normalise_range_value(value: str) -> str | None:
+    """Turn Chemotion's Ruby range strings into something a reader can use.
+
+    Melting and boiling points arrive as serialised Ruby ranges. The ELN sets both to an infinite
+    range on create (``sample.rb``: ``before_create :set_boiling_melting_points``), which
+    serialises as ``"(,)"`` — so *every* sample carries two of them, meaning "unset". A degenerate
+    range (``"-114...-114"``) is just a single value written twice.
+
+    :param value: the raw range string.
+    :return: a usable value, or ``None`` when the range carries no information.
+    """
+    text = value.strip()
+    if not text or text in ("(,)", "(...)", "..."):
+        return None
+    for separator in ("...", ".."):
+        if separator in text:
+            low, _, high = text.partition(separator)
+            low, high = low.strip("( )"), high.strip("( )")
+            if not low and not high:
+                return None
+            if low == high:
+                return low or None
+            return f"{low}-{high}" if low and high else (low or high)
+    return text
+
+
+def break_parent_cycles(parent_of: dict) -> set:
+    """Find nodes whose parent chain loops, so a caller can treat them as roots instead.
+
+    A collection tree is built by pointing each node at its parent. If those links form a cycle —
+    A's parent is B and B's parent is A, or a node is its own parent — then *every* node has a
+    parent, no node qualifies as a root, and a tree builder that collects roots ends up with an
+    empty list. The observed consequence was an export that silently produced an archive
+    containing nothing at all, and exited successfully.
+
+    Returning the offenders rather than raising lets the caller keep the salvageable data: promote
+    them to roots and say so, instead of discarding the whole dump over one bad link.
+
+    :param parent_of: node key -> parent key (or ``None`` for a root).
+    :return: the keys that sit on a cycle; empty when the links form a proper forest.
+    """
+    cyclic: set = set()
+    settled: set = set()          # known to terminate at a root
+    for start in parent_of:
+        if start in settled or start in cyclic:
+            continue
+        chain: list = []
+        seen: set = set()
+        node = start
+        while node is not None and node in parent_of and node not in seen:
+            seen.add(node)
+            chain.append(node)
+            node = parent_of.get(node)
+        if node is not None and node in seen:
+            cyclic.update(chain)          # the walk re-entered itself
+        else:
+            settled.update(chain)
+    return cyclic
+
+
+def safe_join(base, name: str):
+    """Join ``name`` under ``base``, refusing anything that would escape it.
+
+    Filenames that arrive in data — a crate's ``File.name``, a server's ``Content-Disposition``,
+    an attachment record — are not trustworthy paths. Two ways they escape:
+
+    * an **absolute** name: ``Path('/safe/out') / '/etc/passwd'`` is ``/etc/passwd``; pathlib
+      discards the base entirely;
+    * a **relative** traversal: ``../../`` is not normalised away by ``/``, and code that calls
+      ``mkdir(parents=True)`` first will helpfully build the path there.
+
+    :param base: the directory the result must stay inside.
+    :param name: the untrusted filename.
+    :return: the resolved path, guaranteed to be inside ``base``.
+    :raises ValueError: if ``name`` escapes ``base``.
+    """
+    import os
+    from pathlib import Path
+
+    root = Path(base).resolve()
+    leaf = os.path.basename(str(name or "").strip()) or "unnamed"
+    dest = (root / leaf).resolve()
+    if not dest.is_relative_to(root):
+        raise ValueError(f"refusing to write outside {root}: {name!r}")
+    return dest

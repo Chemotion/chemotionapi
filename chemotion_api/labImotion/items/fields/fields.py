@@ -194,6 +194,58 @@ class SelectField(BaseField, Select):
         self._parse_json()
 
 
+class SelectMultiField(BaseField, Select):
+    """A multi-select field.
+
+    ``select-multi`` behaves like ``select`` on the wire (it carries ``option_layers``), but the
+    LabIMotion gem deliberately does not declare it in ``field_type.rb`` — see the note on
+    :attr:`~chemotion_api.labImotion.items.options.FieldType.SELECT_MULTI`. The server emits it
+    regardless, so it needs a real class here rather than a passthrough.
+    """
+    field_type = FieldType.SELECT_MULTI
+    required_fields = ['option_layers']
+
+    def __init__(self, sr: StructureRegistry, layer_key: str, json_data: dict):
+        super().__init__(sr, layer_key, json_data)
+        Select.__init__(self, sr, json_data)
+        self._parse_json()
+
+
+class OpaqueField(BaseField):
+    """Fallback for a field type this client has no dedicated class for.
+
+    Keeps the payload intact so the klass loads AND round-trips, instead of making the whole
+    element unreadable. Used for gem-declared types we do not model (``wf-next``,
+    ``sys-reaction``, ``drag``, ``drag_reaction``) and for anything LabIMotion adds later.
+
+    Round-tripping is the point, and it is not free: :meth:`BaseField.to_dict` rebuilds a field
+    from its declared required/optional keys only, and this class declares none — so without the
+    override below, loading a klass with an unmodelled field and calling ``save()`` would POST it
+    back **stripped of every type-specific key**, silently destroying that data on the server.
+    Before this class existed such a klass raised on load, which at least could not delete
+    anything.
+    """
+
+    def to_dict(self) -> dict:
+        """The rebuilt field merged *over* the original payload, so unknown keys survive a save.
+
+        :return: the field as a ``dict``, retaining every key the server sent.
+        """
+        return dict(self._json_data) | super().to_dict()
+
+    def __init__(self, sr: StructureRegistry, layer_key: str, json_data: dict):
+        # field_type is per-instance here: one class stands in for several wire types, and for
+        # types with no enum member at all — in which case the raw string is kept, so to_dict()
+        # still round-trips what the server sent.
+        raw_type = json_data.get('type')
+        try:
+            self.field_type = FieldType(raw_type)
+        except ValueError:
+            self.field_type = raw_type
+        super().__init__(sr, layer_key, json_data)
+        self._parse_json()
+
+
 class SystemDefinedField(BaseField, SystemDefined):
     field_type = FieldType.SYSTEM_DEFINED
     required_fields = ['option_layers', 'value_system']

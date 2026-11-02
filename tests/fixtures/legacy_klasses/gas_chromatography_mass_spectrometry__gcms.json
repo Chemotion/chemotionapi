@@ -1,0 +1,1290 @@
+{
+  "created_at": "2025-02-25T11:43:19+0000",
+  "desc": "gas chromatography-mass spectrometry (GCMS)",
+  "id": 5,
+  "identifier": "98a79b4e-b93d-4c66-99a0-c7d699fe5f5f",
+  "is_active": true,
+  "label": "gas chromatography-mass spectrometry (GCMS)",
+  "metadata": {},
+  "ols_term_id": "CHMO:0000497",
+  "place": 90,
+  "properties_release": {
+    "identifier": "98a79b4e-b93d-4c66-99a0-c7d699fe5f5f",
+    "klass": "DatasetKlass",
+    "layers": {
+      "comp_res": {
+        "color": "none",
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "name1",
+            "label": "name of of compound 1",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime1",
+            "label": "retention time of compound 1",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm1",
+            "label": "concentration of compound 1 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota1",
+            "label": "quota of compound 1 [%]",
+            "option_layers": "percentage",
+            "position": 4,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "name2",
+            "label": "name of of compound 2",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime2",
+            "label": "retention time of compound 2",
+            "position": 6,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm2",
+            "label": "concentration of compound 2 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 7,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota2",
+            "label": "quota of compound 2 [%]",
+            "option_layers": "percentage",
+            "position": 8,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "name3",
+            "label": "name of of compound 3",
+            "position": 9,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime3",
+            "label": "retention time of compound 3",
+            "position": 10,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm3",
+            "label": "concentration of compound 3 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 11,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota3",
+            "label": "quota of compound 3 [%]",
+            "option_layers": "percentage",
+            "position": 12,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "name4",
+            "label": "name of of compound 4",
+            "position": 13,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime4",
+            "label": "retention time of compound 4",
+            "position": 14,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm4",
+            "label": "concentration of compound 4 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 15,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota4",
+            "label": "quota of compound 4 [%]",
+            "option_layers": "percentage",
+            "position": 16,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "name5",
+            "label": "name of of compound 5",
+            "position": 17,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime5",
+            "label": "retention time of compound 5",
+            "position": 18,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm5",
+            "label": "concentration of compound 5 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 19,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota5",
+            "label": "quota of compound 5 [%]",
+            "option_layers": "percentage",
+            "position": 20,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "notes",
+            "hasOwnRow": true,
+            "label": "Notes and Comments",
+            "position": 21,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "comp_res",
+        "label": "compound table",
+        "position": 70,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "general": {
+        "color": "info",
+        "cols": 5,
+        "fields": [
+          {
+            "default": "",
+            "field": "title",
+            "label": "title",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "data_type",
+            "label": "data_type",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "date",
+            "label": "Date",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "time",
+            "label": "Time",
+            "position": 4,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "contributor",
+            "label": "Contributor",
+            "placeholder": "to be filled automatically",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "creator",
+            "label": "Creator",
+            "placeholder": "to be filled automatically",
+            "position": 6,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "operator",
+            "label": "operator",
+            "position": 7,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "comments",
+            "label": "Comments",
+            "position": 8,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "general",
+        "label": "General information",
+        "position": 10,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "instrument": {
+        "color": "default",
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "brand",
+            "label": "Brand",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "serial",
+            "label": "Serial No",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "description": "Assignment of device in the long run",
+            "field": "instrument",
+            "label": "instrument",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "instrument",
+        "label": "Devices used for the measurement",
+        "position": 40,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "sample_details": {
+        "color": "info",
+        "cols": 5,
+        "fields": [
+          {
+            "default": "",
+            "field": "label",
+            "label": "label",
+            "placeholder": "to be filled automatically",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "id",
+            "label": "id",
+            "placeholder": "to be filled automatically",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "amount",
+            "label": "Amount",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "sample_volume",
+            "label": "Volume",
+            "option_layers": "volumes",
+            "position": 4,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "system-defined"
+          },
+          {
+            "default": "",
+            "field": "size",
+            "label": "Size",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "sample_details",
+        "label": "Sample details",
+        "position": 20,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "sample_preparation": {
+        "color": "default",
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "solvent",
+            "label": "Solvent",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "amount_sol",
+            "label": "Volume of solvent",
+            "option_layers": "volumes",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "system-defined"
+          },
+          {
+            "default": "",
+            "field": "concentration",
+            "label": "Concentration",
+            "option_layers": "molarity",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "system-defined"
+          }
+        ],
+        "key": "sample_preparation",
+        "label": "Sample preparation",
+        "position": 30,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "set": {
+        "color": "default",
+        "cols": 6,
+        "fields": [
+          {
+            "default": "",
+            "field": "mode",
+            "label": "Operation mode",
+            "option_layers": "operation_mode",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "atmosphere",
+            "label": "Atmosphere",
+            "option_layers": "atm",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "temperature",
+            "label": "Temperature",
+            "option_layers": "temperature",
+            "placeholder": "if not room temperature",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "system-defined"
+          },
+          {
+            "default": "",
+            "description": "Is the WE compartment separated from CE with a membrane or frit?",
+            "field": "separation",
+            "label": "Separation",
+            "option_layers": "separations",
+            "position": 4,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "conditions",
+            "label": "Conditions",
+            "option_layers": "conditions",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "cond_fields": [
+              {
+                "field": "conditions",
+                "id": "98eb4f70-d3cc-11ec-92af-9bedac5a63c4",
+                "layer": "set",
+                "value": "illumination"
+              }
+            ],
+            "default": "",
+            "field": "conditions_ill",
+            "label": "Wavelength",
+            "position": 6,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "comments",
+            "hasOwnRow": true,
+            "label": "Comments",
+            "position": 7,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "set",
+        "label": "Settings describing the measurement",
+        "position": 50,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "software": {
+        "color": "default",
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "software",
+            "label": "Software",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "software_version",
+            "label": "Software version",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "method",
+            "label": "method",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "software",
+        "label": "Software used for data generation",
+        "position": 60,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      }
+    },
+    "pkg": {
+      "eln": {
+        "base_revision": "14edc0aa32bf9c40ba7e31d141d9db16b725d181",
+        "current_revision": "f2d65e35467b0d295a0b48bbe73df2b29565fe4e\n",
+        "version": "1.3.0-beta"
+      },
+      "labimotion": "0.3.3"
+    },
+    "released_at": "15.09.2023, 11:03",
+    "select_options": {},
+    "uuid": "406e1a88-1af9-4661-b294-dfe538a0b697",
+    "version": "0.1"
+  },
+  "properties_template": {
+    "identifier": "98a79b4e-b93d-4c66-99a0-c7d699fe5f5f",
+    "klass": "DatasetKlass",
+    "layers": {
+      "comp_res": {
+        "color": "none",
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "name1",
+            "label": "name of of compound 1",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime1",
+            "label": "retention time of compound 1",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm1",
+            "label": "concentration of compound 1 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota1",
+            "label": "quota of compound 1 [%]",
+            "option_layers": "percentage",
+            "position": 4,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "name2",
+            "label": "name of of compound 2",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime2",
+            "label": "retention time of compound 2",
+            "position": 6,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm2",
+            "label": "concentration of compound 2 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 7,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota2",
+            "label": "quota of compound 2 [%]",
+            "option_layers": "percentage",
+            "position": 8,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "name3",
+            "label": "name of of compound 3",
+            "position": 9,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime3",
+            "label": "retention time of compound 3",
+            "position": 10,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm3",
+            "label": "concentration of compound 3 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 11,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota3",
+            "label": "quota of compound 3 [%]",
+            "option_layers": "percentage",
+            "position": 12,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "name4",
+            "label": "name of of compound 4",
+            "position": 13,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime4",
+            "label": "retention time of compound 4",
+            "position": 14,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm4",
+            "label": "concentration of compound 4 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 15,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota4",
+            "label": "quota of compound 4 [%]",
+            "option_layers": "percentage",
+            "position": 16,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "name5",
+            "label": "name of of compound 5",
+            "position": 17,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "RTime5",
+            "label": "retention time of compound 5",
+            "position": 18,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_ppm5",
+            "label": "concentration of compound 5 [ppm]",
+            "option_layers": "subatomic_length",
+            "position": 19,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "conc_quota5",
+            "label": "quota of compound 5 [%]",
+            "option_layers": "percentage",
+            "position": 20,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "notes",
+            "hasOwnRow": true,
+            "label": "Notes and Comments",
+            "position": 21,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "comp_res",
+        "label": "compound table",
+        "position": 70,
+        "style": "panel_generic_heading",
+        "timeRecord": "",
+        "wf": false,
+        "wf_position": 0
+      },
+      "general": {
+        "color": "info",
+        "cols": 5,
+        "fields": [
+          {
+            "default": "",
+            "field": "title",
+            "label": "title",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "data_type",
+            "label": "data_type",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "date",
+            "label": "Date",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "time",
+            "label": "Time",
+            "position": 4,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "contributor",
+            "label": "Contributor",
+            "placeholder": "to be filled automatically",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "creator",
+            "label": "Creator",
+            "placeholder": "to be filled automatically",
+            "position": 6,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "operator",
+            "label": "operator",
+            "position": 7,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "comments",
+            "label": "Comments",
+            "position": 8,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "general",
+        "label": "General information",
+        "position": 10,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "instrument": {
+        "color": "default",
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "brand",
+            "label": "Brand",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "serial",
+            "label": "Serial No",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "description": "Assignment of device in the long run",
+            "field": "instrument",
+            "label": "instrument",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "instrument",
+        "label": "Devices used for the measurement",
+        "position": 40,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "sample_details": {
+        "color": "info",
+        "cols": 5,
+        "fields": [
+          {
+            "default": "",
+            "field": "label",
+            "label": "label",
+            "placeholder": "to be filled automatically",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "id",
+            "label": "id",
+            "placeholder": "to be filled automatically",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "amount",
+            "label": "Amount",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "sample_volume",
+            "label": "Volume",
+            "option_layers": "volumes",
+            "position": 4,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "system-defined"
+          },
+          {
+            "default": "",
+            "field": "size",
+            "label": "Size",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "sample_details",
+        "label": "Sample details",
+        "position": 20,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "sample_preparation": {
+        "color": "default",
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "solvent",
+            "label": "Solvent",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "amount_sol",
+            "label": "Volume of solvent",
+            "option_layers": "volumes",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "system-defined"
+          },
+          {
+            "default": "",
+            "field": "concentration",
+            "label": "Concentration",
+            "option_layers": "molarity",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "system-defined"
+          }
+        ],
+        "key": "sample_preparation",
+        "label": "Sample preparation",
+        "position": 30,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "set": {
+        "color": "default",
+        "cols": 6,
+        "fields": [
+          {
+            "default": "",
+            "field": "mode",
+            "label": "Operation mode",
+            "option_layers": "operation_mode",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "atmosphere",
+            "label": "Atmosphere",
+            "option_layers": "atm",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "temperature",
+            "label": "Temperature",
+            "option_layers": "temperature",
+            "placeholder": "if not room temperature",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "system-defined"
+          },
+          {
+            "default": "",
+            "description": "Is the WE compartment separated from CE with a membrane or frit?",
+            "field": "separation",
+            "label": "Separation",
+            "option_layers": "separations",
+            "position": 4,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "default": "",
+            "field": "conditions",
+            "label": "Conditions",
+            "option_layers": "conditions",
+            "position": 5,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "select"
+          },
+          {
+            "cond_fields": [
+              {
+                "field": "conditions",
+                "id": "98eb4f70-d3cc-11ec-92af-9bedac5a63c4",
+                "layer": "set",
+                "value": "illumination"
+              }
+            ],
+            "default": "",
+            "field": "conditions_ill",
+            "label": "Wavelength",
+            "position": 6,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "comments",
+            "hasOwnRow": true,
+            "label": "Comments",
+            "position": 7,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "set",
+        "label": "Settings describing the measurement",
+        "position": 50,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      },
+      "software": {
+        "color": "default",
+        "cols": 4,
+        "fields": [
+          {
+            "default": "",
+            "field": "software",
+            "label": "Software",
+            "position": 1,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "software_version",
+            "label": "Software version",
+            "position": 2,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          },
+          {
+            "default": "",
+            "field": "method",
+            "label": "method",
+            "position": 3,
+            "required": false,
+            "sub_fields": [],
+            "text_sub_fields": [],
+            "type": "text"
+          }
+        ],
+        "key": "software",
+        "label": "Software used for data generation",
+        "position": 60,
+        "style": "panel_generic_heading",
+        "wf": false,
+        "wf_position": 0
+      }
+    },
+    "pkg": {
+      "eln": {
+        "base_revision": "14edc0aa32bf9c40ba7e31d141d9db16b725d181",
+        "current_revision": "f2d65e35467b0d295a0b48bbe73df2b29565fe4e\n",
+        "version": "1.3.0-beta"
+      },
+      "labimotion": "0.3.3"
+    },
+    "released_at": "15.09.2023, 11:03",
+    "select_options": {},
+    "uuid": "406e1a88-1af9-4661-b294-dfe538a0b697",
+    "version": "0.1"
+  },
+  "released_at": "2025-03-11T14:59:34+0000",
+  "sync_time": "2025-03-11T14:59:34+0000",
+  "updated_at": "2025-03-11T15:00:50+0000",
+  "uuid": "406e1a88-1af9-4661-b294-dfe538a0b697",
+  "version": "0.1"
+}

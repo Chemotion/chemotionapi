@@ -164,8 +164,19 @@ class InstanceManager:
         return file_path
 
     @staticmethod
-    def restore(file_path, pguser='postgres', port=5432, host='localhost', pgpassword='postgres', database='chemotion'):
+    def restore(file_path, pguser='postgres', port=5432, host='localhost', pgpassword='postgres',
+                database='chemotion', assume_yes: bool = False):
+        """Drop ``database``, recreate it, and load ``file_path`` into it.
+
+        :param assume_yes: skip the confirmation prompt. The first thing this does is drop the
+            named database, which is not recoverable from here, so it confirms by default.
+        """
         file_path = os.path.abspath(file_path)
+        if not assume_yes:
+            click.confirm(
+                f"This will DROP the database {database!r} on {host}:{port} and replace it with "
+                f"{file_path}. Everything currently in it will be lost. Continue?",
+                abort=True)
 
         my_env = os.environ.copy()
         my_env["PGPASSWORD"] = pgpassword
@@ -189,7 +200,8 @@ class InstanceManager:
 
     @staticmethod
     def get_versions():
-        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024')
+        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024',
+                           timeout=30)
         return [x['name'][4:] for x in res.json()['results'] if x['name'].startswith('eln')]
 
     @staticmethod
@@ -197,7 +209,8 @@ class InstanceManager:
         v_list = InstanceManager.get_versions()
         if version is None:
             version = v_list[0]
-        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024')
+        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024',
+                           timeout=30)
         return dict(
             [(x['name'][:-(len(version) + 1)], f"ptrxyz/chemotion:{x['name']}") for x in res.json()['results'] if
              x['name'].endswith(version)])
@@ -208,7 +221,7 @@ class InstanceManager:
 
         ols_term_id_num = ols_term_id.split(':')[-1]
         ols_link = f'https://www.ebi.ac.uk/ols4/api/v2/ontologies/chmo/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FCHMO_{ols_term_id_num}?lang=en&includeObsoleteEntities=t'
-        res = requests.get(ols_link)
+        res = requests.get(ols_link, timeout=30)
         if res.status_code != 200:
             raise ConnectionError(f'Unable to find: {ols_term_id} ({ols_link})')
         res_json = res.json()
@@ -216,9 +229,30 @@ class InstanceManager:
         label = res_json['label']
         definition = res_json['definition']['value']
         created_at = datetime.now().strftime("%Y-%m-%d, %H:%M:%S.%f")
-        sql_command = f"INSERT INTO public.dataset_klasses (ols_term_id, label, \"desc\", created_by, created_at) VALUES ('{ols_term_id}', '{label}', '{definition}', 1, '{created_at}')";
+
+        # The label and definition come from a third-party API (EBI OLS), so they must never be
+        # interpolated into SQL. They previously were, via an f-string: a term whose text contains
+        # an apostrophe — ordinary in chemistry definitions — broke the statement, and in principle
+        # a hostile or mangled OLS response could append SQL of its own.
+        #
+        # They are passed as psql variables instead and referenced as :'name', which is psql's
+        # quote-and-escape form for a string literal, so the values can contain quotes, newlines or
+        # semicolons harmlessly. (A real DB driver would be better still, but that would add a
+        # dependency for one CLI helper.)
+        sql_command = (
+            'INSERT INTO public.dataset_klasses '
+            '(ols_term_id, label, "desc", created_by, created_at) '
+            "VALUES (:'ols_term_id', :'label', :'definition', 1, :'created_at')"
+        )
         my_env = os.environ.copy()
         my_env["PGPASSWORD"] = pgpassword
-        command = ['psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database, '-c', sql_command]
+        command = [
+            'psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database,
+            '-v', f'ols_term_id={ols_term_id}',
+            '-v', f'label={label}',
+            '-v', f'definition={definition}',
+            '-v', f'created_at={created_at}',
+            '-c', sql_command,
+        ]
         proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=my_env)
         proc.communicate()

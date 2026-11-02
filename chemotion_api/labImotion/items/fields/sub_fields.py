@@ -47,9 +47,11 @@ class SubBaseField(ChemotionSerializable):
 
     @id.setter
     def id(self, value: str):
-        if not isinstance(id, str):
-            raise TypeError(f"value {type(id)} not supported")
-        self._id = id
+        # This validated and stored the *builtin* `id` rather than the argument, so every
+        # assignment raised TypeError (a builtin_function_or_method is never a str).
+        if not isinstance(value, str):
+            raise TypeError(f"value {type(value)} not supported")
+        self._id = value
 
 
 class NumberField(SubBaseField):

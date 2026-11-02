@@ -1,3 +1,4 @@
+import logging
 import json
 import os
 from types import SimpleNamespace
@@ -134,13 +135,17 @@ def test_zero_based_layer_positions_and_invalid_release_copy_can_be_loaded():
         klass.release
 
 
-def test_load_all_skips_invalid_templates():
+def test_load_all_skips_invalid_templates(caplog):
     broken = _klass_json(id=11)
     del broken['properties_template']
     con = SimpleNamespace(get=lambda url: SimpleNamespace(status_code=200,
                                                           json=lambda: {'klass': [_klass_json(), broken]}))
-    with pytest.warns(UserWarning, match=r"Skipped invalid GenericElementKlass 'zzz' \(id=11\)"):
+    # Reported through `logging`, not `warnings`: a klass this client cannot parse is an
+    # operational event, not an API misuse, and `warnings` would be shown once per location.
+    with caplog.at_level(logging.WARNING, logger='chemotion_api.labImotion.base_generic_obj'):
         assert [k.id for k in GenericElementKlass.load_all(con)] == [10]
+    assert any("skipping LabIMotion klass 'rrr'" in r.getMessage()  # klass `name`; `label` is 'zzz'
+               and "properties_template" in r.getMessage() for r in caplog.records)
     with pytest.raises(KeyError):
         GenericElementKlass.load_all(con, strict=True)
 

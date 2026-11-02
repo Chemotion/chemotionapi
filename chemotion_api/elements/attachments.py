@@ -1,9 +1,14 @@
+"""Attachment containers for elements and datasets, with chunked upload and streaming download."""
+import contextlib
 import hashlib
 import json
 import os
 import uuid
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Sequence, Iterator
+from typing import cast
+
+from chemotion_api.utils import safe_join
 import magic
 import requests
 
@@ -34,7 +39,17 @@ class Attachment(AttrAccessMixin, dict):
     :param data: attachment information (from the sever)
     """
 
-    def __init__(self, con: Connection, data: dict[str:str]):
+    @property
+    def previewable(self) -> bool | None:
+        """Whether the server can render a preview thumbnail for this attachment.
+
+        Added to the attachment entity in ELN v4.0.0. Read-only and server-computed; ``None`` when
+        the server did not say, which is not the same as "no".
+        """
+        value = self.get('previewable')
+        return value if isinstance(value, bool) else None
+
+    def __init__(self, con: Connection, data: dict[str, str]):
         self._con = con
         super().__init__(data)
 
@@ -49,6 +64,26 @@ class Attachment(AttrAccessMixin, dict):
             raise ConnectionError(f'{res.status_code} -> {res.text}')
 
         return res.content
+
+    def iter_file(self, chunk_size: int = 1 << 20) -> Iterator[bytes]:
+        """Stream the attachment file in chunks instead of loading it fully into memory.
+
+        :param chunk_size: bytes per chunk (default 1 MiB).
+        :yields: successive byte chunks of the file.
+        """
+        res = self._con.get(f"/api/v1/attachments/{self['id']}", stream=True)
+        if res.status_code != 200:
+            # Read the body *before* closing: with stream=True nothing has been consumed yet, and
+            # `.text` on a closed response comes back empty, losing the server's error message.
+            body = res.text
+            res.close()
+            raise ConnectionError(f'{res.status_code} -> {body}')
+        try:
+            for chunk in res.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    yield chunk
+        finally:
+            res.close()
 
     def save_file(self, directory: str = '.') -> str:
         """
@@ -65,7 +100,8 @@ class Attachment(AttrAccessMixin, dict):
         res = self._con.get(f"/api/v1/attachments/{self['id']}")
         if res.status_code != 200:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
-        file_path = os.path.join(directory, self['filename'])
+        # The filename comes from the server record, so it is data, not a trusted path.
+        file_path = safe_join(directory, self['filename'])
         with open(file_path, 'wb+') as f:
             f.write(res.content)
 
@@ -98,17 +134,17 @@ class Attachments(Sequence):
     :param attachment_data: list of attachment information (from the sever)
     """
 
-    def __init__(self, con: Connection, attachment_data: list[dict] = None):
+    def __init__(self, con: Connection, attachment_data: list[dict] | None = None):
         super().__init__()
         if attachment_data is None:
             attachment_data = []
         self._attachment_data = [Attachment(con, x) for x in attachment_data]
-        self._new_attachment_data = []
+        self._new_attachment_data: list = []
         self._con = con
-        self._to_uploads = []             # Direct inheritance
+        self._to_uploads: list = []             # Direct inheritance
 
             # Extra method not required by the ABC
-    def __getitem__(self, index: int) -> Attachment:
+    def __getitem__(self, index: int) -> Attachment:  # type: ignore[override]
         return self.attachment_data[index]
     def __len__(self):
         return len(self.attachment_data)
@@ -139,7 +175,7 @@ class Attachments(Sequence):
         """
         if id is not None:
             key = 'id'
-            identifier = id
+            identifier = cast("str | None", id)
         elif identifier is not None:
             key = 'identifier'
         elif filename is not None:
@@ -175,7 +211,7 @@ class Attachments(Sequence):
             chunk = f.read()
 
             f.close()
-            data = OrderedDict(file={"preview": f"{self._con.host_url}/images/wild_card/not_available.svg"},
+            data: dict[str, object] = OrderedDict(file={"preview": f"{self._con.host_url}/images/wild_card/not_available.svg"},
                                name=filename,
                                filename=filename,
                                is_deleted=False,
@@ -199,30 +235,65 @@ class Attachments(Sequence):
         """
         Updates or creates the Attachments of an Element after saving it!
 
+        Queued files are uploaded once: the upload queue is cleared only after a successful
+        (2xx) request, so calling ``save()`` again after a failed upload resends the pending
+        files instead of silently losing them.
+
         :param id: ID of the element
         :param element_type: attachable type in CamelCase, e.g. 'Element' (generic elements), 'ResearchPlan' or 'Sample'
 
         :return: response of the request
+
+        :raises requests.RequestException: if the server returns a non-2xx response; the
+            upload queue is left intact so a retried ``save()`` resends the pending files.
         """
         if element_type == 'Element':
             return self._save_generic(id)
-        files = [('files[]', (x['filename'], open(x['file_path'], 'rb'), x['mime_type'])) for x in self._to_uploads]
-
-        data = {'attfilesIdentifier[]': [x['file_uuid'] for x in self._to_uploads],
-                'attachable_type': element_type,
-                'attachable_id': id}
-        res = self._con.post('/api/v1/attachable/update_attachments_attachable', data=data, files=files)
+        with contextlib.ExitStack() as stack:
+            files = [('files[]', (x['filename'], stack.enter_context(open(x['file_path'], 'rb')), x['mime_type']))
+                     for x in self._to_uploads]
+            data = {'attfilesIdentifier[]': [x['file_uuid'] for x in self._to_uploads],
+                    'attachable_type': element_type,
+                    'attachable_id': id}
+            res = self._con.post('/api/v1/attachable/update_attachments_attachable', data=data, files=files)
+        self._raise_or_mark_done(res)
         return res
 
     def _save_generic(self, id: int):
-        files = [('attfiles[]', (x['filename'], open(x['file_path'], 'rb'), x['mime_type'])) for x in self._to_uploads]
-
-        data = {'attfilesIdentifier[]': [x['file_uuid'] for x in self._to_uploads],
-                'att_type': 'Element',
-                'att_id': id,
-                'seInfo': {}}
-        res = self._con.post('/api/v1/generic_elements/upload_generics_files', data=data, files=files)
+        with contextlib.ExitStack() as stack:
+            files = [('attfiles[]', (x['filename'], stack.enter_context(open(x['file_path'], 'rb')), x['mime_type']))
+                     for x in self._to_uploads]
+            data = {'attfilesIdentifier[]': [x['file_uuid'] for x in self._to_uploads],
+                    'att_type': 'Element',
+                    'att_id': id,
+                    'seInfo': {}}
+            res = self._con.post('/api/v1/generic_elements/upload_generics_files', data=data, files=files)
+        self._raise_or_mark_done(res)
         return res
+
+    def _raise_or_mark_done(self, res: requests.Response | None) -> None:
+        """Move the upload queue into ``_attachment_data`` only on a successful (2xx) response.
+
+        On failure (or no response at all) the queue is left untouched and a
+        ``RequestException`` is raised, so the caller can retry ``save()`` without losing or
+        duplicating the pending uploads.
+        """
+        # Any 2xx, not just 200/201: the endpoint may legitimately answer 204 No Content, and
+        # treating that as a failure would raise *after* the upload had actually succeeded — then
+        # the retry would upload everything a second time.
+        if res is not None and 200 <= res.status_code < 300:
+            self._mark_uploads_done()
+            return
+        status = res.status_code if res is not None else "no response"
+        body = res.text if res is not None else ""
+        raise requests.RequestException(
+            f"Failed to upload attachments (status: {status}): {body}")
+
+    def _mark_uploads_done(self):
+        """Move freshly uploaded attachment data into the regular list and clear the queue."""
+        self._attachment_data += [Attachment(self._con, x) for x in self._new_attachment_data]
+        self._new_attachment_data = []
+        self._to_uploads = []
 
 class MutableAttachments(Attachments):
     """
@@ -230,15 +301,38 @@ class MutableAttachments(Attachments):
     files can only be added through :meth:`chemotion_api.elements.abstract_element.Analyses.add_dataset`.
     """
 
-    def __init__(self, con: Connection, attachment_data: list[dict] = None, *file_paths: str):
+    def __init__(self, con: Connection, attachment_data: list[dict] | None = None, *file_paths: str):
         super().__init__(con, attachment_data)
         for fp in file_paths:
             super().add_file(fp)
 
     def add_file(self, file_path: str) -> dict:
-        raise NotImplemented("In a MutableAttachments add_file is not allowed")
+        """Adding files this way is not allowed for :class:`MutableAttachments`.
 
-    def save(self, id: int = -1, element_type: str = '') -> requests.Response | None:
+        :param file_path: ignored
+
+        :raises NotImplementedError: always, since add_file is disabled here
+        """
+        raise NotImplementedError("In a MutableAttachments add_file is not allowed")
+
+    def save(self, id: int = -1, element_type: str = '') -> requests.Response | None:  # type: ignore[override]
+        """
+        Upload all queued files via :meth:`AnalysesManager.upload_file`.
+
+        :param id: unused (kept for signature compatibility with :meth:`Attachments.save`)
+        :param element_type: unused (kept for signature compatibility)
+
+        :return: None
+
+        :raises ConnectionError: from :meth:`AnalysesManager.upload_file` if an upload fails, in
+            which case the queue is left intact so the save can be retried.
+        """
         for x in self._to_uploads:
             AnalysesManager.upload_file(self._con, x['file_path'], x['file_uuid'])
+        # `Attachments.save` was hardened to clear the queue only on success; this override was
+        # not, and cleared it never. `AbstractElement.save()` calls this through
+        # `AnalysesList.save_attachments`, so every later save re-uploaded every file ever queued
+        # on the dataset — N saves meant N copies server-side. `upload_file` raises on failure, so
+        # reaching this line means all of them succeeded.
+        self._mark_uploads_done()
         return None

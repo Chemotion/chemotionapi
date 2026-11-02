@@ -69,12 +69,30 @@ def test_amount_in_reaction_updates_equivalent():
     assert reactant.mol == pytest.approx(0.005)
 
 
-def test_reference_defaults_to_first_material():
+def test_no_reference_is_invented_when_none_is_flagged():
+    """Reading `reference_sample` must not pick one, and must not mutate.
+
+    The ELN does not invent a reference either: `Reaction.referenceMaterial` is
+    `allReactionMaterials.find(s => s.reference)`, undefined when nothing is flagged.
+
+    This previously returned the *first* material here — not by design but by accident of
+    ordering: the getter flagged `candidates[-1]`, and `update_equivalent()` called it during the
+    first append, when the first material was the only candidate. A server-loaded reaction with
+    two unflagged materials got the *last* instead, so the same code gave two different answers
+    depending on how the reaction was built.
+    """
     first, second = _sample(1), _sample(2)
     reaction = _reaction([first, second])
-    assert reaction.reference_sample is first
-    assert first.properties['reference'] is True
+    assert reaction.reference_sample is None
+    assert first.properties['reference'] is False
     assert second.properties['reference'] is False
+
+
+def test_an_explicitly_flagged_reference_is_returned():
+    first, second = _sample(1), _sample(2)
+    reaction = _reaction([first, second])
+    second.properties['reference'] = True
+    assert reaction.reference_sample is second
 
 
 def test_reference_without_materials():
@@ -101,6 +119,18 @@ def test_append_material_without_amount():
     product.role_in_reaction = 'products'
     reaction.properties['products'].after_append(product)
     assert product.properties['real_amount']['unit'] == 'g'
+
+
+def test_a_nested_amount_write_keeps_the_coerced_value():
+    """PropertyDict.__setitem__ re-assigns the *caller's* object, so a handler that returns True
+    discards whatever pydantic coerced. The amount branch must apply the change itself."""
+    sample = _sample()
+    sample.properties['real_amount']['value'] = "3.7"
+    stored = sample.properties['real_amount']['value']
+    assert stored == 3.7 and isinstance(stored, float), f'stored {stored!r} ({type(stored).__name__})'
+    # and the validation that produced the coercion is still enforced
+    with pytest.raises(Exception):
+        sample.properties['real_amount']['value'] = "not-a-number"
 
 
 def test_unknown_unit_message():
@@ -211,3 +241,106 @@ def test_molecule_attribute_access():
 def test_an_unknown_unit_names_the_valid_ones():
     with pytest.raises(ValueError, match=r'Valid units: l, mol, g, Equivalent\..*gas_phase_data.*ppm'):
         _sample().set_amount(1, 'ppm')
+
+
+def test_variation_edits_are_serialised_not_the_stale_property():
+    """A reaction that already has variations must serialise the live Variations object.
+
+    `properties['variations']` is parsed from the server payload and never written back, so
+    `get_prop_or_json('variations') or self._clean_variations()` short-circuited on the stale
+    (truthy) value and silently dropped every edit made through `reaction.variations`. Only
+    reactions with no existing variations — where the value is falsy — reached the serialiser.
+    """
+    reaction = _reaction([_sample(1)])
+    reaction._properties['description'] = {'ops': []}
+    reaction._properties['observation'] = {'ops': []}
+    reaction.json_data['variations'] = [{'id': 'stale-from-server'}]
+    reaction._properties['variations'] = [{'id': 'stale-from-server'}]
+
+    # Stand in for a materialised Variations object: the bug is in which source is chosen,
+    # not in what clean() produces.
+    reaction._variations = SimpleNamespace(clean=lambda: [{'id': 'edited-in-memory'}])
+
+    assert reaction._clean_properties_data()['variations'] == [{'id': 'edited-in-memory'}]
+
+
+def test_untouched_variations_fall_back_to_the_stored_value():
+    """If `reaction.variations` was never materialised there is nothing to serialise from."""
+    reaction = _reaction([_sample(1)])
+    reaction._properties['description'] = {'ops': []}
+    reaction._properties['observation'] = {'ops': []}
+    reaction.json_data['variations'] = [{'id': 'stored'}]
+    reaction._properties['variations'] = [{'id': 'stored'}]
+    assert reaction._variations is None
+    assert reaction._clean_properties_data()['variations'] == [{'id': 'stored'}]
+
+
+def _reaction_with_product(product_equivalent):
+    reaction = _reaction([_sample(1)])
+    reaction._properties['description'] = {'ops': []}
+    reaction._properties['observation'] = {'ops': []}
+    # target_amount_unit must be one a product allows: appending initialises the amount, and a
+    # stored 'Equivalent' is rejected for products.
+    product = _sample(2, target_amount_unit='g', target_amount_value=1.0)
+    reaction.properties['products'].append_no_split(product)
+    # Written underneath the change handler on purpose: assigning properties['equivalent'] on a
+    # product routes through set_amount(Equivalent), which products reject. This stands in for
+    # what update_equivalent() computes during save().
+    product._properties['equivalent'] = product_equivalent
+    return reaction, product
+
+
+def test_a_recomputed_yield_is_not_overwritten_by_the_load_time_value():
+    """`save()` recomputes equivalents, then serialisation must not undo that.
+
+    `_clean_properties_data` wrote `_current_yield() / 100` onto products[0]['equivalent'].
+    `_current_yield()` reads `properties['yield_value']`, captured when the reaction was parsed,
+    so raising a product amount and saving sent the old yield back and discarded the recompute.
+    """
+    reaction, product = _reaction_with_product(0.80)
+    reaction._properties['yield_value'] = 50.0   # as parsed from the server at load time
+    assert reaction._yield_value_cache is None   # the user never assigned a yield
+
+    data = reaction._clean_properties_data()
+    assert data['materials']['products'][0]['equivalent'] == pytest.approx(0.80)
+    assert data['yield'] == pytest.approx(80.0)
+
+
+def test_an_explicitly_set_yield_still_wins():
+    reaction, product = _reaction_with_product(0.80)
+    reaction.properties['yield'] = 25.0
+
+    data = reaction._clean_properties_data()
+    assert data['materials']['products'][0]['equivalent'] == pytest.approx(0.25)
+    assert data['yield'] == pytest.approx(25.0)
+
+
+def test_save_refuses_when_the_full_record_never_loaded():
+    """A failed lazy load must not become a silent overwrite.
+
+    `_ensure_loaded()` swallows the error, leaves `_data_loaded` False and still hands out an
+    editable `properties` built from the list payload. `save()` then refetched and re-parsed,
+    throwing those edits away while the PUT reported success.
+    """
+    sample = _sample(1)
+    sample._data_loaded = False
+    sample._load_failed = True
+
+    with pytest.raises(ConnectionError, match=r'could not be loaded.*would discard data'):
+        sample.save()
+
+
+def test_a_nested_write_into_a_flattened_field_explains_itself():
+    """`vessel_size` is kept as a scalar amount, so `['unit']` has nowhere to go.
+
+    This used to walk into the float and raise
+    `TypeError: argument of type 'float' is not iterable`, which says nothing about the mistake.
+    """
+    reaction = _reaction([_sample(1)])
+    reaction._properties['description'] = {'ops': []}
+    reaction._properties['observation'] = {'ops': []}
+    # set underneath the handler: the model keeps vessel_size as the scalar amount
+    reaction._properties['vessel_size'] = {'amount': 2.0, 'unit': 'l'}
+
+    with pytest.raises(ValueError, match=r"'vessel_size' is stored as a single value"):
+        reaction.properties['vessel_size']['unit'] = 'ml'

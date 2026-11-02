@@ -1,5 +1,5 @@
 from chemotion_api import Instance
-from chemotion_api.collection import Collection, SyncPermission
+from chemotion_api.collection import Collection, CollectionSharePermission
 
 
 def test_new_user(config_login):
@@ -12,8 +12,10 @@ def test_share_group(instance_with_collection, config_login):
     user = instance.find_user_by_name('TestUSer')
 
     col: Collection = instance_with_collection['main_collection']
-    col.share(SyncPermission.Read, *user)
+    col.share(CollectionSharePermission.ReadElements, *user, detail_level=10)
     instance = Instance(config_login['ELN_URL']).test_connection().login('VDR', 'QWEasd123!"§')
-    c = instance.get_root_collection().sync_root.children[0]
-    assert c.label == 'with VDR'
-    assert c.children[0].label == col.label
+    shared = instance.get_root_collection().sync_root.children
+    # ELN v4 returns shared collections directly in `shared_with_me`, each carrying its owner.
+    # Pre-v4 they arrived nested under a synthetic "with <recipient>" parent, which no longer
+    # exists — so the shared collection is now a direct child rather than a grandchild.
+    assert [c.label for c in shared] == [col.label]

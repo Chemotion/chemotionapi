@@ -44,3 +44,10 @@ this updates the equivalents of all reaction materials. The converted amount is 
 .. autoenum:: chemotion_api.elements.utils.QuantityUnit
 
 .. autoenum:: chemotion_api.elements.utils.GasType
+
+User labels
+-----------
+
+A sample's user labels are exposed as bare ids in ``properties['user_labels']``. Use
+``sample.user_labels_resolved`` to get :class:`~chemotion_api.user.UserLabel` objects with their
+titles — see :doc:`Instance` for details and the caching behaviour.

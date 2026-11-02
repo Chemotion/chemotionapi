@@ -66,6 +66,8 @@ generic_element_schema = {
         "released_at",
         "identifier",
         "sync_time",
+        # created_by / updated_by are deliberately NOT required: ELN v4 stopped exposing them on
+        # klass entities. Requiring a field the server no longer sends would reject every klass.
         "created_at",
         "updated_at",
     ]

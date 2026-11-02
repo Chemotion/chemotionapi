@@ -58,8 +58,14 @@ jobs:
       - name: Offline tests
         run: just test
 
-  # Release artefacts only: a wheel is worth building when we are actually cutting a version,
-  # not on every merge. Tag pushes only — skipped for branch pushes and pull requests.
+  # Exported .eln archives must stay RO-Crate 1.1 conformant. This is a real regression risk, not a
+  # formality: a change to the metadata graph once silently broke ontology_patch while every unit
+  # test still passed, because the tests asserted our own shape rather than the spec's.
+  #
+  # Two stages in two Pythons on purpose — roc-validator's dependencies cannot build on 3.14, and
+  # the client requires 3.14 — so the crate is exported by the project env and validated by a
+  # throwaway 3.13 env. No Chemotion server needed: the crate is built from a committed fixture
+  # through the offline ingester.
   build:
     name: build sdist + wheel
     if: startsWith(github.ref, 'refs/tags/')
@@ -123,6 +129,6 @@ jobs:
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
 
-# NOTE: the integration suite is not run here. It needs a live Chemotion ELN stack
-# (tests/test_config/compose.yml) and a reseeded database, which is a ~2 GB pull — too heavy
-# for every push. Run it locally with `just test-integration`.
+# NOTE: the integration suite is not run here. It needs a live Chemotion ELN v4 stack
+# (tests/test_config/compose.yml, digest-pinned) and a reseeded database, which is a ~2 GB pull —
+# too heavy for every push. Run it locally with `just test-integration`.

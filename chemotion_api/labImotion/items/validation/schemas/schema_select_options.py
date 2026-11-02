@@ -5,37 +5,44 @@ generic_schema = {
     "$id": "chemotion://generic/select_option/draft-01",
     "title": "Schema for generic selection options",
     "type": "object",
-    "patternProperties": {
-        "^[a-z][a-zA-Z_]{1,10}[a-z]$": {
-            "type": "object",
-            "properties": {
-                "options": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "key": {
-                                "type": "string"
-                            },
-                            "label": {
-                                "type": "string"
-                            }
+    # Option-set names are author-chosen, so key spelling is the server's business — validate the
+    # bodies instead of policing the names with a regex real templates do not satisfy.
+    "additionalProperties": {
+        "type": "object",
+        "properties": {
+            "options": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": ["string", "number", "boolean", "null"]
                         },
-                        "additionalProperties": False,
-                        "required": [
-                            "key",
-                            "label"
-                        ]
-                    }
+                        "label": {
+                            "type": ["string", "number", "boolean", "null"]
+                        },
+                        # ELN v4 / LabIMotion 2.3 addition.
+                        "desc": {
+                            "type": ["string", "null"]
+                        }
+                    },
+                    "additionalProperties": False,
+                    "required": [
+                        "key",
+                        "label"
+                    ]
                 }
             },
-            "additionalProperties": False,
-            "required": [
-                "options"
-            ]
-        }
+            # ELN v4 / LabIMotion 2.3 adds a description alongside `options` on each option set.
+            "desc": {
+                "type": ["string", "null"]
+            }
+        },
+        "additionalProperties": False,
+        "required": [
+            "options"
+        ]
     },
-    "additionalProperties": False,
 }
 
 SchemaRegistry.instance().register(generic_schema)

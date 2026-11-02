@@ -1,5 +1,23 @@
+"""Public entry point for the Chemotion API client.
+
+The package exposes :class:`Instance`, the facade for connecting to a Chemotion ELN server and
+reaching every other part of the client: collections and elements, users/groups/devices, molecule
+and generic managers, sample/reaction search, and the inbox. Typical use is::
+
+    from chemotion_api import Instance
+    instance = Instance("https://my.chemotion").test_connection().login("user", "password")
+    root = instance.get_root_collection()
+
+"""
+
+import logging as _logging
 import typing
-from typing import TypeVar
+from typing import TypeVar, Optional, Self
+
+# Library logging hygiene: attach a NullHandler so importing chemotion_api never emits log
+# output unless the consuming application configures handlers itself.
+_logging.getLogger(__name__).addHandler(_logging.NullHandler())
+
 from chemotion_api.collection import RootCollection, Collection
 from chemotion_api.converter import ProfileManager
 from chemotion_api.element_manager import ElementManager
@@ -7,12 +25,13 @@ from chemotion_api.inbox import Inbox
 from chemotion_api.labImotion import GenericManager
 from chemotion_api.search.reaction import ReactionSearcher
 from chemotion_api.search.sample import SampleSearcher
-from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager
+from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection
+from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
 
@@ -40,14 +59,27 @@ class Instance:
 
     """
 
-    def __init__(self, host_url: str | Connection, verify_ssl: bool = True):
+    def __init__(self, host_url: str | Connection, verify_ssl: bool = True, username: str | None = None, password: str | None = None):
         if isinstance(host_url, Connection):
             self._con = host_url
         else:
             self._con = Connection(host_url, verify_ssl)
-        self._root_col = None
-        self._inbox = None
+        self._root_col: RootCollection | None = None
+        self._inbox: Inbox | None = None
         self.element_manager = ElementManager(self._con)
+        if username and password:
+            self.test_connection()
+            self.login(username, password)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if hasattr(self, "_con") and hasattr(self._con, "close"):
+            try:
+                self._con.close()
+            except Exception:
+                pass
 
     @property
     def host_url(self) -> str:
@@ -88,19 +120,27 @@ class Instance:
             self._inbox = Inbox(self._con)
         return self._inbox
 
-    def test_connection(self) -> TInstance:
+    def test_connection(self) -> Self:
         """
         This test_connection method simply tests if the connection to a Chemotion instance can be established.
         The instance does not need to be logged in to use this method.
 
+        It also verifies that the instance runs a supported ELN major version. Both checks are
+        unauthenticated, so an incompatible server is reported before any credentials are sent.
+
         :return: the instance self
 
         :raises ConnectionError: if the connection cannot be established.
+        :raises UnsupportedServerVersion: if the instance is not a supported ELN version.
         """
         ping_url = "/api/v1/public/ping"
         res = self._con.get(url_path=ping_url)
         if res.status_code != 204:
             raise ConnectionError(f'Could not ping the Chemotion instance: {self.host_url}')
+        # Accessing schema_manager fetches /about and applies the version gate. Doing it here means
+        # a v3 server fails with a clear message instead of surfacing later as a confusing 400 from
+        # an endpoint v4 moved.
+        self._con.schema_manager  # noqa: B018  (property access performs the check)
         return self
 
     def get_all_types(self) -> list[str]:
@@ -111,7 +151,7 @@ class Instance:
         """
         return self.element_manager.all_types
 
-    def login(self, user: str, password: str) -> TInstance:
+    def login(self, user: str, password: str) -> Self:
         """
         This login method allows you to log in to a Chemotion instance.
         To do this, you need a valid Chemotion user (name abbreviation or e-mail) and password.
@@ -136,7 +176,7 @@ class Instance:
         self._con.set_bearer_token(res.json()['token'])
         return self
 
-    def login_token(self, jwt_token: str) -> TInstance:
+    def login_token(self, jwt_token: str) -> Self:
         """
         You can use this login_token method to log in to a Chemotion instance.
         To do this, you need a valid Chemotion JWT. The token of a logged-in instance can be read
@@ -173,6 +213,27 @@ class Instance:
         u = User.load_me(self._con)
         return u
 
+    def get_affiliations(self) -> list[Affiliation]:
+        """Return the logged-in user's affiliations (organization, department, group, country)
+        as exposed by Grape (`/api/v1/affiliations`).
+
+        :raise PermissionError: if the userdata cannot be fetched. Make sure that you are logged in.
+        """
+        return self.get_user().get_affiliations()
+
+    def get_user_labels(self, refresh: bool = False) -> list[UserLabel]:
+        """Return the user labels visible to the logged-in user
+        (`/api/v1/user_labels/list_labels`).
+
+        Elements expose their labels as bare ids; this is the id-to-title map. To resolve the
+        labels of a specific element use its ``user_labels_resolved`` property instead, which
+        reuses the same cached list.
+
+        :param refresh: drop the cached labels and fetch them again.
+        :raise PermissionError: if the labels cannot be fetched. Make sure that you are logged in.
+        """
+        return self.get_user().get_user_labels(refresh=refresh)
+
     def find_user_by_name(self, name: str) -> list[Person]:
         """
         This find_user_by_name method finds all users by name and returns the three top matches.
@@ -184,6 +245,7 @@ class Instance:
         """
 
         return self.get_user().find_user_by_name(self._con, name)
+
 
     def get_root_collection(self, reload=True) -> RootCollection:
         """
@@ -199,7 +261,7 @@ class Instance:
             self._root_col.set_element_manager(self.element_manager)
             self._root_col.load_collection()
             self._root_col.load_sync_collection()
-        return self._root_col
+        return typing.cast(RootCollection, self._root_col)
 
     def get_collection_by_id(self, collection_id: int) -> Collection:
         """
@@ -212,7 +274,32 @@ class Instance:
 
         :raises IndexError: if no owned collection has this id
         """
-        return self.get_root_collection().find(id=collection_id)[0]
+        return typing.cast(Collection, self.get_root_collection().find(id=collection_id)[0])
+
+    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> Collection:
+        """
+        Gets a collection a path points to from the root collection.
+
+        :param col_path: is either a string based on a unix path or a list
+        :param case_insensitive: If true the cases of path are taken into account
+
+        :return: Collection the path points to
+        """
+        return typing.cast(Collection, self.get_root_collection().get_collection(col_path, case_insensitive))
+
+    def get_or_create_collection(self, col_path: str | list[str],
+                                 case_insensitive: bool = False) -> Collection:
+        """
+        Gets or creates a collection the col_path path points to from the root collection.
+        If the collection needs to be created the collection is saved right away.
+
+        :param col_path: is either a string based on a unix path or a list
+        :param case_insensitive: If true the cases of path are taken into account
+
+        :return: Collection the path points to
+        """
+        return typing.cast(Collection, self.get_root_collection().get_or_create_collection(col_path, case_insensitive))
+
 
     def get_collection_of_element(self, element: AbstractElement):
         """
@@ -227,10 +314,10 @@ class Instance:
         """
         try:
             try:
-                collection_id = element.json_data['tag']['taggable_data']['collection_labels'][0]["id"]
+                collection_id = typing.cast(dict, element.json_data)['tag']['taggable_data']['collection_labels'][0]["id"]
             except (KeyError, IndexError):
                 element.load()
-                collection_id = element.json_data['tag']['taggable_data']['collection_labels'][0]["id"]
+                collection_id = typing.cast(dict, element.json_data)['tag']['taggable_data']['collection_labels'][0]["id"]
             return self.get_collection_by_id(collection_id)
         except KeyError:
             raise KeyError(f'Could not find collection of {element}')
@@ -315,7 +402,7 @@ class Instance:
         :return: a Reaction object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, self.all_element_classes.get('reaction'))
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('reaction')))
         return typing.cast(Reaction, e.load_element(id))
 
     def get_wellplate(self, id: int) -> Wellplate:
@@ -329,7 +416,7 @@ class Instance:
         :return: a Wellplate object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, self.all_element_classes.get('wellplate'))
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('wellplate')))
         return typing.cast(Wellplate, e.load_element(id))
 
     def get_research_plan(self, id: int) -> ResearchPlan:
@@ -343,7 +430,7 @@ class Instance:
         :return: a ResearchPlan object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, self.all_element_classes.get('research_plan'))
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('research_plan')))
         return typing.cast(ResearchPlan, e.load_element(id))
 
     def get_sample(self, id: int) -> Sample:
@@ -357,7 +444,7 @@ class Instance:
         :return: a Sample object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, self.all_element_classes.get('sample'))
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('sample')))
         return typing.cast(Sample, e.load_element(id))
 
     def get_generic_by_name(self, name: str, id: int) -> GenericElement:
@@ -412,7 +499,7 @@ class Instance:
         """
         o = urlparse(id)
         if not self._con.host_url.startswith(f'{o.scheme}://{o.hostname}'):
-            raise ValueError('Host dose not fit!')
+            raise ValueError('Host does not fit!')
         path_array = o.path.split('/')
         elem = self.all_element_classes.get(path_array[-2][:-1])
         if elem is None:

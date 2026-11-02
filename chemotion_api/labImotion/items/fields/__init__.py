@@ -1,14 +1,28 @@
+import logging
+
 from chemotion_api.labImotion.items.fields.base import BaseField
 from chemotion_api.labImotion.items.fields.fields import TextField, CheckboxField, DatetimeField, DatetimeRangeField, \
     DragSampleField, DragMoleculeField, DragElementField, FormulaFieldField, InputGroupField, IntegerField, SelectField, \
-    SystemDefinedField, TableField, TextFormulaField, TextareaField, UploadField, DummyField
+    SystemDefinedField, TableField, TextFormulaField, TextareaField, UploadField, DummyField, \
+    SelectMultiField, OpaqueField
 from chemotion_api.labImotion.items.options import FieldType
 from chemotion_api.labImotion.structure import StructureRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def field_factory(sr: StructureRegistry, layer_key: str, json_data) -> BaseField:
 
-    ft = FieldType(json_data.get('type'))
+    raw_type = json_data.get('type')
+    try:
+        ft = FieldType(raw_type)
+    except ValueError:
+        # A field type LabIMotion added after this client was built. Keeping the payload opaque
+        # lets the klass load; raising here would make every element using it unreadable.
+        logger.warning(
+            "unknown LabIMotion field type %r in layer %r — keeping the field opaque. This client's "
+            "field-type list mirrors the gem by hand and is behind the server.", raw_type, layer_key)
+        return OpaqueField(sr, layer_key, json_data)
     return _field_factory(sr, layer_key, ft, json_data)
 
 
@@ -40,6 +54,8 @@ def _field_factory(sr: StructureRegistry, layer_key: str, field_type: FieldType,
             return IntegerField(sr, layer_key, json_data)
         case FieldType.SELECT:
             return SelectField(sr, layer_key, json_data)
+        case FieldType.SELECT_MULTI:
+            return SelectMultiField(sr, layer_key, json_data)
         case FieldType.SYSTEM_DEFINED:
             return SystemDefinedField(sr, layer_key, json_data)
         case FieldType.TABLE:
@@ -53,4 +69,6 @@ def _field_factory(sr: StructureRegistry, layer_key: str, field_type: FieldType,
         case FieldType.UPLOAD:
             return UploadField(sr, layer_key, json_data)
 
-    raise ValueError(f"Field type {FieldType} is not supported")
+    # Gem-declared types this client does not model (wf-next, sys-reaction, drag, drag_reaction,
+    # date). Opaque rather than fatal, for the same reason as the unknown-type path above.
+    return OpaqueField(sr, layer_key, json_data)

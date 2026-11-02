@@ -1,3 +1,4 @@
+"""Manage an element's analyses and datasets, including file upload and download."""
 import hashlib
 import json
 import os
@@ -9,8 +10,15 @@ MAX_UPLOAD_SIZE = 5000
 
 
 class AnalysesManager:
+    """Helpers to build empty analysis/dataset JSON and to upload dataset files in chunks."""
+
     @staticmethod
     def build_new_analyses():
+        """
+        Build a fresh, empty analysis JSON payload with a new UUID.
+
+        :return: A new analysis dict
+        """
         json_path = os.path.join(resource_path(__file__), 'empty_elements/analyses.json')
         data = {}
         if os.path.exists(json_path):
@@ -21,6 +29,11 @@ class AnalysesManager:
 
     @staticmethod
     def build_new_dataset():
+        """
+        Build a fresh, empty dataset JSON payload with a new UUID.
+
+        :return: A new dataset dict
+        """
         json_path = os.path.join(resource_path(__file__), 'empty_elements/dataset.json')
         data = {}
         if os.path.exists(json_path):
@@ -31,6 +44,18 @@ class AnalysesManager:
 
     @staticmethod
     def upload_file(session, file_path: str, file_uuid: str):
+        """
+        Upload a file to the server in chunks and finalize it with an MD5 checksum.
+
+        :param session: the connection used to issue the upload requests
+        :param file_path: path to the local file to upload
+        :param file_uuid: the attachment key/UUID the chunks are uploaded under
+
+        :return: the upload-completion payload (key, filename and checksum)
+
+        :raises PermissionError: if the server rejects a chunk with a 401 status
+        :raises ConnectionError: if any chunk or the completion request fails
+        """
         with open(file_path, 'rb') as f:
             body = f.read()
             file_name = os.path.basename(file_path)

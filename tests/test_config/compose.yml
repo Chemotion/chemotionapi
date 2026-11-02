@@ -5,11 +5,12 @@
 #   startup dependency is the db container.
 # - db is published on host port 54320 (used by tests/data/setup_chemotion_db.sh),
 #   eln on host port 3579 (ELN_URL/ELN_PORT in tests/conftest.py).
+#
+# Images and volume suffix come from the environment — see tests/test_config/README.md for the
+# values of each release line. Nothing here has a default: a stack that silently starts the wrong
+# server, or reuses another line's data directory, is worse than one that refuses to start.
 services:
   db:
-    # Supplied by the version line under test — see tests/test_config/README.md.
-    # Deliberately no default: a stack that silently starts the wrong server is
-    # worse than one that refuses to start.
     image: ${CHEMOTION_DB_IMAGE:?set CHEMOTION_DB_IMAGE (see tests/test_config/README.md)}
     restart: unless-stopped
     hostname: db
@@ -35,8 +36,11 @@ services:
     depends_on:
       - db
     volumes:
-      # The stock 3.1.2 image only knows CONFIG_ROLE eln/worker; the Push2Deploy versions of
-      # these scripts add the 'combine' role (web + worker in one container). See embed/.
+      # The stock images only know CONFIG_ROLE eln/worker; the Push2Deploy versions of these
+      # scripts add the 'combine' role (web + worker in one container). See embed/.
+      # NOTE: these must exist as FILES before `docker compose up`. If they are missing, Docker
+      # helpfully creates *directories* at these paths — owned by root, so a later checkout of the
+      # real files fails with EACCES. That has already happened once in this repo.
       - ./embed/run.sh:/embed/run.sh:ro
       - ./embed/health.sh:/embed/health.sh:ro
       - chemotion_data:/chemotion/data/
@@ -46,13 +50,16 @@ services:
     networks:
       - chemotion
 
+# Volumes survive `docker compose down`, so each release line gets its own set. Silently reusing a
+# v3 data directory under a different vendor's Postgres image is a good way to waste an afternoon;
+# keeping them separate also means the other line's stack can still be booted when needed.
 volumes:
   chemotion:
-    name: chemotion_app
+    name: chemotion_app_${CHEMOTION_STACK_SUFFIX:?set CHEMOTION_STACK_SUFFIX (see tests/test_config/README.md)}
   chemotion_data:
-    name: chemotion_data
+    name: chemotion_data_${CHEMOTION_STACK_SUFFIX:?set CHEMOTION_STACK_SUFFIX (see tests/test_config/README.md)}
   chemotion_db:
-    name: chemotion_db
+    name: chemotion_db_${CHEMOTION_STACK_SUFFIX:?set CHEMOTION_STACK_SUFFIX (see tests/test_config/README.md)}
 
 networks:
   chemotion:

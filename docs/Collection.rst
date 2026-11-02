@@ -63,9 +63,13 @@ The root collection organizes the standard Collections:
     :members:
     :inherited-members:
 
-.. autoenum:: chemotion_api.collection.SyncPermission
+.. autoenum:: chemotion_api.collection.CollectionSharePermission
 
-The RootCollection also has a property (``sync_root``) to get the RootSyncCollection. It contains all collections
-shared with you.
+Collections shared **with** you are reached through :attr:`RootCollection.sync_root`. The
+"sync" naming predates ELN v4, which removed the ``/syncCollections`` namespace: shared
+collections now arrive in the ``shared_with_me`` list of the ordinary collection listing, and no
+extra request is made. The names are kept for compatibility.
 
 .. autoclass:: chemotion_api.collection.RootSyncCollection
+    :members:
+    :inherited-members:

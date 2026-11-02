@@ -1,9 +1,17 @@
+"""JSON schema (and option lists) describing the validatable ``properties`` of a Reaction element."""
+
 PURIFICATION_OPTIONS = ['Flash-Chromatography', 'TLC', 'HPLC', 'Extraction', 'Distillation', 'Dialysis', 'Filtration',
                         'Sublimation', 'Crystallisation', 'Recrystallisation', 'Precipitation']
 STATUS_OPTIONS = ['', 'Planned', 'Running', 'Done', 'Analyses Pending', 'Successful',
  'Not Successful']
 schema = {
-    "$schema": "chemotion:type/reaction/1.9.3/draft-01/schema#",
+    # `$schema` must name the JSON Schema dialect, not the document. This previously held
+    # "chemotion:type/reaction/1.9.3/draft-01/schema#", which both misused the keyword and pinned
+    # an ELN version (1.9.3) that no longer bears any relation to the server this client targets.
+    # The document's own identity belongs in `$id`, without a version segment: this schema is
+    # bundled with the client and versioned by the client's release, not by the server's.
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "chemotion://type/reaction/draft-01",
     "title": "Reaction Properties",
     "type": "object",
     "properties": {

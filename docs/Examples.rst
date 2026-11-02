@@ -4,14 +4,25 @@ Getting Started
 
 Installation/Usage:
 *******************
-The package has been published on PyPi, it can be installed using pip. It needs Python 3.14.
+The package has been published on PyPi, it can be installed using pip.
+
+.. warning::
+   This is the **v4-only** release line. It requires a Chemotion ELN **v4** server and refuses to
+   connect to anything else; for an ELN 3.1.x server install the ``312.x`` line instead. It needs
+   Python 3.14. If the version published on PyPI is still from an older line, install from
+   source as below.
 
 .. code-block:: bash
 
-    pip install chemotion-api
+    git clone https://github.com/Chemotion/chemotionapi.git
+    cd chemotionapi
+    pip install .
 
 The package uses `python-magic <https://pypi.org/project/python-magic/>`__ to detect the type of uploaded files,
 so the ``libmagic`` library must also be installed (see below).
+
+``PostgreSQL`` client tools are required only for the ``chemotion_api`` command line's
+backup/restore subcommands, which operate on a dockerized instance's database.
 
 The instance CLI (Example 4) additionally needs `Docker <https://docs.docker.com/>`__ with Docker Compose,
 and the PostgreSQL client tools (``pg_dump``, ``pg_restore``, ``createdb``, ``dropdb``) for ``backup`` and ``restore``.
@@ -61,10 +72,10 @@ Example 1) Create a new Reaction
 
     if __name__ == '__main__':
         # Initialize a new Instance connection
-        instance = Instance('http://localhost:3354')
+        instance = Instance('https://chemotion.dept.uni.de')
         try:
             # Test if the host is available and login using your username and password
-            instance.test_connection().login('MSU', '1234qweR!')
+            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
         except ConnectionError:
             # Exit if connection fails
             exit(1)
@@ -120,17 +131,17 @@ Example 2) Share a Collection
     3) Share collection
     """
 
-    from chemotion_api.collection import SyncPermission
+    from chemotion_api.collection import CollectionSharePermission
     from chemotion_api.user import Person, Group
 
     from chemotion_api import Instance
 
     if __name__ == '__main__':
         # Initialize a new Instance connection
-        instance = Instance('http://localhost:3354')
+        instance = Instance('https://chemotion.dept.uni.de')
         try:
             # Test if the host is available and login using your username and password
-            instance.test_connection().login('MSU', '1234qweR!')
+            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
         except ConnectionError:
             # Exit if connection fails
             exit(1)
@@ -146,7 +157,13 @@ Example 2) Share a Collection
         # Add the user
         stg.add_users(*users)
         # Share collection with STG
-        instance.get_root_collection().get_collection('Main Test').share(SyncPermission.Write, stg)
+        # detail_level is required: 0 discloses least, 10 every field (and lets the
+        # recipients export the collection). There is no default — it is your decision.
+        instance.get_root_collection().get_collection('Main Test').share(
+            CollectionSharePermission.EditElements, stg, detail_level=5)
+
+        # Revoke it again (with no users given, every share on the collection goes):
+        instance.get_root_collection().get_collection('Main Test').unshare(stg)
 
 Example 3) Upload/Load Attachment
 **************************************************
@@ -160,16 +177,18 @@ Example 3) Upload/Load Attachment
     2) Add an attachment
     3) Save an attachment as file
     """
-    import os
+
+    from chemotion_api.collection import CollectionSharePermission
+    from chemotion_api.user import Person, Group
 
     from chemotion_api import Instance
 
     if __name__ == '__main__':
         # Initialize a new Instance connection
-        instance = Instance('http://localhost:3354')
+        instance = Instance('https://chemotion.dept.uni.de')
         try:
             # Test if the host is available and login using your username and password
-            instance.test_connection().login('MSU', '1234qweR!')
+            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
         except ConnectionError:
             # Exit if connection fails
             exit(1)
@@ -209,7 +228,7 @@ THE CLI tool is only for development & test usages. For Productive Instances ple
 
 .. code-block:: sh
 
-    # This Example shows all necessary steps to create, back up and restore an instance.
+    # This Example shows all necessary steps to back up and restore an instance.
     #
     # 1) Create a Instance
     # 2) Make a backup
@@ -238,7 +257,7 @@ THE CLI tool is only for development & test usages. For Productive Instances ple
     # Create a new Instance (the first prompt asks for the docker compose file path)
     > chemotion_api new
     Your name [./docker-compose.yml]:
-    Specify a version [latest]:
+    Specify a version [latest]: 4.0.0
     Public ELN url [http://localhost:<ELN_PORT>]:
     Port on which the ELN can be reached [4000]:
     Port on which the Postgres DB can be reached [5432]:
@@ -255,6 +274,7 @@ THE CLI tool is only for development & test usages. For Productive Instances ple
     # Restore a DB backup
     > chemotion_api restore
     Your tar dump file: test_dump.tar
+
 
 Every command has a ``--help`` option listing all of its options, e.g. ``chemotion_api backup --help``.
 
