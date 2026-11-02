@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from requests import Response
 
+from chemotion_api.elements.utils.qudt import qudt_unit
 from chemotion_api.elements.utils.converter import convert_value_to_default
 from chemotion_api.elements.utils.equivalent import get_equivalent
 from chemotion_api.user import User
@@ -1387,35 +1388,6 @@ class Sample(AbstractElement):
             )
             composed_of.append(chem_entity)
 
-        def get_qudt_unit(unit_str: str) -> str:
-            if not unit_str:
-                return "http://qudt.org/vocab/unit/UNITLESS"
-            u = unit_str.strip().lower()
-            if u in ('g', 'gram', 'grams'): return "http://qudt.org/vocab/unit/GM"
-            if u in ('mg', 'milligram', 'milligrams'): return "http://qudt.org/vocab/unit/MilliGM"
-            if u in ('ug', 'µg', 'microgram', 'micrograms'): return "http://qudt.org/vocab/unit/MicroGM"
-            if u in ('kg', 'kilogram', 'kilograms'): return "http://qudt.org/vocab/unit/KiloGM"
-            
-            if u in ('mol', 'mole', 'moles'): return "http://qudt.org/vocab/unit/MOL"
-            if u in ('mmol', 'millimole', 'millimoles'): return "http://qudt.org/vocab/unit/MilliMOL"
-            if u in ('umol', 'µmol', 'micromole', 'micromoles'): return "http://qudt.org/vocab/unit/MicroMOL"
-            
-            if u in ('l', 'liter', 'liters'): return "http://qudt.org/vocab/unit/L"
-            if u in ('ml', 'milliliter', 'milliliters'): return "http://qudt.org/vocab/unit/MilliL"
-            if u in ('ul', 'µl', 'microliter', 'microliters'): return "http://qudt.org/vocab/unit/MicroL"
-            
-            if u in ('m', 'mol/l', 'mol-per-l'): return "http://qudt.org/vocab/unit/MOL-PER-L"
-            
-            if u in ('°c', 'c', 'deg_c', 'deg c'): return "http://qudt.org/vocab/unit/DEG_C"
-            if u in ('k', 'kelvin'): return "http://qudt.org/vocab/unit/K"
-            
-            if u in ('h', 'hr', 'hour', 'hours', 'hour(s)'): return "http://qudt.org/vocab/unit/HR"
-            if u in ('s', 'sec', 'second', 'seconds', 'second(s)'): return "http://qudt.org/vocab/unit/SEC"
-            if u in ('min', 'minute', 'minutes', 'minute(s)'): return "http://qudt.org/vocab/unit/MIN"
-            
-            if u in ('%', 'percent', 'percentage'): return "http://qudt.org/vocab/unit/PERCENT"
-            
-            return f"http://qudt.org/vocab/unit/{unit_str}"
 
         has_mass = None
         has_volume = None
@@ -1489,7 +1461,7 @@ class Sample(AbstractElement):
                 has_concentration = [Concentration(
                     value=float(molarity_val.get('value')),
                     has_quantity_type="http://qudt.org/vocab/quantitykind/AmountOfSubstanceConcentration",
-                    unit=get_qudt_unit(molarity_val.get('unit')),
+                    unit=qudt_unit(molarity_val.get('unit')),
                     title=f"Molarity [{molarity_val.get('unit')}]"
                 )]
             except Exception as e:

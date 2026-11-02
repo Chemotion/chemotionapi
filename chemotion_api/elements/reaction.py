@@ -62,6 +62,7 @@ def _chemotion_duration_to_iso8601(text) -> str | None:
 
 from requests import Response
 
+from chemotion_api.elements.utils.qudt import qudt_unit
 from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
 from datetime import datetime
 
@@ -1639,13 +1640,6 @@ class Reaction(AbstractElement):
 
         has_temperature = None
         temp_prop = self.properties.get('temperature')
-        def get_qudt_unit(unit_str: str) -> str:
-            if not unit_str:
-                return "http://qudt.org/vocab/unit/UNITLESS"
-            u = unit_str.strip().lower()
-            if u in ('°c', 'c', 'deg_c', 'deg c'): return "http://qudt.org/vocab/unit/DEG_C"
-            if u in ('k', 'kelvin'): return "http://qudt.org/vocab/unit/K"
-            return f"http://qudt.org/vocab/unit/{unit_str}"
 
         if temp_prop and temp_prop.get('data'):
             temp_list = []
@@ -1656,7 +1650,7 @@ class Reaction(AbstractElement):
                         temp_list.append(Temperature(
                             value=float(val_str),
                             has_quantity_type="http://qudt.org/vocab/quantitykind/Temperature",
-                            unit=get_qudt_unit(temp_prop.get('valueUnit', '°C')),
+                            unit=qudt_unit(temp_prop.get('valueUnit', '°C')),
                             title="Temperature step"
                         ))
                     except (ValueError, TypeError) as e:
@@ -1671,7 +1665,7 @@ class Reaction(AbstractElement):
                 has_temperature = [Temperature(
                     value=float(user_text),
                     has_quantity_type="http://qudt.org/vocab/quantitykind/Temperature",
-                    unit=get_qudt_unit(temp_prop.get('valueUnit', '\u00b0C')),
+                    unit=qudt_unit(temp_prop.get('valueUnit', '\u00b0C')),
                     title="Temperature"
                 )]
             except (ValueError, TypeError) as e:
