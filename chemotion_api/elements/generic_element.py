@@ -42,6 +42,7 @@ class GenericElement(AbstractElement, WorkflowInterface):
     ``elem.segments.available()``.
 
 
+
     """
 
     def _set_json_data(self, json_data: dict):
@@ -110,6 +111,28 @@ class GenericElement(AbstractElement, WorkflowInterface):
         clean_generic_object_json(cast(dict, self.json_data), cast(dict, self.properties), self._properties_mapping)
         return cast(dict, self.json_data)
 
+    def eln_node_content(self) -> dict:
+        """Emit this generic element's segment fields as schema.org ``PropertyValue`` entries."""
+        property_values: list[dict] = []
+        try:
+            props = self.properties
+            items = (props.to_dict() if hasattr(props, "to_dict") else dict(props)).items()
+        except Exception:
+            items = []  # type: ignore[assignment]
+        for key, val in items:
+            if val is None or val == "" or val == []:
+                continue
+            pv: dict = {"@type": "PropertyValue", "name": str(key)}
+            if isinstance(val, dict) and "value" in val and "unit" in val:
+                pv["value"] = val.get("value")
+                if val.get("unit"):
+                    pv["unitText"] = str(val.get("unit"))
+            elif isinstance(val, (str, int, float, bool)):
+                pv["value"] = val
+            else:
+                pv["value"] = str(val)
+            property_values.append(pv)
+        return {"variableMeasured": property_values} if property_values else {}
 
     def field(self, layer: str, field: str) -> SegmentField:
         """

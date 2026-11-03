@@ -25,7 +25,7 @@ os.environ.setdefault(
 
 # -- Project information -----------------------------------------------------
 
-project = 'Chemotion API'
+project = 'Chemotion API (Pydantic & chem-dcat-ap)'
 copyright = '2023-2026, Martin Starman <martin.starman@kit.edu> and contributors'
 author = 'Martin Starman and contributors'
 release = '400.0.0'
@@ -44,9 +44,9 @@ templates_path = ['_templates']
 # __init__ docstring.
 autodoc_member_order = 'bysource'
 autoclass_content = 'both'
-# Nothing in this half needs mocking: autodoc imports the package in the project environment,
-# and every runtime dependency is installed there.
-autodoc_mock_imports = []
+# Let the docs build without the heavy scientific stack installed (these are only needed at runtime
+# for the actual .eln export; autodoc just needs to import the modules to read signatures/docstrings).
+autodoc_mock_imports = ['rdflib', 'linkml_runtime', 'chem_dcat_ap', 'dcat_ap_plus', 'pyshacl']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

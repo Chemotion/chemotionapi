@@ -1,0 +1,63 @@
+{
+  "Collection": {
+    "col-1": { "label": "Mini Test Collection" }
+  },
+  "Molecule": {
+    "mol-sm": {
+      "cano_smiles": "CCO", "inchikey": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+      "inchistring": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3", "iupac_name": "ethanol",
+      "sum_formular": "C2H6O", "molecular_weight": 46.07, "exact_molecular_weight": 46.0419,
+      "cas": ["64-17-5"], "molecule_svg_file": "ethanol.svg", "names": []
+    },
+    "mol-prod": {
+      "cano_smiles": "CC=O", "inchikey": "IKHGUXGNUITLKF-UHFFFAOYSA-N",
+      "inchistring": "InChI=1S/C2H4O/c1-2-3/h2H,1H3", "iupac_name": "acetaldehyde",
+      "sum_formular": "C2H4O", "molecular_weight": 44.05, "exact_molecular_weight": 44.0262,
+      "cas": ["75-07-0"], "molecule_svg_file": "acetaldehyde.svg", "names": []
+    }
+  },
+  "Sample": {
+    "smp-sm": {
+      "name": "Ethanol", "short_label": "MT-1", "external_label": "",
+      "molecule_id": "mol-sm", "target_amount_value": 0.1, "target_amount_unit": "mol",
+      "real_amount_value": null, "real_amount_unit": "g", "molarity_value": null, "molarity_unit": "M",
+      "density": 0.789, "purity": 0.99, "stereo": {"abs": "any", "rel": "any"},
+      "melting_point": "-114...-114", "boiling_point": "78...78", "sum_formula": "C2H6O",
+      "molecular_mass": 46.07, "decoupled": false, "xref": {"cas": "64-17-5"}, "sample_type": "Micromolecule"
+    },
+    "smp-prod": {
+      "name": "Acetaldehyde", "short_label": "MT-2", "external_label": "",
+      "molecule_id": "mol-prod", "target_amount_value": null, "target_amount_unit": "g",
+      "real_amount_value": 2.0, "real_amount_unit": "g", "molarity_value": null, "molarity_unit": "M",
+      "density": 0.784, "purity": 0.98, "stereo": null,
+      "melting_point": "-123...-123", "boiling_point": "20...20", "sum_formula": "C2H4O",
+      "molecular_mass": 44.05, "decoupled": false, "xref": {}, "sample_type": "Micromolecule"
+    }
+  },
+  "Reaction": {
+    "rxn-1": {
+      "name": "Oxidation of ethanol", "status": "Successful", "rxno": "",
+      "duration": "", "conditions": "", "temperature": {"valueUnit": "°C", "userText": "25", "data": []},
+      "vessel_size": {"unit": "ml", "amount": 100}, "purification": [],
+      "rinchi_long_key": "RInChI=1.00.1S/...", "rinchi_web_key": "", "rinchi_short_key": "",
+      "description": "", "observation": "", "dangerous_products": [],
+      "timestamp_start": "", "timestamp_stop": "", "gaseous": false
+    }
+  },
+  "ReactionsStartingMaterialSample": {
+    "j-sm": { "reaction_id": "rxn-1", "sample_id": "smp-sm", "equivalent": 1.0, "coefficient": 1, "position": 0, "reference": true }
+  },
+  "ReactionsProductSample": {
+    "j-prod": { "reaction_id": "rxn-1", "sample_id": "smp-prod", "equivalent": 0.85, "coefficient": 1, "position": 0, "reference": false }
+  },
+  "Container": {
+    "cont-root": { "container_type": "root", "containable_id": "rxn-1", "containable_type": "Reaction", "parent_id": null, "name": "root", "extended_metadata": {} },
+    "cont-analyses": { "container_type": "analyses", "parent_id": "cont-root", "name": "analyses", "extended_metadata": {} },
+    "cont-analysis": { "container_type": "analysis", "parent_id": "cont-analyses", "name": "1H NMR of product",
+      "extended_metadata": { "kind": "CHMO:0000595 | proton nuclear magnetic resonance spectroscopy (1H NMR)", "status": "Confirmed", "content": "clean spectrum" } },
+    "cont-dataset": { "container_type": "dataset", "parent_id": "cont-analysis", "name": "nmr-data", "extended_metadata": {} }
+  },
+  "Attachment": {
+    "att-1": { "attachable_id": "cont-dataset", "attachable_type": "Container", "identifier": "att-1-uuid", "filename": "product_1H.jdx", "filesize": 1234, "content_type": "chemical/x-jcamp-dx" }
+  }
+}
