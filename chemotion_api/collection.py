@@ -737,15 +737,13 @@ _REPR_LEAK_RE = re.compile(r'<[A-Za-z_][\w.]* object at 0x[0-9a-fA-F]+>|<[a-z_]+
 
 _CRATE_DEFAULT_LICENSE = "https://creativecommons.org/licenses/by/4.0/"
 
-#: The crate's ``@context``: the canonical RO-Crate 1.1 context plus a definition for ``sha256``.
-#: ``sha256`` is not a schema.org term, so it has to be defined here — left undefined it is
-#: invisible to any consumer that expands the JSON-LD properly.
-#: Namespace prefixes for the vocabularies chem-dcat-ap uses as JSON-LD *keys*. RO-Crate 1.2's
-#: own context does not define them, and an absolute IRI used as a key that the document context
-#: does not map is a REQUIRED violation (`ro-crate-1.2_3.1`) — the crate is rejected outright.
-#: Declaring the prefixes lets those predicates compact to `qudt:unit`, `sio:SIO_000008` and so
-#: on, which the rule accepts as "a term or compact IRI".
-_CRATE_NAMESPACES: dict = {
+#: Last-resort prefix map, used only if chem-dcat-ap's own cannot be read (see
+#: ``_crate_namespaces``). It is deliberately coarse: one prefix per host rather than one per
+#: ontology. That produces compact IRIs that stutter — `obo:CHMO_0000595` rather than the
+#: registered `CHMO:0000595` — which is poor, but far better than the alternative, because an
+#: absolute IRI used as a key that the document context does not map is a REQUIRED violation
+#: (`ro-crate-1.2_3.1`) and the crate is rejected outright.
+_CRATE_FALLBACK_NAMESPACES: dict = {
     "qudt": "http://qudt.org/schema/qudt/",
     "sio": "http://semanticscience.org/resource/",
     "obo": "http://purl.obolibrary.org/obo/",
@@ -753,12 +751,52 @@ _CRATE_NAMESPACES: dict = {
     "skos": "http://www.w3.org/2004/02/skos/core#",
 }
 
+#: Prefixes that must not reach the crate's ``@context``, and why.
+#:
+#: `schema` and `sdo` are already defined by RO-Crate's context, which also defines the
+#: schema.org *terms* (`name`, `Dataset`, …); leaving ours in place risks a predicate compacting
+#: to `schema:name` where RO-Crate expects the bare term. `linkml` and `ex` are modelling
+#: artefacts that no crate node uses.
+#:
+#: `dcterms` is dropped for a subtler reason. RO-Crate 1.2's context defines `dct:` and *not*
+#: `dcterms:`, so both prefixes would map to the same IRI and which one rdflib picks when
+#: compacting is not something we should leave to chance. DCAT-AP writes `dcterms:`, but the
+#: prefix here is RO-Crate's, not ours, and a crate that writes `dcterms:title` where every other
+#: RO-Crate writes `dct:title` has traded one inconsistency for a worse one. Dropping ours makes
+#: `dct:` deterministic. If this is ever revisited, it belongs upstream with RO-Crate.
+_CRATE_SHADOWING_PREFIXES = ("schema", "sdo", "linkml", "ex", "dcterms")
+
+
+def _crate_namespaces(schemaview: Any = None) -> dict:
+    """The prefix map for the crate's ``@context``, taken from chem-dcat-ap itself.
+
+    chem-dcat-ap declares a prefix per ontology (``CHMO:``, ``CHEBI:``, ``CHEMINF:``, ``SIO:``,
+    ``PROCO:``, …), which is what the registries those accessions come from actually expect.
+    Deriving the map from the schema rather than writing one out here keeps the two aligned by
+    construction: a newly mapped vocabulary brings its prefix with it, instead of silently
+    falling back to a coarse one and stuttering.
+
+    :param schemaview: the merged chem-dcat-ap ``SchemaView`` built for the RDF dump. Without it
+        there is nothing authoritative to read, so the coarse fallback map is used.
+    """
+    if schemaview is None:
+        return dict(_CRATE_FALLBACK_NAMESPACES)
+    try:
+        declared = {str(prefix): str(iri) for prefix, iri in dict(schemaview.namespaces()).items()
+                    if prefix and str(iri).startswith(("http://", "https://"))}
+    except Exception as exc:  # a prefix miss must never fail an export
+        logger.warning("Could not read prefixes from chem-dcat-ap; using the fallback map: %s", exc)
+        return dict(_CRATE_FALLBACK_NAMESPACES)
+    for prefix in _CRATE_SHADOWING_PREFIXES:
+        declared.pop(prefix, None)
+    # The fallback stays underneath: it carries `qudt:`/`adms:`/`skos:`, and a coarse `obo:`/`sio:`
+    # that only ever matches an IRI no per-ontology prefix covers.
+    return {**_CRATE_FALLBACK_NAMESPACES, **declared}
+
+
 #: RO-Crate 1.2. `sha256` needs no local definition any more — 1.2's context defines it, where
 #: 1.1's did not (which is why every 1.1-era `.eln` carrying checksums fails validation today).
-_CRATE_CONTEXT: list = [
-    "https://w3id.org/ro/crate/1.2/context",
-    dict(_CRATE_NAMESPACES),
-]
+_RO_CRATE_CONTEXT_URL = "https://w3id.org/ro/crate/1.2/context"
 
 #: The `.eln` profile this exporter targets. Both IRIs are emitted as `conformsTo` on the root
 #: Dataset and as `Profile` entities in the graph, per TheELNFileFormat's migration guide.
@@ -806,6 +844,13 @@ def _readable_name(node: dict) -> str:
     return str(node.get("@id", "entity")).lstrip("#")
 
 
+#: How a namespace IRI ends, so a prefix declaration can be told from a term definition
+#: (``schema:name`` → ``http://schema.org/name``) in the same context dictionary. ``_`` is here
+#: for the OBO-style prefixes chem-dcat-ap declares — ``CHMO:`` is
+#: ``http://purl.obolibrary.org/obo/CHMO_``, so ``CHMO:0000595`` joins without a separator.
+_NAMESPACE_TERMINATORS = ("/", "#", ":", "_")
+
+
 def _expand_iri(term: str, prefixes: dict) -> str:
     """Expand a compact IRI (``qudt:Quantity``) to its absolute form using ``prefixes``.
 
@@ -817,9 +862,98 @@ def _expand_iri(term: str, prefixes: dict) -> str:
         return term
     prefix, sep, local = term.partition(":")
     base = prefixes.get(prefix)
-    if sep and isinstance(base, str) and base.endswith(("/", "#", ":")):
+    if sep and isinstance(base, str) and base.endswith(_NAMESPACE_TERMINATORS):
         return f"{base}{local}"
     return term
+
+
+#: JSON-LD's gen-delims. A term is usable as a CURIE prefix *only* if its IRI ends in one of
+#: these; otherwise the processor treats `CHEBI:59999` as an absolute IRI with scheme `CHEBI`
+#: and the accession silently becomes nonsense. See ``_context_namespaces``.
+_JSONLD_GEN_DELIMS = (":", "/", "?", "#", "[", "]", "@")
+
+
+def _context_namespaces(namespaces: dict) -> dict:
+    """Render the prefix map in the form a JSON-LD ``@context`` needs.
+
+    OBO-style namespaces end in ``_`` (``http://purl.obolibrary.org/obo/CHEBI_``), which is not a
+    gen-delim, so JSON-LD will not expand ``CHEBI:59999`` against a plain string declaration — it
+    reads it as an absolute IRI whose scheme is ``CHEBI`` and yields ``CHEBI:59999`` verbatim as
+    the term. That is worse than the stutter it replaces: the crate still *looks* right while
+    every chemistry accession has quietly stopped pointing at its ontology.
+
+    Marking the declaration ``{"@id": …, "@prefix": true}`` (JSON-LD 1.1, which RO-Crate 1.2 is
+    based on) makes it a prefix explicitly, and expansion works again. Namespaces that already
+    end in a gen-delim are left as plain strings, so the common case stays readable.
+    """
+    return {prefix: (iri if iri.endswith(_JSONLD_GEN_DELIMS)
+                     else {"@id": iri, "@prefix": True})
+            for prefix, iri in namespaces.items()}
+
+
+#: The host-level prefixes in ``_CRATE_FALLBACK_NAMESPACES`` that cover a whole IRI *host* rather
+#: than one ontology. rdflib compacts to these; ``_normalise_curies`` rewrites what it can off
+#: them onto the per-ontology prefix that the ontology's registry actually uses.
+_COARSE_PREFIXES = ("obo", "sio")
+
+
+def _recurie(term: str, prefixes: dict, candidates: list) -> str:
+    """Re-abbreviate one compact or absolute IRI onto its most specific declared prefix.
+
+    ``obo:CHMO_0000595`` → ``CHMO:0000595``. Longest namespace wins, so the per-ontology prefix
+    beats the host-level one. A term that matches nothing is returned untouched.
+    """
+    if not isinstance(term, str):
+        return term
+    iri = _expand_iri(term, prefixes)
+    if not iri.startswith(("http://", "https://")):
+        return term
+    for prefix, base in candidates:
+        if not iri.startswith(base) or len(iri) <= len(base):
+            continue
+        local = iri[len(base):]
+        # A local part containing a path separator is not an accession — `doi:10.5281/zenodo.1`
+        # and `qudt:…/vocab/unit/MOL-PER-L` are better left absolute than cut at the wrong place.
+        if "/" in local or "#" in local:
+            continue
+        return f"{prefix}:{local}"
+    return term
+
+
+def _normalise_curies(metadata_dict: dict, namespaces: dict) -> None:
+    """Rewrite every compact IRI in the crate onto its registered prefix, in place.
+
+    rdflib's JSON-LD serializer builds a CURIE by splitting an IRI at its last ``/`` or ``#`` and
+    looking up *that* namespace, so an OBO-style prefix — whose namespace ends in ``_`` — can
+    never win: ``http://purl.obolibrary.org/obo/CHMO_0000595`` only ever matches the host-level
+    ``obo:``, giving ``obo:CHMO_0000595``. The accession's own registry writes ``CHMO:0000595``,
+    and the doubled ontology name is a well-known antipattern. Allotrope terms fare worse still:
+    their namespace ends in ``#AFR_``, which rdflib cannot split at all, so they stay absolute.
+
+    This pass runs over the finished document and re-abbreviates keys, ``@id`` and ``@type``
+    against the per-ontology prefixes chem-dcat-ap declares. It changes spelling only: every CURIE
+    expands to the same IRI it did before, so the crate's triples are untouched.
+    """
+    candidates = sorted(((prefix, iri) for prefix, iri in namespaces.items()
+                         if prefix not in _COARSE_PREFIXES),
+                        key=lambda kv: len(kv[1]), reverse=True)
+
+    def rewrite(value, key: str | None = None):
+        if isinstance(value, dict):
+            out = {}
+            for k, v in value.items():
+                # `@id` and `@type` carry IRIs; every other `@…` is JSON-LD syntax, and a plain
+                # key is a predicate. Values of non-IRI keys are data and must not be rewritten.
+                new_key = k if k.startswith("@") else _recurie(k, namespaces, candidates)
+                out[new_key] = rewrite(v, k)
+            return out
+        if isinstance(value, list):
+            return [rewrite(v, key) for v in value]
+        if isinstance(value, str) and key in ("@id", "@type"):
+            return _recurie(value, namespaces, candidates)
+        return value
+
+    metadata_dict["@graph"] = [rewrite(node) for node in metadata_dict.get("@graph", [])]
 
 
 #: An IRI whose local part is a bare accession (``CHMO_0002820``, ``AFR_0002409``, and the
@@ -843,7 +977,8 @@ def _has_opaque_accession(iri: str) -> bool:
 
 def _polish_contextual_entities(metadata_dict: dict, root_node: dict,
                                 base_context: dict,
-                                label_for: typing.Callable[[str], str | None] | None = None) -> None:
+                                label_for: typing.Callable[[str], str | None] | None = None,
+                                namespaces: dict | None = None) -> None:
     """Satisfy RO-Crate's RECOMMENDED rules about contextual entities, in place.
 
     Three rules, all of which make a crate more readable rather than merely more compliant:
@@ -929,8 +1064,8 @@ def _polish_contextual_entities(metadata_dict: dict, root_node: dict,
     # is its own violation (`ro-crate-1.2_2.8`) and silently merges two entities when the JSON-LD
     # is expanded.
     prefixes = {term: iri for term, iri in base_context.items()
-                if isinstance(iri, str) and iri.endswith(("/", "#", ":"))}
-    prefixes.update(_CRATE_NAMESPACES)
+                if isinstance(iri, str) and iri.endswith(_NAMESPACE_TERMINATORS)}
+    prefixes.update(namespaces if namespaces is not None else _crate_namespaces())
     present = {_expand_iri(node["@id"], prefixes) for node in graph
                if isinstance(node, dict) and isinstance(node.get("@id"), str)}
     for term in sorted(referenced):
@@ -1020,7 +1155,8 @@ def _polish_contextual_entities(metadata_dict: dict, root_node: dict,
         mentioned.add(node_id)
 
 
-def _declare_unmapped_terms(metadata_dict: dict, base_context: dict) -> dict:
+def _declare_unmapped_terms(metadata_dict: dict, base_context: dict,
+                            namespaces: dict | None = None) -> dict:
     """Return explicit term definitions for every graph key the base context does not define.
 
     Declaring namespace *prefixes* is not enough. `roc-validator` 0.11.3 — the version
@@ -1037,7 +1173,12 @@ def _declare_unmapped_terms(metadata_dict: dict, base_context: dict) -> dict:
     :return: ``{key: absolute_iri}`` for the keys needing a definition, sorted for a stable diff.
     """
     prefixes = {term: iri for term, iri in base_context.items()
-                if isinstance(iri, str) and iri.endswith(("/", "#", ":"))}
+                if isinstance(iri, str) and iri.endswith(_NAMESPACE_TERMINATORS)}
+    # The crate's own prefixes are not in the RO-Crate context, and after `_normalise_curies`
+    # every chemistry key is spelled with one of them — without these, each would be logged as
+    # unresolvable and left undeclared, which is the validator failure this function exists to
+    # prevent.
+    prefixes.update(namespaces or {})
     extra: dict[str, str] = {}
     for node in metadata_dict.get("@graph", []):
         if not isinstance(node, dict):
@@ -2342,22 +2483,23 @@ class AbstractCollection:
         # Use the vendored RO-Crate JSON-LD context for compaction so serialization does not
         # fetch https://w3id.org/ro/crate/1.2/context at runtime (offline-capable). The output's
         # @context is still set to the canonical URL below.
-        ctx = "https://w3id.org/ro/crate/1.2/context"
+        ctx = _RO_CRATE_CONTEXT_URL
         try:
             _ctx_path = os.path.join(os.path.dirname(__file__), "data", "ro-crate-context.jsonld")
             with open(_ctx_path) as _f:
                 ctx = json.load(_f).get("@context", ctx)
         except Exception as e:
             logger.warning("Vendored RO-Crate context unavailable; serialization may fetch it remotely: %s", e)
+        crate_namespaces = _crate_namespaces(schemaview)
         if isinstance(ctx, dict):
             # Compact against the namespaces too, or rdflib emits chem-dcat-ap predicates as bare
             # absolute IRIs — which is the REQUIRED violation the prefixes exist to prevent. The
             # emitted `@context` below declares the same prefixes, so document and payload agree.
-            ctx = {**ctx, **_CRATE_NAMESPACES}
+            ctx = {**ctx, **crate_namespaces}
         serialized = mapped_graph.serialize(format="json-ld", context=ctx)
         metadata_dict = json.loads(serialized)
-        
-        metadata_dict["@context"] = list(_CRATE_CONTEXT)
+
+        metadata_dict["@context"] = [_RO_CRATE_CONTEXT_URL, _context_namespaces(crate_namespaces)]
 
         if "@graph" not in metadata_dict:
             node = {k: v for k, v in metadata_dict.items() if k != "@context"}
@@ -2365,6 +2507,12 @@ class AbstractCollection:
                 "@context": metadata_dict["@context"],
                 "@graph": [node]
             }
+
+        # Spelling only: rdflib cannot abbreviate an OBO-style IRI onto its own prefix, so every
+        # accession arrives as `obo:CHMO_0000595` (or, for Allotrope, absolute). Rewrite them onto
+        # the prefixes chem-dcat-ap declares before anything downstream reads the graph — both
+        # `_polish_contextual_entities` and `_declare_unmapped_terms` key off these strings.
+        _normalise_curies(metadata_dict, crate_namespaces)
 
         # elem_files[elem_id] is a list of (attachment, safe_filename) pairs. The sanitized (and,
         # on collision, disambiguated) filename is computed exactly once here and reused verbatim
@@ -2934,13 +3082,16 @@ class AbstractCollection:
                                       vocabulary=_vocabulary)
 
         _polish_contextual_entities(metadata_dict, root_node, _base_ctx,
-                                    label_for=_label_for_iri)
+                                    label_for=_label_for_iri,
+                                    namespaces=crate_namespaces)
 
         # Declare every key the RO-Crate context does not already define. This must run *last*:
         # element, file, collection, profile and provenance nodes are all appended above, so a
         # declaration made earlier would miss whatever came after it.
-        _extra_terms = _declare_unmapped_terms(metadata_dict, _base_ctx)
-        metadata_dict["@context"] = [_CRATE_CONTEXT[0], {**_CRATE_NAMESPACES, **_extra_terms}]
+        _extra_terms = _declare_unmapped_terms(metadata_dict, _base_ctx,
+                                               namespaces=crate_namespaces)
+        metadata_dict["@context"] = [_RO_CRATE_CONTEXT_URL,
+                                     {**_context_namespaces(crate_namespaces), **_extra_terms}]
         logger.debug("export_eln: declared %d term(s) in the crate's @context.", len(_extra_terms))
 
         try:
