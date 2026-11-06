@@ -9,6 +9,11 @@
 # Images and volume suffix come from the environment — see tests/test_config/README.md for the
 # values of each release line. Nothing here has a default: a stack that silently starts the wrong
 # server, or reuses another line's data directory, is worse than one that refuses to start.
+# The project name would otherwise be the directory name, `test_config` — the same name the old
+# repo-root stack used, so `up` would silently replace those containers. The suffix also keeps the
+# v3 and v4 lines' containers apart, as the volume names below already do.
+name: chemotion-test-${CHEMOTION_STACK_SUFFIX:?set CHEMOTION_STACK_SUFFIX (see tests/test_config/README.md)}
+
 services:
   db:
     image: ${CHEMOTION_DB_IMAGE:?set CHEMOTION_DB_IMAGE (see tests/test_config/README.md)}
