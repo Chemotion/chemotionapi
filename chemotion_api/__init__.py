@@ -26,11 +26,11 @@ from chemotion_api.labImotion import GenericManager
 from chemotion_api.search.reaction import ReactionSearcher
 from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
@@ -457,6 +457,44 @@ class Instance:
         """
         e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('sample')))
         return typing.cast(Sample, e.load_element(id))
+
+    def find_sample_by_short_label(self, short_label: str) -> Sample | None:
+        """
+        Finds one of your samples by its short label, e.g. ``'API-12-1'``.
+
+        ``GET /api/v1/samples/findByShortLabel/:short_label``, the UI's short-label search. The
+        server only looks at samples you own that are in one of your collections, so a sample
+        shared with you is not found.
+
+        :param short_label: the sample's short label, matched exactly.
+        :return: the loaded sample, or ``None`` if none matches.
+        :raises RequestException: if the lookup or loading the sample fails.
+        """
+        sample_id = self._find_id_by_short_label('samples', 'sample_id', short_label)
+        return None if sample_id is None else self.get_sample(sample_id)
+
+    def find_reaction_by_short_label(self, short_label: str) -> Reaction | None:
+        """
+        Finds one of your reactions by its short label, e.g. ``'API-R3'``.
+
+        ``GET /api/v1/reactions/findByShortLabel/:short_label``. As for samples, only reactions
+        you own that are in one of your collections are found.
+
+        :param short_label: the reaction's short label, matched exactly.
+        :return: the loaded reaction, or ``None`` if none matches.
+        :raises RequestException: if the lookup or loading the reaction fails.
+        """
+        reaction_id = self._find_id_by_short_label('reactions', 'reaction_id', short_label)
+        return None if reaction_id is None else self.get_reaction(reaction_id)
+
+    def _find_id_by_short_label(self, route: str, id_key: str, short_label: str) -> int | None:
+        if not short_label:
+            raise ValueError('A short label is required.')
+        # `.json` pins the format, so a label containing a dot is not read as an extension.
+        res = self._con.get(f'/api/v1/{route}/findByShortLabel/{quote(short_label, safe="")}.json')
+        if res.status_code != 200:
+            raise request_error(res, f'finding {route} by short label {short_label!r}')
+        return (res.json() or {}).get(id_key)
 
     def get_generic_by_name(self, name: str, id: int) -> GenericElement:
         """
