@@ -38,6 +38,7 @@ from chemotion_api.connection import Connection, request_error
 # are Quill deltas, written explicitly with text_to_quill() and read back with quill_to_text().
 from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
 from chemotion_api.elements import literature
+from chemotion_api import reports
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 #: Shown by :meth:`Instance.login` and by ``Instance(username=..., password=...)``.
@@ -310,6 +311,34 @@ class Instance:
         :raises RequestException: if doi.org cannot be reached or does not know the DOI.
         """
         return literature.doi_metadata(self._con, doi)
+
+    def report_templates(self) -> list[reports.ReportTemplate]:
+        """The server's report templates (``GET /api/v1/report_templates``)."""
+        return reports.report_templates(self._con)
+
+    def create_report(self, *elements, template: str | int | reports.ReportTemplate = 'standard',
+                      wait: bool = True, timeout: float = 300, **options) -> reports.Archive:
+        """
+        Generates a report of samples and reactions, as the UI's *Report* tab does
+        (``POST /api/v1/reports``). The server generates it in a background job and keeps it as
+        an :class:`~chemotion_api.reports.Archive`; with ``wait`` this returns once it is ready.
+
+        Usage::
+
+        >>> archive = instance.create_report(reaction, sample, file_name='Weekly',
+        ...                                  reaction_settings={'variations': False})
+        >>> archive.download('weekly.docx')
+
+        :param template: ``'standard'`` (default), ``'supporting_information'``,
+            ``'supporting_information_std_rxn'``, ``'spectrum'``, ``'rxn_list_xlsx'``,
+            ``'rxn_list_csv'``, ``'rxn_list_html'``, or a template from :meth:`report_templates`.
+        :param options: see :func:`chemotion_api.reports.report_payload`.
+        """
+        return reports.create_report(self._con, elements, template, wait=wait, timeout=timeout, **options)
+
+    def report_archives(self) -> list[reports.Archive]:
+        """Your generated reports, newest first, as the UI's *Archive* tab lists them."""
+        return reports.archives(self._con)
 
     def save_user_label(self, label: UserLabel) -> UserLabel:
         """Create a user label (``label.id`` is ``None``) or update one of yours.

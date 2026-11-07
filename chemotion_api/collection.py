@@ -35,6 +35,8 @@ from chemotion_api.utils import break_parent_cycles
 from chemotion_api.elements import ElementSet, AbstractElement
 from chemotion_api.elements.abstract_element import delete_elements, ui_state_selection
 from chemotion_api.elements.literature import Reference, collection_references
+from chemotion_api import reports
+from chemotion_api.notifications import notification_ids, server_path, wait_for_notification
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
@@ -699,6 +701,39 @@ class AbstractCollection:
         return [m for m in res.json().get('messages') or []
                 if (m.get('content') or {}).get('channel_subject') == IMPORT_SAMPLES_SUBJECT
                 and (m.get('content') or {}).get('collection_id') == self.id]
+
+    def export_elements(self, file_path: str, *elements, file_format: str = 'xlsx',
+                        columns: dict[str, list[str]] | None = None) -> str | None:
+        """Export samples, reactions and wellplates of this collection as a table, like the list's
+        *Export* dialog. ``POST /api/v1/reports/export_samples_from_selections``.
+
+        The file has one sheet per table: the selected samples, and the samples of the selected
+        reactions and wellplates.
+
+        :param file_path: where to save the file.
+        :param elements: saved samples, reactions and wellplates of this collection.
+        :param file_format: ``'xlsx'`` or ``'sdf'``.
+        :param columns: ``{table: [column, ...]}`` for the tables ``sample``, ``molecule``,
+            ``reaction``, ``wellplate``, ``analyses``, ``chemicals`` and ``components``;
+            defaults to the dialog's preselection, :data:`chemotion_api.reports.DEFAULT_EXPORT_COLUMNS`.
+        :return: ``file_path``, or ``None`` if the server found nothing to export.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot export elements')
+        return reports.export_elements(self.get_root()._session, self.id, elements, file_path,
+                                       file_format, columns)
+
+    def export_reaction_smiles(self, file_path: str, *reactions, notation: str = 'SM>R>P') -> str | None:
+        """Export reactions of this collection as reaction SMILES, one per line, like the list's
+        *Export reactions* dialog. ``POST /api/v1/reports/export_reactions_from_selections``.
+
+        :param notation: one of :data:`chemotion_api.reports.REACTION_SMILES_NOTATIONS`, where SM are
+            the starting materials, R the reactants, S the solvents and P the products.
+        :return: ``file_path``, or ``None`` if the server found nothing to export.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot export elements')
+        return reports.export_reaction_smiles(self.get_root()._session, self.id, reactions, file_path, notation)
 
     def references(self) -> dict[str, list[Reference]]:
         """The literature cited in this collection, like the UI's collection *References* tab.
