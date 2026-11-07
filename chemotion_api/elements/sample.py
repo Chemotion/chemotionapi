@@ -371,6 +371,8 @@ class MoleculeName:
     id: int
     name: str
     description: str | None = None
+#: The InChIKey of the server's placeholder molecule (``Molecule.find_or_create_dummy``).
+DUMMY_INCHIKEY = 'DUMMY'
 
 
 class MoleculeManager:
@@ -450,8 +452,99 @@ class MoleculeManager:
         return Molecule(res_json)
 
     def create_molecule_by_cls(self, host_url, session, inchikey) -> Molecule:
-        """Not implemented yet!!"""
+        """Not implemented. Use :meth:`get_molecule_by_inchikey` to look a molecule up by InChIKey."""
         raise NotImplementedError
+
+    def create_molecule_by_molfile(self, molfile: str, decoupled: bool = False) -> Molecule:
+        """
+        Creates the molecule for a molfile (V2000 or V3000), or returns it if the server already
+        has it. ``POST /api/v1/molecules``, the UI's path for a drawn structure.
+
+        :param molfile: the structure as molfile text.
+        :param decoupled: for a sample decoupled from its molecule: the server then returns its
+            placeholder molecule instead of parsing the structure.
+        :return: the molecule; for a new structure the server renders its SVG as well.
+        :raises ValueError: if the molfile is empty or the server cannot make a molecule of it.
+        :raises ConnectionError: if the request fails.
+        """
+        if not molfile or not molfile.strip():
+            raise ValueError('The molfile is empty.')
+        res = self._session.post('/api/v1/molecules', data={'molfile': molfile, 'decoupled': decoupled})
+        if res.status_code == 422:
+            raise ValueError(f'The server could not render the molfile: {res.text}')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        res_json = res.json()
+        if not res_json or res_json.get('id') is None:
+            raise ValueError('The server could not create a molecule for this molfile.')
+        # A molfile the server cannot parse is not an error there: it answers 201 with its
+        # placeholder molecule (the one decoupled samples use), whose InChIKey is "DUMMY".
+        if not decoupled and res_json.get('inchikey') == DUMMY_INCHIKEY:
+            raise ValueError('The server could not read the molfile; it returned its placeholder molecule.')
+        return Molecule(res_json)
+
+    def get_molecule_by_inchikey(self, inchikey: str) -> Molecule | None:
+        """
+        The molecule with this InChIKey, if the server already has it, else ``None``. Nothing is
+        created. ``POST /api/v1/molecules/inchikey``.
+        """
+        res = self._session.post('/api/v1/molecules/inchikey', data={'inchikey': inchikey})
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        data = (res.json() or {}).get('molecule')
+        return Molecule(data) if data and data.get('id') is not None else None
+
+    def load_cas(self, inchikey: str) -> list[str]:
+        """
+        The CAS registry numbers of a molecule the server has, looked up at PubChem by the server
+        (``GET /api/v1/molecules/cas``). Empty if the molecule is unknown or PubChem has none, and
+        when the server cannot reach PubChem.
+        """
+        res = self._session.get('/api/v1/molecules/cas', params={'inchikey': inchikey})
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        data = res.json() or {}
+        return [c for c in data.get('cas') or [] if c]
+
+    def render_svg(self, molfile: str) -> str:
+        """
+        Renders a molfile's structure and stores it as its molecule's SVG
+        (``POST /api/v1/molecules/render_svg``). Returns the image path on the server, e.g.
+        ``/images/molecules/<file>.svg``; fetch it with :meth:`load_svg`.
+
+        :raises ValueError: if the server could not render it.
+        """
+        res = self._session.post('/api/v1/molecules/render_svg', data={'molfile': molfile})
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        data = res.json() or {}
+        if not data.get('success'):
+            raise ValueError(f'The server could not render the molfile: {data.get("error")}')
+        return data['svg_path']
+
+    def load_svg(self, molecule: Molecule | str) -> bytes:
+        """
+        The SVG image of a molecule, by :class:`Molecule` or by its ``molecule_svg_file`` name or
+        path.
+        """
+        name = molecule['molecule_svg_file'] if isinstance(molecule, Molecule) else molecule
+        if not name:
+            raise ValueError('The molecule has no SVG file.')
+        path = name if str(name).startswith('/') else f'/images/molecules/{name}'
+        res = self._session.get(path)
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        return res.content
+
+    def molecular_weight(self, sum_formula: str) -> float:
+        """
+        The molecular weight of a sum formula, e.g. ``'C2H6O'`` (``GET /api/v1/molecules/molecular_weight``),
+        as used for decoupled samples. The server answers ``0.0`` for a formula it cannot parse.
+        """
+        res = self._session.get('/api/v1/molecules/molecular_weight', params={'molecular_formula': sum_formula})
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        return float(res.json())
 
 
 #: Fields that belong to a sample's link to a reaction (the ELN's reactions_samples), not to the

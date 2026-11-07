@@ -912,6 +912,18 @@ class AbstractEditableCollection(AbstractCollection):
         sample.molecule = mol
         return typing.cast(Sample, sample)
 
+    def new_sample_molfile(self, molfile: str) -> Sample:
+        """
+        Creates a new sample in this collection whose molecule comes from a molfile, e.g. one drawn
+        in an editor or exported from another tool.
+
+        :param molfile: the structure as molfile text (V2000 or V3000).
+        :return: New (unsaved) Sample
+        """
+        sample = typing.cast(Sample, self._create_new_element('sample'))
+        sample.molecule = MoleculeManager(self.get_root()._session).create_molecule_by_molfile(molfile)
+        return sample
+
     def new_solvent(self, name) -> Sample:
         """
         Creates a new solvent in this collection.
