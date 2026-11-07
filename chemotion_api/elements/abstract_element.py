@@ -1,4 +1,5 @@
 """Base class and shared building blocks for all Chemotion elements (lifecycle, analyses, datasets, attachments)."""
+import copy
 import json
 import os.path
 import re
@@ -947,6 +948,70 @@ class AbstractElement:
         self.analyses.clean_up_after_save()
         if load_after_save:
             self.load()
+
+    def save_analyses(self) -> None:
+        """
+        Saves only the analyses of this element — names, descriptions, status, content, dataset
+        metadata, new analyses and new dataset files — without saving its other properties, the way
+        the UI's analysis tab does (``PUT /api/v1/containers/container``).
+
+        Unsaved changes to the element's properties are kept locally but not sent.
+
+        :raises ValueError: if the element has not been saved yet.
+        :raises PermissionError: if you may not edit the element.
+        """
+        self._saved_id_for('analyses')
+        container = cast(dict, self.json_data).get('container')
+        if container is None:
+            raise ValueError(f'{self.element_type} {self.id} has no analyses container.')
+        self.analyses.save_attachments()
+        payload = merge_dicts(copy.deepcopy(container), self._clean_analyses_data()['container'])
+        self._put_container(payload)
+        self.analyses.clean_up_after_save()
+        self._analyses = self._parse_analyses()
+
+    def delete_analysis(self, analysis: Analyses) -> None:
+        """
+        Deletes one analysis of this element, with its datasets and their files, right away.
+        Deleted files cannot be restored.
+
+        Sent like the UI's analysis tab does: the element's container with the analysis marked
+        deleted (``PUT /api/v1/containers/container``). ``DELETE /api/v1/containers/:id`` is not
+        used: on ELN main it refuses element owners (the inbox owner check of the neighbouring
+        ``PATCH`` route also guards it).
+
+        :param analysis: one of :attr:`analyses`.
+        :raises ValueError: if the analysis is not one of this element's analyses.
+        :raises PermissionError: if you may not edit the element.
+        """
+        # By identity: analyses are dicts, so `in`/`remove` would match an equal-looking other one.
+        index = next((i for i, a in enumerate(self.analyses) if a is analysis), None)
+        if index is None:
+            raise ValueError('The analysis is not one of this element\'s analyses.')
+        if analysis.is_new or analysis.id is None:
+            del self.analyses[index]
+            return
+        self._saved_id_for('analyses')
+        container = copy.deepcopy(cast(dict, self.json_data).get('container') or {})
+        for group in container.get('children') or []:
+            for child in group.get('children') or []:
+                if child.get('id') == analysis.id:
+                    child['is_deleted'] = True
+        self._put_container(container)
+        del self.analyses[index]
+        self._analyses = self._parse_analyses()
+
+    def _put_container(self, container: dict) -> None:
+        res = self._session.put('/api/v1/containers/container',
+                                data=json.dumps({'container': container}, default=fixeddict_serializer))
+        if res.status_code == 401:
+            raise PermissionError(f'You may not edit the analyses of {self.element_type} {self.id}.')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'saving the analyses of {self.element_type} {self.id}')
+        answer = res.json()
+        cast(dict, self.json_data)['container'] = answer['container']
+        if 'variations' in answer and 'variations' in cast(dict, self.json_data):
+            cast(dict, self.json_data)['variations'] = answer['variations']
 
     def clean_data(self) -> dict:
         """
