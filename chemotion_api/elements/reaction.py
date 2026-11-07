@@ -947,6 +947,29 @@ class Reaction(AbstractElement):
             raise request_error(res, f'rendering the scheme of reaction {self.id}')
         return res.json()['reaction_svg']
 
+    def report_docx(self, file_path: str) -> str:
+        """
+        Saves this reaction as a Word document, the UI's *Export as docx* button
+        (``GET /api/v1/reports/docx``). Unlike :meth:`Instance.create_report`, it is generated right
+        away, with every report section included.
+
+        :return: ``file_path``
+        """
+        from chemotion_api.reports import download_to
+        return download_to(self._session, '/api/v1/reports/docx', {'id': self._saved_id_for('docx export')},
+                           file_path, f'exporting reaction {self.id} as docx')
+
+    def export_samples_excel(self, file_path: str) -> str:
+        """
+        Saves the samples of this reaction as an XLSX table (``GET /api/v1/reports/excel_reaction``),
+        with the server's default columns.
+
+        :return: ``file_path``
+        """
+        from chemotion_api.reports import download_to
+        return download_to(self._session, '/api/v1/reports/excel_reaction', {'id': self._saved_id_for('sample export')},
+                           file_path, f'exporting the samples of reaction {self.id}')
+
     def load_image(self) -> Response:
         """
         Loads the reaction structure as svg image

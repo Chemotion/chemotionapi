@@ -33,6 +33,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature
+from chemotion_api import reports
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
@@ -264,6 +265,34 @@ class Instance:
         :raises RequestException: if doi.org cannot be reached or does not know the DOI.
         """
         return literature.doi_metadata(self._con, doi)
+
+    def report_templates(self) -> list[reports.ReportTemplate]:
+        """The server's report templates (``GET /api/v1/report_templates``)."""
+        return reports.report_templates(self._con)
+
+    def create_report(self, *elements, template: str | int | reports.ReportTemplate = 'standard',
+                      wait: bool = True, timeout: float = 300, **options) -> reports.Archive:
+        """
+        Generates a report of samples and reactions, as the UI's *Report* tab does
+        (``POST /api/v1/reports``). The server generates it in a background job and keeps it as
+        an :class:`~chemotion_api.reports.Archive`; with ``wait`` this returns once it is ready.
+
+        Usage::
+
+        >>> archive = instance.create_report(reaction, sample, file_name='Weekly',
+        ...                                  reaction_settings={'variations': False})
+        >>> archive.download('weekly.docx')
+
+        :param template: ``'standard'`` (default), ``'supporting_information'``,
+            ``'supporting_information_std_rxn'``, ``'spectrum'``, ``'rxn_list_xlsx'``,
+            ``'rxn_list_csv'``, ``'rxn_list_html'``, or a template from :meth:`report_templates`.
+        :param options: see :func:`chemotion_api.reports.report_payload`.
+        """
+        return reports.create_report(self._con, elements, template, wait=wait, timeout=timeout, **options)
+
+    def report_archives(self) -> list[reports.Archive]:
+        """Your generated reports, newest first, as the UI's *Archive* tab lists them."""
+        return reports.archives(self._con)
 
     def save_user_label(self, label: UserLabel) -> UserLabel:
         """Create a user label, or update one of your own. See

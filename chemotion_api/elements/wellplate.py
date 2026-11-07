@@ -288,3 +288,14 @@ class Wellplate(AbstractElement):
         """
         super().save()
         self.load()
+
+    def export_samples_excel(self, file_path: str) -> str:
+        """
+        Saves the samples of this wellplate as an XLSX table
+        (``GET /api/v1/reports/excel_wellplate``), with the server's default columns.
+
+        :return: ``file_path``
+        """
+        from chemotion_api.reports import download_to
+        return download_to(self._session, '/api/v1/reports/excel_wellplate', {'id': self._saved_id_for('sample export')},
+                           file_path, f'exporting the samples of wellplate {self.id}')

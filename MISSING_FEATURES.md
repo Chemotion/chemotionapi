@@ -85,8 +85,8 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints |
 |---|---|---|
-| ❌ | **Reports** (docx / Excel export, archives) | `ReportsFetcher` → `reports*`, `archives*`; `UIFetcher` → `ui_state/load_report` |
-| ❌ | **Report templates** | `ReportTemplateFetcher` → `report_templates` |
+| ✅ | **Reports** (docx / Excel export, archives) | `ReportsFetcher` → `reports*`, `archives*`; `UIFetcher` → `ui_state/load_report` — Done in M3.2: `instance.create_report()` (waits for the job) and `report_archives()` with `Archive.download()` / `delete()`; `collection.export_elements()` (XLSX/SDF) and `export_reaction_smiles()`; `reaction.report_docx()`, `reaction.export_samples_excel()` and `wellplate.export_samples_excel()`. Not covered: the spectrum report's choice of product attachments (`prdAtts`). `ui_state/load_report` does not exist on ELN main. |
+| ◐ | **Report templates** | `ReportTemplateFetcher` → `report_templates` — Done in M3.2: listing (`instance.report_templates()`). Editing templates is admin-only and not covered. |
 | ❌ | **Text templates** (predefined and personal snippets) | `TextTemplatesFetcher` → `text_templates/*` |
 | ❌ | **Data publication / transmission to a repository** | `GateFetcher` → `gate/transmitting` |
 
