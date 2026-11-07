@@ -12,6 +12,7 @@ from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.sample import Sample
 from chemotion_api.models import ResearchPlanPropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +272,7 @@ class RichText(dict):
         return self
 
 
+@register_element_type('research_plan', url='/api/v1/research_plans')
 class ResearchPlan(AbstractElement):
     """
     A chemotion Research Plan object.

@@ -12,6 +12,7 @@ from chemotion_api.elements.device_description import DeviceDescription
 from chemotion_api.elements.screen import Screen
 from chemotion_api.elements.sbmm_sample import SbmmSample
 from chemotion_api.elements.cell_line import CellLine
+from chemotion_api.elements.registry import element_class
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
@@ -292,31 +293,7 @@ class ElementSet(list):
     def _get_element_class(self) -> type[AbstractElement]:
         if self._element_type['is_generic']:
             return GenericElement
-        elif self._element_type['name'] == 'sample':
-            return Sample
-        elif self._element_type['name'] == 'reaction':
-            return Reaction
-        elif self._element_type['name'] == 'wellplate':
-            return Wellplate
-        elif self._element_type['name'] == 'research_plan':
-            return ResearchPlan
-        elif self._element_type['name'] == 'device_description':
-            return DeviceDescription
-        elif self._element_type['name'] == 'screen':
-            return Screen
-        elif self._element_type['name'] == 'sequence_based_macromolecule_sample':
-            return SbmmSample
-        elif self._element_type['name'] == 'cell_line':
-            return CellLine
-
-        # A built-in Chemotion type this client does not model. Name the type and what is
-        # supported: "Generic type X cannot be found" read like a lookup bug rather than a scope
-        # boundary.
-        raise TypeError(
-            "Element type '{}' is a built-in Chemotion type this client does not model, so it "
-            "cannot be loaded. Supported: sample, reaction, wellplate, research_plan, screen, "
-            "device_description, cell_line, sequence_based_macromolecule_sample, and LabIMotion "
-            "generic types.".format(self._element_type['name']))
+        return element_class(self._element_type['name'])
 
     def _get_result_key(self):
         if self._element_type['is_generic']:

@@ -26,6 +26,7 @@ from pydantic import BaseModel
 from requests import Response
 
 from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
+from chemotion_api.elements.registry import register_element_type
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample, SampleVariationType, GasPhaseObj
@@ -906,6 +907,7 @@ def _flattened_field_error(pyd_name: list[str]) -> ValueError:
         f"e.g. properties[{field!r}] = <value>.")
 
 
+@register_element_type('reaction', url='/api/v1/reactions')
 class Reaction(AbstractElement):
     """
     A chemotion Reaction object.

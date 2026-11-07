@@ -19,6 +19,7 @@ import copy
 from typing import Any, cast
 
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 from chemotion_api.models import CellLineMaterialModel, CellLinePropertiesModel, validate_field
 from chemotion_api.utils import PropertyDict
 
@@ -29,6 +30,7 @@ _MATERIAL_PARAM = {'name': 'material_names', 'description': 'material_descriptio
 _REQUIRED = ('amount', 'unit', 'passage')
 
 
+@register_element_type('cell_line', url='/api/v1/cell_lines')
 class CellLine(AbstractElement):
     """A cell-line sample. See the module documentation for how the shared material behaves.
 

@@ -19,6 +19,7 @@ from chemotion_api.elements.utils.converter import convert_value_to_default
 from chemotion_api.elements.utils.equivalent import get_equivalent
 from chemotion_api.user import User
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 from chemotion_api.elements.empty_elements import init_container
 from chemotion_api.models import SamplePropertiesModel, GasPhaseModel, UnitDictModel, validate_field
 from chemotion_api.utils.withheld import WITHHELD
@@ -460,6 +461,7 @@ REACTION_LINK_FIELDS = ('reference', 'equivalent', 'coefficient', 'position', 's
                         'weight_percentage_reference', 'weight_percentage')
 
 
+@register_element_type('sample', url='/api/v1/samples')
 class Sample(AbstractElement):
     """
     A chemotion Sample object.

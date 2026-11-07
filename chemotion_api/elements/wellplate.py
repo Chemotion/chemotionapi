@@ -2,6 +2,7 @@
 import logging
 from chemotion_api.models import WellplatePropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 
 from chemotion_api.elements.sample import Sample
 from collections.abc import MutableMapping
@@ -86,6 +87,7 @@ class WellplateCol(MutableMapping):
         return key
 
 
+@register_element_type('wellplate', url='/api/v1/wellplates')
 class Wellplate(AbstractElement):
     """
     Wellplates represent the localization of materials (chemicals)

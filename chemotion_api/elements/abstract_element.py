@@ -21,6 +21,7 @@ from chemotion_api.models import validate_field
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.user import UserLabel
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
+from chemotion_api.elements.registry import element_type_info, GENERIC_ELEMENTS_URL, GENERIC_RESPONSE_KEY
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils.segment_fields import SegmentField, iter_fields
@@ -1318,23 +1319,8 @@ class AbstractElement:
 
         :return: the key of the element in the server response
         """
-        if name == 'sample':
-            return 'sample'
-        elif name == 'reaction':
-            return 'reaction'
-        elif name == 'wellplate':
-            return 'wellplate'
-        elif name == 'research_plan':
-            return 'research_plan'
-        elif name == 'device_description':
-            return 'device_description'
-        elif name == 'screen':
-            return 'screen'
-        elif name == 'sequence_based_macromolecule_sample':
-            return 'sequence_based_macromolecule_sample'
-        elif name == 'cell_line':
-            return 'cell_line'
-        return 'element'
+        info = element_type_info(name)
+        return info.response_key if info is not None else GENERIC_RESPONSE_KEY
 
     @classmethod
     def get_url(cls, name: str) -> str:
@@ -1345,24 +1331,5 @@ class AbstractElement:
 
         :return: The load url
         """
-        if name == 'sample':
-            return '/api/v1/samples'
-        elif name == 'reaction':
-            return '/api/v1/reactions'
-        elif name == 'wellplate':
-            return '/api/v1/wellplates'
-        elif name == 'research_plan':
-            return '/api/v1/research_plans'
-        elif name == 'device_description':
-            return '/api/v1/device_descriptions'
-        elif name == 'screen':
-            return '/api/v1/screens'
-        elif name == 'sequence_based_macromolecule_sample':
-            return '/api/v1/sequence_based_macromolecule_samples'
-        elif name == 'cell_line':
-            return '/api/v1/cell_lines'
-        # Everything else is a LabIMotion generic type, listed through one shared endpoint and
-        # discriminated by `el_type`. A *built-in* type that is not modelled above also lands
-        # here and lists as a generic -- which returns nothing rather than erroring, so the
-        # element class lookup is what refuses it, by name.
-        return '/api/v1/generic_elements'
+        info = element_type_info(name)
+        return info.url if info is not None else GENERIC_ELEMENTS_URL
