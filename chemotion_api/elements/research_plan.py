@@ -375,6 +375,22 @@ class ResearchPlan(AbstractElement):
     def _parse_ketcher(self, value):
         return value
 
+    def upload_svg(self, svg: str, is_chemdraw: bool = False) -> str:
+        """
+        Stores a structure drawing on the server, as the UI does for a *Ketcher* body field
+        (``POST /api/v1/research_plans/svg``). The server centres and scales it.
+
+        :param svg: the SVG markup, from Ketcher or (with ``is_chemdraw``) ChemDraw.
+        :return: the stored file name, for the field's ``svg_file`` (it is served under
+            ``/images/research_plans/``).
+        """
+        if not svg or '<svg' not in svg:
+            raise ValueError('Not an SVG drawing.')
+        res = self._session.post('/api/v1/research_plans/svg', data={'svg_file': svg, 'is_chemdraw': is_chemdraw})
+        if res.status_code not in (200, 201):
+            raise request_error(res, 'storing a research plan drawing')
+        return res.json()['svg_path']
+
     #: Fields of a research plan's publication metadata (``research_plan_metadata_api.rb``).
     METADATA_FIELDS = ('title', 'subject', 'alternate_identifier', 'related_identifier', 'description', 'format',
                        'version', 'geo_location', 'funding_reference', 'url', 'landing_page', 'type')
@@ -570,3 +586,33 @@ class ResearchPlan(AbstractElement):
             }
         raise ValueError(f"{element_type} not exists!")
 
+
+def load_table_schemas(session) -> list[dict]:
+    """Your saved research-plan table layouts (``GET /api/v1/research_plans/table_schemas``)."""
+    res = session.get('/api/v1/research_plans/table_schemas')
+    if res.status_code != 200:
+        raise request_error(res, 'loading the research plan table schemas')
+    return res.json().get('table_schemas') or []
+
+
+def save_table_schema(session, name: str, value: dict | Table) -> dict:
+    """Save a table layout under ``name`` (``POST /api/v1/research_plans/table_schemas``).
+
+    :param value: a :class:`Table` (its columns are saved) or the raw ``{'columns': [...], 'rows': [...]}``.
+    """
+    raw = value['value'] if isinstance(value, Table) else value
+    if not name or not isinstance(raw, dict):
+        raise ValueError('A table schema needs a name and a table value.')
+    res = session.post('/api/v1/research_plans/table_schemas', data={'name': name, 'value': raw})
+    if res.status_code not in (200, 201):
+        raise request_error(res, f'saving table schema "{name}"')
+    return res.json()
+
+
+def delete_table_schema(session, schema_id: int) -> None:
+    """Delete one of your table layouts (``DELETE /api/v1/research_plans/table_schemas/:id``)."""
+    res = session.delete(f'/api/v1/research_plans/table_schemas/{schema_id}')
+    if res.status_code == 401:
+        raise PermissionError(f'Table schema {schema_id} is not yours.')
+    if res.status_code not in (200, 204):
+        raise request_error(res, f'deleting table schema {schema_id}')

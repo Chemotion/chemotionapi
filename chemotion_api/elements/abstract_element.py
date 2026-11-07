@@ -949,6 +949,22 @@ class AbstractElement:
         if load_after_save:
             self.load()
 
+    def linked_research_plans(self) -> list[dict]:
+        """
+        The research plans whose body shows this sample or reaction, as the element's
+        *Research plans* list in the UI: ``{'id', 'name'}`` dicts
+        (``GET /api/v1/research_plans/linked``).
+
+        :raises ValueError: for an element that is not a sample or reaction.
+        """
+        if self.element_type not in ('sample', 'reaction'):
+            raise ValueError('Only samples and reactions are linked into research plans.')
+        res = self._session.get('/api/v1/research_plans/linked',
+                                params={'id': self._saved_id_for('research plan links'), 'element': self.element_type})
+        if res.status_code != 200:
+            raise request_error(res, f'loading the research plans linking {self.element_type} {self.id}')
+        return [{'id': rp['id'], 'name': rp.get('name')} for rp in res.json() or []]
+
     def save_analyses(self) -> None:
         """
         Saves only the analyses of this element — names, descriptions, status, content, dataset

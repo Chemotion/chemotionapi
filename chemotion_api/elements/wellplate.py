@@ -299,3 +299,43 @@ class Wellplate(AbstractElement):
         from chemotion_api.reports import download_to
         return download_to(self._session, '/api/v1/reports/excel_wellplate', {'id': self._saved_id_for('sample export')},
                            file_path, f'exporting the samples of wellplate {self.id}')
+
+    def download_template(self, file_path: str) -> str:
+        """
+        Saves the XLSX template for :meth:`import_spreadsheet`: one row per well of this plate
+        (``GET /api/v1/wellplates/template/:id``).
+
+        :return: ``file_path``
+        """
+        from chemotion_api.reports import download_to
+        return download_to(self._session, f'/api/v1/wellplates/template/{self._saved_id_for("template")}', {},
+                           file_path, f'downloading the template of wellplate {self.id}')
+
+    def import_spreadsheet(self, file_path: str) -> Wellplate:
+        """
+        Fills the wells from a spreadsheet, as the wellplate's *Import* button does: the file is
+        attached to the wellplate, then ``PUT /api/v1/wellplates/import_spreadsheet/:id`` reads
+        its samples and readouts into the wells. Use :meth:`download_template` for the layout.
+
+        :return: self, refreshed from the server's answer.
+        :raises ValueError: if the server cannot read the spreadsheet.
+        """
+        wellplate_id = self._saved_id_for('spreadsheet import')
+        before = {a['id'] for a in self.attachments}
+        self.attachments.add_file(file_path)
+        self.save()
+        self.load()
+        new = [a for a in self.attachments if a['id'] not in before]
+        if not new:
+            raise ConnectionError(f'The spreadsheet was not attached to wellplate {wellplate_id}.')
+        res = self._session.put(f'/api/v1/wellplates/import_spreadsheet/{wellplate_id}',
+                                data={'wellplate_id': wellplate_id, 'attachment_id': new[-1]['id']})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not update wellplate {wellplate_id}.')
+        if res.status_code == 500:
+            raise ValueError(f'The server could not import {file_path}: {res.text}')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        self._set_json_data(res.json()['wellplate'])
+        self._wells = None
+        return self
