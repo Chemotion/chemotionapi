@@ -77,9 +77,9 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ❌ | **Collection export / import** (ZIP) | `CollectionsFetcher` → `collections/export`, `collections/import` | |
-| ❌ | **Collection metadata** (DataCite) | `MetadataFetcher` → `collections/metadata` | |
-| ❌ | **Take ownership** of a shared collection | `CollectionSharesFetcher` → `collection_shares/take_ownership` | Sharing, unsharing, updating shares and listing collections shared with you are implemented. |
+| ✅ | **Collection export / import** (ZIP) | `CollectionsFetcher` → `collections/export`, `collections/import` | In 401.0: `collection.export_zip(destination)` and `instance.import_zip(path)`. |
+| ✅ | **Collection metadata** (DataCite) | `MetadataFetcher` → `collections/metadata` | Done in M3.6: `collection.metadata()` / `save_metadata(dict)`. |
+| ✅ | **Take ownership** of a shared collection | `CollectionSharesFetcher` → `collection_shares/take_ownership` | Done in M3.6: `shared_collection.take_ownership()`, after the owner shares it at `CollectionSharePermission.PassOwnership`. |
 
 ## 7. Reports and output
 

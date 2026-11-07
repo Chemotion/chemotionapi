@@ -397,6 +397,43 @@ class ResearchPlan(AbstractElement):
         return value
 
     _properties_model = ResearchPlanPropertiesModel
+    #: Fields of a research plan's publication metadata (``research_plan_metadata_api.rb``).
+    METADATA_FIELDS = ('title', 'subject', 'alternate_identifier', 'related_identifier', 'description', 'format',
+                       'version', 'geo_location', 'funding_reference', 'url', 'landing_page', 'type')
+
+    def metadata(self) -> dict | None:
+        """
+        This research plan's publication metadata (DataCite-like fields, see :attr:`METADATA_FIELDS`),
+        as its *Metadata* tab shows it, or ``None`` if none was saved
+        (``GET /api/v1/research_plan_metadata/:id``).
+        """
+        res = self._session.get(f'/api/v1/research_plan_metadata/{self._saved_id_for("metadata")}')
+        if res.status_code != 200:
+            raise request_error(res, f'loading the metadata of research plan {self.id}')
+        return (res.json() or {}).get('research_plan_metadata')
+
+    def save_metadata(self, **fields) -> dict:
+        """
+        Creates or updates this research plan's publication metadata right away
+        (``POST /api/v1/research_plan_metadata``). Only the given fields change.
+
+        :param fields: any of :attr:`METADATA_FIELDS`; ``title``, ``subject``, ``format``,
+            ``version``, ``url``, ``landing_page`` and ``type`` are strings, the others are lists or
+            dicts as the UI sends them, e.g. ``alternate_identifier=[{'alternateIdentifier': 'x',
+            'alternateIdentifierType': 'URL'}]``.
+        :return: the stored metadata.
+        """
+        unknown = set(fields) - set(self.METADATA_FIELDS)
+        if unknown:
+            raise ValueError(f'Unknown metadata fields {", ".join(sorted(unknown))}; use {", ".join(self.METADATA_FIELDS)}.')
+        res = self._session.post('/api/v1/research_plan_metadata',
+                                 data={'research_plan_id': self._saved_id_for('metadata')} | fields)
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'saving the metadata of research plan {self.id}')
+        data = res.json() or {}
+        if data.get('error'):
+            raise ValueError(f'The server rejected the metadata of research plan {self.id}: {data["error"]}')
+        return data.get('research_plan_metadata') or {}
 
     def _parse_properties(self) -> dict:
         self._image_values: dict[str, dict] = {}     # image identifier -> the stored block value
@@ -567,3 +604,4 @@ class ResearchPlan(AbstractElement):
                 'reaction_id': None
             }
         raise ValueError(f"{element_type} not exists!")
+

@@ -518,7 +518,7 @@ class AbstractElement:
 
         self._short_label = None
         self._properties = None
-        self._analyses = None
+        self._analyses: AnalysesList | None = None
         self._segments = None
         # Name of element instance
         self._name: str = ''
@@ -913,7 +913,7 @@ class AbstractElement:
         self.id = json_data.get('id', self._id)
 
         self._properties = self._parse_properties()
-        self._analyses: AnalysesList = self._parse_analyses()
+        self._analyses = self._parse_analyses()
         segment_temp = self._parse_segments()
         self._segments_mapping = segment_temp.get('obj_mapping')
         self._segments = Segment(self._generic_segments,
