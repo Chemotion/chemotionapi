@@ -80,6 +80,19 @@ stack-reset:
 stack-logs:
     {{compose}} logs -f eln
 
+# build an unreleased ELN (branch, tag or full commit sha of chemotion_ELN) as chemotion-eln-p2d:<ref>
+# — first build ~45 min; see tests/test_config/p2d.sh
+stack-p2d-build ref="main":
+    bash tests/test_config/p2d.sh build {{ref}}
+
+# reset the p2d stack from the seed and run the test suite against that build (default: all tests)
+stack-p2d ref="main" *pytest_args:
+    bash tests/test_config/p2d.sh test {{ref}} {{pytest_args}}
+
+# stop the p2d stack (volumes are kept)
+stack-p2d-down:
+    bash tests/test_config/p2d.sh down
+
 # dump the LabIMotion JSON validation schemas to ./schemas/ (live ELN needed; override ELN_URL/ELN_USER/ELN_PASS)
 schemas:
     uv run python -c "\

@@ -93,3 +93,29 @@ from the working directory, i.e. `tests/` in the `just test-integration` workflo
 Note: the DB reset uses the host Postgres client tools (`psql`, `pg_dump`) against port 54320
 when available, and falls back to `docker compose exec db` otherwise — docker is the only hard
 requirement.
+
+## Testing against an unreleased ELN (p2d)
+
+`images.env` pins a released server. To run the suite against a branch, tag or commit of
+[chemotion_ELN](https://github.com/ComPlat/chemotion_ELN) that has no image yet, build it with
+the ELN's own Push2Deploy files (`Dockerfile.p2d`, present from v3.1.0-rc on):
+
+```bash
+just stack-p2d-build main            # or a tag (v4.0.0) or a full commit sha
+just stack-p2d main                  # reset the p2d stack from the seed, run every test
+just stack-p2d main -m integration -q   # or pass your own pytest arguments
+just stack-p2d-down
+```
+
+All of it goes through [`p2d.sh`](p2d.sh), which can also be run directly with `bash`.
+
+- The image is tagged `chemotion-eln-p2d:<ref>` and `chemotion-eln-p2d:<ref>-<sha>`.
+- It runs as compose project `chemotion-test-p2d` with its own volumes (`*_p2d`), so the pinned
+  stack and its data are untouched. It keeps the pinned db image from `images.env`.
+- Both stacks publish ports 3579 and 54320, so only one can run at a time. `stack-p2d` refuses
+  to start while another container holds 3579.
+- The first build takes about 45 minutes, because it reinstalls Ruby, Node and every gem. Later
+  builds reuse most of it from the BuildKit cache.
+- Near the end the build downloads Ketcher from GitHub. A network timeout there is not a code
+  problem: rerun, and the cached layers make it quick.
+- Migrations newer than the seed are applied by the reset, as for any upgrade.
