@@ -57,8 +57,8 @@ types below can be neither read nor written.
 |---|---|---|---|
 | ✅ | **Literature / references** | `LiteraturesFetcher` → `literatures`, `literatures/collection`, `literatures/doi/metadata` | Done in M2.6: `element.references()`, `add_reference()`, `remove_reference()`, `set_reference_type()`, `collection.references()`, `instance.doi_metadata()`. |
 | ✅ | **Reaction SVG rendering** | `ReactionSvgFetcher` → `reaction_svg` | Done in M2.7: `reaction.render_scheme_svg()`, plus `sample.svg_path`. |
-| ◐ | **Wellplates** | `WellplatesFetcher` → `wellplates/import_spreadsheet`, `wellplates/bulk`, `wellplates/subwellplates`, `wellplates/by_generic_element` | Create, edit and resize are implemented. Missing: spreadsheet import, bulk create, sub-wellplates, links to generic elements. |
-| ◐ | **Research plans** | `ResearchPlansFetcher` → `research_plans/linked`, `research_plans/table_schemas`, `research_plans/svg`; `research_plan_metadata` | Body editing (text, richtext, table, image) is implemented. Missing: linked elements, saved table schemas, SVG render, research-plan metadata (DataCite). |
+| ✅ | **Wellplates** | `WellplatesFetcher` → `wellplates/import_spreadsheet`, `wellplates/bulk`, `wellplates/subwellplates`, `wellplates/by_generic_element` | Done in M3.7: `wellplate.download_template()` / `import_spreadsheet(path)`, `collection.create_wellplates(*names)`, `collection.split_wellplates(*plates)`. `by_generic_element` does not exist on ELN main. |
+| ✅ | **Research plans** | `ResearchPlansFetcher` → `research_plans/linked`, `research_plans/table_schemas`, `research_plans/svg`; `research_plan_metadata` | Done in M3.6 (`plan.metadata()` / `save_metadata(**fields)`) and M3.7 (`sample.linked_research_plans()`, `instance.research_plan_table_schemas()` / `save_…` / `delete_…`, `plan.upload_svg()`). |
 
 ## 5. Analyses, attachments and spectra
 

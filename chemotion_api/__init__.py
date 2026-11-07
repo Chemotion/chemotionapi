@@ -34,11 +34,11 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
+from chemotion_api import reports
 # Rich-text helpers, public: reaction descriptions/observations and wellplate/screen descriptions
 # are Quill deltas, written explicitly with text_to_quill() and read back with quill_to_text().
 from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
-from chemotion_api.elements import literature
-from chemotion_api import reports
+from chemotion_api.elements import literature, research_plan
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 #: Shown by :meth:`Instance.login` and by ``Instance(username=..., password=...)``.
@@ -339,6 +339,18 @@ class Instance:
     def report_archives(self) -> list[reports.Archive]:
         """Your generated reports, newest first, as the UI's *Archive* tab lists them."""
         return reports.archives(self._con)
+
+    def research_plan_table_schemas(self) -> list[dict]:
+        """Your saved research-plan table layouts: ``{'id', 'name', 'value'}`` dicts."""
+        return research_plan.load_table_schemas(self._con)
+
+    def save_research_plan_table_schema(self, name: str, table) -> dict:
+        """Save a research-plan table's layout under ``name``, to reuse in other plans."""
+        return research_plan.save_table_schema(self._con, name, table)
+
+    def delete_research_plan_table_schema(self, schema_id: int) -> None:
+        """Delete one of your saved research-plan table layouts."""
+        research_plan.delete_table_schema(self._con, schema_id)
 
     def save_user_label(self, label: UserLabel) -> UserLabel:
         """Create a user label (``label.id`` is ``None``) or update one of yours.

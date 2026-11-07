@@ -628,12 +628,16 @@ class AbstractCollection:
 
     def _newest_sample_rows(self, session, pages: int | None = None, stop_at_id: int | None = None):
         """This collection's samples as list rows, newest first, page by page."""
+        return self._newest_rows(session, 'samples', pages, stop_at_id)
+
+    def _newest_rows(self, session, kind: str, pages: int | None = None, stop_at_id: int | None = None):
+        """This collection's ``kind`` (``'samples'``, ``'wellplates'``) as list rows, newest first."""
         page = 1
         while pages is None or page <= pages:
-            res = session.get('/api/v1/samples', params={'collection_id': self.id, 'page': page, 'per_page': 50})
+            res = session.get(f'/api/v1/{kind}', params={'collection_id': self.id, 'page': page, 'per_page': 50})
             if res.status_code != 200:
                 raise ConnectionError(f'{res.status_code} -> {res.text}')
-            rows = res.json().get('samples') or []
+            rows = res.json().get(kind) or []
             for row in rows:
                 if stop_at_id is not None and row['id'] <= stop_at_id:
                     return
@@ -641,6 +645,82 @@ class AbstractCollection:
             if len(rows) < 50:
                 return
             page += 1
+
+    def split_wellplates(self, *wellplates: Wellplate) -> list[Wellplate]:
+        """Split wellplates into sub-wellplates on the server, as the UI's *Split* button does.
+
+        ``POST /api/v1/wellplates/subwellplates``. Each wellplate gets a copy named
+        ``<name>-Split`` in this collection, whose wells hold subsamples of the original wells'
+        samples.
+
+        The server answers without the new ids, so they are found among this collection's newest
+        wellplates by their names.
+
+        :return: the new sub-wellplates, loaded, in the order of ``wellplates``.
+        :raises PermissionError: if you may not add elements to this collection.
+        :raises ConnectionError: if not every sub-wellplate is found afterwards.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        if not wellplates:
+            raise ValueError('No wellplates given.')
+        if any(getattr(w, 'element_type', None) != 'wellplate' for w in wellplates):
+            raise ValueError('Only wellplates can be split into sub-wellplates.')
+        selection = ui_state_selection(wellplates, 'split')['wellplate']['checkedIds']
+        session = self.get_root()._session
+        newest_before = self._newest_id(session, 'wellplates')
+        res = session.post('/api/v1/wellplates/subwellplates', data={'ui_state': {
+            'wellplate': {'all': False, 'included_ids': selection, 'excluded_ids': []},
+            'currentCollectionId': self.id}})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add wellplates to collection "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        names = {w.id: f'{w.properties.get("name") or w.name}-Split' for w in wellplates}
+        return self._find_new_wellplates(session, newest_before, [names[i] for i in selection])
+
+    def create_wellplates(self, *names: str) -> list[Wellplate]:
+        """Create several empty wellplates (12 x 8) in this collection in one request.
+
+        ``POST /api/v1/wellplates/bulk``. The server answers without the new ids, so they are found
+        among this collection's newest wellplates by their names.
+
+        :return: the new wellplates, loaded, in the order of ``names``.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        if not names or not all(isinstance(n, str) and n for n in names):
+            raise ValueError('Give each new wellplate a name.')
+        session = self.get_root()._session
+        newest_before = self._newest_id(session, 'wellplates')
+        res = session.post('/api/v1/wellplates/bulk', data={'wellplates': [
+            {'name': name, 'collection_id': self.id, 'wells': []} for name in names]})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add wellplates to collection "{self.label}".')
+        if res.status_code not in (200, 201, 204):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        return self._find_new_wellplates(session, newest_before, list(names))
+
+    def _newest_id(self, session, kind: str) -> int:
+        return max((row['id'] for row in self._newest_rows(session, kind, pages=1)), default=0)
+
+    def _find_new_wellplates(self, session, newest_before: int, names: list[str]) -> list[Wellplate]:
+        # Not stopping at the first old row: the list is ordered by update time, and a split may
+        # touch its source wellplate. Created ones are newer than anything there before.
+        pages = 2 + len(names) // 50
+        new_rows = sorted((row for row in self._newest_rows(session, 'wellplates', pages=pages)
+                           if row['id'] > newest_before), key=lambda row: row['id'])
+        found: list[int] = []
+        for name in names:
+            match = next((row['id'] for row in new_rows if row.get('name') == name and row['id'] not in found), None)
+            if match is None:
+                raise ConnectionError(f'The request was accepted, but no new wellplate "{name}" was found in '
+                                      f'"{self.label}".')
+            found.append(match)
+        root = self.get_root()
+        loader = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('wellplate')),
+                            typing.cast(int, self.id))
+        return [typing.cast(Wellplate, loader.load_element(wid)) for wid in found]
 
     def import_samples(self, file_path: str, as_chemicals: bool = False, wait: bool = True,
                        timeout: float = 300, poll_interval: float = 2) -> ImportResult | None:
