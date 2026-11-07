@@ -1,0 +1,14 @@
+{
+  "collection_id": null,
+  "type": "screen",
+  "name": "New Screen",
+  "collaborator": "",
+  "requirements": "",
+  "conditions": "",
+  "result": "",
+  "description": { "ops": [{ "insert": "\n" }] },
+  "wellplates": [],
+  "research_plans": [],
+  "segments": [],
+  "attachments": []
+}

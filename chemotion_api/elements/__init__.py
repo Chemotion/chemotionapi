@@ -8,6 +8,7 @@ from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
 from chemotion_api.elements.research_plan import ResearchPlan
+from chemotion_api.elements.screen import Screen
 from chemotion_api.elements.registry import element_class
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.connection import Connection, request_error

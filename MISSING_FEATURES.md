@@ -13,13 +13,13 @@ Status: ❌ missing · ◐ partial · ✅ done since this list was made
 
 ## 1. Element types
 
-The client loads and creates **samples, reactions, wellplates, research plans and LabIMotion
-generic elements**. `ElementSet._get_element_class` raises `TypeError` for anything else, so the
+The client loads and creates **samples, reactions, wellplates, research plans, screens and
+LabIMotion generic elements**. `ElementSet._get_element_class` raises `TypeError` for anything else, so the
 types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints |
 |---|---|---|
-| ❌ | **Screens** (wellplate containers, with research-plan links) | `ScreensFetcher` → `screens` |
+| ✅ | **Screens** (wellplate containers, with research-plan links). Done in M1.1: `Screen`, `instance.get_screen()`, `collection.new_screen()` / `get_screens()` | `ScreensFetcher` → `screens` |
 | ❌ | **Cell lines** (materials, samples, copy, split) | `CellLinesFetcher` → `cell_lines`, `cell_lines/material`, `cell_lines/copy`, `cell_lines/split`, `cell_lines/names/all` |
 | ❌ | **Vessels** (templates, instances, bulk create, name suggestions) | `VesselsFetcher` → `vessels`, `vessels/templates*`, `vessels/instances/create`, `vessels/bulk_create`, `vessels/suggest/suggest_name` |
 | ❌ | **Device descriptions** (incl. sub-devices, ontologies, device analyses) | `DeviceDescriptionFetcher` → `device_descriptions*`; `attachments/device_description_analyses` |
