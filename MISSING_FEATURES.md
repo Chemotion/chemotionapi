@@ -31,7 +31,7 @@ types below can be neither read nor written.
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
 | ✅ | **Delete elements** | `UIFetcher` → `DELETE ui_state` | Done in M0.4: `element.delete()`, `collection.delete_elements(...)`. |
-| ❌ | **Version history and revert** | `VersionsFetcher` → `versions`, `versions/revert` | |
+| ✅ | **Version history and revert** | `VersionsFetcher` → `versions`, `versions/revert` | Done in M1.5: `element.versions()`, `Version.revert()`, `VersionChange.revert()`. |
 | ✅ | **Comments** on elements and sections | `CommentFetcher` → `comments` | Done in M1.3: `element.comments()`, `element.add_comment()`, `Comment.update/resolve/delete`. Not on generic elements (the server doesn't allow it). |
 | ✅ | **Private notes** | `PrivateNoteFetcher` → `private_notes` | Done in M1.4: `element.private_note()`, `set_private_note()`, `delete_private_note()`. |
 | ◐ | **User labels** | `UserLabelsFetcher` → `user_labels/bulk` | Listing and saving are implemented. Bulk assignment is missing, and labels resolve only on samples and reactions (`user_labels_resolved`). |
