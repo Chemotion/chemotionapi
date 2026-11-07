@@ -23,6 +23,7 @@ from chemotion_api.user import UserLabel
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
 from chemotion_api.elements.registry import element_type_info, GENERIC_ELEMENTS_URL, GENERIC_RESPONSE_KEY
 from chemotion_api.elements.comments import Comment, create_comment, load_comments
+from chemotion_api.elements import private_notes
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils.segment_fields import SegmentField, iter_fields
@@ -1143,6 +1144,36 @@ class AbstractElement:
         """
         return create_comment(self._session, self.element_type, self._saved_id_for('comments'),
                               content, section)
+
+    def private_note(self) -> str | None:
+        """
+        Your private note on this element — visible only to you — or ``None`` if you have none.
+        Fetched right away.
+
+        :raises ValueError: if the element is unsaved, or of a type that takes no private notes
+            (LabIMotion generic elements).
+        """
+        return private_notes.get_private_note(self._session, self.element_type,
+                                              self._saved_id_for('private note'))
+
+    def set_private_note(self, content: str) -> None:
+        """
+        Writes your private note on this element, creating it or replacing its text. Sent right
+        away. There is one private note per user per element.
+
+        :raises ValueError: if the element is unsaved or takes no private notes.
+        """
+        private_notes.set_private_note(self._session, self.element_type,
+                                       self._saved_id_for('private note'), content)
+
+    def delete_private_note(self) -> bool:
+        """
+        Deletes your private note on this element. Sent right away.
+
+        :return: ``False`` if you had none.
+        """
+        return private_notes.delete_private_note(self._session, self.element_type,
+                                                 self._saved_id_for('private note'))
 
     def _saved_id_for(self, what: str) -> int:
         if self.is_new or self.id is None:
