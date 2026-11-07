@@ -484,6 +484,22 @@ class MoleculeManager:
             raise ValueError('The server could not read the molfile; it returned its placeholder molecule.')
         return Molecule(res_json)
 
+    def lookup_cas(self, cas_number: str) -> dict:
+        """
+        Resolves a CAS registry number to a structure, through the server's CAS/PubChem lookup
+        (``POST /api/v1/cas_lookup/lookup``): ``{'smiles', 'cas', 'source'}`` with ``source``
+        ``'cas'`` or ``'pubchem'``. Pass the SMILES to :meth:`create_molecule_by_smiles` to use it.
+
+        :raises ValueError: if no CAS number is given.
+        :raises RequestException: if the lookup fails (unknown number, or no access to CAS/PubChem).
+        """
+        if not cas_number or not cas_number.strip():
+            raise ValueError('A CAS number is required.')
+        res = self._session.post('/api/v1/cas_lookup/lookup', data={'cas_number': cas_number.strip()})
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'looking up CAS number {cas_number}')
+        return res.json()
+
     def get_molecule_by_inchikey(self, inchikey: str) -> Molecule | None:
         """
         The molecule with this InChIKey, if the server already has it, else ``None``. Nothing is
@@ -860,6 +876,15 @@ class Sample(AbstractElement):
         """
         sample_type = self.properties.get('sample_type', (self.json_data or {}).get('sample_type'))
         return sample_type == SampleType.SAMPLE_TYPE_MIXTURE.value
+
+    @property
+    def svg_path(self) -> str | None:
+        """The server path of this sample's structure image, as the UI uses it: the sample's own SVG,
+        else its molecule's; ``None`` if there is neither."""
+        if self._svg_file:
+            return f'/images/samples/{self._svg_file}'
+        molecule_svg = self.molecule['molecule_svg_file'] if self.molecule is not None else None
+        return f'/images/molecules/{molecule_svg}' if molecule_svg else None
 
     def components(self) -> list[Component]:
         """

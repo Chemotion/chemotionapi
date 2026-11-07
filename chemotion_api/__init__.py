@@ -282,6 +282,25 @@ class Instance:
         """
         return self.get_user().get_user_labels(refresh=refresh)
 
+    def suggestions(self, query: str, element_type: str = 'all', collection_id: int | None = None) -> list[dict]:
+        """
+        Search-box suggestions for ``query``, as the UI's autocomplete shows them
+        (``GET /api/v1/suggestions/:element_type``): ``{'name', 'search_by_method'}`` dicts, where
+        ``search_by_method`` says what matched, e.g. ``'sample_short_label'`` or ``'iupac_name'``.
+        For generic elements ``name`` is a dict (``{'klass', 'label', 'name', 'icon'}``).
+
+        :param element_type: ``'all'``, ``'samples'``, ``'reactions'``, ``'wellplates'``,
+            ``'screens'``, … (the server's list).
+        :param collection_id: the collection to suggest from; defaults to "All".
+        """
+        if not query:
+            return []
+        cid = collection_id if collection_id is not None else self.get_root_collection().id
+        res = self._con.get(f'/api/v1/suggestions/{element_type}', params={'query': query, 'collection_id': str(cid)})
+        if res.status_code != 200:
+            raise request_error(res, f'suggestions for {query!r}')
+        return (res.json() or {}).get('suggestions') or []
+
     def doi_metadata(self, doi: str) -> dict:
         """
         BibTeX metadata for a DOI, fetched by the server from doi.org

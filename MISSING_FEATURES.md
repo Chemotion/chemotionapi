@@ -9,7 +9,7 @@ matches were checked in the client source. A feature counts as missing when the 
 of its endpoints; "partial" means the client covers some of it. It is an endpoint-level comparison:
 a feature the UI computes in the browser without a request doesn't show up here.
 
-Status: ❌ missing · ◐ partial · ✅ done since this list was made
+Status: ❌ missing · ◐ partial · ✅ done since this list was made · — left out on purpose
 
 ## 1. Element types
 
@@ -47,8 +47,8 @@ types below can be neither read nor written.
 | ✅ | **Split / subsamples** | `SamplesFetcher` → `samples/subsamples` | Done in M2.2: `collection.split_samples(*samples)` creates linked subsamples on the server. `Sample.split()` is the local split reactions and wellplates use; saved on its own it is an unlinked copy. |
 | ✅ | **Mixtures** | `ComponentsFetcher` → `components` | Done in M2.3: `sample.components()`, `sample.save_components()`, `Component.new()`. |
 | ✅ | **Import samples from a spreadsheet / SDF** | `SamplesFetcher` → `samples/import` | Done in M2.5: `collection.import_samples(path, as_chemicals=False)`, waiting for the background job's report. The UI's column-mapping step (sending validated rows as `data`) is not covered. |
-| ❌ | **Batch-refresh sample SVGs** | `SamplesFetcher` → `samples/batch-refresh-svg` | |
-| ❌ | **CAS lookup** | `CasLookupFetcher` → `cas_lookup/lookup` | |
+| — | **Batch-refresh sample SVGs** | `SamplesFetcher` → `samples/batch-refresh-svg` | Left out on purpose (M2.7): a repair step of the UI's reaction editor that writes a rendered SVG into the server's `public/images/samples` under a file name the caller chooses. |
+| ✅ | **CAS lookup** | `CasLookupFetcher` → `cas_lookup/lookup` | Done in M2.7: `instance.molecule().lookup_cas()`. |
 | ❌ | **Sample tasks** (e.g. weighing tasks from devices) | `SampleTasksFetcher` → `sample_tasks` | |
 
 ## 4. Reactions, wellplates, research plans
@@ -56,7 +56,7 @@ types below can be neither read nor written.
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
 | ✅ | **Literature / references** | `LiteraturesFetcher` → `literatures`, `literatures/collection`, `literatures/doi/metadata` | Done in M2.6: `element.references()`, `add_reference()`, `remove_reference()`, `set_reference_type()`, `collection.references()`, `instance.doi_metadata()`. |
-| ❌ | **Reaction SVG rendering** | `ReactionSvgFetcher` → `reaction_svg` | The client loads stored images only. |
+| ✅ | **Reaction SVG rendering** | `ReactionSvgFetcher` → `reaction_svg` | Done in M2.7: `reaction.render_scheme_svg()`, plus `sample.svg_path`. |
 | ◐ | **Wellplates** | `WellplatesFetcher` → `wellplates/import_spreadsheet`, `wellplates/bulk`, `wellplates/subwellplates`, `wellplates/by_generic_element` | Create, edit and resize are implemented. Missing: spreadsheet import, bulk create, sub-wellplates, links to generic elements. |
 | ◐ | **Research plans** | `ResearchPlansFetcher` → `research_plans/linked`, `research_plans/table_schemas`, `research_plans/svg`; `research_plan_metadata` | Body editing (text, richtext, table, image) is implemented. Missing: linked elements, saved table schemas, SVG render, research-plan metadata (DataCite). |
 
@@ -95,7 +95,7 @@ types below can be neither read nor written.
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
 | ◐ | **Search** | `SearchFetcher` → `search` | M2.4 added structure search (`instance.search_structure()`: substructure and similarity, results for every element type) and fixed advanced search, which raised `TypeError` on every call. Still missing: advanced (field) search for element types other than samples and reactions, and the UI's generic-element search. |
-| ❌ | **Autocomplete suggestions** | `SuggestionsFetcher` → `suggestions` | |
+| ✅ | **Autocomplete suggestions** | `SuggestionsFetcher` → `suggestions` | Done in M2.7: `instance.suggestions()`. |
 
 ## 9. LabIMotion (generic elements, segments, datasets)
 

@@ -27,6 +27,7 @@ from requests import Response
 
 from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
 from chemotion_api.elements.registry import register_element_type
+from chemotion_api.connection import request_error
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample, SampleVariationType, GasPhaseObj
@@ -955,6 +956,38 @@ class Reaction(AbstractElement):
     def _set_json_data(self, json_data: dict):
         super()._set_json_data(json_data)
         self._svg_file = self.json_data.get('reaction_svg_file')
+
+    def render_scheme_svg(self, products_only: bool = False) -> str:
+        """
+        Renders this reaction's scheme as SVG from its current, possibly unsaved, materials and
+        conditions, the way the UI previews it (``POST /api/v1/reaction_svg``). The stored image
+        of a saved reaction is :meth:`load_image`.
+
+        :param products_only: draw only the products, without arrow and yields (the UI does this
+            for interaction reactions).
+        :return: the SVG markup.
+        """
+        props = self.properties
+        temperature = props.get('temperature') or {}
+        temp_text = f"{temperature.get('userText') or ''} {temperature.get('valueUnit') or ''}".strip() \
+            if temperature.get('userText') not in (None, '') else ''
+        body = {
+            'materials_svg_paths': {
+                'starting_materials': [m.svg_path for m in props['starting_materials']],
+                'reactants': [m.svg_path for m in props['reactants']],
+                'products': [[m.svg_path, m.properties.get('equivalent')] for m in props['products']],
+            },
+            'temperature': temp_text,
+            'solvents': [m.name for m in props['solvents'] if m.name],
+            'duration': props.get('duration') or '',
+            'conditions': props.get('conditions') or '',
+            'products_only': products_only,
+            'show_yield': not products_only,
+        }
+        res = self._session.post('/api/v1/reaction_svg', data=body)
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'rendering the scheme of reaction {self.id}')
+        return res.json()['reaction_svg']
 
     def load_image(self) -> Response:
         """
