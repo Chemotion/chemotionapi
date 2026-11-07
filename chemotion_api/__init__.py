@@ -234,6 +234,15 @@ class Instance:
         """
         return self.get_user().get_user_labels(refresh=refresh)
 
+    def save_user_label(self, label: UserLabel) -> UserLabel:
+        """Create a user label, or update one of your own. See
+        :meth:`chemotion_api.user.User.save_user_label`.
+
+        >>> label = instance.save_user_label(UserLabel(title='to check', color='#ff0000'))
+        >>> collection.update_user_labels(*samples, add=[label])
+        """
+        return self.get_user().save_user_label(label)
+
     def find_user_by_name(self, name: str) -> list[Person]:
         """
         This find_user_by_name method finds all users by name and returns the three top matches.

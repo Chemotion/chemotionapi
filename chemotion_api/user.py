@@ -221,6 +221,28 @@ class User(abc.ABC):
             self._session.reset_user_labels()
         return [UserLabel.from_json(row) for row in self._session.user_labels]
 
+    def save_user_label(self, label: UserLabel) -> UserLabel:
+        """Create a user label, or update one of your own (``PUT /api/v1/user_labels/save_label``).
+
+        A label without an :attr:`~UserLabel.id` is created; one with an id must be yours. The
+        cached label list is dropped, so the next read includes the change.
+
+        :param label: the label; ``access_level`` ``0`` (the default) keeps it private.
+        :return: the label as the server stored it.
+        :raises ValueError: if the label has no title.
+        :raises PermissionError: if the label is not yours (the server answers 404 for that).
+        """
+        if not label.title:
+            raise ValueError('A user label needs a title.')
+        body = {k: v for k, v in label.to_dict().items() if v is not None}
+        res = self._session.put('/api/v1/user_labels/save_label', data=body)
+        if res.status_code == 404:
+            raise PermissionError(f'User label {label.id} is not one of yours.')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        self._session.reset_user_labels()
+        return UserLabel.from_json(res.json())
+
     def is_admin(self):
         return self._is_admin(self.user_type)
 

@@ -29,7 +29,7 @@ from chemotion_api.element_manager import ElementManager
 
 from chemotion_api.utils import break_parent_cycles
 from chemotion_api.elements import ElementSet, AbstractElement
-from chemotion_api.elements.abstract_element import delete_elements
+from chemotion_api.elements.abstract_element import delete_elements, ui_state_selection
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
@@ -66,6 +66,17 @@ def _share_target_ids(users) -> list[int]:
             "share() takes people and groups; cannot share with " + ", ".join(rejected))
     if not ids:
         raise ValueError("share() needs at least one person or group to share with")
+    return ids
+
+
+def _label_ids(labels) -> list[int]:
+    """User labels given as :class:`~chemotion_api.user.UserLabel` objects or ids, as ids."""
+    ids = []
+    for label in labels:
+        label_id = label if isinstance(label, int) and not isinstance(label, bool) else getattr(label, 'id', None)
+        if not isinstance(label_id, int):
+            raise ValueError(f'Not a user label or label id: {label!r}')
+        ids.append(label_id)
     return ids
 
 
@@ -527,6 +538,38 @@ class AbstractCollection:
             raise ValueError(f'Collection "{self.label}" cannot hold elements')
         return delete_elements(self.get_root()._session, elements, collection_id=self.id,
                                delete_subsamples=delete_subsamples)
+
+    def update_user_labels(self, *elements, add=(), remove=()) -> None:
+        """Add and remove user labels on several elements of this collection in one go.
+
+        ``POST /api/v1/user_labels/bulk``, the UI's bulk label action. Labels can be given as
+        :class:`~chemotion_api.user.UserLabel` objects or ids. Changes are applied in one
+        transaction, right away; reload elements to see them.
+
+        The server only applies labels **you own**: others in ``add``/``remove`` are dropped, and
+        other users' private labels already on an element are left alone. Elements not in this
+        collection are skipped.
+
+        :param elements: saved elements of this collection, of any type (generic ones included).
+        :param add: labels to put on every element.
+        :param remove: labels to take off every element.
+        :raises ValueError: if no elements or no labels are given, or an element is unsaved.
+        :raises PermissionError: if none of the labels is yours, or you may not edit an element.
+        """
+        add_ids, remove_ids = _label_ids(add), _label_ids(remove)
+        if not add_ids and not remove_ids:
+            raise ValueError('Give labels to add or remove.')
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        ui_state: dict[str, Any] = {'currentCollection': {'id': self.id}}
+        ui_state |= ui_state_selection(elements, 'label')
+        session = self.get_root()._session
+        res = session.post('/api/v1/user_labels/bulk', data={
+            'ui_state': ui_state, 'add_label_ids': add_ids, 'remove_label_ids': remove_ids})
+        if res.status_code in (401, 403):
+            raise PermissionError(f'Labels not applied ({res.status_code}): {res.text}')
+        if res.status_code not in (200, 201, 204):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
 
     def move_elements(self, dest: AbstractCollection, *elements) -> list[int]:
         """Move elements from this collection into ``dest``.

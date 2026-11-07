@@ -20,8 +20,8 @@ class Screen(AbstractElement):
     together. It extends :class:`chemotion_api.elements.abstract_element.AbstractElement`.
 
     Its properties are ``name``, ``collaborator``, ``requirements``, ``conditions`` and ``result``
-    (plain strings), ``description`` (a Quill delta like a wellplate's), and the linked
-    ``wellplates`` and ``research_plans``. The links are saved by id, so a wellplate or research plan
+    (plain strings), ``description`` (a Quill delta like a wellplate's), ``user_labels`` (label
+    ids), and the linked ``wellplates`` and ``research_plans``. The links are saved by id, so a wellplate or research plan
     has to be saved before it can be added.
 
     Usage::
@@ -39,6 +39,7 @@ class Screen(AbstractElement):
         data = cast(dict, self.json_data)
         props: dict = {key: data.get(key) for key in TEXT_FIELDS}
         props['description'] = data.get('description')
+        props['user_labels'] = data.get('user_labels') or []
         props['wellplates'] = [Wellplate(self._generic_segments, self._session, json_data=wp)
                                for wp in data.get('wellplates') or []]
         props['research_plans'] = [ResearchPlan(self._generic_segments, self._session, json_data=rp)
@@ -52,6 +53,7 @@ class Screen(AbstractElement):
         for key in TEXT_FIELDS:
             out[key] = self.properties.get(key)
         out['description'] = self.properties.get('description')
+        out['user_labels'] = self.properties.get('user_labels')
         out['wellplate_ids'] = [self._saved_id(wp, 'wellplate') for wp in self.wellplates]
         out['research_plan_ids'] = [self._saved_id(rp, 'research plan') for rp in self.research_plans]
         return out
