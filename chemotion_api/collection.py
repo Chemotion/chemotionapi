@@ -9,6 +9,8 @@ elements, and sharing/syncing.
 import json
 import os
 import re
+import time
+from dataclasses import dataclass
 import typing
 import logging
 from datetime import datetime
@@ -68,6 +70,33 @@ def _share_target_ids(users) -> list[int]:
     if not ids:
         raise ValueError("share() needs at least one person or group to share with")
     return ids
+
+
+#: File types the sample import accepts (``ImportSamplesJob``).
+SAMPLE_IMPORT_FORMATS = ('.sdf', '.mol', '.csv', '.xlsx')
+#: The channel subject of the import's completion notification.
+IMPORT_SAMPLES_SUBJECT = 'Import Samples Completed'
+
+
+@dataclass(frozen=True)
+class ImportResult:
+    """The outcome of :meth:`AbstractCollection.import_samples`, as the server reported it."""
+    #: ``'success'``, ``'warning'`` (partly imported), ``'error'`` or ``'info'``.
+    level: str
+    #: The server's summary, e.g. "Created 2 samples. Import successful!".
+    message: str
+    #: A link to the downloadable import report, when the server wrote one.
+    report_url: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return self.level == 'success'
+
+    @classmethod
+    def from_message(cls, message: dict) -> ImportResult:
+        content = message.get('content') or {}
+        return cls(level=content.get('level') or 'info', message=str(content.get('data') or '').strip(),
+                   report_url=content.get('url'))
 
 
 def _label_ids(labels) -> list[int]:
@@ -610,6 +639,66 @@ class AbstractCollection:
             if len(rows) < 50:
                 return
             page += 1
+
+    def import_samples(self, file_path: str, as_chemicals: bool = False, wait: bool = True,
+                       timeout: float = 300, poll_interval: float = 2) -> ImportResult | None:
+        """Import samples from an SDF, MOL, CSV or XLSX file into this collection, like the UI's
+        *Import samples* dialog. ``POST /api/v1/samples/import``.
+
+        The server imports in a background job and reports the outcome as a notification. With
+        ``wait`` (the default) this polls your notifications until that report arrives; the
+        imported samples are then in this collection.
+
+        :param file_path: the file; its extension picks the format (``.sdf``, ``.mol``, ``.csv``,
+            ``.xlsx``). Spreadsheets use the ELN's import template columns.
+        :param as_chemicals: import into the chemical inventory instead (the UI's "import as
+            chemicals"): the samples become inventory samples with chemical data.
+        :param wait: wait for the import to finish.
+        :param timeout: seconds to wait before giving up with :class:`TimeoutError` (the import
+            keeps running on the server).
+        :param poll_interval: seconds between notification checks.
+        :return: the outcome when waiting, else ``None``.
+        :raises ValueError: for an unsupported file type, or a collection that cannot hold elements.
+        :raises PermissionError: if this is not one of your collections.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext not in SAMPLE_IMPORT_FORMATS:
+            raise ValueError(f'Cannot import {ext or "files without an extension"}; '
+                             f'use one of {", ".join(SAMPLE_IMPORT_FORMATS)}.')
+        session = self.get_root()._session
+        seen = {m['id'] for m in self._import_reports(session)} if wait else set()
+        with open(file_path, 'rb') as f:
+            res = session.post('/api/v1/samples/import',
+                               data={'currentCollectionId': self.id,
+                                     'import_type': 'chemical' if as_chemicals else 'sample'},
+                               files={'file': (os.path.basename(file_path), f)})
+        if res.status_code == 401:
+            raise PermissionError(f'You can only import into your own collections, not "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        if not wait:
+            return None
+
+        deadline = time.monotonic() + timeout
+        while True:
+            for message in self._import_reports(session):
+                if message['id'] not in seen:
+                    return ImportResult.from_message(message)
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f'The import into "{self.label}" did not report back within {timeout} s; '
+                                   'it may still be running on the server.')
+            time.sleep(poll_interval)
+
+    def _import_reports(self, session) -> list[dict]:
+        """Your sample-import notifications for this collection (acknowledged ones included)."""
+        res = session.get('/api/v1/messages/list', params={'is_ack': 9})
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        return [m for m in res.json().get('messages') or []
+                if (m.get('content') or {}).get('channel_subject') == IMPORT_SAMPLES_SUBJECT
+                and (m.get('content') or {}).get('collection_id') == self.id]
 
     def update_user_labels(self, *elements, add=(), remove=()) -> None:
         """Add and remove user labels on several elements of this collection in one go.
