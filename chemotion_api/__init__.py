@@ -26,6 +26,7 @@ from chemotion_api.inbox import Inbox
 from chemotion_api.labImotion import GenericManager
 from chemotion_api.search.reaction import ReactionSearcher
 from chemotion_api.search.sample import SampleSearcher
+from chemotion_api.search.structure import StructureSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import quote, urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, \
@@ -448,6 +449,23 @@ class Instance:
         :return: ReactionSearcher
         """
         return ReactionSearcher(self._con, self.element_manager, self.get_root_collection().id)
+
+    def search_structure(self) -> StructureSearcher:
+        """
+        Returns a :class:`~chemotion_api.search.structure.StructureSearcher` for substructure and
+        similarity searches, the UI's structure search. Results cover every element type: the
+        matching samples and the reactions, wellplates, screens, research plans and generic
+        elements associated with them.
+
+        Usage::
+
+        >>> result = instance.search_structure().substructure('c1ccccc1O').find_max(50).request()
+        >>> phenols = list(result.samples)
+        >>> similar = instance.search_structure().similar('CCO', threshold=0.8).request()
+
+        :return: StructureSearcher
+        """
+        return StructureSearcher(self._con, self.element_manager, self.get_root_collection().id)
 
     @property
     def all_element_classes(self) -> dict[str, dict[str, str]]:

@@ -94,7 +94,7 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ◐ | **Search** | `SearchFetcher` → `search` | Advanced (field) search for samples and reactions is implemented. Missing: structure / substructure / similarity search, search over other element types, and the UI's detail and generic-element searches. |
+| ◐ | **Search** | `SearchFetcher` → `search` | M2.4 added structure search (`instance.search_structure()`: substructure and similarity, results for every element type) and fixed advanced search, which raised `TypeError` on every call. Still missing: advanced (field) search for element types other than samples and reactions, and the UI's generic-element search. |
 | ❌ | **Autocomplete suggestions** | `SuggestionsFetcher` → `suggestions` | |
 
 ## 9. LabIMotion (generic elements, segments, datasets)
