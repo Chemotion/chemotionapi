@@ -46,7 +46,7 @@ types below can be neither read nor written.
 | ◐ | **Molecules** | `MoleculesFetcher` → `molecules/{editor,names,save_name,delete_name,cas,svg,sf,inchikey,compute,molecular_weight,decouple}` | M2.1 added molfile input (`create_molecule_by_molfile`, `collection.new_sample_molfile`), InChIKey lookup, CAS, names (list and add), SVG render and download, and molecular weight. Still missing: the molecule-editor routes (`editor`, `save_name`, `delete_name`, which need that ELN right), `compute`, and SciFinder (`sf`, M7.7). |
 | ✅ | **Split / subsamples** | `SamplesFetcher` → `samples/subsamples` | Done in M2.2: `collection.split_samples(*samples)` creates linked subsamples on the server. `Sample.split()` is the local split reactions and wellplates use; saved on its own it is an unlinked copy. |
 | ✅ | **Mixtures** | `ComponentsFetcher` → `components` | Done in M2.3: `sample.components()`, `sample.save_components()`, `Component.new()`. |
-| ❌ | **Import samples from a spreadsheet / SDF** | `SamplesFetcher` → `samples/import` | |
+| ✅ | **Import samples from a spreadsheet / SDF** | `SamplesFetcher` → `samples/import` | Done in M2.5: `collection.import_samples(path, as_chemicals=False)`, waiting for the background job's report. The UI's column-mapping step (sending validated rows as `data`) is not covered. |
 | ❌ | **Batch-refresh sample SVGs** | `SamplesFetcher` → `samples/batch-refresh-svg` | |
 | ❌ | **CAS lookup** | `CasLookupFetcher` → `cas_lookup/lookup` | |
 | ❌ | **Sample tasks** (e.g. weighing tasks from devices) | `SampleTasksFetcher` → `sample_tasks` | |
