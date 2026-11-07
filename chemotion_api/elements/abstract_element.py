@@ -20,6 +20,7 @@ from chemotion_api.elements.attachments import Attachments, MutableAttachments
 from chemotion_api.elements.registry import element_type_info, GENERIC_ELEMENTS_URL, GENERIC_RESPONSE_KEY
 from chemotion_api.elements.comments import Comment, create_comment, load_comments
 from chemotion_api.elements import private_notes
+from chemotion_api.elements.versions import Version, load_versions
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils.segment_fields import SegmentField, iter_fields
@@ -1121,6 +1122,17 @@ class AbstractElement:
         """
         return private_notes.delete_private_note(self._session, self.element_type,
                                                  self._saved_id_for('private note'))
+
+    def versions(self) -> list[Version]:
+        """
+        This element's change history, newest first, fetched right away. Each
+        :class:`~chemotion_api.elements.versions.Version` can be reverted, whole or field by field;
+        reload the element afterwards to see the result.
+
+        :raises ValueError: if the element is unsaved, or of a type without a history (LabIMotion
+            generic elements).
+        """
+        return load_versions(self._session, self.element_type, self._saved_id_for('version history'))
 
     def _saved_id_for(self, what: str) -> int:
         if self.is_new or self.id is None:
