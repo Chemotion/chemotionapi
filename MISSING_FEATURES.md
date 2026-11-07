@@ -32,7 +32,7 @@ types below can be neither read nor written.
 |---|---|---|---|
 | ✅ | **Delete elements** | `UIFetcher` → `DELETE ui_state` | Done in M0.4: `element.delete()`, `collection.delete_elements(...)`. |
 | ❌ | **Version history and revert** | `VersionsFetcher` → `versions`, `versions/revert` | |
-| ❌ | **Comments** on elements and sections | `CommentFetcher` → `comments` | |
+| ✅ | **Comments** on elements and sections | `CommentFetcher` → `comments` | Done in M1.3: `element.comments()`, `element.add_comment()`, `Comment.update/resolve/delete`. Not on generic elements (the server doesn't allow it). |
 | ❌ | **Private notes** | `PrivateNoteFetcher` → `private_notes` | Only usable as a search filter. |
 | ◐ | **User labels** | `UserLabelsFetcher` → `user_labels/bulk` | Listing and saving are implemented. Bulk assignment is missing, and labels resolve only on samples and reactions (`user_labels_resolved`). |
 | ✅ | **Find by short label** | `SamplesFetcher`, `ReactionsFetcher` → `*/findByShortLabel` | Done in M1.2: `instance.find_sample_by_short_label()`, `find_reaction_by_short_label()`. |

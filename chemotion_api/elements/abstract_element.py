@@ -18,6 +18,7 @@ from chemotion_api.connection import Connection, request_error
 from chemotion_api.user import UserLabel
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
 from chemotion_api.elements.registry import element_type_info, GENERIC_ELEMENTS_URL, GENERIC_RESPONSE_KEY
+from chemotion_api.elements.comments import Comment, create_comment, load_comments
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils.segment_fields import SegmentField, iter_fields
@@ -1065,6 +1066,35 @@ class AbstractElement:
         :raises ValueError: if the element has not been saved.
         """
         return not delete_elements(self._session, [self], delete_subsamples=delete_subsamples)
+
+    def comments(self) -> list[Comment]:
+        """
+        The comments on this element and its sections, fetched right away. Pending comments come
+        first, then by section, newest first.
+
+        :raises ValueError: if the element is unsaved, or of a type that takes no comments
+            (LabIMotion generic elements).
+        """
+        return load_comments(self._session, self.element_type, self._saved_id_for('comments'))
+
+    def add_comment(self, content: str, section: str | None = None) -> Comment:
+        """
+        Comments on this element, or on one of its sections. Sent right away.
+
+        :param content: the comment text.
+        :param section: ``None`` for the element as a whole, or a section such as
+            ``'properties'`` or ``'analyses'`` (see :data:`chemotion_api.elements.comments.SECTIONS`;
+            the server's full value, e.g. ``'sample_analyses'``, works too).
+        :return: the new comment.
+        :raises ValueError: if the element is unsaved, takes no comments, or has no such section.
+        """
+        return create_comment(self._session, self.element_type, self._saved_id_for('comments'),
+                              content, section)
+
+    def _saved_id_for(self, what: str) -> int:
+        if self.is_new or self.id is None:
+            raise ValueError(f'Save the {self.element_type} before using its {what}.')
+        return self.id
 
     def _web_collection_id(self) -> int | str:
         if (self.json_data or {}).get('collection_id') is not None:
