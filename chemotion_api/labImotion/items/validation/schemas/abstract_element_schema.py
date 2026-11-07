@@ -39,6 +39,12 @@ generic_element_schema = {
         "metadata": {
             "type": ["object", "null"]
         },
+        # labimotion >= 2.3.4: the metadata the active release was cut with (`metadata` follows
+        # every save, drafts included). null when the klass was never released; absent on older
+        # servers and on endpoints that don't preload it — so it is allowed but never required.
+        "metadata_release": {
+            "type": ["object", "null"]
+        },
         "created_by": {
             "type": "number"
         },
