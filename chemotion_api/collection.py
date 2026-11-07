@@ -25,7 +25,7 @@ from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, 
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 
 from chemotion_api.element_manager import ElementManager
 
@@ -1428,6 +1428,59 @@ class Collection(AbstractEditableCollection):
         if res.status_code not in (200, 201):
             raise ConnectionError(f"{res.status_code} -> {res.text}")
         return res.json() if res.content else {}
+
+    def metadata(self) -> dict | None:
+        """This collection's publication metadata (DataCite fields such as ``title``,
+        ``creators``, ``description``, ``subjects``), as the UI's *Metadata* dialog edits it, or
+        ``None`` if none was saved. ``GET /api/v1/collections/:id/metadata``.
+
+        Only your own collections have metadata you can read.
+        """
+        res = self._root_session().get(f'/api/v1/collections/{self.id}/metadata')
+        if res.status_code == 404:
+            return None
+        if res.status_code != 200:
+            raise request_error(res, f'loading the metadata of collection "{self.label}"')
+        return (res.json() or {}).get('metadata')
+
+    def save_metadata(self, metadata: dict) -> dict:
+        """Replace this collection's publication metadata (``POST /api/v1/collections/metadata``).
+
+        The server stores the dict as given; the UI's dialog writes DataCite keys, e.g.
+        ``{'title': ..., 'description': ..., 'creators': [{'givenName': ..., 'familyName': ...}],
+        'subjects': [{'subject': ...}]}``.
+
+        :return: the stored metadata.
+        :raises ValueError: if this is not one of your own collections.
+        """
+        if not isinstance(metadata, dict):
+            raise ValueError('metadata is a dict of DataCite fields.')
+        res = self._root_session().post('/api/v1/collections/metadata',
+                                        data={'collection_id': self.id, 'metadata': metadata})
+        if res.status_code == 404:
+            raise ValueError(f'Only your own collections have metadata; "{self.label}" is not one of them.')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'saving the metadata of collection "{self.label}"')
+        return (res.json() or {}).get('metadata') or {}
+
+    def take_ownership(self) -> dict:
+        """Accept an ownership offer: become the owner of this collection shared with you, and of
+        all its sub-collections and elements. ``POST /api/v1/collection_shares/take_ownership/:id``.
+
+        The owner offers it by sharing the collection with you at
+        :attr:`CollectionSharePermission.PassOwnership`. The former owner keeps a
+        :attr:`~CollectionSharePermission.ManageShares` share. Reload your collection tree to see
+        the collection among your own.
+
+        :return: the collection, as the server now lists it among yours.
+        :raises PermissionError: if you hold no ownership offer for this collection, or it is locked.
+        """
+        res = self._root_session().post(f'/api/v1/collection_shares/take_ownership/{self.id}')
+        if res.status_code in (401, 403, 422):
+            raise PermissionError(f'Cannot take ownership of "{self.label}": {res.text}')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'taking ownership of collection "{self.label}"')
+        return (res.json() or {}).get('collection') or {}
 
     def get_shares(self) -> list[dict]:
         """Return this collection's shares, as the server reports them.
