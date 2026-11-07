@@ -9,7 +9,7 @@ matches were checked in the client source. A feature counts as missing when the 
 of its endpoints; "partial" means the client covers some of it. It is an endpoint-level comparison:
 a feature the UI computes in the browser without a request doesn't show up here.
 
-Status: ❌ missing · ◐ partial
+Status: ❌ missing · ◐ partial · ✅ done since this list was made
 
 ## 1. Element types
 
@@ -30,7 +30,7 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ❌ | **Delete elements** | `UIFetcher` → `DELETE ui_state` | The client can remove elements from a collection (`remove_elements`), not delete them. |
+| ✅ | **Delete elements** | `UIFetcher` → `DELETE ui_state` | Done in M0.4: `element.delete()`, `collection.delete_elements(...)`. |
 | ❌ | **Version history and revert** | `VersionsFetcher` → `versions`, `versions/revert` | |
 | ❌ | **Comments** on elements and sections | `CommentFetcher` → `comments` | |
 | ❌ | **Private notes** | `PrivateNoteFetcher` → `private_notes` | Only usable as a search filter. |
