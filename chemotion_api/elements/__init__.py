@@ -8,6 +8,7 @@ from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
 from chemotion_api.elements.research_plan import ResearchPlan
+from chemotion_api.elements.registry import element_class
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
@@ -267,16 +268,7 @@ class ElementSet(list):
     def _get_element_class(self) -> type[AbstractElement]:
         if self._element_type['is_generic']:
             return GenericElement
-        elif self._element_type['name'] == 'sample':
-            return Sample
-        elif self._element_type['name'] == 'reaction':
-            return Reaction
-        elif self._element_type['name'] == 'wellplate':
-            return Wellplate
-        elif self._element_type['name'] == 'research_plan':
-            return ResearchPlan
-
-        raise TypeError('Generic type "{}" cannot be found'.format(self._element_type['name']))
+        return element_class(self._element_type['name'])
 
     def _get_result_key(self):
         if self._element_type['is_generic']:

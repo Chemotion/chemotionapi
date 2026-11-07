@@ -17,6 +17,7 @@ from chemotion_api.elements.analyses_manager import AnalysesManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.user import UserLabel
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
+from chemotion_api.elements.registry import element_type_info, GENERIC_ELEMENTS_URL, GENERIC_RESPONSE_KEY
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils.segment_fields import SegmentField, iter_fields
@@ -1182,15 +1183,8 @@ class AbstractElement:
 
         :return: the key of the element in the server response
         """
-        if name == 'sample':
-            return 'sample'
-        elif name == 'reaction':
-            return 'reaction'
-        elif name == 'wellplate':
-            return 'wellplate'
-        elif name == 'research_plan':
-            return 'research_plan'
-        return 'element'
+        info = element_type_info(name)
+        return info.response_key if info is not None else GENERIC_RESPONSE_KEY
 
     @classmethod
     def get_url(cls, name: str) -> str:
@@ -1201,12 +1195,5 @@ class AbstractElement:
 
         :return: The load url
         """
-        if name == 'sample':
-            return '/api/v1/samples'
-        elif name == 'reaction':
-            return '/api/v1/reactions'
-        elif name == 'wellplate':
-            return '/api/v1/wellplates'
-        elif name == 'research_plan':
-            return '/api/v1/research_plans'
-        return f'/api/v1/generic_elements'
+        info = element_type_info(name)
+        return info.url if info is not None else GENERIC_ELEMENTS_URL

@@ -18,6 +18,7 @@ from chemotion_api.elements.utils.converter import convert_value_to_default
 from chemotion_api.elements.utils.equivalent import get_equivalent
 from chemotion_api.user import User
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 from chemotion_api.elements.empty_elements import init_container
 
 logger = logging.getLogger(__name__)
@@ -320,6 +321,7 @@ class MoleculeManager:
         raise NotImplementedError
 
 
+@register_element_type('sample', url='/api/v1/samples')
 class Sample(AbstractElement):
     """
     A chemotion Sample object.
