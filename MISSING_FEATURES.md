@@ -43,7 +43,7 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ◐ | **Molecules** | `MoleculesFetcher` → `molecules/{editor,names,save_name,delete_name,cas,svg,sf,inchikey,compute,molecular_weight,decouple}` | Only `molecules/smiles` is used: no molfile/editor input, molecule name management, CAS lookup, SVG rendering, sum-formula molecules or computed properties. |
+| ◐ | **Molecules** | `MoleculesFetcher` → `molecules/{editor,names,save_name,delete_name,cas,svg,sf,inchikey,compute,molecular_weight,decouple}` | M2.1 added molfile input (`create_molecule_by_molfile`, `collection.new_sample_molfile`), InChIKey lookup, CAS, names (list and add), SVG render and download, and molecular weight. Still missing: the molecule-editor routes (`editor`, `save_name`, `delete_name`, which need that ELN right), `compute`, and SciFinder (`sf`, M7.7). |
 | ◐ | **Split / subsamples** | `SamplesFetcher` → `samples/subsamples` | `Sample.copy()` copies the JSON locally. It doesn't create a server-side split linked to its parent. |
 | ◐ | **Mixtures** | `ComponentsFetcher` → `components` | Components pass through unchanged and can't be edited. |
 | ❌ | **Import samples from a spreadsheet / SDF** | `SamplesFetcher` → `samples/import` | |
