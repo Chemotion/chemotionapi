@@ -23,7 +23,8 @@ from chemotion_api.user import UserLabel
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
 from chemotion_api.elements.registry import element_type_info, GENERIC_ELEMENTS_URL, GENERIC_RESPONSE_KEY
 from chemotion_api.elements.comments import Comment, create_comment, load_comments
-from chemotion_api.elements import private_notes
+from chemotion_api.elements import private_notes, literature
+from chemotion_api.elements.literature import Reference
 from chemotion_api.elements.versions import Version, load_versions
 
 from chemotion_api.generic_segments import GenericSegments
@@ -1184,6 +1185,39 @@ class AbstractElement:
             generic elements).
         """
         return load_versions(self._session, self.element_type, self._saved_id_for('version history'))
+
+    def references(self) -> list[Reference]:
+        """
+        The literature references of this element, fetched right away.
+
+        :raises ValueError: if the element is unsaved, or of a type without references (generic
+            elements).
+        """
+        return literature.load_references(self._session, self.element_type, self._saved_id_for('references'))
+
+    def add_reference(self, doi: str | None = None, url: str | None = None, title: str | None = None,
+                      isbn: str | None = None, bibtex: str | None = None,
+                      litype: str = 'citedOwn') -> list[Reference]:
+        """
+        Cites a reference on this element, sent right away. The server reuses an existing
+        literature record with the same DOI, URL, title and ISBN. Fetch BibTeX for a DOI with
+        :meth:`chemotion_api.Instance.doi_metadata`.
+
+        :param litype: one of :data:`chemotion_api.elements.literature.REFERENCE_TYPES`.
+        :return: the element's references afterwards.
+        """
+        return literature.add_reference(self._session, self.element_type, self._saved_id_for('references'),
+                                        doi=doi, url=url, title=title, isbn=isbn, bibtex=bibtex, litype=litype)
+
+    def remove_reference(self, reference: Reference) -> None:
+        """Removes a reference from this element (the literature record itself stays). Sent right away."""
+        literature.remove_reference(self._session, self.element_type, self._saved_id_for('references'),
+                                    reference)
+
+    def set_reference_type(self, reference: Reference, litype: str) -> list[Reference]:
+        """Changes how this element cites a reference, e.g. to ``'citedRef'``. Sent right away."""
+        return literature.set_reference_type(self._session, self.element_type,
+                                             self._saved_id_for('references'), reference, litype)
 
     def _saved_id_for(self, what: str) -> int:
         if self.is_new or self.id is None:

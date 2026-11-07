@@ -37,6 +37,7 @@ from chemotion_api.connection import Connection, request_error
 # Rich-text helpers, public: reaction descriptions/observations and wellplate/screen descriptions
 # are Quill deltas, written explicitly with text_to_quill() and read back with quill_to_text().
 from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
+from chemotion_api.elements import literature
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 #: Shown by :meth:`Instance.login` and by ``Instance(username=..., password=...)``.
@@ -280,6 +281,16 @@ class Instance:
         :raise PermissionError: if the labels cannot be fetched. Make sure that you are logged in.
         """
         return self.get_user().get_user_labels(refresh=refresh)
+
+    def doi_metadata(self, doi: str) -> dict:
+        """
+        BibTeX metadata for a DOI, fetched by the server from doi.org
+        (``GET /api/v1/literatures/doi/metadata``): ``{'bibtex': str, 'BTjson': dict}``.
+
+        :raises ValueError: if ``doi`` is not a DOI.
+        :raises RequestException: if doi.org cannot be reached or does not know the DOI.
+        """
+        return literature.doi_metadata(self._con, doi)
 
     def save_user_label(self, label: UserLabel) -> UserLabel:
         """Create a user label (``label.id`` is ``None``) or update one of yours.
