@@ -402,7 +402,8 @@ class ResearchPlan(AbstractElement):
         self._image_values: dict[str, dict] = {}     # image identifier -> the stored block value
         body = cast(dict, self.json_data).get('body')
         return self._validated_properties({
-            'body': [self._parse_body_element(x) for x in cast(list, body)]
+            'body': [self._parse_body_element(x) for x in cast(list, body)],
+            'user_labels': cast(dict, self.json_data).get('user_labels') or [],
         })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
@@ -410,7 +411,7 @@ class ResearchPlan(AbstractElement):
         for elem in self.body:
             cast(dict, self.json_data)['body'].append(self._reparse_body_element(elem))
 
-        return cast(dict, self.json_data)
+        return cast(dict, self.json_data) | {'user_labels': self.properties.get('user_labels')}
 
     def add_richtext(self, text: str | None = None, at_idx: int | None = None) -> RichText:
         """

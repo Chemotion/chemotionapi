@@ -254,6 +254,7 @@ class WellplatePropertiesModel(_PropertiesBase):
     model_config = ConfigDict(extra='allow')
     name: str | None = None
     description: dict[str, Any] | None = None
+    user_labels: list[int] = Field(default_factory=list)
 
 
 class ResearchPlanPropertiesModel(_PropertiesBase):
@@ -265,6 +266,7 @@ class ResearchPlanPropertiesModel(_PropertiesBase):
     """
     model_config = ConfigDict(extra='allow')
     body: list[Any] = Field(default_factory=list)
+    user_labels: list[int] = Field(default_factory=list)
 
 
 class ScreenPropertiesModel(_PropertiesBase):

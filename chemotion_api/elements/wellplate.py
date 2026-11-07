@@ -247,7 +247,8 @@ class Wellplate(AbstractElement):
     def _parse_properties(self) -> dict:
         return self._validated_properties({
             'name': cast(dict, self.json_data).get('name'),
-            'description': cast(dict, self.json_data).get('description')
+            'description': cast(dict, self.json_data).get('description'),
+            'user_labels': cast(dict, self.json_data).get('user_labels') or [],
         })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
@@ -280,6 +281,7 @@ class Wellplate(AbstractElement):
             'wells': out_wells,
             'name': self.properties.get('name'),
             'description': self.properties.get('description'),
+            'user_labels': self.properties.get('user_labels'),
         }
 
 

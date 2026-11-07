@@ -665,10 +665,8 @@ class AbstractElement:
         """The element's user labels, resolved from ids to :class:`UserLabel` objects.
 
         .. note::
-           Populated for **samples and reactions**. The server also exposes ``user_labels`` on
-           wellplates, research plans and screens, but only ``Sample`` and ``Reaction`` currently
-           map it into ``properties``, so this returns an empty list on the others even when they
-           do carry labels.
+           Populated for samples, reactions, wellplates, research plans and screens. Generic
+           elements keep their labels elsewhere, so this is empty for them.
 
 
         Elements carry user labels as bare numeric ids (``properties['user_labels']``), which on
@@ -1425,6 +1423,28 @@ class AbstractElement:
         return info.url if info is not None else GENERIC_ELEMENTS_URL
 
 
+def ui_state_selection(elements, action: str) -> dict[str, dict[str, Any]]:
+    """
+    The per-type part of a UI ``ui_state`` selecting exactly ``elements``:
+    ``{type: {'checkedAll': False, 'checkedIds': [...]}}``.
+
+    ``checkedAll`` is deliberately never set: the server resolves it to every element of the type in
+    the collection, so one request could reach a user's whole library.
+
+    :param action: what the selection is for, used in the error message.
+    :raises ValueError: if no elements are given or one is unsaved.
+    """
+    selection: dict[str, dict[str, Any]] = {}
+    for element in elements:
+        if getattr(element, 'is_new', False) or element.id is None:
+            raise ValueError(f'The element has not been saved yet, so it cannot be used to {action}.')
+        selection.setdefault(element.element_type, {'checkedAll': False, 'checkedIds': []})['checkedIds'] \
+            .append(element.id)
+    if not selection:
+        raise ValueError('No elements given.')
+    return selection
+
+
 def delete_elements(session: Connection, elements, collection_id: int | None = None,
                     delete_subsamples: bool = False) -> list[AbstractElement]:
     """
@@ -1458,22 +1478,12 @@ def delete_elements(session: Connection, elements, collection_id: int | None = N
     :raises ConnectionError: if the request fails, or checking an element afterwards does.
     """
     elements = list(elements)
-    if not elements:
-        raise ValueError('No elements given.')
-
     ui_state: dict[str, Any] = {
         'currentCollection': {'id': collection_id} if collection_id is not None else {},
         'options': {'deleteSubsamples': bool(delete_subsamples)},
-        'selecteds': [],
     }
-    for element in elements:
-        if getattr(element, 'is_new', False) or element.id is None:
-            raise ValueError('The element has not been saved yet, so there is nothing to delete.')
-        kind = element.element_type
-        # `checkedAll` is deliberately never sent: the server resolves it to every element of the
-        # type in the collection.
-        ui_state.setdefault(kind, {'checkedAll': False, 'checkedIds': []})['checkedIds'].append(element.id)
-        ui_state['selecteds'].append({'type': kind, 'id': element.id})
+    ui_state |= ui_state_selection(elements, 'delete')
+    ui_state['selecteds'] = [{'type': e.element_type, 'id': e.id} for e in elements]
 
     res = session.delete('/api/v1/ui_state', data=json.dumps(ui_state),
                          headers=session.get_json_session_header())

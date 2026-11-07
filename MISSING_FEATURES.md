@@ -34,7 +34,7 @@ types below can be neither read nor written.
 | ✅ | **Version history and revert** | `VersionsFetcher` → `versions`, `versions/revert` | Done in M1.5: `element.versions()`, `Version.revert()`, `VersionChange.revert()`. |
 | ✅ | **Comments** on elements and sections | `CommentFetcher` → `comments` | Done in M1.3: `element.comments()`, `element.add_comment()`, `Comment.update/resolve/delete`. Not on generic elements (the server doesn't allow it). |
 | ✅ | **Private notes** | `PrivateNoteFetcher` → `private_notes` | Done in M1.4: `element.private_note()`, `set_private_note()`, `delete_private_note()`. |
-| ◐ | **User labels** | `UserLabelsFetcher` → `user_labels/bulk` | Listing and saving are implemented. Bulk assignment is missing, and labels resolve only on samples and reactions (`user_labels_resolved`). |
+| ✅ | **User labels** | `UserLabelsFetcher` → `user_labels/bulk`, `user_labels/save_label` | Done in M1.6: `instance.save_user_label()`, `collection.update_user_labels()`, and `properties['user_labels']` on wellplates, research plans and screens too. (Saving labels was missing as well, not only bulk assignment as listed here before.) |
 | ✅ | **Find by short label** | `SamplesFetcher`, `ReactionsFetcher` → `*/findByShortLabel` | Done in M1.2: `instance.find_sample_by_short_label()`, `find_reaction_by_short_label()`. |
 | ❌ | **Print codes / barcodes / QR, code logs** | `CodeLogsFetcher` → `code_logs/generic`; `PrintCodeFetcher` | |
 | ❌ | **Element explorer** (relation graph) | `ExplorerFetcher` → `explorer` | |
