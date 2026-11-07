@@ -39,6 +39,7 @@ from chemotion_api import reports
 # are Quill deltas, written explicitly with text_to_quill() and read back with quill_to_text().
 from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
 from chemotion_api.elements import literature, research_plan
+from chemotion_api.text_templates import TextTemplates
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 #: Shown by :meth:`Instance.login` and by ``Instance(username=..., password=...)``.
@@ -351,6 +352,11 @@ class Instance:
     def delete_research_plan_table_schema(self, schema_id: int) -> None:
         """Delete one of your saved research-plan table layouts."""
         research_plan.delete_table_schema(self._con, schema_id)
+
+    def text_templates(self) -> TextTemplates:
+        """The rich-text editors' text templates: predefined, personal, and your toolbars.
+        See :class:`chemotion_api.text_templates.TextTemplates`."""
+        return TextTemplates(self._con)
 
     def save_user_label(self, label: UserLabel) -> UserLabel:
         """Create a user label (``label.id`` is ``None``) or update one of yours.
