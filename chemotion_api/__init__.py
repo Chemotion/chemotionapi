@@ -32,6 +32,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
+from chemotion_api.elements import literature
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
@@ -234,6 +235,16 @@ class Instance:
         :raise PermissionError: if the labels cannot be fetched. Make sure that you are logged in.
         """
         return self.get_user().get_user_labels(refresh=refresh)
+
+    def doi_metadata(self, doi: str) -> dict:
+        """
+        BibTeX metadata for a DOI, fetched by the server from doi.org
+        (``GET /api/v1/literatures/doi/metadata``): ``{'bibtex': str, 'BTjson': dict}``.
+
+        :raises ValueError: if ``doi`` is not a DOI.
+        :raises RequestException: if doi.org cannot be reached or does not know the DOI.
+        """
+        return literature.doi_metadata(self._con, doi)
 
     def save_user_label(self, label: UserLabel) -> UserLabel:
         """Create a user label, or update one of your own. See

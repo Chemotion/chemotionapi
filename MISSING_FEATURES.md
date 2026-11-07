@@ -55,7 +55,7 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ◐ | **Literature / references** | `LiteraturesFetcher` → `literatures`, `literatures/collection`, `literatures/doi/metadata` | Reactions pass `literatures` through. Adding or removing references and DOI metadata lookup are missing. |
+| ✅ | **Literature / references** | `LiteraturesFetcher` → `literatures`, `literatures/collection`, `literatures/doi/metadata` | Done in M2.6: `element.references()`, `add_reference()`, `remove_reference()`, `set_reference_type()`, `collection.references()`, `instance.doi_metadata()`. |
 | ❌ | **Reaction SVG rendering** | `ReactionSvgFetcher` → `reaction_svg` | The client loads stored images only. |
 | ◐ | **Wellplates** | `WellplatesFetcher` → `wellplates/import_spreadsheet`, `wellplates/bulk`, `wellplates/subwellplates`, `wellplates/by_generic_element` | Create, edit and resize are implemented. Missing: spreadsheet import, bulk create, sub-wellplates, links to generic elements. |
 | ◐ | **Research plans** | `ResearchPlansFetcher` → `research_plans/linked`, `research_plans/table_schemas`, `research_plans/svg`; `research_plan_metadata` | Body editing (text, richtext, table, image) is implemented. Missing: linked elements, saved table schemas, SVG render, research-plan metadata (DataCite). |

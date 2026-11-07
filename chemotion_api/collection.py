@@ -33,6 +33,7 @@ from chemotion_api.element_manager import ElementManager
 from chemotion_api.utils import break_parent_cycles
 from chemotion_api.elements import ElementSet, AbstractElement
 from chemotion_api.elements.abstract_element import delete_elements, ui_state_selection
+from chemotion_api.elements.literature import Reference, collection_references
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
@@ -699,6 +700,17 @@ class AbstractCollection:
         return [m for m in res.json().get('messages') or []
                 if (m.get('content') or {}).get('channel_subject') == IMPORT_SAMPLES_SUBJECT
                 and (m.get('content') or {}).get('collection_id') == self.id]
+
+    def references(self) -> dict[str, list[Reference]]:
+        """The literature cited in this collection, like the UI's collection *References* tab.
+
+        ``GET /api/v1/literatures/collection``. Keys are ``'collection'``, ``'sample'``,
+        ``'reaction'`` and ``'research_plan'``; each reference's ``count`` says how many elements
+        of that kind cite it.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" has no references')
+        return collection_references(self.get_root()._session, self.id)
 
     def update_user_labels(self, *elements, add=(), remove=()) -> None:
         """Add and remove user labels on several elements of this collection in one go.
