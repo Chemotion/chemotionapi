@@ -71,7 +71,7 @@ types below can be neither read nor written.
 | ❌ | **Measurements** (bulk create from raw data) | `MeasurementsFetcher` → `measurements*` | |
 | ❌ | **NMR simulation** | `NmrSimFetcher` → `simulation/nmrdb` | |
 | ❌ | **Predictions / compute tasks** | `PredictionsFetcher` → `prediction`; `ComputeTaskFetcher` → `compute_tasks*` | |
-| ◐ | **Inbox** | `InboxFetcher` → `inbox/samples`, `inbox/reactions`, `inbox/unlinked_attachments` | Listing and uploading are implemented. Moving inbox items onto samples or reactions, and unlinked attachments, are missing. |
+| ✅ | **Inbox** | `InboxFetcher` → `inbox/samples`, `inbox/reactions`, `inbox/unlinked_attachments` | Done in M3.3: `inbox.assign(attachment, sample_or_reaction, variation=None)`, `inbox.search_samples()` / `search_reactions()`, `inbox.unlinked_attachments()`; listing and uploading were already there. |
 
 ## 6. Collections and sharing
 
