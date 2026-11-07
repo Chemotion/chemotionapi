@@ -19,6 +19,7 @@ from chemotion_api.elements.utils.equivalent import get_equivalent
 from chemotion_api.user import User
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.registry import register_element_type
+from chemotion_api.elements.components import Component, load_components, save_components
 from chemotion_api.elements.empty_elements import init_container
 
 logger = logging.getLogger(__name__)
@@ -721,11 +722,36 @@ class Sample(AbstractElement):
     @property
     def is_mixture(self) -> bool:
         """
-        True if the sample is a mixture. Mixtures are only partially supported: their components are
-        passed through unchanged, and they can't be quantified in reaction variations.
+        True if the sample is a mixture. Make one with ``properties['sample_type'] = 'Mixture'``;
+        its components are read and written with :meth:`components` and :meth:`save_components`.
+        Mixtures can't be quantified in reaction variations.
         """
         sample_type = self.properties.get('sample_type', (self.json_data or {}).get('sample_type'))
         return sample_type == SampleType.SAMPLE_TYPE_MIXTURE.value
+
+    def components(self) -> list[Component]:
+        """
+        The components of this mixture sample, by position, fetched right away
+        (``GET /api/v1/components/:sample_id``).
+
+        :raises ValueError: if the sample is unsaved.
+        """
+        return load_components(self._session, self._saved_id_for('components'))
+
+    def save_components(self, components: list[Component]) -> list[Component]:
+        """
+        Sets this mixture's components, sent right away (``PUT /api/v1/components``). The list
+        **replaces** the current one: components left out are deleted. Pass the result of
+        :meth:`components` with your changes, plus new ones from
+        :meth:`Component.new <chemotion_api.elements.components.Component.new>`.
+
+        :return: the components as the server stored them.
+        :raises ValueError: if the sample is unsaved or not a mixture, or a component has no molecule.
+        """
+        if not self.is_mixture:
+            raise ValueError("Only mixture samples have components; set properties['sample_type'] = "
+                             "'Mixture' and save the sample first.")
+        return save_components(self._session, self._saved_id_for('components'), list(components))
 
     @property
     def gas_type(self) -> GasType:
