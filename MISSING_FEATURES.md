@@ -77,7 +77,7 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ❌ | **Collection export / import** (ZIP) | `CollectionsFetcher` → `collections/export`, `collections/import` | |
+| ✅ | **Collection export / import** (ZIP) | `CollectionsFetcher` → `collections/export`, `collections/import` | Done in M3.1: `collection.export(path)`, `root.export_collections(*cols, file_path=...)` (waits for the job's notification, downloads the archive) and `root.import_collections(path)` (returns the new top-level collections). |
 | ❌ | **Collection metadata** (DataCite) | `MetadataFetcher` → `collections/metadata` | |
 | ❌ | **Take ownership** of a shared collection | `CollectionSharesFetcher` → `collection_shares/take_ownership` | Sharing, unsharing, updating shares and listing collections shared with you are implemented. |
 

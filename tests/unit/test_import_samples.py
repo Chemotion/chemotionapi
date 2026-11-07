@@ -1,7 +1,7 @@
 """Sample import (M2.5), offline: upload, then wait for the job's completion notification."""
 import pytest
 
-import chemotion_api.collection as collection_module
+import chemotion_api.notifications as notifications_module
 from chemotion_api.collection import Collection, ImportResult
 
 DONE = {'id': 9, 'subject': 'Import Samples Completed',
@@ -48,7 +48,7 @@ def sdf(tmp_path):
 
 @pytest.fixture(autouse=True)
 def no_sleep(monkeypatch):
-    monkeypatch.setattr(collection_module.time, 'sleep', lambda s: None)
+    monkeypatch.setattr(notifications_module.time, 'sleep', lambda s: None)
 
 
 def test_upload_then_return_the_new_report(sdf):
@@ -71,7 +71,7 @@ def test_chemicals_and_not_waiting(sdf):
 
 def test_a_report_that_never_comes_times_out(sdf, monkeypatch):
     clock = iter(range(0, 1000, 100))
-    monkeypatch.setattr(collection_module.time, 'monotonic', lambda: next(clock))
+    monkeypatch.setattr(notifications_module.time, 'monotonic', lambda: next(clock))
     with pytest.raises(TimeoutError, match='may still be running'):
         _collection(_Session([[]])).import_samples(sdf, timeout=250)
 

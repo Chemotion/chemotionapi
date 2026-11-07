@@ -9,7 +9,6 @@ elements, and sharing/syncing.
 import json
 import os
 import re
-import time
 from dataclasses import dataclass
 import typing
 import logging
@@ -34,6 +33,7 @@ from chemotion_api.utils import break_parent_cycles
 from chemotion_api.elements import ElementSet, AbstractElement
 from chemotion_api.elements.abstract_element import delete_elements, ui_state_selection
 from chemotion_api.elements.literature import Reference, collection_references
+from chemotion_api.notifications import notification_ids, server_path, wait_for_notification
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
@@ -77,6 +77,61 @@ def _share_target_ids(users) -> list[int]:
 SAMPLE_IMPORT_FORMATS = ('.sdf', '.mol', '.csv', '.xlsx')
 #: The channel subject of the import's completion notification.
 IMPORT_SAMPLES_SUBJECT = 'Import Samples Completed'
+#: Channel subjects of the collection export/import notifications (``Channel::COLLECTION_ZIP*``).
+COLLECTION_ZIP_SUBJECT = 'Collection Import and Export'
+COLLECTION_ZIP_FAIL_SUBJECT = 'Collection Import and Export Failure'
+
+
+def _zip_operation(message: dict) -> str:
+    """``'export'`` or ``'import'``: the notification text reads "Collection Export: …"."""
+    data = str((message.get('content') or {}).get('data') or '')
+    match = re.match(r'\s*Collection (\w+):', data)
+    return match.group(1).lower() if match else ''
+
+
+def export_collections(session: Connection, collections: list, file_path: str, timeout: float = 600,
+                       poll_interval: float = 2) -> str:
+    """Export collections into one ZIP archive, as the UI's *Export collections* dialog does.
+
+    ``POST /api/v1/collections/export`` starts a background job; its notification links the
+    archive, which is then downloaded to ``file_path``. The archive holds the collections' elements
+    with their analyses and attachments, and can be imported again with
+    :meth:`RootCollection.import_collections` (on this or another ELN).
+
+    :return: ``file_path``
+    :raises PermissionError: for a collection you may not export (not yours, or shared with you
+        without full detail access).
+    :raises ConnectionError: if the server reports that the export failed.
+    :raises TimeoutError: if the export does not finish within ``timeout`` seconds.
+    """
+    ids = []
+    for col in collections:
+        if getattr(col, 'id', None) is None:
+            raise ValueError(f'Collection "{getattr(col, "label", col)}" is not saved and cannot be exported.')
+        ids.append(col.id)
+    if not ids:
+        raise ValueError('Select the collections you want to export.')
+    subjects = (COLLECTION_ZIP_SUBJECT, COLLECTION_ZIP_FAIL_SUBJECT)
+    seen = notification_ids(session, subjects)
+    res = session.post('/api/v1/collections/export', data={'collection_ids': ids})
+    if res.status_code == 401:
+        raise PermissionError('You can only export your own collections, or collections shared with '
+                              'you with full detail access.')
+    if res.status_code not in (200, 201):
+        raise ConnectionError(f'{res.status_code} -> {res.text}')
+    labels = ', '.join(f'"{c.label}"' for c in collections)
+    message = wait_for_notification(session, subjects, seen, f'The export of {labels}',
+                                    match=lambda m: _zip_operation(m) == 'export',
+                                    timeout=timeout, poll_interval=poll_interval)
+    content = message.get('content') or {}
+    if message.get('subject') == COLLECTION_ZIP_FAIL_SUBJECT or not content.get('url'):
+        raise ConnectionError(f'The export of {labels} failed: {content.get("data")}')
+    archive = session.get(server_path(content['url']))
+    if archive.status_code != 200:
+        raise ConnectionError(f'Downloading the export archive failed: {archive.status_code} -> {archive.text}')
+    with open(file_path, 'wb') as f:
+        f.write(archive.content)
+    return file_path
 
 
 @dataclass(frozen=True)
@@ -669,7 +724,7 @@ class AbstractCollection:
             raise ValueError(f'Cannot import {ext or "files without an extension"}; '
                              f'use one of {", ".join(SAMPLE_IMPORT_FORMATS)}.')
         session = self.get_root()._session
-        seen = {m['id'] for m in self._import_reports(session)} if wait else set()
+        seen = notification_ids(session, (IMPORT_SAMPLES_SUBJECT,)) if wait else set()
         with open(file_path, 'rb') as f:
             res = session.post('/api/v1/samples/import',
                                data={'currentCollectionId': self.id,
@@ -682,24 +737,11 @@ class AbstractCollection:
         if not wait:
             return None
 
-        deadline = time.monotonic() + timeout
-        while True:
-            for message in self._import_reports(session):
-                if message['id'] not in seen:
-                    return ImportResult.from_message(message)
-            if time.monotonic() >= deadline:
-                raise TimeoutError(f'The import into "{self.label}" did not report back within {timeout} s; '
-                                   'it may still be running on the server.')
-            time.sleep(poll_interval)
-
-    def _import_reports(self, session) -> list[dict]:
-        """Your sample-import notifications for this collection (acknowledged ones included)."""
-        res = session.get('/api/v1/messages/list', params={'is_ack': 9})
-        if res.status_code != 200:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
-        return [m for m in res.json().get('messages') or []
-                if (m.get('content') or {}).get('channel_subject') == IMPORT_SAMPLES_SUBJECT
-                and (m.get('content') or {}).get('collection_id') == self.id]
+        message = wait_for_notification(
+            session, (IMPORT_SAMPLES_SUBJECT,), seen, f'The import into "{self.label}"',
+            match=lambda m: (m.get('content') or {}).get('collection_id') == self.id,
+            timeout=timeout, poll_interval=poll_interval)
+        return ImportResult.from_message(message)
 
     def references(self) -> dict[str, list[Reference]]:
         """The literature cited in this collection, like the UI's collection *References* tab.
@@ -1218,6 +1260,20 @@ class Collection(AbstractEditableCollection):
         abs_path = self.get_path()
         self.get_root().delete(abs_path)
 
+    def export(self, file_path: str, timeout: float = 600, poll_interval: float = 2) -> str:
+        """Export this collection into a ZIP archive at ``file_path``, as the UI's *Export
+        collections* dialog does. Sub-collections are not included; export them with
+        :meth:`RootCollection.export_collections`.
+
+        See :func:`export_collections` for what the archive holds and the errors raised.
+
+        :return: ``file_path``
+        """
+        return export_collections(self._root_session(), [self], file_path, timeout, poll_interval)
+
+    def _root_session(self) -> Connection:
+        return typing.cast(Connection, getattr(self.get_root(), '_session'))
+
     def add_collection(self, name: str):  # type: ignore[override]
         """
         Creates a new child collection. The collection is not saved.
@@ -1577,6 +1633,48 @@ class RootCollection(AbstractCollection):
         self._sync_root = RootSyncCollection(self._session, self._element_manager)
         self._sync_root._set_children(nest_by_ancestry(payload.get('shared_with_me') or []))
         return self._sync_root
+
+    def export_collections(self, *collections: Collection, file_path: str, timeout: float = 600,
+                           poll_interval: float = 2) -> str:
+        """Export several collections into one ZIP archive at ``file_path``.
+
+        See :func:`export_collections`.
+
+        :return: ``file_path``
+        """
+        return export_collections(self._session, list(collections), file_path, timeout, poll_interval)
+
+    def import_collections(self, file_path: str, timeout: float = 600, poll_interval: float = 2) -> list[Collection]:
+        """Import the collections of an export archive, as the UI's *Import collections* dialog does.
+
+        ``POST /api/v1/collections/import``. The archive's collections are created as new
+        collections of yours, at the top level, with all their elements. The collection tree is
+        reloaded afterwards (unsaved changes to it are lost).
+
+        :param file_path: a ZIP archive from :meth:`export_collections` or the UI.
+        :return: the new top-level collections.
+        :raises ConnectionError: if the server reports that the import failed.
+        """
+        subjects = (COLLECTION_ZIP_SUBJECT, COLLECTION_ZIP_FAIL_SUBJECT)
+        seen = notification_ids(self._session, subjects)
+        before = {col.id for col in self.walk()}
+        with open(file_path, 'rb') as f:
+            res = self._session.post('/api/v1/collections/import',
+                                     files={'file': (os.path.basename(file_path), f, 'application/zip')})
+        if res.status_code == 413:
+            raise ConnectionError(f'The archive {file_path} is too large for the server.')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        message = wait_for_notification(self._session, subjects, seen, f'The import of {file_path}',
+                                        match=lambda m: _zip_operation(m) == 'import',
+                                        timeout=timeout, poll_interval=poll_interval)
+        if message.get('subject') == COLLECTION_ZIP_FAIL_SUBJECT:
+            raise ConnectionError(f'The import of {file_path} failed: {(message.get("content") or {}).get("data")}')
+        self.load_collection()
+        new = [col for col in self.walk() if col.id not in before]
+        new_ids = {col.id for col in new}
+        return [typing.cast(Collection, col) for col in new
+                if col._parent is self or getattr(col._parent, 'id', None) not in new_ids]
 
     @staticmethod
     def _is_unsaved(col: AbstractCollection) -> bool:
