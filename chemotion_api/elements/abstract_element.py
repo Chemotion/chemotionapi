@@ -1102,6 +1102,23 @@ class AbstractElement:
         """
         collection.remove_elements(self)
 
+    def delete(self, delete_subsamples: bool = False) -> bool:
+        """
+        Deletes this element the way the web UI does. The request is sent right away.
+
+        This **withdraws** the element from every collection *you own* and destroys the record only
+        if that leaves it in no collection at all. An element someone else also holds in their own
+        collections survives for them. See :func:`delete_elements` for the details.
+
+        :param delete_subsamples: when deleting a reaction, also withdraw all of its samples
+            (products included). By default only its reactants and solvents go with it.
+        :return: ``True`` if the element left your collections, ``False`` if the server kept it
+            (a sample still bound to a reaction or wellplate, or an element that is in none of
+            your own collections, e.g. one only shared with you).
+        :raises ValueError: if the element has not been saved.
+        """
+        return not delete_elements(self._session, [self], delete_subsamples=delete_subsamples)
+
     def _web_collection_id(self) -> int | str:
         data = self.json_data or {}
         if data.get('collection_id') is not None:
@@ -1333,3 +1350,82 @@ class AbstractElement:
         """
         info = element_type_info(name)
         return info.url if info is not None else GENERIC_ELEMENTS_URL
+
+
+def delete_elements(session: Connection, elements, collection_id: int | None = None,
+                    delete_subsamples: bool = False) -> list[AbstractElement]:
+    """
+    Deletes elements the way the web UI does: ``DELETE /api/v1/ui_state``.
+
+    ELN v4 does not destroy the selected records outright. It **withdraws** them from every
+    collection the current user owns (their "All" included) and then destroys only the records left
+    in no collection at all. So:
+
+    * an element another user also holds in their own collections survives for them;
+    * a sample still bound to a reaction or wellplate in one of your collections is kept;
+    * an element that is in none of your own collections (one only shared with you) is untouched.
+
+    Deleting a reaction also withdraws its reactants and solvents, or all of its samples with
+    ``delete_subsamples=True``.
+
+    The elements must be named one by one: this never sends the UI's ``checkedAll``, which would
+    select every element of a type.
+
+    :param session: the connection to send the request on.
+    :param elements: saved elements; samples, reactions, wellplates, research plans and generic
+        elements.
+    :param collection_id: the collection the elements are selected in. Elements not in it are
+        ignored. Defaults to your "All" collection.
+    :param delete_subsamples: also withdraw all samples of deleted reactions.
+    :return: the given elements the server **kept** (they still load afterwards), empty when all of
+        them are gone. Like :meth:`chemotion_api.collection.AbstractCollection.remove_elements`, a
+        2xx answer is not proof that everything went. Finding out costs one GET per element.
+    :raises ValueError: if no elements are given or one is unsaved.
+    :raises PermissionError: if the collection is one shared with you (403).
+    :raises ConnectionError: if the request fails, or checking an element afterwards does.
+    """
+    elements = list(elements)
+    if not elements:
+        raise ValueError('No elements given.')
+
+    ui_state: dict[str, Any] = {
+        'currentCollection': {'id': collection_id} if collection_id is not None else {},
+        'options': {'deleteSubsamples': bool(delete_subsamples)},
+        'selecteds': [],
+    }
+    for element in elements:
+        if getattr(element, 'is_new', False) or element.id is None:
+            raise ValueError('The element has not been saved yet, so there is nothing to delete.')
+        kind = element.element_type
+        # `checkedAll` is deliberately never sent: the server resolves it to every element of the
+        # type in the collection.
+        ui_state.setdefault(kind, {'checkedAll': False, 'checkedIds': []})['checkedIds'].append(element.id)
+        ui_state['selecteds'].append({'type': kind, 'id': element.id})
+
+    res = session.delete('/api/v1/ui_state', data=json.dumps(ui_state),
+                         headers=session.get_json_session_header())
+    if res.status_code == 403:
+        raise PermissionError(f'You may not delete elements of this collection: {res.text}')
+    if res.status_code == 404:
+        raise ValueError('Collection not found')
+    if res.status_code not in (200, 204):
+        raise ConnectionError(f'{res.status_code} -> {res.text}')
+
+    # Which elements went has to be asked afterwards. The response's `selecteds` is meant to echo
+    # the selection minus what left the view, but ELN main (a8b47c7) returns built-in elements
+    # there even after destroying them (generic ones are filtered correctly), so it is not used.
+    # An element that still loads was kept; one that answers 404 (destroyed, or no longer in any
+    # collection you can see) is gone.
+    kept_elements = []
+    for element in elements:
+        check = session.get(f'{AbstractElement.get_url(element.element_type)}/{element.id}.json')
+        if check.status_code == 200:
+            kept_elements.append(element)
+        elif check.status_code not in (401, 403, 404):
+            raise ConnectionError(
+                f'The delete request was accepted, but checking {element.element_type} {element.id} '
+                f'afterwards failed: {check.status_code} -> {check.text}')
+    if kept_elements:
+        logger.warning('delete_elements: the server kept %d of %d element(s): %s', len(kept_elements),
+                       len(elements), ', '.join(f'{e.element_type} {e.id}' for e in kept_elements))
+    return kept_elements

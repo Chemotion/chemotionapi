@@ -30,6 +30,7 @@ from chemotion_api.element_manager import ElementManager
 
 from chemotion_api.utils import break_parent_cycles
 from chemotion_api.elements import ElementSet, AbstractElement
+from chemotion_api.elements.abstract_element import delete_elements
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
@@ -513,6 +514,29 @@ class AbstractCollection:
             happen.
         """
         return self._send_collection_elements('delete', elements)
+
+    def delete_elements(self, *elements, delete_subsamples: bool = False) -> list:
+        """Delete elements of this collection the way the web UI does.
+
+        ``DELETE /api/v1/ui_state``. ELN v4 **withdraws** the elements from every collection you
+        own and destroys only the records left in no collection at all, so an element another user
+        also holds survives for them. Elements not in this collection are ignored. See
+        :func:`chemotion_api.elements.abstract_element.delete_elements`.
+
+        :param elements: saved elements of this collection, named one by one — there is no
+            "delete everything" form.
+        :param delete_subsamples: when deleting reactions, also withdraw all of their samples, not
+            only their reactants and solvents.
+        :return: the given elements the server **kept**, empty when all were deleted: samples still
+            bound to a reaction or wellplate, and elements that are in none of your own collections.
+        :raises ValueError: if no elements are given, one is unsaved, or this collection cannot hold
+            elements.
+        :raises PermissionError: if this collection is one shared with you (403).
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        return delete_elements(self.get_root()._session, elements, collection_id=self.id,
+                               delete_subsamples=delete_subsamples)
 
     def move_elements(self, dest: AbstractCollection, *elements) -> list[int]:
         """Move elements from this collection into ``dest``.
