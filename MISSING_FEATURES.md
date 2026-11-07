@@ -64,7 +64,7 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ◐ | **Attachments** | `AttachmentFetcher` → `attachments/{bulk_delete,thumbnail(s),image,infer,link,files,upload_dataset_attachments}` | Upload (also chunked), download, zip and dataset xlsx export are implemented. Missing: bulk delete, thumbnails, image endpoint, infer, link, dataset-level upload. |
+| ✅ | **Attachments** | `AttachmentFetcher` → `attachments/{bulk_delete,thumbnail(s),image,infer,link,files,upload_dataset_attachments}` | Done in M3.4: `attachment.load_image()`, `load_thumbnail()`, `delete()`, `unlink()`, and `delete_attachments()`, `load_thumbnails()`, `load_files()` for several at once. `infer` moves to M5.1 (spectra); `upload_dataset_attachments` is left out on purpose (marked unused and due for removal server-side). |
 | ❌ | **Image annotation** | `AnnotationsFetcher` → annotation routes under `attachments/` | |
 | ❌ | **Spectra (ChemSpectra / NMRium)**: view, save, regenerate, combine, convert | `AttachmentFetcher` → `attachments/{save_spectrum,regenerate_spectrum,regenerate_edited_spectrum,lcms_page}`, `chemspectra/file/{convert,combine_spectra}`; `ChemSpectraFetcher` → `chemspectra/spectra_layouts` | |
 | ❌ | **Containers API** (move or edit analysis containers directly) | `ContainerFetcher` → `containers`, `containers/container` | Analyses are edited only as part of saving their element. |
