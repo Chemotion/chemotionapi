@@ -35,7 +35,7 @@ types below can be neither read nor written.
 | ❌ | **Comments** on elements and sections | `CommentFetcher` → `comments` | |
 | ❌ | **Private notes** | `PrivateNoteFetcher` → `private_notes` | Only usable as a search filter. |
 | ◐ | **User labels** | `UserLabelsFetcher` → `user_labels/bulk` | Listing and saving are implemented. Bulk assignment is missing, and labels resolve only on samples and reactions (`user_labels_resolved`). |
-| ❌ | **Find by short label** | `SamplesFetcher`, `ReactionsFetcher` → `*/findByShortLabel` | |
+| ✅ | **Find by short label** | `SamplesFetcher`, `ReactionsFetcher` → `*/findByShortLabel` | Done in M1.2: `instance.find_sample_by_short_label()`, `find_reaction_by_short_label()`. |
 | ❌ | **Print codes / barcodes / QR, code logs** | `CodeLogsFetcher` → `code_logs/generic`; `PrintCodeFetcher` | |
 | ❌ | **Element explorer** (relation graph) | `ExplorerFetcher` → `explorer` | |
 
