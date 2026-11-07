@@ -90,8 +90,9 @@ class SearchHelperBase(ABC):
 
         :raises ConnectionError: if the search request fails
         """
+        # fixed_length: the set holds exactly the search hits; it must not page through the collection.
         e = ElementSet(self._connection, self._element_manager.all_classes.get(self.element_type), self._collection_id,
-                       False, True)
+                       fixed_length=True)
 
         for val in self._send_request():
             e.new_element(val).mark_partial()
