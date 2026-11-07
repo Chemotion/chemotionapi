@@ -811,7 +811,16 @@ class Sample(AbstractElement):
 
     def split(self):
         """
-        Splits the sample. The sample is saved first. The split is not saved.
+        Splits the sample locally: returns an unsaved subsample (``parent_id`` set, label
+        ``<label>-NaN`` until the server assigns one). The sample is saved first.
+
+        This is what reactions and wellplates do with a sample put into them: the server creates
+        the real, linked subsample when the *reaction or wellplate* is saved. Saved on its own, the
+        result is **not** linked to its parent — ``POST /api/v1/samples`` takes no ``parent_id`` —
+        so it is just a copy.
+
+        To split on the server in one step, as the UI's *Split* button does, use
+        :meth:`chemotion_api.collection.AbstractCollection.split_samples`.
 
         :return: A new sample object
         :rtype: :class:`chemotion_api.elements.sample.Sample`

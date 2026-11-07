@@ -8,6 +8,7 @@ elements, and sharing/syncing.
 
 import json
 import os
+import re
 import typing
 import logging
 from datetime import datetime
@@ -538,6 +539,77 @@ class AbstractCollection:
             raise ValueError(f'Collection "{self.label}" cannot hold elements')
         return delete_elements(self.get_root()._session, elements, collection_id=self.id,
                                delete_subsamples=delete_subsamples)
+
+    def split_samples(self, *samples: Sample) -> list[Sample]:
+        """Split samples into subsamples on the server, the way the UI's *Split* button does.
+
+        ``POST /api/v1/samples/subsamples``. Each sample gets one new subsample, created right away
+        in this collection (and your "All"), linked to its parent and labelled
+        ``<parent label>-<n>``. Unlike :meth:`chemotion_api.elements.sample.Sample.split`, which
+        builds an unsaved copy for you to edit and save, nothing is left to save.
+
+        The server answers without the new ids, so they are found afterwards among this
+        collection's newest samples by their labels. Another split of the same samples at the same
+        moment could be picked up instead.
+
+        :param samples: saved samples of this collection that you created; the server skips others.
+        :return: the new subsamples, loaded, in the order of ``samples``.
+        :raises ValueError: if a sample is unsaved or not a sample, or this collection cannot hold
+            elements.
+        :raises PermissionError: if you may not add samples to this collection.
+        :raises ConnectionError: if the request fails or not every subsample is found.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        if not samples:
+            raise ValueError('No samples given.')
+        for sample in samples:
+            if getattr(sample, 'element_type', None) != 'sample':
+                raise ValueError(f'Only samples can be split, not {getattr(sample, "element_type", sample)!r}.')
+        selection = ui_state_selection(samples, 'split')['sample']['checkedIds']
+        labels = {sample.id: sample.short_label for sample in samples}
+        session = self.get_root()._session
+
+        newest_before = max((row['id'] for row in self._newest_sample_rows(session, pages=1)), default=0)
+        res = session.post('/api/v1/samples/subsamples', data={'ui_state': {
+            'sample': {'all': False, 'included_ids': selection, 'excluded_ids': []},
+            'currentCollectionId': self.id}})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add samples to collection "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+
+        patterns = {pid: re.compile(rf'^{re.escape(label)}-\d+$') for pid, label in labels.items()}
+        found: dict[int, int] = {}
+        for row in self._newest_sample_rows(session, stop_at_id=newest_before):
+            for parent_id, pattern in patterns.items():
+                if parent_id not in found and pattern.match(row.get('short_label') or ''):
+                    found[parent_id] = row['id']
+                    break
+        missing = [labels[pid] for pid in selection if pid not in found]
+        if missing:
+            raise ConnectionError(f'The split request was accepted, but no new subsample of '
+                                  f'{", ".join(missing)} was found in "{self.label}".')
+        root = self.get_root()
+        loader = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('sample')),
+                            typing.cast(int, self.id))
+        return [typing.cast(Sample, loader.load_element(found[pid])) for pid in selection]
+
+    def _newest_sample_rows(self, session, pages: int | None = None, stop_at_id: int | None = None):
+        """This collection's samples as list rows, newest first, page by page."""
+        page = 1
+        while pages is None or page <= pages:
+            res = session.get('/api/v1/samples', params={'collection_id': self.id, 'page': page, 'per_page': 50})
+            if res.status_code != 200:
+                raise ConnectionError(f'{res.status_code} -> {res.text}')
+            rows = res.json().get('samples') or []
+            for row in rows:
+                if stop_at_id is not None and row['id'] <= stop_at_id:
+                    return
+                yield row
+            if len(rows) < 50:
+                return
+            page += 1
 
     def update_user_labels(self, *elements, add=(), remove=()) -> None:
         """Add and remove user labels on several elements of this collection in one go.
