@@ -34,6 +34,7 @@ from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
 from chemotion_api import reports
+from chemotion_api.text_templates import TextTemplates
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
@@ -305,6 +306,11 @@ class Instance:
     def delete_research_plan_table_schema(self, schema_id: int) -> None:
         """Delete one of your saved research-plan table layouts."""
         research_plan.delete_table_schema(self._con, schema_id)
+
+    def text_templates(self) -> TextTemplates:
+        """The rich-text editors' text templates: predefined, personal, and your toolbars.
+        See :class:`chemotion_api.text_templates.TextTemplates`."""
+        return TextTemplates(self._con)
 
     def save_user_label(self, label: UserLabel) -> UserLabel:
         """Create a user label, or update one of your own. See

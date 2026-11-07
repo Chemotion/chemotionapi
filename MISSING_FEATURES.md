@@ -87,7 +87,7 @@ types below can be neither read nor written.
 |---|---|---|
 | ✅ | **Reports** (docx / Excel export, archives) | `ReportsFetcher` → `reports*`, `archives*`; `UIFetcher` → `ui_state/load_report` — Done in M3.2: `instance.create_report()` (waits for the job) and `report_archives()` with `Archive.download()` / `delete()`; `collection.export_elements()` (XLSX/SDF) and `export_reaction_smiles()`; `reaction.report_docx()`, `reaction.export_samples_excel()` and `wellplate.export_samples_excel()`. Not covered: the spectrum report's choice of product attachments (`prdAtts`). `ui_state/load_report` does not exist on ELN main. |
 | ◐ | **Report templates** | `ReportTemplateFetcher` → `report_templates` — Done in M3.2: listing (`instance.report_templates()`). Editing templates is admin-only and not covered. |
-| ❌ | **Text templates** (predefined and personal snippets) | `TextTemplatesFetcher` → `text_templates/*` |
+| ✅ | **Text templates** (predefined and personal snippets) | `TextTemplatesFetcher` → `text_templates/*` — Done in M3.8: `instance.text_templates()` reads predefined templates, edits personal ones and your per-type editor toolbars; admins and global editors can create, update and delete predefined ones. `TextTemplate.ops` is a Quill delta to append to rich-text fields. |
 | ❌ | **Data publication / transmission to a repository** | `GateFetcher` → `gate/transmitting` |
 
 ## 8. Search
