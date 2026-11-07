@@ -81,6 +81,8 @@ def _share_target_ids(users) -> list[int]:
 SAMPLE_IMPORT_FORMATS = ('.sdf', '.mol', '.csv', '.xlsx')
 #: The channel subject of the import's completion notification.
 IMPORT_SAMPLES_SUBJECT = 'Import Samples Completed'
+#: Channel subject of ELN-to-ELN transfer notifications (``Channel::GATE_TRANSFER_NOTIFICATION``).
+GATE_TRANSFER_SUBJECT = 'Gate Transfer Completed'
 
 
 @dataclass(frozen=True)
@@ -1633,6 +1635,81 @@ class Collection(AbstractEditableCollection):
         if res.status_code not in (200, 201):
             raise request_error(res, f'taking ownership of collection "{self.label}"')
         return (res.json() or {}).get('collection') or {}
+
+    def gate_token(self, origin: str) -> str:
+        """Receiving side of an ELN-to-ELN transfer: a token that lets another ELN send samples and
+        reactions into this collection of yours (``GET /api/v1/gate/jwt/new``). Valid for 7 days.
+
+        Hand the token to the sender, who registers it with :meth:`register_gate`.
+
+        :param origin: the sending ELN's address (``https://eln.example.org``); requests from
+            elsewhere are refused.
+        """
+        res = self._root_session().get('/api/v1/gate/jwt/new', params={'collection_id': self.id, 'origin': origin})
+        if res.status_code == 401:
+            raise PermissionError(f'Only your own collections can receive transfers, not "{self.label}".')
+        if res.status_code != 200:
+            raise request_error(res, f'creating a transfer token for collection "{self.label}"')
+        return res.json()['jwt']
+
+    def register_gate(self, destination: str, token: str) -> None:
+        """Sending side: store the token another ELN issued (:meth:`gate_token` there) for sending
+        this collection to it (``POST /api/v1/gate/register_gate``)."""
+        res = self._root_session().post('/api/v1/gate/register_gate',
+                                        data={'collection_id': self.id, 'destination': destination, 'token': token})
+        if res.status_code == 401:
+            raise PermissionError(f'Only your own collections can be transferred, not "{self.label}".')
+        if res.status_code not in (200, 201, 204):
+            raise request_error(res, f'registering a transfer target for collection "{self.label}"')
+
+    def check_transmission(self, target: str) -> dict:
+        """Check that this collection can be sent to ``target``: the server pings it and validates
+        the registered token there (``GET /api/v1/gate/transmitting/:id``).
+
+        :param target: the receiving ELN, e.g. ``'https://www.chemotion-repository.net/'``. It has
+            no default here: the server's default is the public Chemotion repository.
+        :return: the target's answer, e.g. ``{'target': ..., 'expire_at': ...}``.
+        :raises ConnectionError: if the target is unreachable, or no valid token is registered for it.
+        """
+        return self._transmitting('get', target).json()
+
+    def transmit(self, target: str, wait: bool = True, timeout: float = 600, poll_interval: float = 3) -> str | None:
+        """Send this collection's samples and reactions to another ELN, as the UI's *Transfer*
+        action does (``POST /api/v1/gate/transmitting/:id``). Register a token first
+        (:meth:`register_gate`).
+
+        After a successful transfer the server moves the sent elements into your locked
+        ``chemotion-repository.net`` collection.
+
+        :param target: the receiving ELN (see :meth:`check_transmission`).
+        :param wait: wait for the job's *Gate Transfer Completed* notification.
+        :return: the notification text when waiting, else ``None``.
+        :raises ConnectionError: if the transfer fails.
+        """
+        session = self._root_session()
+        seen = notification_ids(session, (GATE_TRANSFER_SUBJECT,)) if wait else set()
+        self._transmitting('post', target)
+        if not wait:
+            return None
+        message = wait_for_notification(session, (GATE_TRANSFER_SUBJECT,), seen, f'The transfer of "{self.label}"',
+                                        timeout=timeout, poll_interval=poll_interval)
+        content = message.get('content') or {}
+        text = str(content.get('data') or '')
+        if content.get('level') == 'error':
+            raise ConnectionError(f'The transfer of "{self.label}" failed: {text}')
+        return text
+
+    def _transmitting(self, method: str, target: str):
+        if not target:
+            raise ValueError('Name the receiving ELN; the server would default to the public repository.')
+        session = self._root_session()
+        # The server forwards this Referer to the target as Origin, where it must match the token.
+        headers = {**session.get_json_session_header(), 'Referer': f'{session.host_url}/'}
+        res = getattr(session, method)(f'/api/v1/gate/transmitting/{self.id}', params={'target': target},
+                                       headers=headers)
+        if res.status_code in (200, 201, 202):
+            return res
+        raise ConnectionError(f'Cannot transfer "{self.label}" to {target}: {res.status_code} -> {res.text}')
 
     def get_shares(self) -> list[dict]:
         """Return this collection's shares, as the server reports them.
