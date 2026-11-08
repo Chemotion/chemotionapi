@@ -33,7 +33,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
-from chemotion_api import reports, vessels
+from chemotion_api import chemicals, reports, vessels
 from chemotion_api.text_templates import TextTemplates
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
@@ -573,6 +573,29 @@ class Instance:
         """A macromolecule by ELN id (``source='eln'``) or UniProt accession (``source='uniprot'``)."""
         from chemotion_api.elements.sbmm import load_macromolecule
         return load_macromolecule(self._con, identifier, source)
+
+    def set_inventory_label(self, prefix: str, name: str, counter: int, *collections) -> list[dict]:
+        """Give collections an inventory label: their inventory samples are then labelled
+        ``<prefix>-<n>``, counting on from ``counter``. :return: your inventories afterwards."""
+        return chemicals.set_inventory_label(self._con, prefix, name, counter, [c.id for c in collections])
+
+    def inventory_collections(self) -> list[dict]:
+        """Your collections grouped by inventory label."""
+        return chemicals.inventory_collections(self._con)
+
+    def find_safety_sheets(self, name: str | None = None, molecule=None, **options) -> dict:
+        """Look up safety data sheets at chemical vendors. See
+        :func:`chemotion_api.chemicals.find_safety_sheets`; ``molecule`` is a Molecule or its id."""
+        molecule_id = getattr(molecule, 'id', molecule)
+        return chemicals.find_safety_sheets(self._con, name, molecule_id, **options)
+
+    def download_safety_sheet(self, path: str, file_path: str) -> str:
+        """Save a stored safety data sheet (a ``Chemical.safety_sheets`` path) to ``file_path``."""
+        return chemicals.download_safety_sheet(self._con, path, file_path)
+
+    def extract_safety_sheet(self, path: str) -> dict:
+        """The H/P statements and section 9 properties of a stored safety data sheet."""
+        return chemicals.extract_safety_sheet(self._con, path)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""

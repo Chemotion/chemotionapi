@@ -1178,6 +1178,11 @@ class AbstractCollection:
                             typing.cast(int, self.id))
         return [loader.load_element(i) for i in found]
 
+    def inventory_label(self):
+        """This collection's inventory label (prefix, name, counter), or ``None``."""
+        from chemotion_api import chemicals
+        return chemicals.inventory_label(self.get_root()._session, self._own_id('an inventory'))
+
     def get_vessels(self) -> list[vessels.Vessel]:
         """All vessels in this collection, newest first (see :mod:`chemotion_api.vessels`)."""
         return vessels.list_vessels(self.get_root()._session, self._own_id('vessels'))

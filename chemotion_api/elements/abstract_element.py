@@ -973,6 +973,40 @@ class AbstractElement:
             raise request_error(res, f'loading the research plans linking {self.element_type} {self.id}')
         return [{'id': rp['id'], 'name': rp.get('name')} for rp in res.json() or []]
 
+    def chemical(self):
+        """
+        The chemical inventory record of this sample or SBMM sample, or ``None``
+        (see :mod:`chemotion_api.chemicals`).
+        """
+        from chemotion_api import chemicals
+        return chemicals.load_chemical(self._session, self)
+
+    def save_chemical(self, chemical):
+        """
+        Creates or updates this sample's chemical inventory record right away. A new record needs
+        a CAS number. :return: the stored record.
+        """
+        from chemotion_api import chemicals
+        return chemicals.save_chemical(self._session, self, chemical)
+
+    def attach_safety_sheet(self, file_path: str, vendor_name: str, vendor_product: str,
+                            vendor_info: dict | None = None, cas: str | None = None):
+        """
+        Stores a safety data sheet file with this sample. See
+        :func:`chemotion_api.chemicals.attach_safety_sheet`.
+        """
+        from chemotion_api import chemicals
+        return chemicals.attach_safety_sheet(self._session, self, file_path, vendor_name, vendor_product,
+                                             vendor_info, cas)
+
+    def save_vendor_safety_sheet(self, chemical, vendor_product: str):
+        """
+        Has the server download a vendor's safety data sheet for this sample. See
+        :func:`chemotion_api.chemicals.save_vendor_safety_sheet`.
+        """
+        from chemotion_api import chemicals
+        return chemicals.save_vendor_safety_sheet(self._session, self, chemical, vendor_product)
+
     def save_analyses(self) -> None:
         """
         Saves only the analyses of this element — names, descriptions, status, content, dataset
