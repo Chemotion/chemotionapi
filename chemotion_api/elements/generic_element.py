@@ -284,3 +284,76 @@ class GenericElement(AbstractElement, WorkflowInterface):
         with open(file_path, 'wb') as f:
             f.write(res.content)
         return file_path
+
+    def variations(self) -> dict:
+        """
+        This element's variations grid, as its *Variations* tab shows it
+        (``GET /api/v1/element_variations/:id``): ``{'variations': {row_uuid: row}, 'layout': {...}}``.
+
+        Each row is ``{'properties': {...}, 'metadata': {...}, 'segments': {...}}``; a property cell is
+        keyed by :func:`variation_key` (``layer<layer>field<field>``) and holds e.g.
+        ``{'value': 20, 'unit': 'C'}``. ``metadata`` takes ``notes``, ``analyses`` and ``group``.
+        """
+        res = self._session.get(f'/api/v1/element_variations/{self._saved_id_for("variations")}')
+        if res.status_code != 200:
+            raise request_error(res, f'loading the variations of generic element {self.id}')
+        record = res.json().get('element_variation') or {}
+        return {'variations': record.get('variations') or {}, 'layout': record.get('layout') or {}}
+
+    def save_variations(self, variations: dict, layout: dict | None = None) -> dict:
+        """
+        Replaces this element's variations grid (``PUT /api/v1/element_variations/:id``).
+
+        :param variations: ``{row_uuid: row}`` as :meth:`variations` returns it.
+        :param layout: the grid's column layout (``selected``, ``order``, ``units``, ``rowOrder``);
+            left as it is when ``None``.
+        :return: the stored grid.
+        """
+        body: dict = {'variations': variations}
+        if layout is not None:
+            body['layout'] = layout
+        res = self._session.put(f'/api/v1/element_variations/{self._saved_id_for("variations")}', data=body)
+        if res.status_code == 401:
+            raise PermissionError(f'You may not edit generic element {self.id}.')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'saving the variations of generic element {self.id}')
+        record = res.json().get('element_variation') or {}
+        return {'variations': record.get('variations') or {}, 'layout': record.get('layout') or {}}
+
+    def export_variations(self, file_path: str) -> str:
+        """
+        Saves the variations grid as an XLSX workbook (``GET /api/v1/element_variations/:id/export``),
+        which :meth:`import_variations` reads back.
+
+        :return: ``file_path``
+        """
+        res = self._session.get(f'/api/v1/element_variations/{self._saved_id_for("variations")}/export')
+        if res.status_code != 200:
+            raise request_error(res, f'exporting the variations of generic element {self.id}')
+        with open(file_path, 'wb') as f:
+            f.write(res.content)
+        return file_path
+
+    def import_variations(self, file_path: str) -> list[str]:
+        """
+        Replaces the variations grid with the rows of an XLSX workbook in the export's layout
+        (``POST /api/v1/element_variations/:id/import``).
+
+        :return: the server's warnings (e.g. skipped cells).
+        :raises ValueError: if the workbook is not in the export's layout.
+        """
+        import os
+        with open(file_path, 'rb') as f:
+            res = self._session.post(f'/api/v1/element_variations/{self._saved_id_for("variations")}/import',
+                                     files={'file': (os.path.basename(file_path), f,
+                                                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
+        if res.status_code in (400, 422):
+            raise ValueError(f'Cannot import {file_path}: {res.text}')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'importing variations into generic element {self.id}')
+        return list(res.json().get('warnings') or [])
+
+
+def variation_key(layer: str, field: str) -> str:
+    """The key of a property cell in a variations row (``ElementVariationColumnSet.encode_property_key``)."""
+    return f'layer{layer}field{field}'
