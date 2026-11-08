@@ -95,6 +95,15 @@ class Chemical:
         self._set(_fetch_chemical(self._session, self.sample_id))
         return self
 
+    @property
+    def safety_sheets(self) -> list[str]:
+        """The paths of the saved safety data sheets (``/safety_sheets/<vendor>/<file>.pdf``).
+
+        Download one with :meth:`chemotion_api.Instance.download_safety_sheet`.
+        """
+        return [path for entry in self.data.get('safetySheetPath') or [] if isinstance(entry, dict)
+                for path in entry.values()]
+
     def __repr__(self) -> str:
         return f'Chemical(sample_id={self.sample_id}, cas={self.cas!r}, exists={self.exists})'
 
@@ -1025,6 +1034,27 @@ class Sample(AbstractElement):
         if self.is_new:
             raise ValueError('Save the sample before reading its chemical record.')
         return Chemical(self._session, cast(int, self.id), _fetch_chemical(self._session, cast(int, self.id)))
+
+    def attach_safety_sheet(self, file_path: str, vendor_name: str, vendor_product: str,
+                            vendor_info: dict | None = None, cas: str | None = None) -> Chemical:
+        """Store a safety data sheet file with this sample, as the *Inventory* tab's manual upload
+        does; creates the chemical record if there is none. See
+        :func:`chemotion_api.chemicals.attach_safety_sheet`.
+
+        :return: the chemical record afterwards (:meth:`get_chemical`).
+        """
+        from chemotion_api import chemicals
+        return chemicals.attach_safety_sheet(self._session, self, file_path, vendor_name, vendor_product,
+                                             vendor_info, cas)
+
+    def save_vendor_safety_sheet(self, chemical: Chemical, vendor_product: str) -> Chemical:
+        """Have the server download a vendor's safety data sheet for this sample. See
+        :func:`chemotion_api.chemicals.save_vendor_safety_sheet`.
+
+        :return: the chemical record afterwards (:meth:`get_chemical`).
+        """
+        from chemotion_api import chemicals
+        return chemicals.save_vendor_safety_sheet(self._session, self, chemical, vendor_product)
 
     def load_image(self) -> Response:
         """
