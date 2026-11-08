@@ -79,3 +79,15 @@ def test_bulk_thumbnails_and_files_keep_the_order_and_the_gaps():
     assert session.calls[0] == ('post', '/api/v1/attachments/thumbnails', {'ids': [1, 2, 3]})
     with pytest.raises(PermissionError):
         load_files(_Session(_Res(401, {})), [1])
+
+
+def test_annotation_round_trip():
+    svg = '<svg><g id="annotation"></g></svg>'
+    session = _Session(_Res(200, None), _Res(201, None))
+    session.responses[0].text = json.dumps(svg)  # Grape renders the SVG as a JSON string
+    att = Attachment(session, {'id': 5, 'filename': 'a.png'})
+    assert att.load_annotation() == svg
+    att.save_annotation(svg)
+    assert session.calls[1] == ('post', '/api/v1/attachments/5/annotation', {'updated_svg_string': svg})
+    with pytest.raises(ValueError, match='Not an SVG'):
+        att.save_annotation('rect')
