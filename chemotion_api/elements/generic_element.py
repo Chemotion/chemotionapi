@@ -354,6 +354,21 @@ class GenericElement(AbstractElement, WorkflowInterface):
         return list(res.json().get('warnings') or [])
 
 
+    def create_mtt_request(self, *wellplates) -> str:
+        """
+        Starts an MTT (dose-response) assay of the wellplates for this element. See
+        :func:`chemotion_api.mtt.create_request`. :return: the link to the external MTT app.
+        """
+        from chemotion_api import mtt
+        self._saved_id_for('MTT requests')
+        return mtt.create_request(self._session, self, wellplates)
+
+    def mtt_requests(self) -> list:
+        """Your MTT requests of this element, with their outputs (see :mod:`chemotion_api.mtt`)."""
+        from chemotion_api import mtt
+        self._saved_id_for('MTT requests')
+        return mtt.list_requests(self._session, self)
+
 def variation_key(layer: str, field: str) -> str:
     """The key of a property cell in a variations row (``ElementVariationColumnSet.encode_property_key``)."""
     return f'layer{layer}field{field}'
