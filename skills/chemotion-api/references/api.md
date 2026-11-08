@@ -21,6 +21,15 @@ each element type. Read the section you need; SKILL.md has the workflows.
 14. Search
 15. Enums and units
 16. Exceptions
+17. Collections: v4 additions (delete, split, import/export, reports, labels)
+18. Element additions (comments, notes, versions, literature, analyses, chemicals, measurements)
+19. More element types: Screen, CellLine, DeviceDescription, SbmmSample, vessels
+20. Molecules, components and structure search
+21. Inbox, attachments, annotations, spectra
+22. Reports and table exports
+23. LabIMotion additions (templates, hub, variations, MTT)
+24. Account, profile, text templates, SciFinder-n, compute
+25. Administration (`Admin`)
 
 ## 1. Instance (`from chemotion_api import Instance`)
 
@@ -81,7 +90,10 @@ Collection (owned) additionally
   .add_collection(name)            # local until root.save()
   .move(dest)                      # relative to the parent; local until root.save()
   .delete()                        # local until root.save()
-  .share(SyncPermission, *users_or_groups)   # sent immediately; ConnectionError on failure
+  .share(CollectionSharePermission, *users_or_groups, detail_level=0..10)   # sent immediately
+  .get_shares() / .update_share(share_id, ...) / .unshare(*users, all=False)
+  .export(file_path) / .metadata() / .save_metadata(dict) / .take_ownership()    # see 17
+  .gate_token(origin) / .register_gate(url, token) / .check_transmission(url) / .transmit(url)
 
 RootCollection                     # no new_* methods: elements cannot be created in 'All'
   .save()                          # sends all tree changes and reloads
@@ -90,7 +102,8 @@ RootCollection                     # no new_* methods: elements cannot be create
   .all                             # info of the 'All' collection
   .move(src, dest) / .delete(src) / .add_collection(path)
 
-SyncPermission: Read, Write, Share, Delete, ImportElements, PassOwnership
+CollectionSharePermission: ReadElements(0), EditElements(1), AddElements(2), RemoveElements(3),
+                           ManageShares(4), PassOwnership(5)   # v4 levels; use the names
 ```
 
 ## 3. ElementSet (result of get_samples etc.)
@@ -370,3 +383,168 @@ GasType: OFF, GAS, CATALYST, FEEDSTOCK
 | KeyError | sample has no reaction; unknown segment/field name |
 | StopIteration | by_name/by_id/dataset_by_name found nothing |
 | NotImplementedError | quantities of mixtures in variations |
+
+## 17. Collections: v4 additions
+
+All of these act immediately.
+
+```
+AbstractCollection
+  .delete_elements(*elements, delete_subsamples=False) -> list   # the elements the server kept
+  .split_samples(*samples) -> list[Sample]                       # linked subsamples <label>-<n>
+  .split_wellplates(*plates) / .create_wellplates(*names)
+  .split_device_descriptions(*devs) / .split_sbmm_samples(*s) / .split_generic_elements(*els)
+  .import_samples(path, as_chemicals=False, wait=True, timeout=300) -> ImportResult   # .sdf .mol .csv .xlsx
+  .export_elements(path, *elements, file_format='xlsx'|'sdf', columns=None) -> path | None
+  .export_reaction_smiles(path, *reactions, notation='SM>R>P') -> path | None
+  .references() -> {'collection'|'sample'|'reaction'|'research_plan': [Reference]}
+  .update_user_labels(*elements, add=(), remove=())
+  .get_screens() / .get_cell_lines() / .get_device_descriptions() / .get_sbmm_samples()   # ElementSet
+  .get_vessels() / .new_vessel(template, **fields) / .new_vessels(template, count, base_name=None)
+  .inventory_label() -> InventoryLabel | None
+Collection
+  .export(path, timeout=600) -> path        # ZIP via a background job
+  .metadata() -> dict | None / .save_metadata(dict)              # DataCite fields
+  .take_ownership() -> dict                 # accept a PassOwnership share
+  .gate_token(origin) / .register_gate(destination, token)
+  .check_transmission(target) / .transmit(target, wait=True)     # target required (server default = public repo)
+RootCollection
+  .export_collections(*cols, file_path=...) / .import_collections(path) -> list[Collection]
+```
+
+## 18. Element additions (`AbstractElement`)
+
+```
+.delete(delete_subsamples=False) -> bool    # True when the record is really gone
+.comments() / .add_comment(content, section=None)
+.private_note() / .set_private_note(text) / .delete_private_note()
+.versions() -> list[Version]                # Version.changes, Version.revert(fields=None)
+.references() / .add_reference(doi=, url=, title=, isbn=, bibtex=, litype='citedOwn')
+.remove_reference(ref) / .set_reference_type(ref, litype)
+.save_analyses()                            # only the analyses (PUT /containers/container)
+.delete_analysis(analysis)                  # immediate, files gone
+.linked_research_plans() -> [{'id', 'name'}]      # samples and reactions
+.chemical() -> Chemical | None / .save_chemical(Chemical)            # samples, SBMM samples
+.attach_safety_sheet(pdf, vendor_name, vendor_product, vendor_info=None, cas=None)
+.save_vendor_safety_sheet(chemical, vendor_product)
+.measurements(hierarchy=True, source=None) -> list[Measurement]      # samples
+.create_measurements([{'sample', 'description', 'value', 'unit', 'metadata'?}])   # on the source element
+Sample:   .svg_path / .components() / .save_components([Component])
+Reaction: .render_scheme_svg(products_only=False) / .report_docx(path) / .export_samples_excel(path)
+Wellplate: .export_samples_excel(path) / .download_template(path) / .import_spreadsheet(path)
+ResearchPlan: .metadata() / .save_metadata(**fields) / .upload_svg(svg, is_chemdraw=False)
+```
+`chemotion_api.chemicals.Chemical(id, cas, data, ...)`: `data` is `chemical_data[0]`; `.safety_sheets` paths.
+
+## 19. More element types
+
+```
+Screen        col.new_screen(); .add_wellplate(p) / .remove_wellplate(p) / .add_research_plan(rp)
+              .new_research_plan(collection); properties: name, collaborator, requirements,
+              conditions, result, description, wellplates, research_plans
+CellLine      col.new_cell_line(); properties: name, amount, unit, passage, contamination, description,
+              material_names, source, organism, tissue, cell_type, ... ; .copy(col) / .split(col)
+              new ones need material_names, source, amount, unit, passage
+DeviceDescription  col.new_device_description(); ~60 fields (device_description.FIELDS);
+              .download_analyses(path); instance.device_ontologies()
+SbmmSample    col.new_sbmm_sample(); .macromolecule (dict) / .use_uniprot(accession)
+              raises SbmmUpdateNotAllowed when the macromolecule is used elsewhere
+              instance.search_macromolecules(term, field) / get_macromolecule(id_or_acc, source)
+vessels       VesselTemplate(name, vessel_type, material_type, volume_amount, ...).save()/.delete()/.vessels()
+              Vessel(name, short_label, weight_amount, ...).save()/.delete(); UUID ids
+```
+
+## 20. Molecules, components, structure search
+
+```
+instance.molecule() -> MoleculeManager
+  .create_molecule_by_molfile(molfile, decoupled=False)   # ValueError for the server's DUMMY molecule
+  .get_molecule_by_inchikey(k) / .load_cas(inchikey) / .lookup_cas(cas)
+  .get_names(mol_id) / .add_name(mol_id, name) / .render_svg(molfile) / .load_svg(mol)
+  .molecular_weight(sum_formula)
+col.new_sample_molfile(molfile)
+sample.components() / sample.save_components([Component.new(molecule, amount_mol=...)])
+instance.search_structure().substructure(smiles_or_molfile) | .similar(s, threshold=0.7)
+  .in_collection(id).find_max(n).request() -> StructureSearchResult(.samples, .reactions, .total(type))
+instance.suggestions(query, element_type='all') / instance.doi_metadata(doi)
+instance.find_sample_by_short_label(l) / find_reaction_by_short_label(l)
+```
+
+## 21. Inbox, attachments, annotations, spectra
+
+```
+instance.inbox.unlinked_attachments() / .search_samples(q) / .search_reactions(q)
+instance.inbox.assign(attachment, sample_or_reaction, variation=None) -> dataset container
+Attachment.load_image() / .load_thumbnail() / .delete() / .unlink()
+Attachment.load_annotation() -> svg / .save_annotation(svg)
+attachments.delete_attachments(con, atts) / load_thumbnails(con, atts) / load_files(con, atts)
+instance.spectra(): .save(att, **params) / .infer(att) / .regenerate(orig, generated) /
+  .regenerate_edited(edited, molfile) / .lcms_page(att, rt) / .convert(path, mass) /
+  .combine(atts, front_index) / .layouts() / .nmrium_url()          # need the ChemSpectra service
+```
+
+## 22. Reports and table exports (`chemotion_api.reports`)
+
+```
+instance.report_templates() -> [ReportTemplate]
+instance.create_report(*samples_and_reactions, template='standard', file_name=, description=,
+    sample_settings={}, reaction_settings={}, si_reaction_settings={}, page_break=True,
+    all_chemicals_in_schemes=True, image_format='png', molecule_serials={}, wait=True) -> Archive
+instance.report_archives() -> [Archive]; Archive.download(path) / .refresh() / .delete()
+REPORT_TYPES: standard, spectrum, supporting_information, supporting_information_std_rxn,
+              rxn_list_xlsx, rxn_list_csv, rxn_list_html
+```
+
+## 23. LabIMotion additions
+
+```
+klass (GenericElementKlass / GenericSegment / GenericDataset)
+  .delete(confirm=<label>) / .revisions(limit=10) / .delete_revision(rev) / .download(path)
+gm = instance.generic_manager()
+  .hub_templates(kind) / .import_hub_template(identifier, kind) / .submit_to_hub(...)
+  .published_templates(kind) / .active_element_names(generic_only=False)
+GenericElement
+  .export_docx(path) / .variations() / .save_variations(rows, layout=None)
+  .export_variations(path) / .import_variations(path) -> warnings
+  .create_mtt_request(*wellplates) -> app link / .mtt_requests() -> [MttRequest(.update/.revoke/.delete)]
+generic_element.variation_key(layer, field)   # property-cell key
+instance.ols_terms(name='chmo'|'rxno'|'bao', edited=True)
+```
+
+## 24. Account, profile, templates, SciFinder-n, compute
+
+```
+instance.profile() -> Profile(.data, display flags, .structure_templates, .save(),
+    .add_structure_template(content), .delete_structure_template(t))
+instance.ketcher_options() / .save_ketcher_options(dict)
+instance.two_factor_enabled() / .request_two_factor_change()
+instance.api_tokens() / .create_api_token(otp, name=None, expires_in_days=30) / .revoke_api_token(t, otp)
+instance.set_short_label_counter(type, value) / .set_reaction_short_label(prefix, count)
+instance.text_templates(): .predefined_names() / .predefined(name) / .personal() /
+    .create_personal(name, ops) / .update_personal(t) / .delete_personal(t) / .toolbar(type) / .set_toolbar(type, groups)
+instance.scifinder_credential() / .scifinder_search(structure, search_for, structure_type)
+instance.simulate_nmr(mol) / .predict_products(smiles) / .predict_reactants(smiles)
+instance.compute_tasks() / .submit_compute_task(sample); ComputeTask.check() / .revoke() / .delete()
+instance.sample_tasks(status) / .create_sample_task(sample, description, n); SampleTask.add_scan_result(...)
+instance.set_inventory_label(prefix, name, counter, *cols) / .inventory_collections()
+instance.find_safety_sheets(name, molecule=None, vendor='All') / .download_safety_sheet / .extract_safety_sheet
+instance.research_plan_table_schemas() / .save_research_plan_table_schema(name, table) / .delete_...(id)
+instance.instruments(kind='all')
+```
+
+## 25. Administration (`Admin`, from `instance.get_user()` of an admin account)
+
+```
+users    .find_users(name) / .update_user(u, **fields) / .delete_user(u, confirm=abbr) / .restore_user(abbr)
+         .reset_password(u, password=None) / .two_factor_enable_link(u) / .disable_two_factor(u)
+         .set_user_rights(u, molecule_editor=, converter_admin=, generic_elements_admin=, ...)
+         .default_allocated_space() / .set_default_allocated_space(mb)
+groups   .remove_users_from_group(g, *users) / .set_group_admin(g, u, admin=True) / .delete_group(g, confirm=abbr)
+devices  .list_devices(name=None) / .get_device(d) / .add_device(name, abbr) / .update_device(d, **fields)
+         .delete_device(d, confirm=abbr) / .remove_device_user(d, u) / .test_sftp(d, host, user)
+         .local_collectors() / .device_metadata(d) / .save_device_metadata(d, **f) / .sync_device_metadata(d)
+system   .disk_usage() / .jobs() / .restart_job(job) / .queue_admin_task(task) / .matrices() / .update_matrix(m, **f)
+         .save_spectra_data_types(d) / .info_support_links() / .add_/update_/delete_info_support_link(...)
+ontology .import_ols_terms(owl) / .set_ols_terms_enabled(owl_name, enable=(), disable=())
+```
+

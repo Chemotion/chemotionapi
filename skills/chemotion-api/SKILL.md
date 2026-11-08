@@ -1,6 +1,6 @@
 ---
 name: chemotion-api
-description: How to read and write data in a Chemotion ELN (electronic lab notebook) with the chemotion_api Python package - samples, reactions, research plans, wellplates, generic (LabIMotion) elements, collections, segments, analyses/datasets, attachments, reaction variations and search. Use this skill whenever code imports chemotion_api, whenever a task involves a Chemotion instance (creating or editing samples or reactions, setting amounts or equivalents, uploading measurement files, filling segment fields, sharing collections), or when the user mentions Chemotion, ChemAssistent or an ELN at KIT - even if they don't name the package.
+description: How to read and write data in a Chemotion ELN v4 (electronic lab notebook) with the chemotion_api Python package - samples, reactions, research plans, wellplates, screens, cell lines, device descriptions, vessels, sequence-based macromolecule samples, generic (LabIMotion) elements, collections and sharing, segments, analyses/datasets, attachments and annotations, comments, versions, literature, structure search, collection export/import, reports, the inbox, chemical inventory and safety data sheets, measurements, spectra, text templates, and administration. Use this skill whenever code imports chemotion_api, whenever a task involves a Chemotion instance (creating or editing samples or reactions, setting amounts or equivalents, uploading measurement files, filling segment fields, sharing or exporting collections, generating reports), or when the user mentions Chemotion, ChemAssistent or an ELN at KIT - even if they don't name the package.
 ---
 
 # chemotion_api cheat sheet
@@ -264,10 +264,16 @@ Collection tree changes (`add_collection`, `move`, `delete`) are local until `ro
 cannot be moved, deleted or extended.
 
 ```python
-from chemotion_api.collection import SyncPermission
-users = instance.find_user_by_name('Smith')        # top 3 matches
-col.share(SyncPermission.Read, *users)              # sent immediately
+from chemotion_api.collection import CollectionSharePermission as P
+users = instance.find_user_by_name('Smith')                  # top 3 matches
+col.share(P.ReadElements, *users, detail_level=10)            # sent immediately; 0-10 per element type
+col.get_shares(); col.unshare(*users)                         # unshare() refuses an empty user list
+shared.take_ownership()                                       # accept a P.PassOwnership offer (recipient side)
+col.metadata() / col.save_metadata({'title': ..., 'creators': [...]})   # DataCite fields
 ```
+
+v4 renumbered the permission levels (`ReadElements`, `EditElements`, `AddElements`, `RemoveElements`,
+`ManageShares`, `PassOwnership`); always use the names, never numbers.
 
 Moving elements between collections is sent immediately (no `root.save()`):
 
@@ -275,6 +281,90 @@ Moving elements between collections is sent immediately (no `root.save()`):
 src.move_elements(dest, sample, reaction)   # not from root ('All'): use assign_elements there
 root.assign_elements(dest, sample)          # sample is now in both; same element, not a copy
 dest.remove_elements(sample)                # stays in 'All'; nothing is deleted
+```
+
+## Deleting (ask the user first)
+
+```python
+sample.delete()                          # DELETE /ui_state like the UI; True once it is really gone
+col.delete_elements(s1, r1)              # several at once; returns the elements the server kept
+reaction.delete_analysis(analysis)       # immediate, files cannot be restored
+```
+v4 withdraws elements from your collections and destroys only those left in none, so an element still
+bound to a reaction or shared elsewhere survives. Templates, users, groups and devices need
+`confirm=<label or abbreviation>`; there is no "delete all".
+
+## Comments, notes, versions, literature, labels
+
+```python
+el.comments(); el.add_comment('text', section='properties')
+el.private_note(); el.set_private_note('only for me')
+for v in el.versions(): v.changes; v.revert()             # field-level history
+el.references(); el.add_reference(doi='10.1000/x'); col.references(); instance.doi_metadata(doi)
+col.update_user_labels(s1, s2, add=[label], remove=[])
+```
+
+## More element types
+
+```python
+screen = col.new_screen(); screen.add_wellplate(plate); screen.save()
+cl = col.new_cell_line(); cl.properties.update(material_names='HeLa', source='ATCC', amount=10**6,
+                                               unit='cell count', passage=3); cl.save(); cl.split(col)
+dev = col.new_device_description(); dev.properties['vendor_company_name'] = 'Bruker'; dev.save()
+sb = col.new_sbmm_sample(); sb.use_uniprot('P61626'); sb.save()      # or fill sb.macromolecule
+tpl = instance.new_vessel_template('Flask 250', volume_amount=250, volume_unit='ml').save()
+col.new_vessel(tpl); col.new_vessels(tpl, 10, base_name='rack')     # vessels are saved immediately
+```
+`col.get_screens() / get_cell_lines() / get_device_descriptions() / get_sbmm_samples() / get_vessels()`,
+`instance.get_screen(id)` etc. Splits: `col.split_samples(...)` (linked subsamples),
+`split_wellplates`, `split_device_descriptions`, `split_sbmm_samples`, `split_generic_elements`.
+`Sample.split()` alone builds an *unlinked* copy unless it is saved inside a reaction/wellplate.
+
+## Molecules and structure search
+
+```python
+mm = instance.molecule(); mol = mm.create_molecule_by_molfile(molfile)   # raises for unreadable molfiles
+col.new_sample_molfile(molfile); mm.load_cas(mol['inchikey']); mm.lookup_cas('64-17-5')
+res = instance.search_structure().substructure('c1ccccc1O').find_max(50).request()
+res.samples; res.total('reaction')
+```
+
+## Data in and out
+
+```python
+col.export('col.zip'); root.import_collections('col.zip')       # waits for the background job
+col.import_samples('samples.sdf')                                # SDF/MOL/CSV/XLSX
+col.export_elements('table.xlsx', s1, r1); col.export_reaction_smiles('rxn.csv', r1)
+archive = instance.create_report(r1, s1, file_name='Weekly'); archive.download('weekly.docx')
+reaction.report_docx('r.docx'); wellplate.import_spreadsheet('plate.xlsx')
+instance.inbox.assign(att, sample)                               # inbox file -> new analysis
+el.save_analyses()                                               # analyses only, not the element
+```
+Collection export/import, sample import and reports run as server jobs; the methods poll until done
+(`timeout=`). Gate transfer: `col.register_gate(url, token)`, `col.transmit(url)` (target is required).
+
+## Lab data
+
+```python
+sample.chemical(); sample.save_chemical(Chemical(cas='64-17-5', data={'status': 'Available'}))
+sample.attach_safety_sheet('sds.pdf', 'Merck', 'merckProductInfo', {'productNumber': 'E7023'})
+plan.create_measurements([{'sample': s, 'description': 'yield', 'value': 87.5, 'unit': '%'}])
+att.load_annotation(); att.save_annotation(svg)
+instance.spectra().save(jcamp_attachment, peaks_str=...)        # needs the ELN's ChemSpectra service
+instance.text_templates().predefined('esi').ops                  # Quill delta snippets
+```
+
+## LabIMotion admin and administration
+
+```python
+gm = instance.generic_manager()
+klass.download('t.json'); klass.revisions(); klass.delete(confirm=klass.label)
+gm.hub_templates(ElementType.SEGMENT); gm.import_hub_template(identifier, ElementType.SEGMENT)
+el.variations(); el.save_variations(rows); el.create_mtt_request(plate)
+admin = Instance(url).login(admin_user, pw).get_user()        # an Admin
+admin.find_users('Smith'); admin.update_user(u, account_active=False); admin.reset_password(u)
+admin.add_device('NMR', 'NMR1'); admin.jobs(); admin.disk_usage(); admin.matrices()
+instance.profile(); instance.set_short_label_counter('samples', 100); instance.create_api_token(otp)
 ```
 
 ## Show the user
@@ -290,6 +380,10 @@ dest.remove_elements(sample)                # stays in 'All'; nothing is deleted
   Use `append_no_split` if you must not create splits.
 - Segment and property names are the human-readable labels, case-sensitive.
 - `ElementSet` (listings) cannot be indexed negatively; with an IRI filter it can only be iterated.
+- Most methods added for v4 act **immediately** (no `save()`): moving, sharing, deleting, splitting,
+  comments, references, labels, chemicals, measurements, vessels, exports and admin calls.
+- Background jobs (export, import, reports) have no job id; the client waits for the matching
+  notification. Re-running one creates a second job.
 - `ValueError` from `save()` usually means a segment value does not fit its field; the message names the field.
 - `requests.exceptions.RequestException` with `401` means the element is not visible to this user.
   Load/save/list failures raise `chemotion_api.connection.ChemotionRequestError` (a `RequestException`;

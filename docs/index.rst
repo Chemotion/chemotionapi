@@ -28,10 +28,15 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    ``211.x.y`` ↔ ELN 2.1.1.
 
 .. note::
-   **Not every element type is equally supported.** Samples and reactions are first-class:
-   they are read and written over the API and carry typed element data. Wellplates, research
-   plans and LabIMotion generic elements are read and written over the API. Screens, cell lines,
-   device descriptions and vessels are not supported by any part of this client.
+   **Element types.** Samples and reactions carry typed element data. Wellplates, research plans,
+   screens, cell lines, device descriptions, sequence-based macromolecule samples and LabIMotion
+   generic elements are read and written as elements; vessels (templates and instances) have their
+   own classes in :mod:`chemotion_api.vessels`.
+
+   **Acting immediately.** Element edits reach the server on ``save()``. Most other calls — moving,
+   sharing, deleting, splitting, comments, references, exports, imports, reports, inventory data and
+   administration — are sent right away. Deleting templates, users, groups or devices needs the
+   item's label or abbreviation passed back as ``confirm=``.
 
 .. toctree::
    :maxdepth: 2
@@ -48,7 +53,11 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    Segments
    Attachments
    Analyses
+   MoreElements
    Search
+   DataExchange
+   LabData
+   Account
    Admin
 
 .. toctree::

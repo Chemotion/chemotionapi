@@ -63,8 +63,7 @@ class SbmmSample(AbstractElement):
 
     >>> s = collection.new_sbmm_sample()
     >>> s.properties['name'] = 'Lysozyme batch 1'
-    >>> s.properties['sequence_based_macromolecule'].update(
-    ...     uniprot_derivation='uniprot_unknown', short_name='LYZ', sequence='KVFGRCELAAAMKRH...')
+    >>> s.macromolecule.update(uniprot_derivation='uniprot_unknown', short_name='LYZ', sequence='KVFGRCELAAAMKRH')
     >>> s.save()
     >>> # or from UniProt:
     >>> s.use_uniprot('P61626')

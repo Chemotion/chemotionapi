@@ -37,8 +37,7 @@ class CellLine(AbstractElement):
     Usage::
 
     >>> cells = collection.new_cell_line()
-    >>> cells.properties.update(material_names='HeLa', source='ATCC', amount=1000000,
-    ...                         unit='cell count', passage=12)
+    >>> cells.properties.update(material_names='HeLa', source='ATCC', amount=1000000, unit='cell count', passage=12)
     >>> cells.save()
     >>> part = cells.split(collection)
     """
