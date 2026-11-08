@@ -1,4 +1,5 @@
 """GenericElement: a LabIMotion user-defined element type backed by a dynamic schema."""
+from chemotion_api.connection import request_error
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.workflow_interface import WorkflowInterface
 from chemotion_api.elements.workflow_manager import Workflow
@@ -266,3 +267,20 @@ class GenericElement(AbstractElement, WorkflowInterface):
             raise ValueError(f'Layer {layer_label} has not been found.')
 
         return parse_generic_object_layer_json(key, layer, self.properties, self._properties_mapping)
+
+    def export_docx(self, file_path: str) -> str:
+        """
+        Saves this element as a Word document, as its *Export* button does
+        (``GET /api/v1/generic_elements/export``).
+
+        :return: ``file_path``
+        """
+        res = self._session.get('/api/v1/generic_elements/export',
+                                params={'id': self._saved_id_for('export'), 'klass': 'Element'})
+        if res.status_code != 200:
+            raise request_error(res, f'exporting generic element {self.id}')
+        if not res.content.startswith(b'PK'):  # the server answers {"klass": []} when the export failed
+            raise ConnectionError(f'The server could not export generic element {self.id}.')
+        with open(file_path, 'wb') as f:
+            f.write(res.content)
+        return file_path
