@@ -123,6 +123,42 @@ class Attachment(AttrAccessMixin, dict):
             raise request_error(res, f"loading attachment {self['id']} as image")
         return res.content
 
+    def load_annotation(self) -> str:
+        """
+        The annotation drawn over this image, as SVG (``GET /api/v1/attachments/:id/annotation``).
+        An image without one gets an empty annotation, which embeds the image itself.
+
+        :raises ValueError: if the attachment is not an annotatable image.
+        """
+        res = self._con.get(f"/api/v1/attachments/{self['id']}/annotation")
+        if res.status_code == 500:
+            # The server raises (an HTML 500 page) for any file it cannot annotate.
+            raise ValueError(f"Attachment {self['id']} ({self.get('filename')}) cannot be annotated "
+                             "(the server could not load an annotation for it; only images can be annotated).")
+        if res.status_code != 200:
+            raise request_error(res, f"loading the annotation of attachment {self['id']}")
+        text = res.text
+        # Grape renders the SVG string as JSON.
+        return json.loads(text) if text.startswith('"') else text
+
+    def save_annotation(self, svg: str) -> None:
+        """
+        Replaces the annotation of this image (``POST /api/v1/attachments/:id/annotation``). The
+        server keeps only plain drawing elements (``svg``, ``g``, ``rect``, ``text``, ``path``,
+        ``line``, ``ellipse``, ``image``), and an ``<image>`` may only point at
+        ``/api/v1/attachments/image/<id>``. It also renders the annotated image and thumbnail
+        that :meth:`load_image` then returns.
+
+        :param svg: start from :meth:`load_annotation` and add elements to it.
+        """
+        if not svg or '<svg' not in svg:
+            raise ValueError('Not an SVG annotation.')
+        res = self._con.post(f"/api/v1/attachments/{self['id']}/annotation", data={'updated_svg_string': svg})
+        if res.status_code == 401:
+            raise PermissionError(f"You may not edit attachment {self['id']}.")
+        if res.status_code not in (200, 201):
+            raise request_error(res, f"saving the annotation of attachment {self['id']}")
+
     def load_thumbnail(self) -> bytes | None:
         """
         The attachment's preview thumbnail (PNG bytes), or ``None`` if the server made none
