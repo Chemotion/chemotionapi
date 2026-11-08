@@ -107,7 +107,7 @@ types below can be neither read nor written.
 | ✅ | **Split generic elements** | `GenericElsFetcher` → `generic_elements/split` — Done in M6.4: `collection.split_generic_elements(*elements)`. |
 | ✅ | **Generic element variations** | `ElementVariationFetcher` → `element_variations` — Done in M6.4: `generic_element.variations()` / `save_variations()` / `export_variations()` / `import_variations()`, `variation_key(layer, field)`. |
 | ✅ | **MTT assay requests** | `GenericElsFetcher` → `mtt/*` — Done in M6.5: `generic_element.create_mtt_request(*wellplates)` (returns the app link), `mtt_requests()`, `MttRequest.update()` / `revoke()` / `delete()`, `mtt.delete_outputs()` / `delete_output_result()`. The token routes the external app calls (`public/mtt_apps`) are for that app and left out. |
-| ❌ | **OLS term import / ontology lists** (admin) | `AdminFetcher` → `admin/importOlsTerms`, `admin/olsEnableDisable`; `UsersFetcher` → `ols_terms/list` |
+| ✅ | **OLS term import / ontology lists** (admin) | `AdminFetcher` → `admin/importOlsTerms`, `admin/olsEnableDisable`; `UsersFetcher` → `ols_terms/list` — Done in M6.6: `instance.ols_terms(name, edited)`; admins: `import_ols_terms(owl_file)` and `set_ols_terms_enabled(owl_name, enable, disable)`, which refuses when no terms are imported (the server would otherwise overwrite the built-in term lists with empty ones). |
 
 ## 10. Users, account and administration
 
