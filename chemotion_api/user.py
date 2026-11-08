@@ -720,6 +720,140 @@ class Admin(Person):
         self._admin_check(res, f'{action} on {rootType.lower()} {group_id}')
         return res.json() if res.content else {}
 
+    #: Device fields the admin device routes accept. The ``datacollector_*`` ones configure how the
+    #: ELN collects files from the instrument (local folder or SFTP), the ``novnc_*`` ones the
+    #: remote-desktop link.
+    DEVICE_FIELDS = ('name', 'name_abbreviation', 'email', 'serial_number', 'verification_status', 'account_active',
+                     'visibility', 'people', 'groups', 'datacollector_fields', 'datacollector_method',
+                     'datacollector_dir', 'datacollector_host', 'datacollector_user', 'datacollector_authentication',
+                     'datacollector_key_name', 'datacollector_user_level_selected', 'datacollector_number_of_files',
+                     'novnc_target', 'novnc_token', 'novnc_password')
+
+    def list_devices(self, name: str | None = None, limit: int = 5) -> list[dict]:
+        """All devices, or those whose name matches (``GET /api/v1/admin_devices[/byname]``)."""
+        if name:
+            res = self._session.get('/api/v1/admin_devices/byname', params={'name': name, 'limit': limit})
+        else:
+            res = self._session.get('/api/v1/admin_devices')
+        self._admin_check(res, 'listing devices')
+        return res.json().get('devices') or []
+
+    def get_device(self, device) -> dict:
+        res = self._session.get(f'/api/v1/admin_devices/{_user_id(device)}')
+        self._admin_check(res, f'loading device {_user_id(device)}')
+        return res.json().get('device') or {}
+
+    def add_device(self, name: str, name_abbreviation: str, **fields) -> dict:
+        """Register an instrument as a device (``POST /api/v1/admin_devices``).
+
+        :param fields: ``email``, ``serial_number``, ``verification_status``, ``account_active``,
+            ``visibility``; configure collection afterwards with :meth:`update_device`.
+        """
+        allowed = {'email', 'serial_number', 'verification_status', 'account_active', 'visibility'}
+        if set(fields) - allowed:
+            raise ValueError(f'add_device takes {", ".join(sorted(allowed))}; set the rest with update_device.')
+        res = self._session.post('/api/v1/admin_devices', data={'name': name, 'name_abbreviation': name_abbreviation} | fields)
+        return self._device_answer(res, f'creating device {name_abbreviation}')
+
+    def update_device(self, device, **fields) -> dict:
+        """Change a device, its users and its data collector (``PUT /api/v1/admin_devices/:id``).
+
+        :param fields: any of :data:`DEVICE_FIELDS`; ``people`` / ``groups`` are user ids and replace
+            the current ones (an empty list removes all). ``name`` and ``name_abbreviation`` are
+            required by the server and default to the device's current values.
+        """
+        unknown = set(fields) - set(self.DEVICE_FIELDS)
+        if unknown:
+            raise ValueError(f'Unknown device fields: {", ".join(sorted(unknown))}')
+        current = self.get_device(device)
+        body = {'id': _user_id(device), 'name': current.get('name'),
+                'name_abbreviation': current.get('name_abbreviation') or current.get('initials')} | fields
+        if any(k.startswith('datacollector_') for k in fields):
+            body.setdefault('datacollector_fields', True)
+        res = self._session.put(f'/api/v1/admin_devices/{_user_id(device)}', data=body)
+        return self._device_answer(res, f'updating device {_user_id(device)}')
+
+    def _device_answer(self, res, what: str) -> dict:
+        self._admin_check(res, what)
+        data = res.json() or {}
+        if data.get('errors'):
+            raise ValueError(f'{what}: {data["errors"]}')
+        return data.get('device') or data
+
+    def delete_device(self, device, *, confirm: str) -> None:
+        """Delete a device (``DELETE /api/v1/admin_devices/:id``).
+
+        :param confirm: its name abbreviation, to guard against deleting the wrong one.
+        """
+        current = self.get_device(device)
+        abbreviation = current.get('name_abbreviation') or current.get('initials')
+        if confirm != abbreviation:
+            raise ValueError(f'To delete device {_user_id(device)}, pass confirm={abbreviation!r}.')
+        res = self._session.delete(f'/api/v1/admin_devices/{_user_id(device)}')
+        if res.status_code == 400:
+            raise ValueError(f'Device {abbreviation} could not be deleted.')
+        self._admin_check(res, f'deleting device {abbreviation}')
+
+    def remove_device_user(self, device, user) -> None:
+        """Take a user's access to a device away (``PUT /api/v1/admin_devices/delete_relation/:user_id``)."""
+        res = self._session.put(f'/api/v1/admin_devices/delete_relation/{_user_id(user)}',
+                                data={'id': _user_id(user), 'device_id': _user_id(device)})
+        if res.status_code == 400:
+            raise LookupError(f'User {_user_id(user)} has no access to device {_user_id(device)}.')
+        self._admin_check(res, 'removing a device user')
+
+    def test_sftp(self, device, host: str, user: str, authentication: str = 'password',
+                  key_name: str | None = None, method: str = 'filewatchersftp') -> dict:
+        """Check that the ELN can log in to a data collector's SFTP server
+        (``POST /api/v1/admin_devices/test_sftp``). The ELN connects to ``host`` for this.
+
+        :return: ``{'status': 'success' | 'error', 'message': ...}``.
+        """
+        body = {'id': _user_id(device), 'datacollector_method': method, 'datacollector_host': host,
+                'datacollector_user': user, 'datacollector_authentication': authentication}
+        if key_name is not None:
+            body['datacollector_key_name'] = key_name
+        res = self._session.post('/api/v1/admin_devices/test_sftp', data=body)
+        self._admin_check(res, 'testing an SFTP connection')
+        return res.json()
+
+    def local_collectors(self) -> list[dict]:
+        """The local data-collector folders configured on the server (``GET /api/v1/admin/listLocalCollector/all``)."""
+        res = self._session.get('/api/v1/admin/listLocalCollector/all')
+        self._admin_check(res, 'listing local collectors')
+        return res.json().get('listLocalCollector') or []
+
+    def device_metadata(self, device) -> dict | None:
+        """A device's publication metadata, or ``None`` (``GET /api/v1/admin_device_metadata/:id``)."""
+        res = self._session.get(f'/api/v1/admin_device_metadata/{_user_id(device)}')
+        self._admin_check(res, f'loading the metadata of device {_user_id(device)}')
+        return res.json().get('device_metadata')
+
+    def save_device_metadata(self, device, **fields) -> dict:
+        """Create or update a device's publication metadata (``POST /api/v1/admin_device_metadata``):
+        ``name``, ``doi``, ``url``, ``landing_page``, ``type``, ``description``, ``publisher``,
+        ``publication_year``, ``data_cite_state``, ``owners``, ``manufacturers``, ``dates``.
+        Creating it also registers the device at DataCite when the ELN is configured for that."""
+        allowed = {'name', 'doi', 'url', 'landing_page', 'type', 'description', 'publisher', 'publication_year',
+                   'data_cite_state', 'owners', 'manufacturers', 'dates'}
+        if set(fields) - allowed:
+            raise ValueError(f'Unknown metadata fields: {", ".join(sorted(set(fields) - allowed))}')
+        res = self._session.post('/api/v1/admin_device_metadata', data={'device_id': _user_id(device)} | fields)
+        self._admin_check(res, f'saving the metadata of device {_user_id(device)}')
+        data = res.json() or {}
+        if data.get('error'):
+            raise ValueError(data['error'])
+        return data.get('device_metadata') or {}
+
+    def sync_device_metadata(self, device) -> dict:
+        """Push a device's metadata to DataCite (``PUT /api/v1/admin_device_metadata/:id/sync_to_data_cite``)."""
+        res = self._session.put(f'/api/v1/admin_device_metadata/{_user_id(device)}/sync_to_data_cite')
+        self._admin_check(res, f'syncing the metadata of device {_user_id(device)}')
+        data = res.json() or {}
+        if data.get('error'):
+            raise ConnectionError(data['error'])
+        return data.get('device_metadata') or {}
+
     def import_ols_terms(self, owl_file: str) -> None:
         """Replace an ontology's terms with those of an OWL file, as *Admin > Ontologies* does
         (``POST /api/v1/admin/importOlsTerms``). The file name without extension is the ontology

@@ -698,6 +698,19 @@ class Instance:
         """Set the prefix and counter of your reaction short labels."""
         account.set_reaction_label(self._con, prefix, count)
 
+    def instruments(self, kind: str = 'all') -> list[str]:
+        """The instrument names used in your analyses, as the analysis editor suggests them
+        (``GET /api/v1/instruments/:kind``).
+
+        :param kind: ``'all'``, ``'samples'``, ``'reactions'``, ``'wellplates'`` or ``'screens'``.
+        """
+        if kind not in ('all', 'samples', 'reactions', 'wellplates', 'screens'):
+            raise ValueError("kind is 'all', 'samples', 'reactions', 'wellplates' or 'screens'.")
+        res = self._con.get(f'/api/v1/instruments/{kind}')
+        if res.status_code != 200:
+            raise request_error(res, 'loading instruments')
+        return [row.get('name') for row in res.json().get('instruments') or [] if row.get('name')]
+
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""
         return vessels.templates(self._con)
