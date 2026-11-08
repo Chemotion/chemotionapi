@@ -106,7 +106,7 @@ types below can be neither read nor written.
 | ✅ | **Download / export klasses and elements** | `GenericKlassFetcher` → `generic_klass/download_klass`; `segments/download_klass`, `generic_elements/export` Done in M6.2: `klass.download(path)` (template JSON, re-uploadable with `upload()`), `generic_element.export_docx(path)`. `segments/download_klass` is the older route for the same file. |
 | ✅ | **Split generic elements** | `GenericElsFetcher` → `generic_elements/split` — Done in M6.4: `collection.split_generic_elements(*elements)`. |
 | ✅ | **Generic element variations** | `ElementVariationFetcher` → `element_variations` — Done in M6.4: `generic_element.variations()` / `save_variations()` / `export_variations()` / `import_variations()`, `variation_key(layer, field)`. |
-| ❌ | **MTT assay requests** | `GenericElsFetcher` → `mtt/*` |
+| ✅ | **MTT assay requests** | `GenericElsFetcher` → `mtt/*` — Done in M6.5: `generic_element.create_mtt_request(*wellplates)` (returns the app link), `mtt_requests()`, `MttRequest.update()` / `revoke()` / `delete()`, `mtt.delete_outputs()` / `delete_output_result()`. The token routes the external app calls (`public/mtt_apps`) are for that app and left out. |
 | ❌ | **OLS term import / ontology lists** (admin) | `AdminFetcher` → `admin/importOlsTerms`, `admin/olsEnableDisable`; `UsersFetcher` → `ols_terms/list` |
 
 ## 10. Users, account and administration
