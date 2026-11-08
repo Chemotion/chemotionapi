@@ -690,6 +690,14 @@ class Instance:
         """Revoke one of your API tokens (an :class:`~chemotion_api.account.ApiToken` or its id)."""
         account.revoke_api_token(self._con, token, otp)
 
+    def set_short_label_counter(self, element_type: str, value: int) -> dict:
+        """Set the counter behind your next short label of ``element_type`` (``'samples'``, …)."""
+        return account.set_counter(self._con, element_type, value)
+
+    def set_reaction_short_label(self, prefix: str, count: int) -> None:
+        """Set the prefix and counter of your reaction short labels."""
+        account.set_reaction_label(self._con, prefix, count)
+
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""
         return vessels.templates(self._con)

@@ -14,3 +14,12 @@ def test_tokens_need_two_factor_login(logged_in_instance):
     with pytest.raises(PermissionError, match='two-factor'):
         logged_in_instance.create_api_token('000000')
 
+
+def test_short_label_counters(instance_with_collection):
+    instance, col = instance_with_collection['instance'], instance_with_collection['main_collection']
+    instance.set_short_label_counter('wellplates', 500)
+    plate = col.new_wellplate()
+    plate.save()
+    assert plate.short_label.endswith('-WP501')
+    user = instance._con.get('/api/v1/users/current').json()['user']
+    instance.set_reaction_short_label(user.get('reaction_name_prefix') or 'R', int(user['counters']['reactions']))
