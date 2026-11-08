@@ -973,6 +973,26 @@ class AbstractElement:
             raise request_error(res, f'loading the research plans linking {self.element_type} {self.id}')
         return [{'id': rp['id'], 'name': rp.get('name')} for rp in res.json() or []]
 
+    def measurements(self, hierarchy: bool = True, source=None) -> list:
+        """
+        This sample's measurements (see :mod:`chemotion_api.measurements`).
+
+        :param hierarchy: include those of the sample's whole split family.
+        :param source: only those taken from this element (e.g. a research plan).
+        """
+        if self.element_type != 'sample':
+            raise ValueError('Only samples have measurements.')
+        from chemotion_api import measurements
+        return measurements.load_measurements(self._session, self._saved_id_for('measurements'), hierarchy, source)
+
+    def create_measurements(self, rows) -> list[dict]:
+        """
+        Records measurements of samples taken from this element (usually a research plan). See
+        :func:`chemotion_api.measurements.create_measurements`.
+        """
+        from chemotion_api import measurements
+        return measurements.create_measurements(self._session, self, rows)
+
     def chemical(self):
         """
         The chemical inventory record of this sample or SBMM sample, or ``None``
