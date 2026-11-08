@@ -101,7 +101,7 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ◐ | **Klass management** | `GenericBaseFetcher` → `generic_elements/delete_klass`, `generic_elements/delete_klass_revision` | Create, update, (de)activate, release, upload and revisions are implemented. Deleting a klass or a revision is missing. |
+| ✅ | **Klass management** | `GenericBaseFetcher` → `generic_elements/delete_klass`, `generic_elements/delete_klass_revision` | Done in M6.1: `klass.delete(confirm=<label>)`, `klass.revisions()` and `klass.delete_revision()` (the active one is refused), for element, segment and dataset templates. Create, update, (de)activate, release and upload were already there. |
 | ❌ | **LabIMotion Hub** (fetch / create klasses from the template repository) | `generic_*/fetch_repo`, `*/create_repo_klass`, `segments/fetch_repo_generic_template*`; `UsersFetcher` → `labimotion_hub/element_klasses_name` |
 | ❌ | **Download / export klasses and elements** | `GenericKlassFetcher` → `generic_klass/download_klass`; `segments/download_klass`, `generic_elements/export` |
 | ❌ | **Split generic elements** | `GenericElsFetcher` → `generic_elements/split` |
