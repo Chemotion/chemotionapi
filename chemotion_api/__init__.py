@@ -28,7 +28,7 @@ from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.search.structure import StructureSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import quote, urlparse
-from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine, DeviceDescription, \
+from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine, DeviceDescription, SbmmSample, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
@@ -557,6 +557,22 @@ class Instance:
         """The ontology terms the device description editor offers."""
         from chemotion_api.elements.device_description import ontologies
         return ontologies(self._con)
+
+    def get_sbmm_sample(self, id: int) -> SbmmSample:
+        """Fetches one sequence-based macromolecule sample from the Chemotion server."""
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('sequence_based_macromolecule_sample')))
+        return typing.cast(SbmmSample, e.load_element(id))
+
+    def search_macromolecules(self, term: str, field: str = 'accession') -> list[dict]:
+        """Search this ELN's sequence-based macromolecules and UniProt. See
+        :func:`chemotion_api.elements.sbmm.search_macromolecules`."""
+        from chemotion_api.elements.sbmm import search_macromolecules
+        return search_macromolecules(self._con, term, field)
+
+    def get_macromolecule(self, identifier: int | str, source: str = 'eln') -> dict:
+        """A macromolecule by ELN id (``source='eln'``) or UniProt accession (``source='uniprot'``)."""
+        from chemotion_api.elements.sbmm import load_macromolecule
+        return load_macromolecule(self._con, identifier, source)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""

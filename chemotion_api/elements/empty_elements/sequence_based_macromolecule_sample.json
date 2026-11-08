@@ -1,0 +1,7 @@
+{
+  "type": "sequence_based_macromolecule_sample",
+  "name": "",
+  "sequence_based_macromolecule": {"sbmm_type": "protein", "sbmm_subtype": "unmodified"},
+  "segments": [],
+  "attachments": []
+}

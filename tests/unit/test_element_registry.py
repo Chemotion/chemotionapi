@@ -16,6 +16,7 @@ from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.screen import Screen
 from chemotion_api.elements.cell_line import CellLine
 from chemotion_api.elements.device_description import DeviceDescription
+from chemotion_api.elements.sbmm import SbmmSample
 from chemotion_api.elements.wellplate import Wellplate
 
 # What the removed if/elif chains returned, so the registry is a drop-in replacement.
@@ -27,6 +28,8 @@ BUILT_INS = {
     'screen': (Screen, '/api/v1/screens', 'screen'),
     'cell_line': (CellLine, '/api/v1/cell_lines', 'cell_line'),
     'device_description': (DeviceDescription, '/api/v1/device_descriptions', 'device_description'),
+    'sequence_based_macromolecule_sample': (SbmmSample, '/api/v1/sequence_based_macromolecule_samples',
+                                            'sequence_based_macromolecule_sample'),
 }
 
 

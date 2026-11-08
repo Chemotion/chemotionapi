@@ -21,7 +21,7 @@ from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
-from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine, DeviceDescription
+from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine, DeviceDescription, SbmmSample
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
@@ -575,7 +575,8 @@ class AbstractCollection:
     #: Element kinds this client will send to `collection_elements`. v4 declares
     #: sample/reaction/wellplate/screen/research_plan in `main_ui_state_params`, and the usecase
     #: resolves more besides — but a kind we have not exercised is untested, not supported.
-    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'screen', 'cell_line', 'device_description')
+    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'screen', 'cell_line', 'device_description',
+                                 'sequence_based_macromolecule_sample')
 
     def assign_elements(self, dest: AbstractCollection, *elements) -> None:
         """Add elements of this collection to ``dest`` as well — they stay here too.
@@ -1130,32 +1131,52 @@ class AbstractCollection:
 
         :return: the new sub-device descriptions, loaded, in the order of ``devices``.
         """
-        if not devices or any(getattr(d, 'element_type', None) != 'device_description' for d in devices):
-            raise ValueError('Give the device descriptions to split.')
-        selection = ui_state_selection(devices, 'split')['device_description']['checkedIds']
+        return typing.cast(list[DeviceDescription], self._split_by_label(
+            devices, 'device_description', 'device_descriptions',
+            '/api/v1/device_descriptions/sub_device_descriptions'))
+
+    def get_sbmm_samples(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                         updated_from_date: datetime | None = None) -> ElementSet:
+        """List of the sequence-based macromolecule samples in this collection."""
+        return self._list_elements('sequence_based_macromolecule_sample', per_page, updated_to_date, updated_from_date)
+
+    def split_sbmm_samples(self, *samples: SbmmSample) -> list[SbmmSample]:
+        """Split SBMM samples into subsamples (``<short label>-<n>``) in this collection
+        (``POST /api/v1/sequence_based_macromolecule_samples/sub_sequence_based_macromolecule_samples``).
+
+        :return: the new subsamples, loaded, in the order of ``samples``.
+        """
+        return typing.cast(list[SbmmSample], self._split_by_label(
+            samples, 'sequence_based_macromolecule_sample', 'sequence_based_macromolecule_samples',
+            '/api/v1/sequence_based_macromolecule_samples/sub_sequence_based_macromolecule_samples'))
+
+    def _split_by_label(self, elements, kind: str, list_key: str, url: str) -> list:
+        if not elements or any(getattr(e, 'element_type', None) != kind for e in elements):
+            raise ValueError(f'Give the {kind.replace("_", " ")}s to split.')
+        selection = ui_state_selection(elements, 'split')[kind]['checkedIds']
         session = self.get_root()._session
-        before = self._newest_id(session, 'device_descriptions')
-        res = session.post('/api/v1/device_descriptions/sub_device_descriptions', data={'ui_state': {
-            'device_description': {'all': False, 'included_ids': selection, 'excluded_ids': []},
-            'currentCollectionId': self._own_id('device descriptions')}})
+        before = self._newest_id(session, list_key)
+        res = session.post(url, data={'ui_state': {
+            kind: {'all': False, 'included_ids': selection, 'excluded_ids': []},
+            'currentCollectionId': self._own_id(list_key.replace('_', ' '))}})
         if res.status_code == 401:
-            raise PermissionError(f'You may not add device descriptions to collection "{self.label}".')
+            raise PermissionError(f'You may not add elements to collection "{self.label}".')
         if res.status_code not in (200, 201):
             raise ConnectionError(f'{res.status_code} -> {res.text}')
-        rows = [row for row in self._newest_rows(session, 'device_descriptions', pages=2) if row['id'] > before]
-        labels = {d.id: d.short_label for d in devices}
-        found = []
-        for device_id in selection:
-            pattern = re.compile(rf'^{re.escape(labels[device_id] or "")}-\d+$')
+        rows = [row for row in self._newest_rows(session, list_key, pages=2) if row['id'] > before]
+        labels = {e.id: e.short_label for e in elements}
+        found: list[int] = []
+        for element_id in selection:
+            pattern = re.compile(rf'^{re.escape(labels[element_id] or "")}-\d+$')
             match = max((r['id'] for r in rows if pattern.match(r.get('short_label') or '') and r['id'] not in found),
                         default=None)
             if match is None:
-                raise ConnectionError(f'No new sub-device of {labels[device_id]} was found in "{self.label}".')
+                raise ConnectionError(f'No split of {labels[element_id]} was found in "{self.label}".')
             found.append(match)
         root = self.get_root()
-        loader = ElementSet(session, typing.cast(dict, root._element_manager.all_classes.get('device_description')),
+        loader = ElementSet(session, typing.cast(dict, root._element_manager.all_classes.get(kind)),
                             typing.cast(int, self.id))
-        return [typing.cast(DeviceDescription, loader.load_element(i)) for i in found]
+        return [loader.load_element(i) for i in found]
 
     def get_vessels(self) -> list[vessels.Vessel]:
         """All vessels in this collection, newest first (see :mod:`chemotion_api.vessels`)."""
@@ -1316,6 +1337,11 @@ class AbstractEditableCollection(AbstractCollection):
     def new_device_description(self) -> DeviceDescription:
         """Creates a new device description in this collection. :return: New (unsaved) DeviceDescription"""
         return typing.cast(DeviceDescription, self._create_new_element('device_description'))
+
+    def new_sbmm_sample(self) -> SbmmSample:
+        """Creates a new sequence-based macromolecule sample in this collection. Fill its
+        ``macromolecule`` (or call ``use_uniprot()``) before saving. :return: New (unsaved) SbmmSample"""
+        return typing.cast(SbmmSample, self._create_new_element('sequence_based_macromolecule_sample'))
 
     def new_generic(self, type_name: str) -> GenericElement:
         """
