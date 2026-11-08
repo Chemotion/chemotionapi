@@ -103,7 +103,7 @@ types below can be neither read nor written.
 |---|---|---|---|
 | ✅ | **Klass management** | `GenericBaseFetcher` → `generic_elements/delete_klass`, `generic_elements/delete_klass_revision` | Done in M6.1: `klass.delete(confirm=<label>)`, `klass.revisions()` and `klass.delete_revision()` (the active one is refused), for element, segment and dataset templates. Create, update, (de)activate, release and upload were already there. |
 | ❌ | **LabIMotion Hub** (fetch / create klasses from the template repository) | `generic_*/fetch_repo`, `*/create_repo_klass`, `segments/fetch_repo_generic_template*`; `UsersFetcher` → `labimotion_hub/element_klasses_name` |
-| ❌ | **Download / export klasses and elements** | `GenericKlassFetcher` → `generic_klass/download_klass`; `segments/download_klass`, `generic_elements/export` |
+| ✅ | **Download / export klasses and elements** | `GenericKlassFetcher` → `generic_klass/download_klass`; `segments/download_klass`, `generic_elements/export` Done in M6.2: `klass.download(path)` (template JSON, re-uploadable with `upload()`), `generic_element.export_docx(path)`. `segments/download_klass` is the older route for the same file. |
 | ❌ | **Split generic elements** | `GenericElsFetcher` → `generic_elements/split` |
 | ❌ | **Generic element variations** | `ElementVariationFetcher` → `element_variations` |
 | ❌ | **MTT assay requests** | `GenericElsFetcher` → `mtt/*` |

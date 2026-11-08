@@ -126,6 +126,23 @@ class GenericObj(ChemotionSerializable):
         if res.status_code not in (200, 201, 204):
             raise request_error(res, f'deleting revision {revision_id} of "{self.label}"')
 
+    def download(self, file_path: str) -> str:
+        """Save this template as a LabIMotion JSON file, as the designer's *Download* does
+        (``GET /api/v1/generic_klass/download_klass``). The file can be uploaded to another ELN
+        with :meth:`upload`.
+
+        :return: ``file_path``
+        """
+        res = self._connection.get('/api/v1/generic_klass/download_klass',
+                                   params={'id': self.id, 'klass': self.element_type.value})
+        if res.status_code != 200:
+            raise request_error(res, f'downloading template "{self.label}"')
+        if res.content.strip() in (b'{}', b''):  # the server's answer when the export failed
+            raise ConnectionError(f'The server could not export template "{self.label}".')
+        with open(file_path, 'wb') as f:
+            f.write(res.content)
+        return file_path
+
     def activate(self):
         self.is_active = True
 

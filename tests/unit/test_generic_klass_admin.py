@@ -62,3 +62,10 @@ def test_revisions():
     assert session.calls[0][2] == {'id': 15, 'klass': 'ElementKlass', 'limit': 5}
     assert session.calls[2][2] == {'id': 23, 'klass_id': 15, 'klass': 'ElementKlass'}
 
+
+def test_download(tmp_path):
+    session = _Session(_Res(200, content=b'{"name": "x"}'), _Res(200, content=b'{}'))
+    klass = _klass(session)
+    assert open(klass.download(str(tmp_path / 'k.json'))).read() == '{"name": "x"}'
+    with pytest.raises(ConnectionError, match='could not export'):
+        klass.download(str(tmp_path / 'k2.json'))
