@@ -561,6 +561,161 @@ class Admin(Person):
             raise ConnectionError(f'{res.text}')
         return data
 
+    def find_users(self, name: str, types=('Person', 'Group', 'Device', 'Admin'), limit: int = 5) -> list[dict]:
+        """Users whose name matches, of any kind (``GET /api/v1/admin/users/byname``):
+        ``{'id', 'name', 'initials', 'type'}`` dicts."""
+        if not name:
+            return []
+        res = self._session.get('/api/v1/admin/users/byname', params={'name': name, 'type': ','.join(types),
+                                                                       'limit': limit})
+        self._admin_check(res, 'finding users')
+        return res.json().get('users') or []
+
+    def default_allocated_space(self) -> int:
+        """The disk space new users get, in MB (``GET /api/v1/admin/usersDefault``)."""
+        res = self._session.get('/api/v1/admin/usersDefault')
+        self._admin_check(res, 'reading the default user space')
+        return int(res.json().get('allocated_user_space') or 0)
+
+    def set_default_allocated_space(self, megabytes: int) -> None:
+        """Set the disk space new users get, in MB (``PUT /api/v1/admin/usersDefault``)."""
+        if megabytes < 0:
+            raise ValueError('The space is 0 MB or more.')
+        res = self._session.put('/api/v1/admin/usersDefault', data={'allocatedUserSpace': megabytes})
+        self._admin_check(res, 'setting the default user space')
+
+    def update_user(self, user, **fields) -> dict:
+        """Change a user account (``PUT /api/v1/admin/users/:id``).
+
+        :param user: a :class:`User` or its id.
+        :param fields: ``email``, ``first_name``, ``last_name``, ``name_abbreviation``, ``type``,
+            ``allocated_space``, ``account_active`` (bool), ``enable`` (False locks the account),
+            ``confirm_user`` / ``reconfirm_user`` (bool).
+        :return: the account as stored.
+        """
+        allowed = {'email', 'first_name', 'last_name', 'name_abbreviation', 'type', 'allocated_space',
+                   'account_active', 'enable', 'confirm_user', 'reconfirm_user'}
+        unknown = set(fields) - allowed
+        if unknown:
+            raise ValueError(f'Unknown user fields: {", ".join(sorted(unknown))}')
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}', data=fields)
+        self._admin_check(res, f'updating user {_user_id(user)}')
+        data = res.json() or {}
+        if data.get('error'):
+            raise ValueError(f'User {_user_id(user)} not updated: {data["error"]}')
+        return data.get('user', data)
+
+    def delete_user(self, user, *, confirm: str) -> None:
+        """Delete a user account (``DELETE /api/v1/admin/users/:id``). The account is soft-deleted:
+        :meth:`restore_user` brings it back.
+
+        :param confirm: the account's name abbreviation, to guard against deleting the wrong one.
+        """
+        current = self._session.get(f'/api/v1/admin/users/{_user_id(user)}')
+        self._admin_check(current, f'loading user {_user_id(user)}')
+        record = current.json().get('user') or current.json()
+        abbreviation = record.get('initials') or record.get('name_abbreviation')
+        if confirm != abbreviation:
+            raise ValueError(f'To delete user {_user_id(user)}, pass confirm={abbreviation!r}.')
+        res = self._session.delete(f'/api/v1/admin/users/{_user_id(user)}')
+        if res.status_code == 422:
+            raise ValueError(f'User {abbreviation} cannot be deleted: {res.text}')
+        self._admin_check(res, f'deleting user {abbreviation}')
+
+    def restore_user(self, name_abbreviation: str | None = None, user_id: int | None = None) -> dict:
+        """Restore a deleted account (``POST /api/v1/admin/users/restoreAccount``). If another account
+        now has the abbreviation, the restored one is left inactive and the answer says so.
+
+        :return: ``{'status': 'success' | 'warning', 'message': ...}``.
+        :raises LookupError: if no such deleted account exists, or several match (give ``user_id``).
+        """
+        if name_abbreviation is None and user_id is None:
+            raise ValueError('Give the name abbreviation or the id of the deleted account.')
+        body = {k: v for k, v in (('name_abbreviation', name_abbreviation), ('id', user_id)) if v is not None}
+        res = self._session.post('/api/v1/admin/users/restoreAccount', data=body)
+        if res.status_code in (400, 404, 500) and 'error' in res.text:
+            raise LookupError(res.json().get('message') if res.text.startswith('{') else res.text)
+        self._admin_check(res, 'restoring an account')
+        return res.json()
+
+    def reset_password(self, user, password: str | None = None) -> str | None:
+        """Set a user's password (``PUT /api/v1/admin/users/:id/resetPassword``).
+
+        :param password: the new password (8+ characters); ``None`` generates a random one.
+        :return: the new password.
+        """
+        if password is not None and len(password) < 8:
+            raise ValueError('A password has at least 8 characters.')
+        body: dict = {'random': password is None}
+        if password is not None:
+            body['password'] = password
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}/resetPassword', data=body)
+        self._admin_check(res, f'resetting the password of user {_user_id(user)}')
+        return res.json().get('pwd')
+
+    def disable_two_factor(self, user) -> None:
+        """Switch off a user's two-factor login (``PUT /api/v1/admin/users/:id/otp``)."""
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}/otp', data={'enable': False})
+        self._admin_check(res, f'disabling two-factor login of user {_user_id(user)}')
+
+    def two_factor_enable_link(self, user) -> str:
+        """The link with which a user switches on two-factor login (``PUT /api/v1/admin/users/:id/otp``)."""
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}/otp', data={'enable': True})
+        self._admin_check(res, f'creating a two-factor link for user {_user_id(user)}')
+        return res.json()['link']
+
+    def set_user_rights(self, user, *, templates_moderator: bool | None = None, molecule_editor: bool | None = None,
+                        converter_admin: bool | None = None, text_template_editor: bool | None = None,
+                        generic_elements_admin: bool | None = None, generic_segments_admin: bool | None = None,
+                        generic_datasets_admin: bool | None = None) -> dict:
+        """Grant or withdraw a user's special rights (``PUT /api/v1/admin/users/:id/profile``).
+        Rights left at ``None`` are not changed."""
+        body: dict = {k: v for k, v in (('is_templates_moderator', templates_moderator),
+                                        ('molecule_editor', molecule_editor), ('converter_admin', converter_admin),
+                                        ('global_text_template_editor', text_template_editor)) if v is not None}
+        generic = {k: v for k, v in (('elements', generic_elements_admin), ('segments', generic_segments_admin),
+                                     ('datasets', generic_datasets_admin)) if v is not None}
+        if generic:
+            body['auth_generic_admin'] = generic
+        if not body:
+            raise ValueError('Name the rights to change.')
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}/profile', data=body)
+        self._admin_check(res, f'changing the rights of user {_user_id(user)}')
+        return res.json()
+
+    def remove_users_from_group(self, group, *users) -> dict:
+        """Take people out of a group (``PUT /api/v1/admin/group_device/update/:id``, ``NodeDel``)."""
+        return self._group_update(group, 'NodeDel', actionType='Person', rm_users=[_user_id(u) for u in users])
+
+    def remove_devices_from(self, owner, *devices, owner_type: str = 'Group') -> dict:
+        """Detach devices from a group (``NodeDel``, ``actionType=Device``)."""
+        return self._group_update(owner, 'NodeDel', rootType=owner_type, actionType='Device',
+                                  rm_users=[_user_id(d) for d in devices])
+
+    def set_group_admin(self, group, user, admin: bool = True) -> dict:
+        """Make a member an administrator of the group, or not (``NodeAdm``). The last
+        administrator cannot be removed."""
+        return self._group_update(group, 'NodeAdm', actionType='Adm', admin_id=_user_id(user), set_admin=admin)
+
+    def delete_group(self, group, *, confirm: str, group_type: str = 'Group') -> None:
+        """Delete a group or device (``RootDel`` with ``destroy_obj``).
+
+        :param confirm: its name abbreviation, to guard against deleting the wrong one.
+        """
+        abbreviation = getattr(group, 'name_abbreviation', None)
+        if abbreviation is None or confirm != abbreviation:
+            raise ValueError(f'To delete this {group_type.lower()}, pass a loaded one and confirm={abbreviation!r}.')
+        self._group_update(group, 'RootDel', rootType=group_type, destroy_obj=True)
+
+    def _group_update(self, group, action: str, rootType: str = 'Group', **fields) -> dict:
+        group_id = _user_id(group)
+        res = self._session.put(f'/api/v1/admin/group_device/update/{group_id}',
+                                data={'action': action, 'rootType': rootType, 'id': group_id, **fields})
+        if res.status_code == 422:
+            raise ValueError(res.text)
+        self._admin_check(res, f'{action} on {rootType.lower()} {group_id}')
+        return res.json() if res.content else {}
+
     def import_ols_terms(self, owl_file: str) -> None:
         """Replace an ontology's terms with those of an OWL file, as *Admin > Ontologies* does
         (``POST /api/v1/admin/importOlsTerms``). The file name without extension is the ontology
@@ -668,3 +823,10 @@ class DeviceManager:
         res = self._session.put(f'/api/v1/admin/group_device/update/{group.id}', data=payload)
         if res.status_code != 200:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
+
+
+def _user_id(user) -> int:
+    user_id = user if isinstance(user, int) else getattr(user, 'id', None)
+    if not isinstance(user_id, int):
+        raise ValueError(f'Not a user or user id: {user!r}')
+    return user_id
