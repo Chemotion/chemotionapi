@@ -33,7 +33,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
-from chemotion_api import chemicals, reports, vessels
+from chemotion_api import chemicals, compute, reports, vessels
 from chemotion_api.text_templates import TextTemplates
 from chemotion_api.spectra import Spectra
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
@@ -601,6 +601,26 @@ class Instance:
     def spectra(self) -> Spectra:
         """Spectra processing through the ELN's ChemSpectra service. See :class:`chemotion_api.spectra.Spectra`."""
         return Spectra(self._con)
+
+    def simulate_nmr(self, molecule) -> dict:
+        """Simulated 1H and 13C NMR spectra of a molecule (from nmrdb.org, via the ELN)."""
+        return compute.simulate_nmr(self._con, molecule)
+
+    def predict_products(self, reactants) -> object:
+        """Forward reaction prediction from reactant SMILES (needs the ELN's inference server)."""
+        return compute.predict_products(self._con, reactants)
+
+    def predict_reactants(self, products) -> object:
+        """Retrosynthesis from product SMILES (needs the ELN's inference server)."""
+        return compute.predict_reactants(self._con, products)
+
+    def compute_tasks(self) -> list[compute.ComputeTask]:
+        """Your quantum-chemistry compute tasks, newest first."""
+        return compute.compute_tasks(self._con)
+
+    def submit_compute_task(self, sample) -> compute.ComputeTask | None:
+        """Send a sample's molecule to the ELN's compute server. See :func:`chemotion_api.compute.submit_compute_task`."""
+        return compute.submit_compute_task(self._con, sample)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""
