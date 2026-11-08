@@ -1137,6 +1137,106 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
+    def split_device_descriptions(self, *devices: DeviceDescription) -> list[DeviceDescription]:
+        """Split device descriptions into sub-device descriptions, as the UI's *Split* does
+        (``POST /api/v1/device_descriptions/sub_device_descriptions``). Each gets a copy in this
+        collection labelled ``<short label>-<n>``, with the segments but no analyses or attachments.
+
+        :return: the new sub-device descriptions, loaded, in the order of ``devices``.
+        """
+        return typing.cast(list[DeviceDescription], self._split_by_label(
+            devices, 'device_description', 'device_descriptions',
+            '/api/v1/device_descriptions/sub_device_descriptions'))
+
+    def split_sbmm_samples(self, *samples: SbmmSample) -> list[SbmmSample]:
+        """Split SBMM samples into subsamples (``<short label>-<n>``) in this collection
+        (``POST /api/v1/sequence_based_macromolecule_samples/sub_sequence_based_macromolecule_samples``).
+
+        :return: the new subsamples, loaded, in the order of ``samples``.
+        """
+        return typing.cast(list[SbmmSample], self._split_by_label(
+            samples, 'sequence_based_macromolecule_sample', 'sequence_based_macromolecule_samples',
+            '/api/v1/sequence_based_macromolecule_samples/sub_sequence_based_macromolecule_samples'))
+
+    def split_generic_elements(self, *elements: GenericElement) -> list[GenericElement]:
+        """Split generic elements, as the UI's *Split* does (``POST /api/v1/generic_elements/split``).
+        Each gets a child in this collection labelled ``<short label>-<n>``, with the same name
+        and a copy of the properties.
+
+        :param elements: elements of one template (the route splits per template).
+        :return: the new elements, loaded, in the order of ``elements``.
+        """
+        if not elements or any(not isinstance(e, GenericElement) for e in elements):
+            raise ValueError('Give the generic elements to split.')
+        klass_names = {e.element_type for e in elements}
+        if len(klass_names) != 1:
+            raise ValueError('Split elements of one template at a time.')
+        (klass_name,) = klass_names
+        ids = [typing.cast(int, e.id) for e in elements]
+        if any(i is None for i in ids):
+            raise ValueError('Save the elements before splitting them.')
+        session = self.get_root()._session
+
+        def rows(pages=2):
+            for page in range(1, pages + 1):
+                res = session.get('/api/v1/generic_elements', params={
+                    'collection_id': self._own_id('generic elements'), 'el_type': klass_name, 'page': page,
+                    'per_page': 50})
+                if res.status_code != 200:
+                    raise ConnectionError(f'{res.status_code} -> {res.text}')
+                batch = res.json().get('generic_elements') or []
+                yield from batch
+                if len(batch) < 50:
+                    return
+
+        before = max((r['id'] for r in rows(1)), default=0)
+        res = session.post('/api/v1/generic_elements/split', data={'ui_state': {
+            'element': {'name': klass_name, 'all': False, 'included_ids': ids, 'excluded_ids': []},
+            'currentCollectionId': self._own_id('generic elements')}})
+        if res.status_code not in (200, 201) or (res.json() or {}).get('error'):
+            raise ConnectionError(f'Splitting failed: {res.status_code} -> {res.text}')
+        new_rows = [r for r in rows() if r['id'] > before]
+        found: list[int] = []
+        for element in elements:
+            pattern = re.compile(rf'^{re.escape(element.short_label or "")}-\d+$')
+            match = max((r['id'] for r in new_rows if pattern.match(r.get('short_label') or '') and r['id'] not in found),
+                        default=None)
+            if match is None:
+                raise ConnectionError(f'No split of {element.short_label} was found in "{self.label}".')
+            found.append(match)
+        root = self.get_root()
+        loader = ElementSet(session, typing.cast(dict, root._element_manager.all_classes.get(klass_name)),
+                            typing.cast(int, self.id))
+        return [typing.cast(GenericElement, loader.load_element(i)) for i in found]
+
+    def _split_by_label(self, elements, kind: str, list_key: str, url: str) -> list:
+        if not elements or any(getattr(e, 'element_type', None) != kind for e in elements):
+            raise ValueError(f'Give the {kind.replace("_", " ")}s to split.')
+        selection = ui_state_selection(elements, 'split')[kind]['checkedIds']
+        session = self.get_root()._session
+        before = self._newest_id(session, list_key)
+        res = session.post(url, data={'ui_state': {
+            kind: {'all': False, 'included_ids': selection, 'excluded_ids': []},
+            'currentCollectionId': self._own_id(list_key.replace('_', ' '))}})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add elements to collection "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        rows = [row for row in self._newest_rows(session, list_key, pages=2) if row['id'] > before]
+        labels = {e.id: e.short_label for e in elements}
+        found: list[int] = []
+        for element_id in selection:
+            pattern = re.compile(rf'^{re.escape(labels[element_id] or "")}-\d+$')
+            match = max((r['id'] for r in rows if pattern.match(r.get('short_label') or '') and r['id'] not in found),
+                        default=None)
+            if match is None:
+                raise ConnectionError(f'No split of {labels[element_id]} was found in "{self.label}".')
+            found.append(match)
+        root = self.get_root()
+        loader = ElementSet(session, typing.cast(dict, root._element_manager.all_classes.get(kind)),
+                            typing.cast(int, self.id))
+        return [loader.load_element(i) for i in found]
+
     def inventory_label(self):
         """This collection's inventory label (prefix, name, counter), or ``None``."""
         from chemotion_api import chemicals
