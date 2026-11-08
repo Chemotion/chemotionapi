@@ -854,6 +854,98 @@ class Admin(Person):
             raise ConnectionError(data['error'])
         return data.get('device_metadata') or {}
 
+    #: Maintenance tasks :meth:`queue_admin_task` can start (``AdminJob``).
+    ADMIN_TASKS = ('collection_restore', 'install_ketcher2', 'rerender_reactions')
+
+    def disk_usage(self) -> dict:
+        """The server's disk: ``{'percent_used', 'mb_available'}`` (``GET /api/v1/admin/disk``)."""
+        res = self._session.get('/api/v1/admin/disk')
+        self._admin_check(res, 'reading the disk usage')
+        return res.json()
+
+    def jobs(self) -> list[dict]:
+        """The background jobs waiting or failed (``GET /api/v1/admin/jobs``): ``id``, ``queue``,
+        ``run_at``, ``failed_at``, ``attempts``, ``last_error``, …"""
+        res = self._session.get('/api/v1/admin/jobs')
+        self._admin_check(res, 'listing background jobs')
+        return res.json().get('jobs') or []
+
+    def restart_job(self, job) -> None:
+        """Run one (failed) background job again in a minute (``PUT /api/v1/admin/jobs/restart``).
+
+        :param job: a job from :meth:`jobs`, or its id. There is deliberately no "restart all".
+        """
+        job_id = job['id'] if isinstance(job, dict) else job
+        if not isinstance(job_id, int):
+            raise ValueError('Give one job or job id.')
+        res = self._session.put('/api/v1/admin/jobs/restart', data={'id': job_id})
+        if res.status_code == 404 or (res.status_code == 500 and 'RecordNotFound' in res.text):
+            raise LookupError(f'No background job {job_id}.')
+        self._admin_check(res, f'restarting job {job_id}')
+
+    def queue_admin_task(self, task: str) -> None:
+        """Start a maintenance task in the background (``GET /api/v1/admin/jobs/queue_task``): one of
+        :data:`ADMIN_TASKS`."""
+        if task not in self.ADMIN_TASKS:
+            raise ValueError(f'task is one of {", ".join(self.ADMIN_TASKS)}.')
+        res = self._session.get('/api/v1/admin/jobs/queue_task', params={'task': task})
+        self._admin_check(res, f'queuing {task}')
+
+    def matrices(self) -> list[dict]:
+        """The feature switches (``GET /api/v1/admin/matrix``): each feature's ``name``, ``label``,
+        ``enabled`` and the users it is switched on (``include_ids``) or off (``exclude_ids``) for."""
+        res = self._session.get('/api/v1/admin/matrix')
+        self._admin_check(res, 'listing the feature switches')
+        return res.json().get('matrices') or []
+
+    def update_matrix(self, matrix, **fields) -> None:
+        """Change a feature switch (``PUT /api/v1/admin/matrix``): ``label``, ``enabled``,
+        ``include_ids``, ``exclude_ids``, ``configs``."""
+        allowed = {'label', 'enabled', 'include_ids', 'exclude_ids', 'configs'}
+        if not fields or set(fields) - allowed:
+            raise ValueError(f'Change any of {", ".join(sorted(allowed))}.')
+        matrix_id = matrix['id'] if isinstance(matrix, dict) else matrix
+        res = self._session.put('/api/v1/admin/matrix', data={'id': matrix_id} | fields)
+        self._admin_check(res, f'updating feature switch {matrix_id}')
+        data = res.json() if res.content else {}
+        if isinstance(data, dict) and data.get('error'):
+            raise ValueError(data['error'])
+
+    def save_spectra_data_types(self, data_types: dict) -> None:
+        """Replace the ELN's mapping of spectra layouts to data types (``PUT /api/v1/admin/data_types``),
+        as compared in ``instance.spectra().layouts()``."""
+        res = self._session.put('/api/v1/admin/data_types', data=json.dumps(data_types),
+                                headers=self._session.get_json_session_header())
+        self._admin_check(res, 'saving the spectra data types')
+
+    def info_support_links(self) -> list[dict]:
+        """The *Info & support* menu links (``GET /api/v1/admin/info_support_links``)."""
+        res = self._session.get('/api/v1/admin/info_support_links')
+        self._admin_check(res, 'listing the support links')
+        return res.json() or []
+
+    def add_info_support_link(self, label: str, url: str, position: int = 0, enabled: bool = True) -> dict:
+        res = self._session.post('/api/v1/admin/info_support_links',
+                                 data={'label': label, 'url': url, 'position': position, 'enabled': enabled})
+        if res.status_code == 422:
+            raise ValueError(res.text)
+        self._admin_check(res, f'adding the support link {label}')
+        return res.json()
+
+    def update_info_support_link(self, link, **fields) -> dict:
+        """Change a support link: ``label``, ``url``, ``position``, ``enabled``."""
+        link_id = link['id'] if isinstance(link, dict) else link
+        res = self._session.put(f'/api/v1/admin/info_support_links/{link_id}', data=fields)
+        if res.status_code == 422:
+            raise ValueError(res.text)
+        self._admin_check(res, f'updating support link {link_id}')
+        return res.json()
+
+    def delete_info_support_link(self, link) -> None:
+        link_id = link['id'] if isinstance(link, dict) else link
+        res = self._session.delete(f'/api/v1/admin/info_support_links/{link_id}')
+        self._admin_check(res, f'deleting support link {link_id}')
+
     def import_ols_terms(self, owl_file: str) -> None:
         """Replace an ontology's terms with those of an OWL file, as *Admin > Ontologies* does
         (``POST /api/v1/admin/importOlsTerms``). The file name without extension is the ontology
