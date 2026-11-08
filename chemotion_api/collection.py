@@ -21,7 +21,7 @@ from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
-from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine
+from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine, DeviceDescription
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
@@ -575,7 +575,7 @@ class AbstractCollection:
     #: Element kinds this client will send to `collection_elements`. v4 declares
     #: sample/reaction/wellplate/screen/research_plan in `main_ui_state_params`, and the usecase
     #: resolves more besides — but a kind we have not exercised is untested, not supported.
-    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'screen', 'cell_line')
+    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'screen', 'cell_line', 'device_description')
 
     def assign_elements(self, dest: AbstractCollection, *elements) -> None:
         """Add elements of this collection to ``dest`` as well — they stay here too.
@@ -1118,6 +1118,45 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
+    def get_device_descriptions(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                                updated_from_date: datetime | None = None) -> ElementSet:
+        """List of the device descriptions in this collection."""
+        return self._list_elements('device_description', per_page, updated_to_date, updated_from_date)
+
+    def split_device_descriptions(self, *devices: DeviceDescription) -> list[DeviceDescription]:
+        """Split device descriptions into sub-device descriptions, as the UI's *Split* does
+        (``POST /api/v1/device_descriptions/sub_device_descriptions``). Each gets a copy in this
+        collection labelled ``<short label>-<n>``, with the segments but no analyses or attachments.
+
+        :return: the new sub-device descriptions, loaded, in the order of ``devices``.
+        """
+        if not devices or any(getattr(d, 'element_type', None) != 'device_description' for d in devices):
+            raise ValueError('Give the device descriptions to split.')
+        selection = ui_state_selection(devices, 'split')['device_description']['checkedIds']
+        session = self.get_root()._session
+        before = self._newest_id(session, 'device_descriptions')
+        res = session.post('/api/v1/device_descriptions/sub_device_descriptions', data={'ui_state': {
+            'device_description': {'all': False, 'included_ids': selection, 'excluded_ids': []},
+            'currentCollectionId': self._own_id('device descriptions')}})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add device descriptions to collection "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        rows = [row for row in self._newest_rows(session, 'device_descriptions', pages=2) if row['id'] > before]
+        labels = {d.id: d.short_label for d in devices}
+        found = []
+        for device_id in selection:
+            pattern = re.compile(rf'^{re.escape(labels[device_id] or "")}-\d+$')
+            match = max((r['id'] for r in rows if pattern.match(r.get('short_label') or '') and r['id'] not in found),
+                        default=None)
+            if match is None:
+                raise ConnectionError(f'No new sub-device of {labels[device_id]} was found in "{self.label}".')
+            found.append(match)
+        root = self.get_root()
+        loader = ElementSet(session, typing.cast(dict, root._element_manager.all_classes.get('device_description')),
+                            typing.cast(int, self.id))
+        return [typing.cast(DeviceDescription, loader.load_element(i)) for i in found]
+
     def get_vessels(self) -> list[vessels.Vessel]:
         """All vessels in this collection, newest first (see :mod:`chemotion_api.vessels`)."""
         return vessels.list_vessels(self.get_root()._session, self._own_id('vessels'))
@@ -1273,6 +1312,10 @@ class AbstractEditableCollection(AbstractCollection):
         :return: New (unsaved) CellLine
         """
         return typing.cast(CellLine, self._create_new_element('cell_line'))
+
+    def new_device_description(self) -> DeviceDescription:
+        """Creates a new device description in this collection. :return: New (unsaved) DeviceDescription"""
+        return typing.cast(DeviceDescription, self._create_new_element('device_description'))
 
     def new_generic(self, type_name: str) -> GenericElement:
         """

@@ -28,7 +28,7 @@ from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.search.structure import StructureSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import quote, urlparse
-from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine, \
+from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine, DeviceDescription, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
@@ -547,6 +547,16 @@ class Instance:
         """All cell line materials (``{'id', 'name', 'source'}``), as the cell line editor's name list offers them."""
         from chemotion_api.elements.cell_line import material_names
         return material_names(self._con)
+
+    def get_device_description(self, id: int) -> DeviceDescription:
+        """Fetches one device description from the Chemotion server."""
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('device_description')))
+        return typing.cast(DeviceDescription, e.load_element(id))
+
+    def device_ontologies(self) -> list[dict]:
+        """The ontology terms the device description editor offers."""
+        from chemotion_api.elements.device_description import ontologies
+        return ontologies(self._con)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""

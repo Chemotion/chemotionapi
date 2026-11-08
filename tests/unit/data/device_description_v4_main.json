@@ -1,0 +1,187 @@
+{
+ "id": 1,
+ "device_id": null,
+ "name": "NMR 400",
+ "short_label": "API-Dev1",
+ "device_type_name": null,
+ "device_type_id": null,
+ "device_type_id_type": null,
+ "device_class": null,
+ "device_class_detail": null,
+ "operation_mode": null,
+ "vendor_device_name": null,
+ "vendor_device_id": null,
+ "serial_number": "SN-1",
+ "vendor_company_name": "Bruker",
+ "vendor_id": null,
+ "description": "",
+ "general_tags": [
+  "nmr"
+ ],
+ "version_number": null,
+ "version_installation_start_date": null,
+ "version_installation_end_date": null,
+ "version_identifier_type": null,
+ "version_doi": null,
+ "version_doi_url": null,
+ "version_characterization": null,
+ "operators": [
+  {
+   "name": "Ada",
+   "type": "technical",
+   "email": "ada@example.org"
+  }
+ ],
+ "owner_institution": null,
+ "owner_email": null,
+ "owner_id": null,
+ "owner_id_type": null,
+ "inventory_id": null,
+ "alternative_identifier": null,
+ "vendor_id_type": null,
+ "university_campus": null,
+ "institute": null,
+ "building": null,
+ "room": "1.23",
+ "infrastructure_assignment": null,
+ "access_options": null,
+ "access_comments": null,
+ "size": null,
+ "weight": null,
+ "weight_unit": null,
+ "application_name": null,
+ "application_version": null,
+ "vendor_url": null,
+ "helpers_uploaded": false,
+ "policies_and_user_information": null,
+ "description_for_methods_part": null,
+ "type": "device_description",
+ "changed": false,
+ "container": {
+  "id": 929,
+  "name": null,
+  "container_type": "root",
+  "description": "",
+  "extended_metadata": {
+   "report": false,
+   "status": null,
+   "kind": null,
+   "index": null,
+   "instrument": null,
+   "preferred_thumbnail": null
+  },
+  "children": [
+   {
+    "id": 930,
+    "name": "new",
+    "container_type": "analyses",
+    "description": "",
+    "extended_metadata": {
+     "report": true,
+     "status": null,
+     "kind": null,
+     "index": null,
+     "instrument": null,
+     "preferred_thumbnail": null
+    },
+    "children": [
+     {
+      "id": 931,
+      "name": "calibration",
+      "container_type": "analysis",
+      "description": "",
+      "extended_metadata": {
+       "report": true,
+       "status": null,
+       "kind": null,
+       "index": "1",
+       "instrument": null,
+       "preferred_thumbnail": null,
+       "content": {
+        "ops": [
+         {
+          "insert": "\n"
+         }
+        ]
+       }
+      },
+      "code_log": {
+       "id": "d5032922-babb-460a-9fd1-4545406cd076",
+       "value": "0283141974323104572331546777283136901238",
+       "source": "container",
+       "source_id": 931,
+       "root_code": {},
+       "value_sm": "2831419743"
+      },
+      "children": [
+       {
+        "id": 932,
+        "name": "dev.txt",
+        "container_type": "dataset",
+        "description": "",
+        "extended_metadata": {
+         "report": true,
+         "status": null,
+         "kind": null,
+         "index": null,
+         "instrument": null,
+         "preferred_thumbnail": null
+        },
+        "attachments": [
+         {
+          "id": 23,
+          "filename": "dev.txt",
+          "identifier": "05657cc5-5571-4d53-9b68-3b62fdfa01fa",
+          "content_type": "text/plain",
+          "thumb": false,
+          "previewable": false,
+          "aasm_state": "non_jcamp",
+          "root_id": 23,
+          "filesize": 3,
+          "edit_state": "not_editing",
+          "created_at": "08.11.2026, 04:59:06 +0000",
+          "updated_at": "08.11.2026, 04:59:06 +0000"
+         }
+        ],
+        "dataset": null
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "attachments": [],
+ "ontologies": [],
+ "segments": [],
+ "comments": [],
+ "comment_count": 0,
+ "tag": {
+  "taggable_data": {
+   "collection_labels": [
+    {
+     "id": 201
+    }
+   ]
+  },
+  "taggable_id": 1,
+  "taggable_type": "DeviceDescription",
+  "created_at": "08.11.2026, 04:59:06 +0000",
+  "updated_at": "08.11.2026, 04:59:06 +0000"
+ },
+ "can_copy": true,
+ "ancestor_ids": [],
+ "setup_descriptions": {},
+ "maintenance_contract_available": null,
+ "maintenance_scheduling": null,
+ "contact_for_maintenance": [],
+ "planned_maintenance": [],
+ "consumables_needed_for_maintenance": [],
+ "unexpected_maintenance": [],
+ "measures_after_full_shut_down": null,
+ "measures_after_short_shut_down": null,
+ "measures_to_plan_offline_period": null,
+ "restart_after_planned_offline_period": null,
+ "created_at": "08.11.2026, 04:59:06 +0000",
+ "updated_at": "08.11.2026, 04:59:06 +0000"
+}

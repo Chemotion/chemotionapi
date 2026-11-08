@@ -15,6 +15,7 @@ from chemotion_api.elements.research_plan import ResearchPlan
 from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.screen import Screen
 from chemotion_api.elements.cell_line import CellLine
+from chemotion_api.elements.device_description import DeviceDescription
 from chemotion_api.elements.wellplate import Wellplate
 
 # What the removed if/elif chains returned, so the registry is a drop-in replacement.
@@ -25,6 +26,7 @@ BUILT_INS = {
     'research_plan': (ResearchPlan, '/api/v1/research_plans', 'research_plan'),
     'screen': (Screen, '/api/v1/screens', 'screen'),
     'cell_line': (CellLine, '/api/v1/cell_lines', 'cell_line'),
+    'device_description': (DeviceDescription, '/api/v1/device_descriptions', 'device_description'),
 }
 
 

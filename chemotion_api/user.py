@@ -412,6 +412,9 @@ class Person(User):
         if type_name == 'cell_line':
             # As the UI labels a new cell line (ElementActions.generateEmptyCellLine).
             return f'{self.initials}-C{self.cell_lines_count or 0}'
+        if type_name == 'device_description':
+            # DeviceDescription.js in the UI.
+            return f'{self.initials}-Dev{(self.device_descriptions_count or 0) + 1}'
         return f"{self.initials}-{type_name}{self.counters.get(type_name + 's', self.counters.get(type_name, 0))}"
 
     def create_group(self, first_name: str, last_name: str, name_abbreviation: str,
