@@ -33,7 +33,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
-from chemotion_api import chemicals, compute, reports, vessels
+from chemotion_api import chemicals, compute, reports, sample_tasks, vessels
 from chemotion_api.text_templates import TextTemplates
 from chemotion_api.spectra import Spectra
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
@@ -621,6 +621,15 @@ class Instance:
     def submit_compute_task(self, sample) -> compute.ComputeTask | None:
         """Send a sample's molecule to the ELN's compute server. See :func:`chemotion_api.compute.submit_compute_task`."""
         return compute.submit_compute_task(self._con, sample)
+
+    def sample_tasks(self, status: str = 'open') -> list[sample_tasks.SampleTask]:
+        """Your weighing tasks (``'open'``, ``'with_missing_scan_results'`` or ``'done'``)."""
+        return sample_tasks.sample_tasks(self._con, status)
+
+    def create_sample_task(self, sample=None, description: str | None = None,
+                           required_scan_results: int = 1) -> sample_tasks.SampleTask:
+        """Create a weighing task, for a sample or for one to assign later."""
+        return sample_tasks.create_sample_task(self._con, sample, description, required_scan_results)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""

@@ -49,7 +49,7 @@ types below can be neither read nor written.
 | ✅ | **Import samples from a spreadsheet / SDF** | `SamplesFetcher` → `samples/import` | Done in M2.5: `collection.import_samples(path, as_chemicals=False)`, waiting for the background job's report. The UI's column-mapping step (sending validated rows as `data`) is not covered. |
 | — | **Batch-refresh sample SVGs** | `SamplesFetcher` → `samples/batch-refresh-svg` | Left out on purpose (M2.7): a repair step of the UI's reaction editor that writes a rendered SVG into the server's `public/images/samples` under a file name the caller chooses. |
 | ✅ | **CAS lookup** | `CasLookupFetcher` → `cas_lookup/lookup` | Done in M2.7: `instance.molecule().lookup_cas()`. |
-| ❌ | **Sample tasks** (e.g. weighing tasks from devices) | `SampleTasksFetcher` → `sample_tasks` | |
+| ✅ | **Sample tasks** (e.g. weighing tasks from devices) | `SampleTasksFetcher` → `sample_tasks` | Done in M5.5: `instance.sample_tasks(status)` / `create_sample_task()`, `task.update()` / `add_scan_result()` / `delete()`. The stack runs with `weighing_tasks` off, so the flow is unit-tested and the integration test checks the "not enabled" error. |
 
 ## 4. Reactions, wellplates, research plans
 
