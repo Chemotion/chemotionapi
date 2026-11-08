@@ -34,7 +34,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
-from chemotion_api import reports
+from chemotion_api import reports, vessels
 # Rich-text helpers, public: reaction descriptions/observations and wellplate/screen descriptions
 # are Quill deltas, written explicitly with text_to_quill() and read back with quill_to_text().
 from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
@@ -583,6 +583,25 @@ class Instance:
         """
         e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('wellplate')))
         return typing.cast(Wellplate, e.load_element(id))
+
+    def vessel_templates(self) -> list[vessels.VesselTemplate]:
+        """All vessel templates on the ELN."""
+        return vessels.templates(self._con)
+
+    def new_vessel_template(self, name: str, **fields) -> vessels.VesselTemplate:
+        """An unsaved vessel template; set fields and call ``save()``.
+
+        :param fields: ``vessel_type``, ``material_type``, ``material_details``, ``volume_amount``,
+            ``volume_unit``, ``details``.
+        """
+        return vessels.VesselTemplate(name=name, **fields, _session=self._con)
+
+    def get_vessel_template(self, id: str) -> vessels.VesselTemplate:
+        return vessels.load_template(self._con, id)
+
+    def get_vessel(self, id: str) -> vessels.Vessel:
+        """One vessel, by its UUID."""
+        return vessels.load_vessel(self._con, id)
 
     def get_research_plan(self, id: int) -> ResearchPlan:
         """

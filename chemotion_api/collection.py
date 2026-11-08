@@ -35,7 +35,7 @@ from chemotion_api.utils import break_parent_cycles
 from chemotion_api.elements import ElementSet, AbstractElement
 from chemotion_api.elements.abstract_element import delete_elements, ui_state_selection
 from chemotion_api.elements.literature import Reference, collection_references
-from chemotion_api import reports
+from chemotion_api import reports, vessels
 from chemotion_api.notifications import notification_ids, server_path, wait_for_notification
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
@@ -1136,6 +1136,30 @@ class AbstractCollection:
                        typing.cast(int, self.id))
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
+
+    def get_vessels(self) -> list[vessels.Vessel]:
+        """All vessels in this collection, newest first (see :mod:`chemotion_api.vessels`)."""
+        return vessels.list_vessels(self.get_root()._session, self._own_id('vessels'))
+
+    def new_vessel(self, template: vessels.VesselTemplate | str, **fields) -> vessels.Vessel:
+        """Create one vessel of ``template`` in this collection, right away.
+
+        :param fields: ``name``, ``description``, ``short_label``, ``weight_amount``, ``weight_unit``.
+            The server names it ``<template> instance`` and labels it ``<initials>-V<n>`` by default.
+        """
+        return vessels.create_vessel(self.get_root()._session, self._own_id('vessels'), template, **fields)
+
+    def new_vessels(self, template: vessels.VesselTemplate | str, count: int, base_name: str | None = None,
+                    short_labels: list[str] | None = None) -> list[vessels.Vessel]:
+        """Create ``count`` (1-100) vessels of ``template`` in this collection in one request,
+        named ``<base_name> 1``, ``<base_name> 2``, …"""
+        return vessels.bulk_create_vessels(self.get_root()._session, self._own_id('vessels'), template, count,
+                                           base_name, short_labels)
+
+    def _own_id(self, what: str) -> int:
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold {what}')
+        return self.id
 
     def get_generics_by_name(self, name: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
