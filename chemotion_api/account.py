@@ -93,3 +93,27 @@ def revoke_api_token(session: Connection, token: ApiToken | int, otp: str) -> No
     if res.status_code not in (200, 201, 204):
         raise request_error(res, f'revoking API token {token_id}')
 
+
+def set_counter(session: Connection, element_type: str, value: int) -> dict:
+    """Set the counter behind your next short label of an element type, e.g. ``'samples'``,
+    ``'reactions'``, ``'wellplates'`` or a generic element's name (``PUT /api/v1/users/update_counter``).
+
+    The next element gets ``value + 1``. Labels are not checked for clashes, so going backwards
+    can repeat existing labels.
+    """
+    if value < 0:
+        raise ValueError('A counter is 0 or more.')
+    res = session.put('/api/v1/users/update_counter', data={'type': element_type, 'counter': value})
+    if res.status_code not in (200, 201):
+        raise request_error(res, f'setting the {element_type} counter')
+    return res.json()
+
+
+def set_reaction_label(session: Connection, prefix: str, count: int) -> None:
+    """Set the prefix and the counter of your reaction short labels (``<initials>-<prefix><n>``)
+    (``PUT /api/v1/users/reaction_short_label``)."""
+    if count < 0:
+        raise ValueError('A counter is 0 or more.')
+    res = session.put('/api/v1/users/reaction_short_label', data={'reactions_count': count, 'reaction_name_prefix': prefix})
+    if res.status_code not in (200, 201, 204):
+        raise request_error(res, 'setting the reaction short label')

@@ -3,7 +3,8 @@ import json
 
 import pytest
 
-from chemotion_api.account import (OtpRequired, api_tokens, create_api_token, revoke_api_token)
+from chemotion_api.account import (OtpRequired, api_tokens, create_api_token, revoke_api_token, set_counter,
+                                   set_reaction_label)
 
 
 class _Res:
@@ -56,3 +57,12 @@ def test_otp_errors():
     with pytest.raises(ValueError):
         create_api_token(_Session(), '1', expires_in_days=0)
 
+
+def test_counters():
+    session = _Session(_Res(200, {'counters': {'samples': '10'}}), _Res(200, None))
+    assert set_counter(session, 'samples', 10) == {'counters': {'samples': '10'}}
+    set_reaction_label(session, 'R', 4)
+    assert session.calls == [('put', '/api/v1/users/update_counter', {'type': 'samples', 'counter': 10}),
+                             ('put', '/api/v1/users/reaction_short_label', {'reactions_count': 4, 'reaction_name_prefix': 'R'})]
+    with pytest.raises(ValueError):
+        set_counter(session, 'samples', -1)
