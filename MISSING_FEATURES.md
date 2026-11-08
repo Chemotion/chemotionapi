@@ -2,6 +2,10 @@
 
 This lists what the Chemotion ELN web UI can do that this client cannot, or can only partly do.
 
+**On this branch** (`v4/port-chemotion-main`, based on the 401.0 line, tested against ELN v4.0.1) the
+rows reflect what was ported from `chemotion/main`; where 401.0 already had a feature, its API was
+kept and the row says so.
+
 **How it was made (2026-11-07).** The UI's own request layer, `app/javascript/src/fetchers/` (66
 fetchers, ~250 endpoints), was taken from ELN `main` at `a8b47c7` (reports `v4.0.0`, labimotion
 2.3.4) and compared against every `/api/v1/...` path `chemotion_api` calls, then the ambiguous
@@ -13,18 +17,17 @@ Status: ❌ missing · ◐ partial · ✅ done since this list was made · — l
 
 ## 1. Element types
 
-The client loads and creates **samples, reactions, wellplates, research plans and LabIMotion
-generic elements**. `ElementSet._get_element_class` raises `TypeError` for anything else, so the
-types below can be neither read nor written.
+*(As of the list's creation.)* The client then loaded and created only **samples, reactions,
+wellplates, research plans and LabIMotion generic elements**; the rows below say what is covered now.
 
 | Status | Feature | UI fetcher → endpoints |
 |---|---|---|
-| ✅ | **Screens** (wellplate containers, with research-plan links). Done in M1.1: `Screen`, `instance.get_screen()`, `collection.new_screen()` / `get_screens()` | `ScreensFetcher` → `screens` |
-| ✅ | **Cell lines** (materials, samples, copy, split) | `CellLinesFetcher` → `cell_lines`, `cell_lines/material`, `cell_lines/copy`, `cell_lines/split`, `cell_lines/names/all` Done in M4.1: `CellLine` (sample and material fields in one `properties`), `collection.new_cell_line()` / `get_cell_lines()`, `instance.get_cell_line()` / `cell_line_materials()`, `copy()` / `split()`, analyses, moving between collections and deletion. |
+| ✅ | **Screens** (wellplate containers, with research-plan links) | `ScreensFetcher` → `screens` In 401.0: `Screen`, `instance.get_screen()`, `collection.new_screen()` / `get_screens()`; see docs/ScreenDetails.rst. |
+| ◐ | **Cell lines** (materials, samples, copy, split) | `CellLinesFetcher` → `cell_lines`, `cell_lines/material`, `cell_lines/copy`, `cell_lines/split`, `cell_lines/names/all` In 401.0: `CellLine` with a separate shared `material`, `collection.new_cell_line(material_name, source)` / `get_cell_lines()`, `instance.get_cell_line()`. Not ported from chemotion/main: `copy`, `split`, the material name list. |
 | ✅ | **Vessels** (templates, instances, bulk create, name suggestions) | `VesselsFetcher` → `vessels`, `vessels/templates*`, `vessels/instances/create`, `vessels/bulk_create`, `vessels/suggest/suggest_name` Done in M4.2: `chemotion_api.vessels`; `instance.vessel_templates()` / `new_vessel_template()` / `get_vessel_template()` / `get_vessel()`, `collection.get_vessels()` / `new_vessel()` / `new_vessels(template, count)`, saving and deleting both. `vessels/suggest/suggest_name` does not exist on ELN main. |
-| ✅ | **Device descriptions** (incl. sub-devices, ontologies, device analyses) | `DeviceDescriptionFetcher` → `device_descriptions*`; `attachments/device_description_analyses` Done in M4.3: `DeviceDescription` (all fields in `properties`), `collection.new_device_description()` / `get_device_descriptions()` / `split_device_descriptions()`, `instance.get_device_description()` / `device_ontologies()`, `download_analyses()`; analyses, segments, moving and deletion as for other elements. |
-| ✅ | **Sequence-based macromolecules** and their samples | `SequenceBasedMacromoleculesFetcher`, `SequenceBasedMacromoleculeSamplesFetcher` → `sequence_based_macromolecules*`, `sequence_based_macromolecule_samples*` Done in M4.4: `SbmmSample` with its `macromolecule` dict (saved along with the sample), `use_uniprot(accession)`, `collection.new_sbmm_sample()` / `get_sbmm_samples()` / `split_sbmm_samples()`, `instance.get_sbmm_sample()` / `search_macromolecules()` / `get_macromolecule()`, `request_change()`; a macromolecule used elsewhere raises `SbmmUpdateNotAllowed`. |
-| ✅ | **Chemical inventory / safety data** (SDS fetch, extract, manual upload) | `ChemicalFetcher` → `chemicals*`; `InventoryFetcher` → `inventory*` Done in M4.5: `chemotion_api.chemicals`; `sample.chemical()` / `save_chemical()` (also SBMM samples), `attach_safety_sheet()` (manual upload) and `save_vendor_safety_sheet()`, `instance.find_safety_sheets()` / `download_safety_sheet()` / `extract_safety_sheet()`, inventory labels via `instance.set_inventory_label()` / `inventory_collections()` and `collection.inventory_label()`. Vendor lookups need the server's internet access and are not integration-tested. |
+| ◐ | **Device descriptions** (incl. sub-devices, ontologies, device analyses) | `DeviceDescriptionFetcher` → `device_descriptions*`; `attachments/device_description_analyses` In 401.0: `DeviceDescription`, `collection.new_device_description()` / `get_device_descriptions()` / `split_device_descriptions()`, `instance.get_device_description()`. Not ported from chemotion/main: the ontology list and `download_analyses()`. |
+| ◐ | **Sequence-based macromolecules** and their samples | `SequenceBasedMacromoleculesFetcher`, `SequenceBasedMacromoleculeSamplesFetcher` → `sequence_based_macromolecules*`, `sequence_based_macromolecule_samples*` In 401.0: `SbmmSample` created from a UniProt accession (`collection.new_sbmm_sample(uniprot)`), read-only `macromolecule`, `get_sbmm_samples()` / `split_sbmm_samples()`, `instance.get_sbmm_sample()`. Not ported from chemotion/main: editable macromolecules, macromolecule search and lookup, change requests. |
+| ✅ | **Chemical inventory / safety data** (SDS fetch, extract, manual upload) | `ChemicalFetcher` → `chemicals*`; `InventoryFetcher` → `inventory*` `sample.get_chemical()` (401.0) for the record; from M4.5 `sample.attach_safety_sheet()` (manual upload) and `save_vendor_safety_sheet()`, `Chemical.safety_sheets`, `instance.find_safety_sheets()` / `download_safety_sheet()` / `extract_safety_sheet()`, inventory labels via `instance.set_inventory_label()` / `inventory_collections()` and `collection.inventory_label()`. Chemical records of SBMM samples are not covered. Vendor lookups need the server's internet access and are not integration-tested. |
 
 ## 2. Working with elements (all types)
 
@@ -34,7 +37,7 @@ types below can be neither read nor written.
 | ✅ | **Version history and revert** | `VersionsFetcher` → `versions`, `versions/revert` | Done in M1.5: `element.versions()`, `Version.revert()`, `VersionChange.revert()`. |
 | ✅ | **Comments** on elements and sections | `CommentFetcher` → `comments` | Done in M1.3: `element.comments()`, `element.add_comment()`, `Comment.update/resolve/delete`. Not on generic elements (the server doesn't allow it). |
 | ✅ | **Private notes** | `PrivateNoteFetcher` → `private_notes` | Done in M1.4: `element.private_note()`, `set_private_note()`, `delete_private_note()`. |
-| ✅ | **User labels** | `UserLabelsFetcher` → `user_labels/bulk`, `user_labels/save_label` | Done in M1.6: `instance.save_user_label()`, `collection.update_user_labels()`, and `properties['user_labels']` on wellplates, research plans and screens too. (Saving labels was missing as well, not only bulk assignment as listed here before.) |
+| ✅ | **User labels** | `UserLabelsFetcher` → `user_labels/bulk`, `user_labels/save_label` | `instance.save_user_label()` and `properties['user_labels']` on samples, reactions, wellplates, research plans and screens. Bulk assignment is the private, beta `Collection._apply_user_labels` on purpose (401.0). |
 | ✅ | **Find by short label** | `SamplesFetcher`, `ReactionsFetcher` → `*/findByShortLabel` | Done in M1.2: `instance.find_sample_by_short_label()`, `find_reaction_by_short_label()`. |
 | ❌ | **Print codes / barcodes / QR, code logs** | `CodeLogsFetcher` → `code_logs/generic`; `PrintCodeFetcher` | |
 | ❌ | **Element explorer** (relation graph) | `ExplorerFetcher` → `explorer` | |

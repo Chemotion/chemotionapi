@@ -91,3 +91,26 @@ Notes:
 
 .. autoclass:: chemotion_api.elements.generic_element.GenericElement
     :members:
+
+Template lifecycle, hub and variations
+--------------------------------------
+
+.. code-block:: python
+
+    from chemotion_api.labImotion.items.options import ElementType
+
+    gm = instance.generic_manager()
+    klass = gm.get_element(name='wrk')
+    klass.download('wrk.json')                      # upload() it on another ELN
+    for rev in klass.revisions(): print(rev.version)
+    gm.import_hub_template(gm.hub_templates(ElementType.SEGMENT)[0]['identifier'], ElementType.SEGMENT)
+
+    element.export_docx('element.docx')
+    element.save_variations({'row-1': {'properties': {}, 'metadata': {'notes': 'first'}, 'segments': {}}})
+    link = element.create_mtt_request(plate)        # opens the external MTT app
+    collection.split_generic_elements(element)
+
+    klass.delete(confirm=klass.label)               # admins only, irreversible
+
+.. autoclass:: chemotion_api.labImotion.base_generic_obj.KlassRevision
+

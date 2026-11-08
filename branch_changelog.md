@@ -9,6 +9,34 @@ Chemotion export ZIPs, a `.eln` importer, and a self-contained seeded test envir
 
 ---
 
+## 2026-11-13 — The chemotion/main milestones M0–M7, ported onto the 401.0 line
+
+The work packages from `MILESTONES.md`, developed on `chemotion/main` against unreleased ELN `main`,
+cherry-picked onto the 401.0 line (one commit each, `cherry picked from` in each message) and
+tested against the released ELN v4.0.1. See `MISSING_FEATURES.md` for the status per feature.
+
+- **M0** element registry, payload capture tool, deletion. Not ported: the p2d test stack (this
+  line tests against tagged releases only).
+- **M1** comments, private notes, versions with revert, short-label lookup, user labels on
+  wellplates and research plans. Screens and the rest of the label work were already in 401.0.
+- **M2** molecules from molfiles, server-side splits, mixture components, structure search, sample
+  import, literature, CAS/suggestions/scheme SVG.
+- **M3** reports and table exports, inbox assignment, attachment management, analyses-only save,
+  collection/research plan metadata, take ownership, wellplate and research plan extras, text
+  templates, gate transfer. Collection ZIP export/import was already in 401.0.
+- **M4** vessels, safety data sheets and inventory labels; splits of device descriptions and SBMM
+  samples. Cell lines, device descriptions, SBMM samples and chemical records keep their 401.0 API.
+- **M5** spectra, measurements, image annotation, NMR simulation/prediction/compute tasks, sample tasks.
+- **M6** template deletion/revisions/download, element export, LabIMotion Hub, generic splits and
+  variations, MTT requests, OLS terms.
+- **M7** profile, 2FA status and API tokens, counters, user/group/device/system administration,
+  SciFinder-n.
+
+Server issues found on ELN `main` while building these (worked around or guarded in the client): `/public/token`
+ignores 2FA; `DELETE /profiles` deletes any path; vessel updates, measurement deletion and MTT wellplate
+lookups lack permission checks; `research_plans/linked` leaks names; `DELETE`/`PUT /containers/:id`
+refuse owners; prediction routes always 500; `olsEnableDisable` empties term lists without imported terms.
+
 ## 2026-06-30 — Self-contained seeded integration environment
 
 - `tests/test_config/compose.yml` boots a live ELN + Postgres on port 3579.

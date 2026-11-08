@@ -35,7 +35,9 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
-from chemotion_api import account, chemicals, compute, reports, sample_tasks, scifinder, vessels
+from chemotion_api import account, chemicals, compute, reports, scifinder, vessels
+from chemotion_api import sample_tasks as _sample_tasks
+from chemotion_api.sample_tasks import SampleTask
 from chemotion_api import profile as user_profile
 from chemotion_api.text_templates import TextTemplates
 from chemotion_api.spectra import Spectra
@@ -328,8 +330,7 @@ class Instance:
 
         Usage::
 
-        >>> archive = instance.create_report(reaction, sample, file_name='Weekly',
-        ...                                  reaction_settings={'variations': False})
+        >>> archive = instance.create_report(reaction, sample, file_name='Weekly', reaction_settings={'variations': False})
         >>> archive.download('weekly.docx')
 
         :param template: ``'standard'`` (default), ``'supporting_information'``,
@@ -633,14 +634,14 @@ class Instance:
         """Send a sample's molecule to the ELN's compute server. See :func:`chemotion_api.compute.submit_compute_task`."""
         return compute.submit_compute_task(self._con, sample)
 
-    def sample_tasks(self, status: str = 'open') -> list[sample_tasks.SampleTask]:
+    def sample_tasks(self, status: str = 'open') -> list[SampleTask]:
         """Your weighing tasks (``'open'``, ``'with_missing_scan_results'`` or ``'done'``)."""
-        return sample_tasks.sample_tasks(self._con, status)
+        return _sample_tasks.sample_tasks(self._con, status)
 
     def create_sample_task(self, sample=None, description: str | None = None,
-                           required_scan_results: int = 1) -> sample_tasks.SampleTask:
+                           required_scan_results: int = 1) -> SampleTask:
         """Create a weighing task, for a sample or for one to assign later."""
-        return sample_tasks.create_sample_task(self._con, sample, description, required_scan_results)
+        return _sample_tasks.create_sample_task(self._con, sample, description, required_scan_results)
 
     def ols_terms(self, name: str = 'chmo', edited: bool = True) -> list[dict]:
         """An ontology's terms as the ELN's pickers offer them (``GET /api/v1/ols_terms/list``): a tree

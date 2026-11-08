@@ -47,3 +47,23 @@ Match and connector options
 .. autoenum:: chemotion_api.search.utils.EnumMatch
 
 .. autoenum:: chemotion_api.search.utils.EnumConnector
+
+Structure search
+----------------
+
+Substructure and similarity search over every element type, as the UI's structure search does.
+SMILES, molfiles and molecules are accepted.
+
+.. code-block:: python
+
+    result = instance.search_structure().substructure('c1ccccc1O').find_max(50).request()
+    for sample in result.samples:
+        print(sample.short_label)
+    print(result.total('reaction'))
+    similar = instance.search_structure().similar('CCO', threshold=0.8).request()
+
+.. autoclass:: chemotion_api.search.structure.StructureSearcher
+    :members:
+
+.. autoclass:: chemotion_api.search.structure.StructureSearchResult
+    :members:
