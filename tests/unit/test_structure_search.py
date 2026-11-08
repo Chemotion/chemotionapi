@@ -8,7 +8,7 @@ MOLFILE = '\n  RDKit\n\n  1  0  0  0  0  0  0  0  0  0999 V2000\nM  END'
 CLASSES = {
     'sample': {'name': 'sample', 'is_generic': False},
     'reaction': {'name': 'reaction', 'is_generic': False},
-    'cell_line': {'name': 'cell_line', 'is_generic': False},
+    'unknown_kind': {'name': 'unknown_kind', 'is_generic': False},
     'generic_element': {'name': 'generic_element', 'is_generic': True},
 }
 
@@ -73,14 +73,14 @@ def test_threshold_must_be_a_similarity(threshold):
 
 
 def test_results_count_every_type_but_only_wrap_supported_ones():
-    session = _Session(_Res(201, {'samples': _block(0), 'reactions': _block(2), 'cell_lines': _block(4),
+    session = _Session(_Res(201, {'samples': _block(0), 'reactions': _block(2), 'unknown_kinds': _block(4),
                                   'structure_svg': 'x.svg'}))
     result = _searcher(session).substructure(MOLFILE).request()
-    assert result.total('reaction') == 2 and result.total('cell_line') == 4
-    assert result.types == ['reaction', 'cell_line']
+    assert result.total('reaction') == 2 and result.total('unknown_kind') == 4
+    assert result.types == ['reaction', 'unknown_kind']
     assert len(result.samples) == 0
     with pytest.raises(KeyError):
-        result['cell_line']
+        result['unknown_kind']
 
 
 def test_a_failed_search_raises():

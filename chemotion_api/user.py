@@ -383,6 +383,10 @@ class Person(User):
         super().__init__(session)
         self.samples_count: int | None = None
         self.reactions_count: int | None = None
+        self.cell_lines_count: int | None = None
+        self.device_descriptions_count: int | None = None
+        self.vessels_count: int | None = None
+        self.sequence_based_macromolecule_samples_count: int | None = None
         self.reaction_name_prefix: str | None = None
         self.layout: dict[str:str] = None
         self.unconfirmed_email: str | None = None
@@ -405,6 +409,9 @@ class Person(User):
             return '{}-{}'.format(self.initials, self.counters[type_name + 's'])
         if type_name == 'reaction':
             return '{}-R{}'.format(self.initials, self.counters[type_name + 's'])
+        if type_name == 'cell_line':
+            # As the UI labels a new cell line (ElementActions.generateEmptyCellLine).
+            return f'{self.initials}-C{self.cell_lines_count or 0}'
         return f"{self.initials}-{type_name}{self.counters.get(type_name + 's', self.counters.get(type_name, 0))}"
 
     def create_group(self, first_name: str, last_name: str, name_abbreviation: str,

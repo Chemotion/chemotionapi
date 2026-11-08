@@ -34,7 +34,7 @@ class StructureSearchResult:
         """The found elements of a type, by element type name: ``'sample'``, ``'reaction'``, or a
         generic element type's name.
 
-        :raises KeyError: for a type this client has no class for (e.g. cell lines); its matches
+        :raises KeyError: for a type this client has no class for; its matches
             are still counted in :meth:`total`.
         """
         return self._sets[element_type]
@@ -159,7 +159,7 @@ class StructureSearcher:
                 continue
             totals[name] = int(block.get('totalElements') or 0)
             if not klass.get('is_generic') and element_type_info(name) is None:
-                continue  # a type this client has no class for (e.g. cell lines): counted only
+                continue  # a type this client has no class for: counted only
             element_set = ElementSet(self._connection, klass, self._collection_id, fixed_length=True)
             for row in block.get('elements') or []:
                 element_set.new_element(row).mark_partial()

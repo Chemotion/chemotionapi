@@ -1,0 +1,12 @@
+{
+  "type": "cell_line",
+  "name": "",
+  "description": "",
+  "amount": 0,
+  "unit": "cell count",
+  "passage": 0,
+  "contamination": "",
+  "cellline_material": {},
+  "segments": [],
+  "attachments": []
+}

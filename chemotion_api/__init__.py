@@ -28,7 +28,7 @@ from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.search.structure import StructureSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import quote, urlparse
-from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, \
+from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
@@ -533,6 +533,20 @@ class Instance:
         """
         e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('screen')))
         return typing.cast(Screen, e.load_element(id))
+
+    def get_cell_line(self, id: int) -> CellLine:
+        """
+        Fetches one cell line sample from the Chemotion server.
+
+        :param id: The Database ID of the desired Element
+        """
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('cell_line')))
+        return typing.cast(CellLine, e.load_element(id))
+
+    def cell_line_materials(self) -> list[dict]:
+        """All cell line materials (``{'id', 'name', 'source'}``), as the cell line editor's name list offers them."""
+        from chemotion_api.elements.cell_line import material_names
+        return material_names(self._con)
 
     def get_research_plan(self, id: int) -> ResearchPlan:
         """

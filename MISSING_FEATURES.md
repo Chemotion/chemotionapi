@@ -20,7 +20,7 @@ types below can be neither read nor written.
 | Status | Feature | UI fetcher → endpoints |
 |---|---|---|
 | ✅ | **Screens** (wellplate containers, with research-plan links). Done in M1.1: `Screen`, `instance.get_screen()`, `collection.new_screen()` / `get_screens()` | `ScreensFetcher` → `screens` |
-| ❌ | **Cell lines** (materials, samples, copy, split) | `CellLinesFetcher` → `cell_lines`, `cell_lines/material`, `cell_lines/copy`, `cell_lines/split`, `cell_lines/names/all` |
+| ✅ | **Cell lines** (materials, samples, copy, split) | `CellLinesFetcher` → `cell_lines`, `cell_lines/material`, `cell_lines/copy`, `cell_lines/split`, `cell_lines/names/all` Done in M4.1: `CellLine` (sample and material fields in one `properties`), `collection.new_cell_line()` / `get_cell_lines()`, `instance.get_cell_line()` / `cell_line_materials()`, `copy()` / `split()`, analyses, moving between collections and deletion. |
 | ❌ | **Vessels** (templates, instances, bulk create, name suggestions) | `VesselsFetcher` → `vessels`, `vessels/templates*`, `vessels/instances/create`, `vessels/bulk_create`, `vessels/suggest/suggest_name` |
 | ❌ | **Device descriptions** (incl. sub-devices, ontologies, device analyses) | `DeviceDescriptionFetcher` → `device_descriptions*`; `attachments/device_description_analyses` |
 | ❌ | **Sequence-based macromolecules** and their samples | `SequenceBasedMacromoleculesFetcher`, `SequenceBasedMacromoleculeSamplesFetcher` → `sequence_based_macromolecules*`, `sequence_based_macromolecule_samples*` |

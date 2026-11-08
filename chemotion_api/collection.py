@@ -21,7 +21,7 @@ from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
-from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen
+from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, CellLine
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
@@ -575,7 +575,7 @@ class AbstractCollection:
     #: Element kinds this client will send to `collection_elements`. v4 declares
     #: sample/reaction/wellplate/screen/research_plan in `main_ui_state_params`, and the usecase
     #: resolves more besides — but a kind we have not exercised is untested, not supported.
-    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'screen')
+    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'screen', 'cell_line')
 
     def assign_elements(self, dest: AbstractCollection, *elements) -> None:
         """Add elements of this collection to ``dest`` as well — they stay here too.
@@ -1099,6 +1099,25 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
+    def get_cell_lines(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                       updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of the cell line samples in this collection.
+
+        :param per_page: How many Elements per page (the server allows at most 50)
+        :return: ElementSet of cell lines
+        """
+        return self._list_elements('cell_line', per_page, updated_to_date, updated_from_date)
+
+    def _list_elements(self, kind: str, per_page, updated_to_date, updated_from_date) -> ElementSet:
+        root = self.get_root()
+        if kind not in root._element_manager.all_classes:
+            root._element_manager.reload()
+        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get(kind)),
+                       typing.cast(int, self.id))
+        e.load_elements(per_page, updated_to_date, updated_from_date)
+        return e
+
     def get_generics_by_name(self, name: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
         """
@@ -1221,6 +1240,15 @@ class AbstractEditableCollection(AbstractCollection):
         :return: New (unsaved) Screen
         """
         return typing.cast(Screen, self._create_new_element('screen'))
+
+    def new_cell_line(self) -> CellLine:
+        """
+        Creates a new cell line sample in this collection. Set at least ``material_names``,
+        ``source``, ``amount``, ``unit`` and ``passage`` before saving.
+
+        :return: New (unsaved) CellLine
+        """
+        return typing.cast(CellLine, self._create_new_element('cell_line'))
 
     def new_generic(self, type_name: str) -> GenericElement:
         """

@@ -833,7 +833,15 @@ class AbstractElement:
             raise request_error(res, f'loading {self.element_type} {self.id}')
         res_json = res.json()
         attachments_data = res_json.get('attachments')
-        return attachments_data, res_json[self.get_response_key(self.element_type)]
+        return attachments_data, self._unwrap_response(res_json)
+
+    def _unwrap_response(self, res_json: dict) -> dict:
+        """The element's record in a load or save answer, which the server wraps in the type's
+        response key (or ``element``). Types whose routes answer unwrapped override this."""
+        key = self.get_response_key(self.element_type)
+        if key in res_json:
+            return res_json[key]
+        return res_json.get('element', res_json.get(self.element_type))
 
 
     @staticmethod
@@ -941,7 +949,7 @@ class AbstractElement:
             raise request_error(res, f'saving {self.element_type} {"(new)" if is_created else self.id}')
         if is_created:
             res_json = res.json()
-            res_json = merge_dicts(self.json_data, res_json.get(self.element_type, res_json.get('element')))
+            res_json = merge_dicts(self.json_data, self._unwrap_response(res_json))
             self._set_json_data(res_json)
         if self.attachments is not None:
             self.attachments.save(self.id, snake_to_camel_case(self.get_response_key(self.element_type)))
