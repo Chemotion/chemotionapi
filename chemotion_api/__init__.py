@@ -631,6 +631,20 @@ class Instance:
         """Create a weighing task, for a sample or for one to assign later."""
         return sample_tasks.create_sample_task(self._con, sample, description, required_scan_results)
 
+    def ols_terms(self, name: str = 'chmo', edited: bool = True) -> list[dict]:
+        """An ontology's terms as the ELN's pickers offer them (``GET /api/v1/ols_terms/list``): a tree
+        of ``{'id', 'term_id', 'label', 'synonym', 'children', …}`` nodes.
+
+        :param name: ``'chmo'`` (analysis methods), ``'rxno'`` (reaction types) or ``'bao'`` (bioassays).
+        :param edited: only the terms enabled by the admins, with your recently used ones first.
+        """
+        if name not in ('chmo', 'rxno', 'bao'):
+            raise ValueError("name is 'chmo', 'rxno' or 'bao'.")
+        res = self._con.get('/api/v1/ols_terms/list', params={'name': name, 'edited': edited})
+        if res.status_code != 200:
+            raise request_error(res, f'loading the {name} terms')
+        return (res.json() or {}).get('ols_terms') or []
+
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""
         return vessels.templates(self._con)

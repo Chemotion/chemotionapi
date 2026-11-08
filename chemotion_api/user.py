@@ -561,6 +561,46 @@ class Admin(Person):
             raise ConnectionError(f'{res.text}')
         return data
 
+    def import_ols_terms(self, owl_file: str) -> None:
+        """Replace an ontology's terms with those of an OWL file, as *Admin > Ontologies* does
+        (``POST /api/v1/admin/importOlsTerms``). The file name without extension is the ontology
+        name, e.g. ``chmo.owl``.
+        """
+        import os
+        if not os.path.splitext(owl_file)[1].lower() in ('.owl', '.xml', '.ow'):
+            raise ValueError('Give an .owl or .xml file.')
+        with open(owl_file, 'rb') as f:
+            res = self._session.post('/api/v1/admin/importOlsTerms',
+                                     files={'file': (os.path.basename(owl_file), f, 'application/rdf+xml')})
+        self._admin_check(res, f'importing {owl_file}')
+
+    def set_ols_terms_enabled(self, owl_name: str, enable=(), disable=()) -> None:
+        """Show or hide ontology terms in the ELN's term pickers
+        (``POST /api/v1/admin/olsEnableDisable``).
+
+        :param owl_name: ``'chmo'``, ``'rxno'``, ``'bao'``, …
+        :param enable: term ids to show, e.g. ``'CHMO:0000595'``.
+        :param disable: term ids to hide (with their branches in the pickers).
+        """
+        if not enable and not disable:
+            raise ValueError('Give term ids to enable or disable.')
+        # The server rewrites the ontology's public term lists from its database. With no terms
+        # imported there, that replaces the ELN's built-in lists with empty ones, so refuse.
+        root = self._session.get('/api/v1/ols_terms/root', params={'name': owl_name})
+        if root.status_code == 200 and not (root.json() or {}).get('ols_terms'):
+            raise ValueError(f'No {owl_name} terms are imported on this ELN; import the ontology first '
+                             f'(import_ols_terms). Switching terms now would empty its term lists.')
+        res = self._session.post('/api/v1/admin/olsEnableDisable',
+                                 data={'owl_name': owl_name, 'enableIds': list(enable), 'disableIds': list(disable)})
+        self._admin_check(res, f'switching {owl_name} terms')
+
+    @staticmethod
+    def _admin_check(res, what: str) -> None:
+        if res.status_code == 401:
+            raise PermissionError(f'Only admins can do this ({what}).')
+        if res.status_code not in (200, 201, 204):
+            raise ConnectionError(f'{what}: {res.status_code} -> {res.text}')
+
     def fetchDevices(self) -> list[Device]:
         u_type = 'Device'
         d_list = self.fetchGroupAndDevice(u_type)
