@@ -33,7 +33,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
-from chemotion_api import account, chemicals, compute, reports, sample_tasks, vessels
+from chemotion_api import account, chemicals, compute, reports, sample_tasks, scifinder, vessels
 from chemotion_api import profile as user_profile
 from chemotion_api.text_templates import TextTemplates
 from chemotion_api.spectra import Spectra
@@ -700,6 +700,14 @@ class Instance:
         if res.status_code != 200:
             raise request_error(res, 'loading instruments')
         return [row.get('name') for row in res.json().get('instruments') or [] if row.get('name')]
+
+    def scifinder_credential(self) -> scifinder.ScifinderCredential | None:
+        """Your stored SciFinder-n credential (get one in the browser), or ``None``."""
+        return scifinder.load_credential(self._con)
+
+    def scifinder_search(self, structure: str, search_for: str = 'substances', structure_type: str = 'molfile') -> dict:
+        """Search SciFinder-n for a structure. See :func:`chemotion_api.scifinder.search`."""
+        return scifinder.search(self._con, structure, search_for, structure_type)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""

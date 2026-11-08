@@ -120,7 +120,7 @@ types below can be neither read nor written.
 | ✅ | **Admin: device metadata, SFTP/local collectors** | `AdminDeviceFetcher` → `admin_devices*`; `AdminDeviceMetadataFetcher`; `admin/listLocalCollector/all` | Done in M7.5 (on `Admin`): `list_devices()`, `get_device()`, `add_device()`, `update_device()` (users, data collector, noVNC), `delete_device(confirm=...)`, `remove_device_user()`, `test_sftp()`, `local_collectors()`, `device_metadata()` / `save_device_metadata()` / `sync_device_metadata()`; `instance.instruments()`. `devices/current_connection` tracks noVNC viewers and is out of scope (MF §11). |
 | ✅ | **Admin: system** (disk usage, background jobs and restart, feature matrix, data types, support links) | `AdminFetcher` → `admin/disk`, `admin/jobs*`, `admin/matrix`; `ChemSpectraFetcher` → `admin/data_types`; `InfoSupportLinksFetcher` | Done in M7.6 (on `Admin`): `disk_usage()`, `jobs()`, `restart_job(job)` (one at a time), `queue_admin_task(task)`, `matrices()` / `update_matrix()`, `save_spectra_data_types()`, `info_support_links()` with add / update / delete. |
 | ❌ | **Instruments / device connections / noVNC** | `InstrumentsFetcher`; `DeviceFetcher` → `devices/current_connection`; `UsersFetcher` → `devices/novnc` | |
-| ❌ | **SciFinder-n credentials** | `UsersFetcher` → `users/scifinder` | |
+| ✅ | **SciFinder-n credentials** | `UsersFetcher` → `users/scifinder` | Done in M7.7: `instance.scifinder_credential()` (tokens kept out of `repr`) and `instance.scifinder_search(structure, search_for, structure_type)` (`molecules/sf`). Getting a credential is an OAuth sign-in in the browser. |
 
 ## 11. Interactive UI features (unlikely to be needed in a client)
 
