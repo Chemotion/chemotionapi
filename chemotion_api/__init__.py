@@ -33,7 +33,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
-from chemotion_api import reports
+from chemotion_api import reports, vessels
 from chemotion_api.text_templates import TextTemplates
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
@@ -547,6 +547,25 @@ class Instance:
         """All cell line materials (``{'id', 'name', 'source'}``), as the cell line editor's name list offers them."""
         from chemotion_api.elements.cell_line import material_names
         return material_names(self._con)
+
+    def vessel_templates(self) -> list[vessels.VesselTemplate]:
+        """All vessel templates on the ELN."""
+        return vessels.templates(self._con)
+
+    def new_vessel_template(self, name: str, **fields) -> vessels.VesselTemplate:
+        """An unsaved vessel template; set fields and call ``save()``.
+
+        :param fields: ``vessel_type``, ``material_type``, ``material_details``, ``volume_amount``,
+            ``volume_unit``, ``details``.
+        """
+        return vessels.VesselTemplate(name=name, **fields, _session=self._con)
+
+    def get_vessel_template(self, id: str) -> vessels.VesselTemplate:
+        return vessels.load_template(self._con, id)
+
+    def get_vessel(self, id: str) -> vessels.Vessel:
+        """One vessel, by its UUID."""
+        return vessels.load_vessel(self._con, id)
 
     def get_research_plan(self, id: int) -> ResearchPlan:
         """
