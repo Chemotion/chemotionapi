@@ -113,7 +113,7 @@ types below can be neither read nor written.
 
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
-| ❌ | **Profile and settings** (incl. editor and Ketcher options) | `ProfilesFetcher` → `profiles`, `profiles/editors/ketcher-options` | |
+| ✅ | **Profile and settings** (incl. editor and Ketcher options) | `ProfilesFetcher` → `profiles`, `profiles/editors/ketcher-options` | Done in M7.1: `instance.profile()` with `save()`, `add_structure_template()` / `delete_structure_template()` (only for templates the profile lists: the server route deletes any path it is given), `instance.ketcher_options()` / `save_ketcher_options()`. |
 | ❌ | **Two-factor auth, API auth tokens, OmniAuth** | `UsersFetcher` → `users/two_factor`, `users/auth_token`, `users/revoke_auth_token`, `users/omniauth_providers` | The client logs in with a password or a JWT. |
 | ❌ | **Short-label counters** | `UsersFetcher` → `users/update_counter`, `users/reaction_short_label` | |
 | ◐ | **Admin: users, groups, devices** | `AdminFetcher` → `admin/users/byname`, `admin/usersDefault`, `admin/users/restoreAccount`, `admin/group_device/delete_relation` | Listing and creating users, groups and devices, membership and device JWTs are implemented. Restore account, default settings and deleting group-device relations are missing. |

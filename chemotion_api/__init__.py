@@ -36,6 +36,7 @@ from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
 from chemotion_api import chemicals, compute, reports, sample_tasks, vessels
+from chemotion_api import profile as user_profile
 from chemotion_api.text_templates import TextTemplates
 from chemotion_api.spectra import Spectra
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
@@ -654,6 +655,19 @@ class Instance:
         if res.status_code != 200:
             raise request_error(res, f'loading the {name} terms')
         return (res.json() or {}).get('ols_terms') or []
+
+    def profile(self) -> user_profile.Profile:
+        """Your profile: list layouts, display options and structure templates. See
+        :class:`chemotion_api.profile.Profile`."""
+        return user_profile.load_profile(self._con)
+
+    def ketcher_options(self) -> dict:
+        """Your Ketcher 2 editor settings (``{}`` for the defaults)."""
+        return user_profile.ketcher_options(self._con)
+
+    def save_ketcher_options(self, settings: dict) -> None:
+        """Replace your Ketcher 2 editor settings."""
+        user_profile.save_ketcher_options(self._con, settings)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""
