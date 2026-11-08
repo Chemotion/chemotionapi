@@ -35,6 +35,7 @@ from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
 from chemotion_api import chemicals, reports, vessels
 from chemotion_api.text_templates import TextTemplates
+from chemotion_api.spectra import Spectra
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
@@ -596,6 +597,10 @@ class Instance:
     def extract_safety_sheet(self, path: str) -> dict:
         """The H/P statements and section 9 properties of a stored safety data sheet."""
         return chemicals.extract_safety_sheet(self._con, path)
+
+    def spectra(self) -> Spectra:
+        """Spectra processing through the ELN's ChemSpectra service. See :class:`chemotion_api.spectra.Spectra`."""
+        return Spectra(self._con)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""
