@@ -101,11 +101,36 @@ requirement.
 the ELN's own Push2Deploy files (`Dockerfile.p2d`, present from v3.1.0-rc on):
 
 ```bash
-just stack-p2d-build main            # or a tag (v4.0.0) or a full commit sha
-just stack-p2d main                  # reset the p2d stack from the seed, run every test
-just stack-p2d main -m integration -q   # or pass your own pytest arguments
+just stack-p2d-build                 # the tested ELN from eln-ref.env (see below)
+just stack-p2d                       # reset the p2d stack from the seed, run every test
+just stack-p2d -m integration -q     # or pass your own pytest arguments
+just stack-p2d-build main            # or any branch, tag (v4.0.0) or full commit sha
+just stack-p2d main
 just stack-p2d-down
 ```
+
+### The tested ELN: `eln-ref.env`
+
+[`eln-ref.env`](eln-ref.env) records the chemotion_ELN source the suite was last run green
+against, with three fields:
+
+| field | meaning |
+|---|---|
+| `ELN_BRANCH` | the branch the commit was taken from; names the image |
+| `ELN_TAG` | a tag at that commit, if any |
+| `ELN_COMMIT` | the full sha — when set, this is what gets built |
+
+When the file exists, `build`, `test` and `image` without a ref (for `test`: no ref, or a first
+argument starting with `-`) use it, building `ELN_COMMIT`, else `ELN_TAG`, else the tip of
+`ELN_BRANCH`. The image is `chemotion-eln-p2d:<branch, else tag>-<short sha>`, so a branch that
+moves on cannot change the server under the suite. An explicit ref on the command line still wins;
+without the file the default ref is `main`.
+
+Setting just one field is enough: the empty ones are looked up with `git ls-remote` and written
+back into the file (a short sha is expanded too). A branch or tag is only filled in when its tip
+is exactly the commit, since `ls-remote` cannot tell which branch merely contains it; otherwise it
+stays empty. If the remote is unreachable and the commit is already a full sha, the fill-in is
+skipped with a warning. Bump the file after a green run against a new commit, and commit it.
 
 All of it goes through [`p2d.sh`](p2d.sh), which can also be run directly with `bash`.
 
