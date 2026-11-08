@@ -1,10 +1,11 @@
 import json
+from dataclasses import dataclass
 from typing import Self
 from collections.abc import Callable
 
 import logging
 
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from chemotion_api.labImotion.items.genericproperties import GenericProperties
 from chemotion_api.labImotion.items.options import SaveActionType
 from chemotion_api.labImotion.structure import StructureRegistry
@@ -12,6 +13,16 @@ from chemotion_api.labImotion.utils import ChemotionSerializable, generate_pkg_i
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class KlassRevision:
+    """One released version of a LabIMotion template (``klass_revisions``)."""
+    id: int
+    uuid: str | None
+    version: str | None
+    released_at: str | None
+    submitted: bool | None = None
 
 class GenericObj(ChemotionSerializable):
     url = None
@@ -72,6 +83,48 @@ class GenericObj(ChemotionSerializable):
         res = self._connection.post(self.url_save, data=self.to_dict())
         if res.status_code != 201:
             raise ConnectionError(f"{res.status_code} -> {res.text}")
+
+    def delete(self, *, confirm: str) -> None:
+        """Delete this template for good, with what depends on it (admins of the template kind
+        only; ``DELETE /api/v1/generic_elements/delete_klass/:id``).
+
+        :param confirm: this template's label, to guard against deleting the wrong one.
+        :raises ValueError: if ``confirm`` is not the label.
+        :raises PermissionError: if you are not an admin of this template kind.
+        """
+        if confirm != self.label:
+            raise ValueError(f'To delete template "{self.label}", pass confirm={self.label!r}.')
+        res = self._connection.delete(f'/api/v1/generic_elements/delete_klass/{self.id}',
+                                      params={'klass': self.element_type.value})
+        if res.status_code in (401, 403):
+            raise PermissionError(f'Only {self.element_type.value} admins can delete "{self.label}".')
+        if res.status_code not in (200, 201, 204):
+            raise request_error(res, f'deleting template "{self.label}"')
+
+    def revisions(self, limit: int = 10) -> list[KlassRevision]:
+        """The released versions of this template, newest first
+        (``GET /api/v1/generic_elements/klass_revisions``)."""
+        res = self._connection.get('/api/v1/generic_elements/klass_revisions',
+                                   params={'id': self.id, 'klass': self.element_type.value, 'limit': limit})
+        if res.status_code != 200:
+            raise request_error(res, f'loading the revisions of "{self.label}"')
+        return [KlassRevision(r['id'], r.get('uuid'), r.get('version'), r.get('released_at'), r.get('submitted'))
+                for r in res.json().get('revisions') or []]
+
+    def delete_revision(self, revision: KlassRevision | int) -> None:
+        """Delete one released version (admins only; ``POST /api/v1/generic_elements/delete_klass_revision``).
+
+        :raises ValueError: for the version currently in use, which cannot be deleted.
+        """
+        revision_id = revision if isinstance(revision, int) else revision.id
+        res = self._connection.post('/api/v1/generic_elements/delete_klass_revision',
+                                    data={'id': revision_id, 'klass_id': self.id, 'klass': self.element_type.value})
+        if res.status_code == 405:
+            raise ValueError(f'Revision {revision_id} is the active version of "{self.label}" and cannot be deleted.')
+        if res.status_code in (401, 403):
+            raise PermissionError(f'Only {self.element_type.value} admins can delete revisions of "{self.label}".')
+        if res.status_code not in (200, 201, 204):
+            raise request_error(res, f'deleting revision {revision_id} of "{self.label}"')
 
     def activate(self):
         self.is_active = True
