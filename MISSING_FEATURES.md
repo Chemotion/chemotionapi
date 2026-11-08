@@ -102,7 +102,7 @@ types below can be neither read nor written.
 | Status | Feature | UI fetcher → endpoints | Notes |
 |---|---|---|---|
 | ✅ | **Klass management** | `GenericBaseFetcher` → `generic_elements/delete_klass`, `generic_elements/delete_klass_revision` | Done in M6.1: `klass.delete(confirm=<label>)`, `klass.revisions()` and `klass.delete_revision()` (the active one is refused), for element, segment and dataset templates. Create, update, (de)activate, release and upload were already there. |
-| ❌ | **LabIMotion Hub** (fetch / create klasses from the template repository) | `generic_*/fetch_repo`, `*/create_repo_klass`, `segments/fetch_repo_generic_template*`; `UsersFetcher` → `labimotion_hub/element_klasses_name` |
+| ✅ | **LabIMotion Hub** (fetch / create klasses from the template repository) | `generic_*/fetch_repo`, `*/create_repo_klass`, `segments/fetch_repo_generic_template*`; `UsersFetcher` → `labimotion_hub/element_klasses_name` Done in M6.3: `generic_manager.hub_templates(kind)`, `import_hub_template(identifier, kind)`, `submit_to_hub(...)`, and for this ELN as a hub `published_templates()` / `active_element_names()`. `segments/fetch_repo_generic_template*` are older variants of the same lookup. |
 | ✅ | **Download / export klasses and elements** | `GenericKlassFetcher` → `generic_klass/download_klass`; `segments/download_klass`, `generic_elements/export` Done in M6.2: `klass.download(path)` (template JSON, re-uploadable with `upload()`), `generic_element.export_docx(path)`. `segments/download_klass` is the older route for the same file. |
 | ❌ | **Split generic elements** | `GenericElsFetcher` → `generic_elements/split` |
 | ❌ | **Generic element variations** | `ElementVariationFetcher` → `element_variations` |

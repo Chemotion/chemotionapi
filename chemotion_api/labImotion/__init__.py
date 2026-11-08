@@ -11,7 +11,7 @@ from chemotion_api.labImotion.items.options import ElementType, SaveActionType
 from chemotion_api.labImotion.items.validation import validate_generic_element, validate_generic_dataset, \
     validate_generic_segment, SchemaRegistry
 from chemotion_api.labImotion.base_generic_obj import GenericObj
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from chemotion_api.element_manager import ElementManager
 from urllib.parse import urlparse, unquote
 
@@ -151,10 +151,84 @@ class GenericDataset(GenericObj):
         return validate_generic_dataset
 
 
+#: The REST resource of each template kind, for the hub routes.
+_KIND_RESOURCE = {ElementType.ELEMENT: 'generic_elements', ElementType.SEGMENT: 'segments',
+                  ElementType.DATASET: 'generic_dataset'}
+
+
 class GenericManager:
     def __init__(self, connection: Connection, element_manager: ElementManager | None = None):
         self._connection = connection
         self._element_manager = element_manager
+
+    def hub_templates(self, kind: ElementType = ElementType.ELEMENT) -> list[dict]:
+        """The templates of the central LabIMotion Hub (Chemotion Repository) that this ELN can import,
+        as the designer's *Fetch from repository* lists them (``GET /<kind>/fetch_repo``).
+
+        :param kind: ``ElementType.ELEMENT``, ``SEGMENT`` or ``DATASET``.
+        :raises ConnectionError: if the ELN cannot reach the hub.
+        """
+        res = self._connection.get(f'/api/v1/{_KIND_RESOURCE[kind]}/fetch_repo')
+        if res.status_code != 200:
+            raise request_error(res, f'listing the hub\'s {kind.value} templates')
+        data = res.json()
+        if isinstance(data, dict) and data.get('error'):
+            raise ConnectionError(data['error'])
+        return data or []
+
+    def import_hub_template(self, identifier: str, kind: ElementType = ElementType.ELEMENT) -> list:
+        """Import a template from the hub by its identifier (``POST /<kind>/create_repo_klass``).
+        LabIMotion admins only.
+
+        :return: all templates of the kind afterwards (loaded).
+        :raises ConnectionError: if the hub refused or could not be reached.
+        """
+        res = self._connection.post(f'/api/v1/{_KIND_RESOURCE[kind]}/create_repo_klass', data={'identifier': identifier})
+        if res.status_code in (401, 403):
+            raise PermissionError(f'Only LabIMotion admins can import {kind.value} templates.')
+        if res.status_code == 500:  # the segment route re-raises instead of answering {error: ...}
+            raise ConnectionError(f'The hub import of {identifier} failed (the server raised an error).')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'importing hub template {identifier}')
+        data = res.json() or {}
+        if data.get('error') or data.get('status') == 'error':
+            raise ConnectionError(f'The hub import of {identifier} failed: {data.get("error") or data.get("message")}')
+        loader = {ElementType.ELEMENT: self.load_all_elements, ElementType.SEGMENT: self.load_all_segments,
+                  ElementType.DATASET: self.load_all_datasets}[kind]
+        return loader()
+
+    def published_templates(self, kind: ElementType = ElementType.ELEMENT, with_properties: bool = False) -> list[dict]:
+        """The released, active templates this ELN offers to others as a hub
+        (``GET /api/v1/labimotion_hub/list``)."""
+        res = self._connection.get('/api/v1/labimotion_hub/list',
+                                   params={'klass': kind.value, 'with_props': with_properties})
+        if res.status_code != 200:
+            raise request_error(res, 'listing the published templates')
+        data = res.json()
+        return (data.get('list') if isinstance(data, dict) else data) or []
+
+    def active_element_names(self, generic_only: bool = False) -> list[str]:
+        """The names of the active element types, built-in and generic
+        (``GET /api/v1/labimotion_hub/element_klasses_name``)."""
+        res = self._connection.get('/api/v1/labimotion_hub/element_klasses_name', params={'generic_only': generic_only})
+        if res.status_code != 200:
+            raise request_error(res, 'listing the element type names')
+        return res.json() or []
+
+    def submit_to_hub(self, revision, kind: ElementType, contact_email: str, application: str, message: str) -> dict:
+        """Submit a released template version to the central LabIMotion Hub for review
+        (``POST /api/v1/labimotion_hub/submit``). This sends the template and your name and
+        email to the hub.
+
+        :param revision: a :class:`~chemotion_api.labImotion.base_generic_obj.KlassRevision` or its id.
+        """
+        revision_id = revision if isinstance(revision, int) else revision.id
+        res = self._connection.post('/api/v1/labimotion_hub/submit', data={
+            'klass': kind.value, 'id': revision_id, 'contact_email': contact_email, 'application': application,
+            'message': message})
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'submitting revision {revision_id} to the hub')
+        return res.json()
 
     def load_all_elements(self) -> list[GenericElementKlass]:
         return GenericElementKlass.load_all(self._connection)
