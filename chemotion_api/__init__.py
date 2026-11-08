@@ -35,7 +35,7 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements import literature, research_plan
-from chemotion_api import chemicals, compute, reports, sample_tasks, vessels
+from chemotion_api import account, chemicals, compute, reports, sample_tasks, vessels
 from chemotion_api import profile as user_profile
 from chemotion_api.text_templates import TextTemplates
 from chemotion_api.spectra import Spectra
@@ -668,6 +668,27 @@ class Instance:
     def save_ketcher_options(self, settings: dict) -> None:
         """Replace your Ketcher 2 editor settings."""
         user_profile.save_ketcher_options(self._con, settings)
+
+    def two_factor_enabled(self) -> bool:
+        """Whether your account logs in with a one-time password."""
+        return account.two_factor_enabled(self._con)
+
+    def request_two_factor_change(self) -> None:
+        """Have the ELN email you the link that switches two-factor login on (or off)."""
+        account.request_two_factor_change(self._con)
+
+    def api_tokens(self) -> list[account.ApiToken]:
+        """Your unexpired API tokens (names and ids; the token values are shown only on creation)."""
+        return account.api_tokens(self._con)
+
+    def create_api_token(self, otp: str, name: str | None = None, expires_in_days: int = 30) -> str:
+        """Create an API token for scripts; log in with it via :meth:`login_token`. Needs two-factor
+        login and the current one-time password. See :func:`chemotion_api.account.create_api_token`."""
+        return account.create_api_token(self._con, otp, name, expires_in_days)
+
+    def revoke_api_token(self, token, otp: str) -> None:
+        """Revoke one of your API tokens (an :class:`~chemotion_api.account.ApiToken` or its id)."""
+        account.revoke_api_token(self._con, token, otp)
 
     def vessel_templates(self) -> list[vessels.VesselTemplate]:
         """All vessel templates on the ELN."""
