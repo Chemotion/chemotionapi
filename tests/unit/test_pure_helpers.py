@@ -91,7 +91,7 @@ def test_schema_manager_refuses_an_unreadable_version():
 
 
 def test_schema_manager_refuses_a_v3_server():
-    """This is the 400.x line; an ELN 3.1.x server belongs to the 312.x line."""
+    """This is the 401.x line; an ELN 3.1.x server belongs to the 312.x line."""
     from chemotion_api.schema_manager import SchemaManager, UnsupportedServerVersion
 
     with pytest.raises(UnsupportedServerVersion, match='312.x release line'):

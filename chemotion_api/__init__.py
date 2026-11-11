@@ -459,14 +459,28 @@ class Instance:
         :param id: The Database ID of the desired Element
         :return: a GenericElement object
 
-        :raises ValueError: if no generic element type has this name
+        :raises ValueError: if no generic element type has this name, or if the element with this
+            id is of a *different* generic type
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         elem = self.all_element_classes.get(name)
         if elem is None:
             raise ValueError(f'Could not find a generic element under the name: "{name}"')
         e = ElementSet(self._con, elem)
-        return typing.cast(GenericElement, e.load_element(id))
+        element = typing.cast(GenericElement, e.load_element(id))
+        # The server resolves a generic element by id alone — the type in the request path does
+        # not scope the lookup. So asking for `try` id 3 happily returns a `wrk` element, and
+        # without this check the caller gets an object of the wrong type with no indication at
+        # all (reported as issue #14). Confirmed still true on ELN v4.0.1.
+        # Built-in types (`sample`, `reaction`, …) are in `all_element_classes` too, and they are
+        # not GenericElements — they have no `klass_name`. Reading it unconditionally would turn
+        # a working call into an AttributeError.
+        actual = getattr(element, 'klass_name', None)
+        if actual is not None and actual != name:
+            raise ValueError(
+                f'Element {id} is a "{actual}", not a "{name}". The server looks a generic '
+                f'element up by id alone, so the id, not the type, decides what you get.')
+        return element
 
     def get_generic_by_label(self, label: str, id: int) -> GenericElement:
         """

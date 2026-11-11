@@ -3,8 +3,7 @@
 A modernized Python client for the [Chemotion ELN](https://chemotion.net/) REST/Grape API,
 targeting **ELN v4** and validating element properties with **Pydantic v2**.
 
-The FAIR `.eln` (RO-Crate) export and the offline ingester are a separate pull request on this
-line and are **not** in this release.
+The FAIR `.eln` (RO-Crate) export and the offline ingester are **not** in this release.
 
 ## Key features
 
@@ -23,7 +22,7 @@ line and are **not** in this release.
   no meaningful overlap. Connecting to an older instance raises `UnsupportedServerVersion` at
   `test_connection()`, before any credentials are sent.
   **For an ELN 3.1.x server, use the `312.x` release line instead.**
-  The version scheme tracks the server: `400.x.y` ↔ ELN 4.0, `312.x.y` ↔ ELN 3.1.2.
+  The version scheme tracks the server: `401.x.y` ↔ ELN 4.0.1, `312.x.y` ↔ ELN 3.1.2.
 - For development: [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/)
   (plus docker for the integration test stack).
 

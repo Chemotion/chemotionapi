@@ -580,7 +580,12 @@ class Sample(AbstractElement):
             purity=self.properties['purity'],
             molarity=self.properties['molarity']['value'],
             density=self.properties['density'],
-            gas_type=self.gas_type,
+            # A gas role only means anything inside a reaction — `vessel_size` comes from one, so
+            # a detached sample would feed `None` into the gas arithmetic and raise. Resolved
+            # here, at the point of use, rather than by having the `gas_type` getter quietly
+            # rewrite the sample (which is what it used to do, at the cost of a request on every
+            # read; see :attr:`gas_type`).
+            gas_type=self.gas_type if self.reaction is not None else GasType.OFF,
             vessel_size=self.vessel_size,
             **gas_attres
         )
@@ -608,15 +613,19 @@ class Sample(AbstractElement):
         """
         The gas role of the sample within a gas-schema reaction.
 
-        Resets to :attr:`GasType.OFF` when the sample has no reaction.
+        Returns what the server sent. **Reading this makes no request and changes nothing** —
+        until 401.0 it did both: it loaded the sample's linked reaction and, when there was none,
+        wrote ``GasType.OFF`` back through :meth:`set_gas_type`. So reading one property issued a
+        request and mutated the sample, and it *failed* whenever the linked reaction contained a
+        field this client could not parse — an error with no relation to the value being read.
+        A downstream consumer had to subclass ``Sample`` to stop it.
+
+        The normalisation it was doing is still available deliberately, via
+        :meth:`set_gas_type`; it is no longer a side effect of reading.
 
         :return: The current :class:`chemotion_api.elements.sample.GasType`
         """
-        gt = self._properties.get('gas_type', GasType.OFF)
-        if self.reaction is None and gt is not GasType.OFF:
-            self.set_gas_type(GasType.OFF)
-            return GasType.OFF
-        return gt
+        return self._properties.get('gas_type', GasType.OFF)
 
     @property
     def reference(self) -> bool:

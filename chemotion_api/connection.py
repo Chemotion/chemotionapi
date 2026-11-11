@@ -1,5 +1,7 @@
 import json
 import re
+import time
+from urllib.parse import urlsplit
 
 import requests
 from dateutil.parser import parse as parsedate
@@ -65,24 +67,40 @@ def request_error(response: requests.Response,
     return ChemotionRequestError(response, context)
 
 
+#: Methods safe to send again after a transport failure. A write is never retried: if the server
+#: received it before the connection broke, a second attempt would apply it twice.
+_IDEMPOTENT_METHODS = frozenset({'get', 'head', 'options'})
+
+#: Seconds to wait before retry *n*, multiplied by the attempt number — so 1s, then 2s.
+_RETRY_BACKOFF_SECONDS = 1.0
+
+
 class Connection(requests.Session):
     #: (connect, read) seconds. The read half is deliberately long — a large collection export is
     #: slow to produce server-side — but it is near-unbounded, so it is overridable per connection.
     DEFAULT_TIMEOUT: tuple[float, float] = (2, 500)
 
+    #: Attempts for an idempotent request before giving up, the first included.
+    DEFAULT_RETRIES: int = 3
+
     def __init__(self, host_url: str, verify_ssl: bool = True,
-                 timeout: float | tuple[float, float] | None = None):
+                 timeout: float | tuple[float, float] | None = None,
+                 retries: int | None = None):
         """
         :param host_url: base URL of the Chemotion instance.
         :param verify_ssl: verify TLS certificates.
         :param timeout: requests timeout for every call on this connection — a ``(connect, read)``
             pair or a single number. Defaults to :attr:`DEFAULT_TIMEOUT`. Individual calls may
             still override it with ``timeout=``.
+        :param retries: attempts for a **read** before giving up, defaulting to
+            :attr:`DEFAULT_RETRIES`. Writes are never retried whatever this is set to. Pass ``1``
+            to disable retrying entirely.
         """
         super().__init__()
         self._host_url = host_url.strip('/')
         self._verify = verify_ssl
         self._timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
+        self._retries = max(1, retries if retries is not None else self.DEFAULT_RETRIES)
         self._bearer_token = None
         self.tzinfo = None
         self._schema_manager = None
@@ -180,9 +198,28 @@ class Connection(requests.Session):
         """
         return self._send_request('put', url_path, self.get_json_session_header(), kwargs)
 
+    def _assert_same_origin(self, url: str) -> None:
+        """Refuse a URL that points somewhere other than this connection's host.
+
+        Every request carries the bearer token, so a URL whose host is not ours would hand the
+        session to a third party. Paths are normally relative and prefixed with ``host_url``, but
+        an absolute ``url`` passes through untouched — and a server-supplied one (a download or
+        thumbnail link, say) is exactly the case where that matters.
+
+        :raises ConnectionError: if the scheme or host differs from ``host_url``.
+        """
+        target, origin = urlsplit(url), urlsplit(self._host_url)
+        if not target.scheme and not target.netloc:
+            return
+        if (target.scheme, target.netloc) != (origin.scheme, origin.netloc):
+            raise ConnectionError(
+                f'Refusing to send credentials to {target.scheme}://{target.netloc} — '
+                f'this connection is bound to {origin.scheme}://{origin.netloc}.')
+
     def _send_request(self, method: str, url_path: str, default_header: dict, kwargs: dict) -> requests.Response:
         kwargs['verify'] = kwargs.get('verify', self._verify)
         kwargs['url'] = kwargs.get('url', f"{self._host_url}/{url_path.lstrip('/')}")
+        self._assert_same_origin(kwargs['url'])
         kwargs['headers'] = kwargs.get('headers', default_header)
         kwargs['timeout'] = kwargs.get('timeout', self._timeout)
         if 'files' in kwargs:
@@ -191,10 +228,31 @@ class Connection(requests.Session):
         elif 'data' in kwargs and not isinstance(kwargs['data'], str) and kwargs['headers'].get(
                 'Content-Type') == 'application/json':
             kwargs['data'] = json.dumps(kwargs.get('data', {}))
-        try:
-            res = getattr(super(), method)(**kwargs)
-        except CError as e:
-            raise ConnectionError(str(e))
+        # Retry transport failures, but **only for methods that are safe to repeat**. A POST or
+        # PUT that fails after the server received it would be applied twice on a retry, so a
+        # write is never retried — the caller is told the write did not happen rather than being
+        # left to guess. This is deliberately a transport-level retry: an HTTP error status is a
+        # considered answer from the server and is returned to the caller untouched.
+        last_error: Exception | None = None
+        attempts = self._retries if method in _IDEMPOTENT_METHODS else 1
+        for attempt in range(attempts):
+            try:
+                res = getattr(super(), method)(**kwargs)
+                break
+            except CError as e:
+                last_error = e
+                # Compare against the attempts actually allowed, not the configured maximum:
+                # a write gets one attempt, so it must raise immediately rather than sleep
+                # before failing.
+                if attempt + 1 < attempts:
+                    time.sleep(_RETRY_BACKOFF_SECONDS * (attempt + 1))
+        else:
+            if method in _IDEMPOTENT_METHODS:
+                raise ConnectionError(
+                    f'Could not reach the server after {self._retries} attempts: {last_error}')
+            raise ConnectionError(
+                f'Could not reach the server; the {method.upper()} was not retried, so it may '
+                f'or may not have been applied: {last_error}')
         if self.tzinfo is None:
             if 'Date' in res.headers:
                 self.tzinfo = parsedate(res.headers['Date']).astimezone().tzinfo
