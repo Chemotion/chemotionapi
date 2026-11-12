@@ -211,3 +211,20 @@ class GasCalculations:
                 return 0
             return (ppm * vessel_size) / (cls.IDEAL_GAS_CONSTANT * temperature_in_k * cls.PARTS_PER_MILLION_FACTOR)
         return float('NaN')
+
+
+def vessel_volume_ml(vessel_size) -> float | None:
+    """A reaction's vessel size as a volume in millilitres, for the gas calculations.
+
+    The server stores vessel size as ``{'amount': 10, 'unit': 'ml'}``; the gas conversions need a
+    plain number. Accepts that mapping (``unit`` ``'l'`` is scaled to ml), a bare number (taken as
+    ml), or ``None``. Returns ``None`` when there is no amount, so "no vessel size" stays falsy.
+    """
+    if vessel_size is None:
+        return None
+    if isinstance(vessel_size, (int, float)) and not isinstance(vessel_size, bool):
+        return float(vessel_size)
+    amount = vessel_size.get('amount')
+    if amount is None:
+        return None
+    return float(amount) * 1000 if vessel_size.get('unit') == 'l' else float(amount)

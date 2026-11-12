@@ -259,8 +259,12 @@ class Instance:
         if reload or self._root_col is None:
             self._root_col = RootCollection(self._con)
             self._root_col.set_element_manager(self.element_manager)
-            self._root_col.load_collection()
-            self._root_col.load_sync_collection()
+            # One request serves both halves of the listing. Passed explicitly rather than
+            # cached on the collection, so a later standalone load_sync_collection() can never
+            # be handed this listing after it has gone stale.
+            listing = self._root_col._fetch_collections()
+            self._root_col.load_collection(listing)
+            self._root_col.load_sync_collection(listing)
         return typing.cast(RootCollection, self._root_col)
 
     def get_collection_by_id(self, collection_id: int) -> Collection:

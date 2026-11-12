@@ -90,8 +90,10 @@ class SearchHelperBase(ABC):
 
         :raises ConnectionError: if the search request fails
         """
-        e = ElementSet(self._connection, self._element_manager.all_classes.get(self.element_type), self._collection_id,
-                       False, True)
+        # Keyword, not positional: the v4 port removed `collection_is_sync` from ElementSet and
+        # this call kept passing it, so every search raised TypeError before sending a request.
+        e = ElementSet(self._connection, self._element_manager.all_classes.get(self.element_type),
+                       self._collection_id, fixed_length=True)
 
         for val in self._send_request():
             e.new_element(val).mark_partial()

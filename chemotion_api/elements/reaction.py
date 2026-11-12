@@ -28,7 +28,7 @@ from datetime import datetime
 
 from chemotion_api.elements.sample import Sample, SampleVariationType, GasPhaseObj
 from chemotion_api.elements.utils.converter import convert_value, TIME_UNITS, TEMPERATURE_UNITS, TON_UNITS
-from chemotion_api.elements.utils import QuantityUnit, GasType
+from chemotion_api.elements.utils import QuantityUnit, GasType, vessel_volume_ml
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict
 from chemotion_api.utils.segment_fields import SegmentField, VARIATION_FIELD_TYPES, iter_fields
@@ -595,10 +595,7 @@ class Variation:
 
     @staticmethod
     def _get_vessel_volume(vessel_size):
-        vessel_volume = vessel_size.get('amount')
-        if vessel_volume is not None and vessel_size.get('unit') == 'l':
-            vessel_volume *= 1000
-        return vessel_volume
+        return vessel_volume_ml(vessel_size)
 
     def update_and_clean(self, vessel_size):
         vessel_volume = self._get_vessel_volume(vessel_size)
@@ -1162,7 +1159,7 @@ class Reaction(AbstractElement):
             'status': self.json_data.get('status'),
             'duration': self.json_data.get('duration'),
             'temperature': self.json_data.get('temperature', {}),
-            'vessel_size': self.json_data.get('vessel_size', {}).get('amount') if isinstance(self.json_data.get('vessel_size'), dict) else self.json_data.get('vessel_size'),
+            'vessel_size': self.json_data.get('vessel_size'),
             'yield_value': self.json_data.get('yield') if self.json_data.get('yield') is not None else (
                 float(self.json_data['products'][0]['equivalent']) * 100.0 if (
                     self.json_data.get('products') and self.json_data['products'][0].get('equivalent') is not None
@@ -1216,7 +1213,7 @@ class Reaction(AbstractElement):
             'temperature': Temperature(**(validated.temperature.to_dict() if validated.temperature
                                           else (self.json_data.get('temperature') or {}))),
             'status': validated.status,
-            'vessel_size': {'amount': validated.vessel_size, 'unit': self.json_data.get('vessel_size', {}).get('unit', 'ml')} if isinstance(self.json_data.get('vessel_size'), dict) else {'amount': validated.vessel_size, 'unit': 'ml'},
+            'vessel_size': validated.vessel_size.model_dump() if validated.vessel_size is not None else {'amount': None, 'unit': 'ml'},
             'gaseous': validated.gas_schema,
             'yield': validated.yield_value,
             'yield_value': validated.yield_value,
@@ -1436,7 +1433,7 @@ class Reaction(AbstractElement):
         """
         import copy
         from pydantic import BaseModel
-        from chemotion_api.models import ReactionPropertiesModel
+        from chemotion_api.models import ReactionPropertiesModel, VesselSizeModel
 
         # 1. Build proposed dictionary state
         current_dict = {}
@@ -1456,7 +1453,7 @@ class Reaction(AbstractElement):
             'status': current_dict.get('status'),
             'duration': current_dict.get('duration'),
             'temperature': current_dict.get('temperature'),
-            'vessel_size': current_dict.get('vessel_size', {}).get('amount') if isinstance(current_dict.get('vessel_size'), dict) else current_dict.get('vessel_size'),
+            'vessel_size': current_dict.get('vessel_size'),
             'yield_value': current_dict.get('yield_value') if current_dict.get('yield_value') is not None else current_dict.get('yield'),
             'tlc_description': current_dict.get('tlc_description'),
             'dangerous_products': current_dict.get('dangerous_products'),
@@ -1470,14 +1467,22 @@ class Reaction(AbstractElement):
             'show_label': current_dict.get('show_label')
         }
 
+        if list(name) == ['vessel_size'] and isinstance(value[-1], (int, float)) \
+                and not isinstance(value[-1], bool):
+            # `properties['vessel_size'] = 200` sets the amount and keeps the unit. Storing the
+            # bare number instead (as before 401.0) put a float on the wire where the server
+            # expects `{amount, unit}`.
+            current = self._properties.get('vessel_size')
+            unit = current.get('unit') if isinstance(current, dict) and current.get('unit') else 'ml'
+            value[-1] = {'amount': float(value[-1]), 'unit': unit}
+            pydantic_dict['vessel_size'] = current
+
         proposed_dict = copy.deepcopy(pydantic_dict)
         pyd_name = list(name)
         if pyd_name[0] == 'gaseous':
             pyd_name[0] = 'gas_schema'
         elif pyd_name[0] == 'yield':
             pyd_name[0] = 'yield_value'
-        elif pyd_name[0] == 'vessel_size' and len(pyd_name) > 1 and pyd_name[1] == 'amount':
-            pyd_name = ['vessel_size']
 
         temp = proposed_dict
         for key in pyd_name[:-1]:
@@ -1487,10 +1492,9 @@ class Reaction(AbstractElement):
                 temp[key] = {}
             temp = temp[key]
         if not isinstance(temp, dict):
-            # The model stores some fields flattened to a scalar — `vessel_size` is its amount,
-            # not a {value, unit} mapping. Walking into one used to end in
-            # `TypeError: argument of type 'float' is not iterable`, which says nothing about
-            # what the caller did wrong.
+            # Walking into a scalar field (`reaction.properties['name']['x'] = …`) has nowhere to
+            # go. Without this it ended in `TypeError: argument of type 'float' is not iterable`,
+            # which says nothing about what the caller did wrong.
             raise _flattened_field_error(pyd_name)
         temp[pyd_name[-1]] = value[-1]
 
@@ -1514,6 +1518,9 @@ class Reaction(AbstractElement):
                 coerced_val = Temperature(**coerced_val.model_dump())
             else:
                 coerced_val = UnitDict(unit=coerced_val.unit, value=coerced_val.value)
+        elif isinstance(coerced_val, VesselSizeModel):
+            # Stored as a plain dict: `_get_vessel_volume` and the variations read `.get('amount')`.
+            coerced_val = coerced_val.model_dump()
 
         # Write coerced value to dict_obj[-1]
         dict_obj[-1][name[-1]] = coerced_val
@@ -1527,8 +1534,9 @@ class Reaction(AbstractElement):
         if name[-1] == 'gaseous':
             self.gas_schema = value[-1]
             return False
-        if name[-1] == 'vessel_size':
-            self._properties['vessel_size'] = value[-1]
+        if name[0] == 'vessel_size':
+            # The write-back above already stored it — whole field or nested `amount`/`unit`.
+            # Either changes the volume the gas amounts derive from, so recompute.
             self.update_amount()
             return False
 

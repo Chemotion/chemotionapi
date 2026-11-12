@@ -13,6 +13,22 @@ class GasType(str, Enum):  # noqa: UP042 — StrEnum would change str()/format()
     CATALYST = 'catalyst'
     GAS = 'gas'
 
+class VesselSizeModel(BaseModel):
+    """A reaction's vessel size, as the server stores it: ``{'amount': 10, 'unit': 'ml'}``.
+
+    Note ``amount``, not ``value`` — this is why it is not a :class:`UnitDictModel`. Until 401.0
+    the reaction model typed this as ``float | None``, which did not match what the server sends
+    or what the rest of the client reads (``vessel_size.get('amount')``), so the field could not
+    be assigned through ``properties`` at all. Extra keys are preserved (``extra='allow'``).
+
+    :ivar amount: the volume.
+    :ivar unit: its unit, e.g. ``"ml"`` or ``"l"``.
+    """
+    model_config = ConfigDict(extra='allow')
+    amount: float | None = None
+    unit: str | None = None
+
+
 class UnitDictModel(BaseModel):
     """A scalar value together with its unit.
 
@@ -155,7 +171,7 @@ class ReactionPropertiesModel(BaseModel):
     status: str | None = None
     duration: UnitDictModel | str | dict[str, Any] | None = Field(default_factory=lambda: UnitDictModel())
     temperature: UnitDictModel | None = Field(default_factory=lambda: UnitDictModel())
-    vessel_size: float | None = None
+    vessel_size: VesselSizeModel | None = None
     yield_value: float | None = Field(default=None, alias='yield')
     tlc_description: str | None = None
     dangerous_products: str | list[Any] | None = None

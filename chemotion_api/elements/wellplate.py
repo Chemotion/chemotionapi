@@ -183,7 +183,7 @@ class Wellplate(AbstractElement):
         """
         for name, value in (('width', width), ('height', height)):
             if not isinstance(value, int) or isinstance(value, bool) \
-                    or not 0 <= value <= MAX_DIMENSION:
+                    or not 1 <= value <= MAX_DIMENSION:
                 raise ValueError(
                     f"{name} must be an integer from 0 to {MAX_DIMENSION}; got {value!r}")
 

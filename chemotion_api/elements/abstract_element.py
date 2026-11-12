@@ -876,7 +876,12 @@ class AbstractElement:
                                  self._on_add_segment,
                                  segment_temp.get('values'),
                                  field_lookup=self._segment_field)
-        add_to_dict(self.segments, 'Properties', self.properties)
+        # Build the wrapper directly rather than reading `self.properties`: that getter calls
+        # `_ensure_loaded()`, and at this point `id` is set and `_data_loaded` is not, so it
+        # issued a full `load()` for every element constructed from a *listing* row — a 50-row
+        # page cost 51 requests, and a transient failure left `_load_failed` on an element that
+        # had merely been listed. Loading stays lazy: the first real property read triggers it.
+        add_to_dict(self.segments, 'Properties', PropertyDict(self.on_properties_change, self._properties))
         add_to_dict(self.segments, 'Analyses', self.analyses)
 
     def _on_add_segment(self, key: str, segment_data: dict) -> dict:

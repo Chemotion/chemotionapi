@@ -506,7 +506,10 @@ def break_parent_cycles(parent_of: dict) -> set:
             chain.append(node)
             node = parent_of.get(node)
         if node is not None and node in seen:
-            cyclic.update(chain)          # the walk re-entered itself
+            # The walk re-entered itself at `node`. Only the suffix from there is the cycle;
+            # the nodes before it merely *lead into* one and keep a perfectly good parent, so
+            # promoting them to roots would flatten a subtree that was not itself broken.
+            cyclic.update(chain[chain.index(node):])
         else:
             settled.update(chain)
     return cyclic

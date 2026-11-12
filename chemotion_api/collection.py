@@ -39,9 +39,10 @@ def _col_path_join(path_part: str, *path_parts: str) -> str:
     # An absolute segment (starting with '/') resets the path to that segment onward.
     for i, x in enumerate(path_parts):
         if x.startswith('/'):
-            if i == 0:
-                return _col_path_join(x)
-            return _col_path_join(x, *path_parts[-i:])
+            # `path_parts[i + 1:]` — everything *after* the absolute segment. It used to take
+            # `path_parts[-i:]` (the last i items, which is a different slice) and, for i == 0,
+            # dropped the tail entirely: join('a', '/b', 'c', 'd') returned '/b'.
+            return _col_path_join(x, *path_parts[i + 1:])
     joined = '/'.join([path_part, *path_parts])
     while '//' in joined:
         joined = joined.replace('//', '/')
@@ -1181,7 +1182,6 @@ class RootCollection(AbstractCollection):
         super().__init__()
         self._sync_root: RootSyncCollection | None = None
         self._all: dict | None = None
-        self._collections_payload: dict | None = None
         self._element_manager: ElementManager
         self._session = session
         self.label = 'root'
@@ -1248,23 +1248,27 @@ class RootCollection(AbstractCollection):
         routes it to ``/collections/:id``, whose id pattern (``All|all|\\d+``) rejects
         ``"roots.json"``, so it answers **400 'id is invalid'** rather than 404.
 
-        The response is cached on the instance so ``load_collection`` and
-        ``load_sync_collection`` share one request.
+        Both halves of the listing come from this one request. ``load_collection`` reads
+        ``own`` and ``load_sync_collection`` reads ``shared_with_me``; a caller that wants both
+        from a single fetch passes the result to each as ``payload``. Nothing is cached on the
+        instance — a cache here once let a standalone ``load_sync_collection()`` serve the listing
+        from whenever ``load_collection()`` last ran, so a share granted since was invisible.
         """
         res = self._session.get('/api/v1/collections/')
         if res.status_code != 200:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
-        self._collections_payload = json.loads(res.content)
-        return self._collections_payload
+        return json.loads(res.content)
 
-    def load_collection(self) -> dict[str,dict]:
+    def load_collection(self, payload: dict | None = None) -> dict[str,dict]:
         """
         Loads the collection tree from the server. Unsaved changes are lost.
 
+        :param payload: a listing already fetched by :meth:`_fetch_collections`, so one request
+            can serve both this and :meth:`load_sync_collection`. Fetched afresh when omitted.
         :return: information of the 'All' collection
         """
 
-        collections = self._fetch_collections()
+        collections = payload if payload is not None else self._fetch_collections()
         self._all = self._load_all_collection().get('collection')
         if self._all is None:
             # Seen on a real 3.1.2 server with an Admin account that owns nothing: the endpoint
@@ -1281,22 +1285,20 @@ class RootCollection(AbstractCollection):
         self._set_children(nest_by_ancestry(owned))
         return self._all
 
-    def load_sync_collection(self) -> RootSyncCollection:
+    def load_sync_collection(self, payload: dict | None = None) -> RootSyncCollection:
         """
         Loads the RootSyncCollection. The RootSyncCollection collection can be used to access all collection synced with you.
 
+        ELN v4 deleted the whole ``/syncCollections`` namespace. Collections other people share
+        with you arrive in the ``shared_with_me`` half of the same listing ``load_collection``
+        reads, so a caller holding that listing can pass it in rather than fetch twice.
+
+        :param payload: a listing already fetched by :meth:`_fetch_collections`. **Fetched afresh
+            when omitted** — a standalone call is the one you make to see a share someone just
+            granted, and must never hand back an older listing with nothing to say it is stale.
         :return: instance of RootSyncCollection
         """
-
-        # ELN v4 deleted the whole /syncCollections namespace (that path is a genuine 404 now).
-        # Collections other people share with you arrive in the `shared_with_me` half of the same
-        # listing that load_collection() reads, so reuse that response instead of a second request.
-        # The cache exists to let get_root_collection() serve both halves from one request, so it
-        # is consumed here rather than read: a standalone load_sync_collection() — the call you
-        # make to see a share someone just granted — must not hand back the listing from whenever
-        # load_collection() last ran, with nothing to indicate it is stale.
-        payload = self._collections_payload or self._fetch_collections()
-        self._collections_payload = None
+        payload = payload if payload is not None else self._fetch_collections()
         self._sync_root = RootSyncCollection(self._session, self._element_manager)
         self._sync_root._set_children(nest_by_ancestry(payload.get('shared_with_me') or []))
         return self._sync_root

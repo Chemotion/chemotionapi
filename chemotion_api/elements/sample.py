@@ -25,7 +25,7 @@ from collections.abc import MutableMapping
 from chemotion_api.connection import Connection
 from chemotion_api.utils import UnitDict, FixedDict, PropertyDict
 from chemotion_api.utils.solvent_manager import get_solvent_list, get_solvent_info
-from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity, GasCalculations
+from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity, GasCalculations, vessel_volume_ml
 
 
 class GasPhaseObj(FixedDict):
@@ -231,7 +231,13 @@ class Molecule(MutableMapping):
     def __getitem__(self, key: str):
         if hasattr(self._model, key):
             return getattr(self._model, key)
-        return self._model.model_extra.get(key) if self._model.model_extra else None
+        extra = self._model.model_extra or {}
+        if key in extra:
+            return extra[key]
+        # Raise, as a mapping must. `MutableMapping.__contains__` and `.get(key, default)` are
+        # both implemented by catching KeyError, so returning None here made `key in molecule`
+        # always True and `.get(key, default)` never return the default.
+        raise KeyError(key)
 
     def __setitem__(self, key: str, value):
         if hasattr(self._model, key):
@@ -535,11 +541,17 @@ class Sample(AbstractElement):
             properties['molarity'] = {'value': molarity, 'unit': 'M'}
 
     @property
-    def vessel_size(self):
-        """The vessel size of the sample's reaction, or ``None`` if it has no reaction."""
+    def vessel_size(self) -> float | None:
+        """The volume of the sample's reaction vessel in **ml**, or ``None`` without one.
+
+        A number, because both consumers — the gas conversions and the gas-product equivalent —
+        do arithmetic with it. It used to return the stored ``{amount, unit}`` mapping, so a gas
+        calculation on a reaction loaded from the server divided a dict by a molecular weight,
+        and "is there a vessel size?" was always true.
+        """
         if self.reaction is None:
             return None
-        return self.reaction.properties['vessel_size']
+        return vessel_volume_ml(self.reaction.properties.get('vessel_size'))
 
     @property
     def gram(self) -> float:
