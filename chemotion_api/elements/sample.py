@@ -3,6 +3,9 @@
 Defines the :class:`Sample` element together with its molecule, solvent and gas-phase helpers,
 and its quantity/equivalent calculations.
 """
+from pydantic import BaseModel, ValidationError
+from chemotion_api.models import SamplePropertiesModel, GasPhaseModel, UnitDictModel, validate_field
+from chemotion_api.utils import UnitDict
 import json
 import logging
 import re
@@ -1172,33 +1175,23 @@ class Sample(AbstractElement):
         :return: ``False``, as the handler applies the change itself
         :raises ValueError: If the new value violates a constraint (e.g. purity or coefficient range)
         """
-        from pydantic import BaseModel, ValidationError
-        from chemotion_api.models import SamplePropertiesModel
+        # Only the field being written is copied and validated (see `validate_field`). A whole
+        # field is the new value outright; a nested write is applied to a copy of that one field.
+        top = name[0]
+        if len(name) == 1:
+            proposed = value[-1]
+        else:
+            source = self._properties.get(top, {})
+            proposed = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
+            temp = proposed
+            for key in name[1:-1]:
+                if key not in temp:
+                    temp[key] = {}
+                temp = temp[key]
+            temp[name[-1]] = value[-1]
 
-        # 1. Build proposed dictionary state
-        current_dict = {}
-        for k, v in self._properties.items():
-            if hasattr(v, 'to_dict'):
-                current_dict[k] = v.to_dict()
-            elif isinstance(v, list):
-                current_dict[k] = list(v)
-            else:
-                current_dict[k] = v
-
-        proposed_dict = copy.deepcopy(current_dict)
-        temp = proposed_dict
-        for key in name[:-1]:
-            if key not in temp:
-                temp[key] = {}
-            temp = temp[key]
-        temp[name[-1]] = value[-1]
-
-        # 2. Validate proposed dict using SamplePropertiesModel
-        validated = SamplePropertiesModel.model_validate(proposed_dict)
-
-        # 3. Retrieve coerced value from validated model
-        coerced_val = validated
-        for key in name:
+        coerced_val = validate_field(SamplePropertiesModel, top, proposed)
+        for key in name[1:]:
             if isinstance(coerced_val, BaseModel):
                 coerced_val = getattr(coerced_val, key)
             elif isinstance(coerced_val, dict):
@@ -1206,8 +1199,6 @@ class Sample(AbstractElement):
             else:
                 coerced_val = getattr(coerced_val, key)
 
-        from chemotion_api.models import GasPhaseModel, UnitDictModel
-        from chemotion_api.utils import UnitDict
         if isinstance(coerced_val, GasPhaseModel):
             coerced_val = GasPhaseObj(self, coerced_val.model_dump())
         elif isinstance(coerced_val, UnitDictModel):

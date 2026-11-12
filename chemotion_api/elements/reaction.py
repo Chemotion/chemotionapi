@@ -6,6 +6,10 @@ Defines :class:`Reaction` (a Chemotion reaction, extending
 :class:`Temperature` (a temperature-time profile). Reactions persist the product yield through an
 ``equivalent`` cache.
 """
+import copy
+from pydantic import BaseModel
+from chemotion_api.models import ReactionPropertiesModel, VesselSizeModel, UnitDictModel, validate_field
+from chemotion_api.utils import UnitDict
 import logging
 import re
 from enum import Enum
@@ -1418,6 +1422,22 @@ class Reaction(AbstractElement):
                 }
                 }
 
+    def _model_field_source(self, field: str):
+        """The stored value behind ``ReactionPropertiesModel.<field>``.
+
+        Most fields share a name with their property; three do not. ``gas_schema`` is stored as
+        ``gaseous``, ``yield_value`` may only be present as ``yield``, and ``reaction_description``
+        falls back to ``description``.
+        """
+        props = self._properties
+        if field == 'gas_schema':
+            return props.get('gaseous')
+        if field == 'yield_value':
+            return props.get('yield_value') if props.get('yield_value') is not None else props.get('yield')
+        if field == 'reaction_description':
+            return props.get('reaction_description') or props.get('description')
+        return props.get(field)
+
     def on_properties_change(self, dict_obj, name, value):
         """
         Validates and applies a change to one of the reaction's properties.
@@ -1431,41 +1451,12 @@ class Reaction(AbstractElement):
         :param value: The chain of values, the last being the new value
         :return: ``False``, as the handler applies the change itself
         """
-        import copy
-        from pydantic import BaseModel
-        from chemotion_api.models import ReactionPropertiesModel, VesselSizeModel
-
-        # 1. Build proposed dictionary state
-        current_dict = {}
-        for k, v in self._properties.items():
-            if k in ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
-                continue
-            if hasattr(v, 'to_dict'):
-                current_dict[k] = v.to_dict()
-            elif isinstance(v, list):
-                current_dict[k] = list(v)
-            else:
-                current_dict[k] = v
-
-        pydantic_dict = {
-            'name': current_dict.get('name'),
-            'short_label': current_dict.get('short_label'),
-            'status': current_dict.get('status'),
-            'duration': current_dict.get('duration'),
-            'temperature': current_dict.get('temperature'),
-            'vessel_size': current_dict.get('vessel_size'),
-            'yield_value': current_dict.get('yield_value') if current_dict.get('yield_value') is not None else current_dict.get('yield'),
-            'tlc_description': current_dict.get('tlc_description'),
-            'dangerous_products': current_dict.get('dangerous_products'),
-            'description': current_dict.get('description'),
-            'reaction_description': current_dict.get('reaction_description') or current_dict.get('description'),
-            'observation': current_dict.get('observation'),
-            'user_labels': current_dict.get('user_labels'),
-            'vessel': current_dict.get('vessel'),
-            'gas_schema': current_dict.get('gaseous'),
-            'position': current_dict.get('position'),
-            'show_label': current_dict.get('show_label')
-        }
+        pyd_name = list(name)
+        if pyd_name[0] == 'gaseous':
+            pyd_name[0] = 'gas_schema'
+        elif pyd_name[0] == 'yield':
+            pyd_name[0] = 'yield_value'
+        top = pyd_name[0]
 
         if list(name) == ['vessel_size'] and isinstance(value[-1], (int, float)) \
                 and not isinstance(value[-1], bool):
@@ -1475,35 +1466,30 @@ class Reaction(AbstractElement):
             current = self._properties.get('vessel_size')
             unit = current.get('unit') if isinstance(current, dict) and current.get('unit') else 'ml'
             value[-1] = {'amount': float(value[-1]), 'unit': unit}
-            pydantic_dict['vessel_size'] = current
 
-        proposed_dict = copy.deepcopy(pydantic_dict)
-        pyd_name = list(name)
-        if pyd_name[0] == 'gaseous':
-            pyd_name[0] = 'gas_schema'
-        elif pyd_name[0] == 'yield':
-            pyd_name[0] = 'yield_value'
-
-        temp = proposed_dict
-        for key in pyd_name[:-1]:
+        # Only the field being written is copied and validated (see `validate_field`). A whole
+        # field is the new value outright; a nested write is applied to a copy of that one field.
+        if len(pyd_name) == 1:
+            proposed = value[-1]
+        else:
+            source = self._model_field_source(top)
+            proposed = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
+            temp = proposed
+            for key in pyd_name[1:-1]:
+                if not isinstance(temp, dict):
+                    raise _flattened_field_error(pyd_name)
+                if key not in temp:
+                    temp[key] = {}
+                temp = temp[key]
             if not isinstance(temp, dict):
+                # Walking into a scalar field (`reaction.properties['name']['x'] = …`) has nowhere
+                # to go. Without this it ended in `TypeError: argument of type 'float' is not
+                # iterable`, which says nothing about what the caller did wrong.
                 raise _flattened_field_error(pyd_name)
-            if key not in temp:
-                temp[key] = {}
-            temp = temp[key]
-        if not isinstance(temp, dict):
-            # Walking into a scalar field (`reaction.properties['name']['x'] = …`) has nowhere to
-            # go. Without this it ended in `TypeError: argument of type 'float' is not iterable`,
-            # which says nothing about what the caller did wrong.
-            raise _flattened_field_error(pyd_name)
-        temp[pyd_name[-1]] = value[-1]
+            temp[pyd_name[-1]] = value[-1]
 
-        # Validate proposed dict using ReactionPropertiesModel
-        validated = ReactionPropertiesModel.model_validate(proposed_dict)
-
-        # Get coerced value
-        coerced_val = validated
-        for key in pyd_name:
+        coerced_val = validate_field(ReactionPropertiesModel, top, proposed)
+        for key in pyd_name[1:]:
             if isinstance(coerced_val, BaseModel):
                 coerced_val = getattr(coerced_val, key)
             elif isinstance(coerced_val, dict):
@@ -1511,8 +1497,6 @@ class Reaction(AbstractElement):
             else:
                 coerced_val = getattr(coerced_val, key)
 
-        from chemotion_api.models import UnitDictModel
-        from chemotion_api.utils import UnitDict
         if isinstance(coerced_val, UnitDictModel):
             if name[0] == 'temperature':
                 coerced_val = Temperature(**coerced_val.model_dump())

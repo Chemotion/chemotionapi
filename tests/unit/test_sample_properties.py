@@ -430,3 +430,41 @@ def test_sample_vessel_size_is_a_volume_in_ml():
 def test_vessel_volume_ml(given, ml):
     from chemotion_api.elements.utils import vessel_volume_ml
     assert vessel_volume_ml(given) == ml
+
+
+# --- F8: a property write validates one field, not the whole property set ----------------
+
+def test_validate_field_passes_unknown_names_through_and_caches():
+    from chemotion_api.models import SamplePropertiesModel, _field_adapter, validate_field
+    assert validate_field(SamplePropertiesModel, 'not_a_model_field', {'x': 1}) == {'x': 1}
+    assert _field_adapter(SamplePropertiesModel, 'purity') is _field_adapter(SamplePropertiesModel, 'purity')
+
+
+def test_an_invalid_value_still_fails_at_assignment():
+    """Validation moved scope, not place: a bad write is still refused where it happens."""
+    sample = _sample(1)
+    sample._data_loaded = True
+    with pytest.raises(Exception):
+        sample.properties['purity'] = 'not a number'
+
+
+def test_a_whole_field_write_copies_nothing(monkeypatch):
+    """It used to deep-copy the entire property set on every write."""
+    import chemotion_api.elements.sample as sample_mod
+    sample = _sample(1)
+    sample._data_loaded = True
+    copies = []
+    real = sample_mod.copy.deepcopy
+    monkeypatch.setattr(sample_mod.copy, 'deepcopy', lambda *a, **k: copies.append(1) or real(*a, **k))
+    sample.properties['purity'] = 0.9
+    assert copies == []
+
+
+def test_an_unrelated_bad_field_no_longer_blocks_a_write():
+    """The one deliberate behaviour change: whole-model validation re-checked every field, so a
+    bad value already sitting in one field made writes to any *other* field fail."""
+    sample = _sample(1)
+    sample._data_loaded = True
+    sample._properties['coefficient'] = 'garbage already stored'
+    sample.properties['purity'] = 0.9
+    assert sample._properties['purity'] == 0.9

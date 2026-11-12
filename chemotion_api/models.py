@@ -1,6 +1,8 @@
 """Pydantic v2 data models used to validate and normalize element properties on read and write."""
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Literal, Any
+from functools import cache
+
+from pydantic import BaseModel, Field, ConfigDict, TypeAdapter
+from typing import Annotated, Literal, Any
 from enum import Enum
 
 class GasType(str, Enum):  # noqa: UP042 — StrEnum would change str()/format() output ('GasType.OFF' -> 'off')
@@ -199,3 +201,29 @@ class ReactionPropertiesModel(BaseModel):
     rinchi_string: str | None = None
     rinchi_web_key: str | None = None
     variations: dict[str, Any] | list[Any] | None = Field(default_factory=dict)
+
+
+@cache
+def _field_adapter(model: type[BaseModel], field: str) -> TypeAdapter:
+    info = model.model_fields[field]
+    # Keep the field's constraints (`Field(ge=...)` etc. live in `metadata`, not the annotation).
+    annotation: Any = Annotated[(info.annotation, *info.metadata)] if info.metadata else info.annotation
+    return TypeAdapter(annotation)
+
+
+def validate_field(model: type[BaseModel], field: str, value: Any) -> Any:
+    """Validate and coerce one field of ``model`` — the cost of a single property write.
+
+    Property writes used to rebuild the *whole* property set, deep-copy it, and run
+    ``model.model_validate`` on all of it, so adding N materials to a reaction ran N full-model
+    validations (review finding F8, 2026-11-12). Validating only the written field is
+    equivalent for these models — they carry no cross-field validators and no field constraints
+    beyond the annotation — with one deliberate difference: an unrelated field already holding a
+    bad value no longer makes this write fail.
+
+    A name that is not a model field is returned unchanged, exactly as ``extra='allow'`` passed it
+    through under whole-model validation. Adapters are built once per ``(model, field)``.
+    """
+    if field not in model.model_fields:
+        return value
+    return _field_adapter(model, field).validate_python(value)
