@@ -20,7 +20,7 @@ from collections.abc import Generator
 logger = logging.getLogger(__name__)
 
 from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, SbmmSample, \
-    CellLine
+    CellLine, DeviceDescription
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
@@ -953,6 +953,15 @@ class AbstractEditableCollection(AbstractCollection):
         typing.cast(dict, sample.json_data)['sequence_based_macromolecule'] = {
             'sbmm_type': 'protein', 'uniprot_derivation': 'uniprot', 'primary_accession': uniprot.strip()}
         return sample
+
+    def new_device_description(self) -> DeviceDescription:
+        """
+        Creates a new device description in this collection. Every field is optional; set
+        ``properties['name']`` and whatever else applies before saving.
+
+        :return: New (unsaved) DeviceDescription
+        """
+        return typing.cast(DeviceDescription, self._create_new_element('device_description'))
 
     def new_screen(self) -> Screen:
         """

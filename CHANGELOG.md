@@ -307,12 +307,13 @@ New surface:
   `{'value', 'unit'}` pairs in `properties`; the protein is readable as `macromolecule`.
   Limitations: a new sample's protein is chosen by UniProt accession only, and a sample's protein
   is read-only. If these affect you, please open an issue.
-- **Device descriptions.** `Collection.get_device_descriptions()` lists the v4
-  `device_description` element; a `DeviceDescription` reads and saves its fields through
+- **Device descriptions.** `Collection.get_device_descriptions()` / `new_device_description()`,
+  `Instance.get_device_description()`. A `DeviceDescription` reads and saves its fields through
   `properties` (fields it does not model survive a save) and exposes its ontology annotations as
-  `ontology_terms()`. Previously the type fell through to the generic-element endpoint and listed
-  as empty. The built-in types still not modelled (`cell_line`, `screen`,
-  `sequence_based_macromolecule_sample`) raise a `TypeError` naming the type.
+  `ontology_terms()`. A create the server rejects raises `ValueError` (the route answers `201`
+  with an `errors` body). Previously the type fell through to the generic-element endpoint and
+  listed as empty. A built-in type the client does not model raises a `TypeError` naming the
+  type.
 
 - **`Collection.assign_elements()` / `remove_elements()` / `move_elements()`** — put an element in
   another collection, take it out, or both. `move_elements()` is **not atomic**: v4 has no move

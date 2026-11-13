@@ -32,11 +32,21 @@ class DeviceDescription(AbstractElement):
 
     Usage::
 
+        >>> device = collection.new_device_description()
+        >>> device.properties['name'] = 'NMR 400'
+        >>> device.save()
         >>> for device in collection.get_device_descriptions():
         ...     print(device.properties['name'], device.ontology_terms())
     """
 
     _properties_model = DeviceDescriptionPropertiesModel
+
+    def _record_from_create(self, res_json: dict) -> dict | None:
+        # A rejected create is answered with 201 and ``{"errors": {...}}`` (the route rescues
+        # ActiveRecord::RecordInvalid), so the status code alone would report success.
+        if 'errors' in res_json:
+            raise ValueError(f'The ELN refused to create the device description: {res_json["errors"]}')
+        return super()._record_from_create(res_json)
 
     def _parse_properties(self) -> dict:
         data = cast(dict, self.json_data)

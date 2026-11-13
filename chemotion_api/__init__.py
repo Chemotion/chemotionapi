@@ -29,7 +29,7 @@ from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, \
-    SbmmSample, CellLine, \
+    SbmmSample, CellLine, DeviceDescription, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
@@ -524,6 +524,16 @@ class Instance:
         """
         e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('sequence_based_macromolecule_sample')))
         return typing.cast(SbmmSample, e.load_element(id))
+
+    def get_device_description(self, id: int) -> DeviceDescription:
+        """
+        Fetches one device description by its database id.
+
+        :param id: The Database ID of the desired Element
+        :return: a DeviceDescription object
+        """
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('device_description')))
+        return typing.cast(DeviceDescription, e.load_element(id))
 
     def get_screen(self, id: int) -> Screen:
         """

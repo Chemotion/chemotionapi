@@ -77,3 +77,30 @@ def test_an_unmodelled_builtin_type_refuses_by_name():
     assert "vessel" in message
     assert "does not model" in message
     assert "device_description" in message, "the message should name what IS supported"
+
+
+# --- creating one (2026-11-13) ---------------------------------------------------------------
+
+def test_a_refused_create_raises_instead_of_passing_as_created():
+    """The create route answers a RecordInvalid with 201 and ``{"errors": ...}``."""
+    d = _device({})
+    d._element_type = "device_description"
+    with pytest.raises(ValueError, match="refused"):
+        d._record_from_create({"errors": {"name": ["is invalid"]}})
+    assert d._record_from_create({"device_description": {"id": 7}}) == {"id": 7}
+
+
+def test_the_empty_template_parses_and_covers_every_modelled_field():
+    import json
+    import os
+    from chemotion_api.elements.device_description import DEVICE_FIELDS
+    import chemotion_api
+    path = os.path.join(os.path.dirname(chemotion_api.__file__), 'elements', 'empty_elements',
+                        'device_description.json')
+    with open(path) as f:
+        template = json.load(f)
+    assert template["type"] == "device_description"
+    assert set(DEVICE_FIELDS) <= set(template), "a modelled field the template does not seed"
+    props = _device(template).properties
+    assert props["name"] == "New device description"
+    assert props["general_tags"] == [], "the server declares general_tags as an Array"
