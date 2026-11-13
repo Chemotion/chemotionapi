@@ -277,6 +277,13 @@ New surface:
 - **Moving elements between collections** now covers wellplates, screens, device descriptions,
   cell lines, SBMM samples and generic elements, each verified against ELN v4.0.1.
 - Saving an element no longer sends an empty attachment-upload request when no file is queued.
+- **Loading a reaction and saving it no longer clears its reference material.** Each material
+  fetched its own sample record, which lacks the fields of its link to the reaction (reference,
+  equivalent, coefficient, position), and the save wrote those back as empty. Materials of a loaded
+  reaction now keep the reaction's complete data.
+- **A variation created through the client is fully editable in the ELN.** Starting materials and
+  reactants get the `concentration` entry ELN v4 expects; without it the web UI showed that
+  concentration as not editable.
 - **SBMM samples** (sequence-based macromolecules). `Collection.get_sbmm_samples()` /
   `new_sbmm_sample(uniprot='P69905')`, `Instance.get_sbmm_sample()`. Quantities are
   `{'value', 'unit'}` pairs in `properties`; the protein is readable as `macromolecule`.

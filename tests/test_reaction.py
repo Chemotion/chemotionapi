@@ -318,3 +318,29 @@ def test_solvent_amount_set_on_a_loaded_reaction_is_saved(instance_with_test_rea
     loaded.save()
 
     assert i.get_reaction(reaction.id).solvents[0].properties['target_amount']['value'] == 0.01
+
+
+def test_loading_and_saving_a_reaction_keeps_its_reference(instance_with_test_reaction: dict):
+    """Materials used to refetch /samples/:id, which lacks the link fields, and save() wrote the
+    loss back: the reaction's reference flag was cleared on the server."""
+    i = instance_with_test_reaction['instance']
+    col = instance_with_test_reaction['main_collection']
+    ref, other = col.new_sample_smiles('N'), col.new_sample_smiles('O')
+    reaction = col.new_reaction()
+    reaction.starting_materials.append(ref)
+    reaction.reactants.append(other)
+    reaction.reference_sample = reaction.starting_materials[0]
+    reaction.starting_materials[0].set_amount(1.0, 'mol')
+    reaction.reactants[0].set_amount(2.0, 'mol')
+    reaction.save()
+
+    loaded = i.get_reaction(reaction.id)
+    assert loaded.starting_materials[0].properties['reference'] is True
+    before = loaded.reactants[0].properties['equivalent']
+    loaded.properties['name'] = 'renamed'
+    loaded.save()
+
+    again = i.get_reaction(reaction.id)
+    assert again.starting_materials[0].properties['reference'] is True
+    assert again.reference_sample is not None
+    assert again.reactants[0].properties['equivalent'] == before

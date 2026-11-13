@@ -358,6 +358,23 @@ class SampleVariation:
         self._values['aux']['vesselVolume'] = vessel_volume
         self._values['aux']['materialType'] = self._sample_type.value
         self._ensure_gas_entries()
+        self._ensure_concentration_entry()
+
+    def _ensure_concentration_entry(self):
+        """Give starting materials and reactants the `concentration` entry ELN v4 expects.
+
+        The frontend lists it among their entries (`getMaterialEntries`: mass, amount, volume,
+        equivalent, concentration; not for catalysts) and treats a missing or null entry as not
+        editable — so a variation created through this client left the concentration of those
+        materials uneditable in the UI. The value starts empty, as `{value: null, unit: 'mol/l'}`:
+        the frontend derives it from the reaction volume, which this client does not compute.
+        """
+        if self._sample_type not in (SampleVariationType.STARTING_MATERIAL, SampleVariationType.REACTANT):
+            return
+        if self._values['aux'].get('gasType') in (GasType.CATALYST.value, GasType.GAS.value):
+            return
+        if not isinstance(self._values.get('concentration'), dict):
+            self._values['concentration'] = {'value': None, 'unit': 'mol/l'}
 
     def _ensure_gas_entries(self):
         # The frontend shows a gas product with extra entries (getMaterialEntries in
