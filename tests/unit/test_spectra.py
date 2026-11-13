@@ -81,3 +81,10 @@ def test_lcms_page_and_nmrium():
     assert session.calls[0][2] == {'attachment_id': 3, 'retention_time': '1.5', 'polarity': 'positive'}
     assert Spectra(session).nmrium_url() == 'https://nmrium.example'
     assert session.calls[1][1] == '/api/v1/chemspectra/nmrium_wrapper/eln'
+
+
+def test_a_relative_nmrium_path_is_resolved_against_the_eln():
+    """ELN v4.0.1 answers ``/nmrium/v1.2.0/``, a path on the ELN itself."""
+    session = _Session(_Res(200, {'nmrium_url': '/nmrium/v1.2.0/'}), _Res(200, {'nmrium_url': None}))
+    assert Spectra(session).nmrium_url() == 'http://127.0.0.1:3579/nmrium/v1.2.0/'
+    assert Spectra(session).nmrium_url() is None

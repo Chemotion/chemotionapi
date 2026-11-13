@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import os
+from urllib.parse import urljoin
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -198,13 +199,18 @@ def spectra_layouts(session: Connection) -> Any:
 
 
 def nmrium_url(session: Connection) -> str | None:
-    """The NMRium editor the ELN links to, or ``None`` (``GET /api/v1/chemspectra/nmrium_wrapper/:host``)."""
+    """The NMRium editor the ELN links to, or ``None`` (``GET /api/v1/chemspectra/nmrium_wrapper/:host``).
+
+    ELN v4.0.1 answers with a path on the ELN itself (``/nmrium/v1.2.0/``); it is resolved against
+    the ELN's address, so the result is always an absolute URL.
+    """
     # The host name is part of the route but unused by the server; a dotted one would be cut at
     # the first dot (Grape reads it as a format suffix).
     res = session.get('/api/v1/chemspectra/nmrium_wrapper/eln')
     if res.status_code != 200:
         raise request_error(res, 'loading the NMRium address')
-    return res.json().get('nmrium_url')
+    url = res.json().get('nmrium_url')
+    return urljoin(session.host_url + '/', url) if url else None
 
 
 class Spectra:
