@@ -351,9 +351,8 @@ class DeviceManager:
     # the device-*user* these took (``first_name``/``last_name``/``name_abbreviation``), so
     # aiming them at it would change what the methods mean rather than repair them.
     #
-    # To create a device user, use :meth:`chemotion_api.admin.AdminMenu.create_device`, which
-    # posts to ``/api/v1/admin/group_device/create`` — a route that exists in both 3.1.x and
-    # 4.0.x and has always worked.
+    # To create a device, use :meth:`Admin.create_device`, which posts to
+    # ``POST /api/v1/admin_devices``.
 
     def add_users_to_group(self, group: Group, *users: User):
         return self.add_users_to_group_by_id(group, *[u.id for u in users if u.is_person()])
