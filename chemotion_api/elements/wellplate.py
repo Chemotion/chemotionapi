@@ -185,7 +185,7 @@ class Wellplate(AbstractElement):
             if not isinstance(value, int) or isinstance(value, bool) \
                     or not 1 <= value <= MAX_DIMENSION:
                 raise ValueError(
-                    f"{name} must be an integer from 0 to {MAX_DIMENSION}; got {value!r}")
+                    f"{name} must be an integer from 1 to {MAX_DIMENSION}; got {value!r}")
 
         res = self._session.put(f'/api/v1/wellplates/resize/{self.id}',
                                 data={'id': self.id, 'width': width, 'height': height})
