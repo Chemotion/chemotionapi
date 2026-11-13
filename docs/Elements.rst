@@ -144,16 +144,17 @@ Rich text
 
 Some properties are rich text in the ELN — a reaction's ``description`` and ``observation``, and the
 ``description`` of a wellplate or a screen. They are stored as `Quill deltas
-<https://quilljs.com/docs/delta>`_, the ELN editor's format, and read as one. Write them as a delta
-too: convert plain text with :func:`~chemotion_api.text_to_quill`, and read text back with
-:func:`~chemotion_api.quill_to_text`. A delta read from the ELN (formatting included) can be written
-back unchanged; a bare string, or a write *into* a delta, raises ``ValueError``.
+<https://quilljs.com/docs/delta>`_, the ELN editor's format, and read as one;
+:func:`~chemotion_api.quill_to_text` flattens it to text. Write a plain string — it is stored via
+:func:`~chemotion_api.text_to_quill`, as a delta of the shape the ELN creates itself — or a
+well-formed delta, so content read from the ELN (formatting included) can be written back. Anything
+that is neither raises ``ValueError``.
 
 .. code-block:: python
 
-    from chemotion_api import text_to_quill, quill_to_text
+    from chemotion_api import quill_to_text
 
-    reaction.properties['observation'] = text_to_quill('Turned yellow after 5 min.')
+    reaction.properties['observation'] = 'Turned yellow after 5 min.
     reaction.save()
     print(quill_to_text(reaction.properties['description']))
 

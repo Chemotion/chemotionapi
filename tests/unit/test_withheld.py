@@ -119,10 +119,10 @@ def test_wellplate_writes_are_validated():
     assert w.properties['name'] == 'renamed'
 
 
-# --- rich text is written as explicit deltas (owner, 2026-11-13) --------------------------
+# --- rich text: plain strings or deltas, plus public helpers (owner, 2026-11-13) ----------
 
 def test_text_to_quill_round_trips_with_quill_to_text():
-    from chemotion_api.utils import quill_to_text, text_to_quill
+    from chemotion_api import quill_to_text, text_to_quill
     delta = text_to_quill('kept cold')
     assert delta == {'ops': [{'insert': 'kept cold\n'}]}
     assert quill_to_text(delta) == 'kept cold'
@@ -131,10 +131,9 @@ def test_text_to_quill_round_trips_with_quill_to_text():
         text_to_quill(42)
 
 
-def test_a_delta_from_text_to_quill_is_stored():
-    from chemotion_api.utils import text_to_quill
+def test_a_plain_string_is_stored_as_a_delta():
     w = _wellplate()
-    w.properties['description'] = text_to_quill('kept cold')
+    w.properties['description'] = 'kept cold'
     assert w.properties['description'] == {'ops': [{'insert': 'kept cold\n'}]}
 
 
@@ -146,27 +145,28 @@ def test_a_formatted_delta_read_from_the_eln_can_be_written_back():
     assert w.properties['description'] == rich
 
 
-@pytest.mark.parametrize("value", ['a bare string', 42, {'ops': 'x'}, {'nope': []},
+@pytest.mark.parametrize("value", [42, {'ops': 'x'}, {'nope': []},
                                    {'ops': [{'retain': 3}]}, {'ops': [{'insert': 1}]}])
-def test_a_string_or_malformed_delta_is_refused(value):
+def test_a_malformed_value_is_refused(value):
     w = _wellplate()
-    with pytest.raises(ValueError, match="rich text|Quill document delta"):
+    with pytest.raises(ValueError, match="rich text"):
         w.properties['description'] = value
 
 
-def test_writing_into_a_delta_is_refused():
+def test_a_write_into_the_delta_must_leave_a_delta():
     w = _wellplate()
-    with pytest.raises(ValueError, match="rich text"):
-        w.properties['description']['ops'] = []
+    w.properties['description']['ops'] = [{'insert': 'replaced\n'}]
+    assert w.properties['description'] == {'ops': [{'insert': 'replaced\n'}]}
+    with pytest.raises(ValueError, match="no longer be a Quill delta"):
+        w.properties['description']['ops'] = 'not a list'
 
 
 def test_reaction_description_and_observation_are_rich_text():
     import sys
     sys.path.insert(0, os.path.dirname(__file__))
     from test_sample_properties import _reaction
-    from chemotion_api.utils import text_to_quill
     r = _reaction([])
-    r.properties['observation'] = text_to_quill('turned yellow')
+    r.properties['observation'] = 'turned yellow'
     assert r.properties['observation'] == {'ops': [{'insert': 'turned yellow\n'}]}
-    with pytest.raises(ValueError, match="text_to_quill"):
-        r.properties['description'] = 'a bare string'
+    with pytest.raises(ValueError, match="rich text"):
+        r.properties['description'] = {'ops': [{'insert': 1}]}

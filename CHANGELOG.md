@@ -258,12 +258,12 @@ New surface:
 - **Every built-in element type validates its properties.** Wellplates, research plans, screens and
   device descriptions now have pydantic models, as samples and reactions did: payloads are
   validated on load, and each `properties[...] = …` write is validated for that field alone.
-- **Rich text is written as an explicit Quill delta.** Reaction `description`/`observation` and
-  wellplate/screen `description` are Quill deltas, the ELN editor's format. New public helpers
-  `chemotion_api.text_to_quill()` and `chemotion_api.quill_to_text()` convert plain text to a delta
-  (the shape the ELN creates itself) and back. A well-formed delta, formatting included, is
-  accepted, so content read from the ELN can be written back; a bare string, a malformed delta, or
-  a write into a delta raises `ValueError`. Research-plan text blocks keep their `RichText` API.
+- **Rich-text helpers.** Reaction `description`/`observation` and wellplate/screen `description`
+  are Quill deltas, the ELN editor's format. New public `chemotion_api.quill_to_text()` flattens
+  one to text and `chemotion_api.text_to_quill()` builds one from text (the shape the ELN creates
+  itself). Writing these properties accepts a plain string (stored via `text_to_quill`) or a
+  well-formed delta, formatting included; anything else now raises `ValueError` at assignment
+  rather than at save.
 
 - **Device descriptions.** `Collection.get_device_descriptions()` lists the v4
   `device_description` element; a `DeviceDescription` reads and saves its fields through

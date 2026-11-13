@@ -1099,30 +1099,38 @@ class AbstractElement:
     #: and Reaction set it too but keep their own handlers, which carry stoichiometry side effects.
     _properties_model: type[BaseModel] | None = None
 
-    #: Properties the ELN stores as Quill rich text (a delta). They read as the stored delta and
-    #: are written as one, explicitly (owner, 2026-11-13): convert text with
-    #: :func:`chemotion_api.utils.text_to_quill`, read it back with
-    #: :func:`chemotion_api.utils.quill_to_text`. A well-formed document delta is accepted, so
-    #: content read from the ELN can be written back; a bare string, a malformed delta, or a write
-    #: *into* a delta is refused.
+    #: Properties the ELN stores as Quill rich text (a delta). They read as the stored delta;
+    #: :func:`chemotion_api.utils.quill_to_text` flattens it. A write may be a plain string, which
+    #: is stored via :func:`chemotion_api.utils.text_to_quill`, or a well-formed delta (formatting
+    #: included, so content read from the ELN can be written back). Owner, 2026-11-13.
     _rich_text_fields: tuple[str, ...] = ()
 
     def _rich_text_write(self, name: list, value: list) -> None:
-        """Enforce :attr:`_rich_text_fields` on a properties write."""
-        from chemotion_api.utils import is_quill_document
+        """Convert a plain string to a delta and check the field stays a well-formed delta."""
+        from chemotion_api.utils import is_quill_document, text_to_quill
         top = name[0]
         if top not in self._rich_text_fields:
             return
-        if len(name) > 1:
-            raise ValueError(f"properties[{top!r}] is rich text; assign the whole field, e.g. "
-                             f"properties[{top!r}] = text_to_quill('...').")
-        if isinstance(value[-1], str):
-            raise ValueError(f"properties[{top!r}] is rich text (a Quill delta), not a string. Use "
-                             f"properties[{top!r}] = chemotion_api.utils.text_to_quill(...).")
-        if not is_quill_document(value[-1]):
-            raise ValueError(f"properties[{top!r}] must be a Quill document delta "
-                             f"({{'ops': [{{'insert': ...}}, ...]}}); see text_to_quill().")
-        value[-1] = value[-1].to_dict() if hasattr(value[-1], 'to_dict') else dict(value[-1])
+        if len(name) == 1:
+            if isinstance(value[-1], str):
+                value[-1] = text_to_quill(value[-1])
+            elif not is_quill_document(value[-1]):
+                raise ValueError(f"properties[{top!r}] is rich text: assign a string or a Quill "
+                                 f"delta ({{'ops': [{{'insert': ...}}, ...]}}); see text_to_quill().")
+            else:
+                value[-1] = value[-1].to_dict() if hasattr(value[-1], 'to_dict') else dict(value[-1])
+            return
+        # A write *into* the delta: the field must still be a delta afterwards.
+        source: Any = self._properties.get(top)
+        proposed: Any = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
+        temp: Any = proposed
+        for key in name[1:-1]:
+            temp = temp[key] if isinstance(temp, dict) else None
+        if not isinstance(temp, dict):
+            raise ValueError(f"properties[{top!r}] has no mapping to write into.")
+        temp[name[-1]] = value[-1]
+        if not is_quill_document(proposed):
+            raise ValueError(f"properties[{top!r}] would no longer be a Quill delta after this write.")
 
     def _validated_properties(self, props: dict) -> dict:
         """Run freshly parsed properties through :attr:`_properties_model` and keep the coerced values.
