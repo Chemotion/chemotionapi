@@ -19,7 +19,8 @@ from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
-from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, SbmmSample
+from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, SbmmSample, \
+    CellLine
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
@@ -476,7 +477,8 @@ class AbstractCollection:
     #: ELN v4.0.1 (assign, then remove). LabIMotion generic elements are accepted too, keyed by
     #: their klass name, which the server resolves. Other kinds are refused until exercised.
     _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'wellplate', 'screen',
-                                 'device_description')
+                                 'device_description', 'cell_line',
+                                 'sequence_based_macromolecule_sample')
 
     def assign_elements(self, dest: AbstractCollection, *elements) -> None:
         """Add elements of this collection to ``dest`` as well — they stay here too.
@@ -746,6 +748,23 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
+    def get_cell_lines(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                       updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all cell-line samples (at most 50 per page — the server's limit).
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of cell lines
+        """
+        root = self.get_root()
+        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('cell_line')),
+                       typing.cast(int, self.id))
+        e.load_elements(per_page, updated_to_date, updated_from_date)
+        return e
+
     def get_sbmm_samples(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                          updated_from_date: datetime | None = None) -> ElementSet:
         """
@@ -892,6 +911,20 @@ class AbstractEditableCollection(AbstractCollection):
         :return: New (unsaved) ResearchPlan
         """
         return typing.cast(ResearchPlan, self._create_new_element('research_plan'))
+
+    def new_cell_line(self, material_name: str, source: str) -> CellLine:
+        """
+        Creates a new cell-line sample in this collection, of the material ``material_name`` from
+        ``source`` (an existing material with that name and source is reused; otherwise one is
+        created on save). Set ``properties['amount']``, ``['unit']`` and ``['passage']`` before
+        saving.
+
+        :return: New (unsaved) CellLine
+        """
+        line = typing.cast(CellLine, self._create_new_element('cell_line'))
+        line.material['name'] = material_name
+        line.material['source'] = source
+        return line
 
     def new_sbmm_sample(self, uniprot: str) -> SbmmSample:
         """

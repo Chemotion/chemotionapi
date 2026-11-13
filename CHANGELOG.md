@@ -268,6 +268,15 @@ New surface:
 - **Screens.** `Collection.get_screens()` / `new_screen()`, `Instance.get_screen()`. The linked
   wellplates and research plans are id lists (`wellplate_ids`, `research_plan_ids`) that a save
   sends as the new links; `wellplates` / `research_plans` load them.
+- **Cell lines.** `Collection.get_cell_lines()` / `new_cell_line(material_name, source)`,
+  `Instance.get_cell_line()`. The sample's own fields are in `properties`; the cell line itself —
+  organism, tissue, growth medium and the rest, shared by every sample of it — is `material`.
+  Every save sends the full material, so a sample-only edit never re-links it. The server ignores
+  changes to a material someone else created while reporting success; the client checks and
+  raises `PermissionError` instead.
+- **Moving elements between collections** now covers wellplates, screens, device descriptions,
+  cell lines, SBMM samples and generic elements, each verified against ELN v4.0.1.
+- Saving an element no longer sends an empty attachment-upload request when no file is queued.
 - **SBMM samples** (sequence-based macromolecules). `Collection.get_sbmm_samples()` /
   `new_sbmm_sample(uniprot='P69905')`, `Instance.get_sbmm_sample()`. Quantities are
   `{'value', 'unit'}` pairs in `properties`; the protein is readable as `macromolecule`.

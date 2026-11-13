@@ -28,7 +28,7 @@ from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, \
-    SbmmSample, \
+    SbmmSample, CellLine, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
@@ -473,6 +473,16 @@ class Instance:
         """
         e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('research_plan')))
         return typing.cast(ResearchPlan, e.load_element(id))
+
+    def get_cell_line(self, id: int) -> CellLine:
+        """
+        Fetches one cell-line sample by its database id.
+
+        :param id: The Database ID of the desired Element
+        :return: a CellLine object
+        """
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('cell_line')))
+        return typing.cast(CellLine, e.load_element(id))
 
     def get_sbmm_sample(self, id: int) -> SbmmSample:
         """

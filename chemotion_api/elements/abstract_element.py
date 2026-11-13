@@ -850,7 +850,15 @@ class AbstractElement:
             raise request_error(res, f'loading {self.element_type} {self.id}')
         res_json = res.json()
         attachments_data = res_json.get('attachments')
-        return attachments_data, res_json[self.get_response_key(self.element_type)]
+        return attachments_data, self._record_from_detail(res_json)
+
+    def _record_from_detail(self, res_json: dict) -> dict:
+        """The element's record inside a detail response — wrapped under its type by most routes."""
+        return res_json[self.get_response_key(self.element_type)]
+
+    def _record_from_create(self, res_json: dict) -> dict | None:
+        """The element's record inside a create response — wrapped under its type by most routes."""
+        return res_json.get(self.element_type, res_json.get('element'))
 
 
     @staticmethod
@@ -971,10 +979,11 @@ class AbstractElement:
             raise request_error(res, f'saving {self.element_type} {"(new)" if is_created else self.id}')
         if is_created:
             res_json = res.json()
-            res_json = merge_dicts(self.json_data, res_json.get(self.element_type, res_json.get('element')))
+            res_json = merge_dicts(self.json_data, self._record_from_create(res_json))
             self._set_json_data(res_json)
         if self.attachments is not None:
-            self.attachments.save(self.id, snake_to_camel_case(self.get_response_key(self.element_type)))
+            self.attachments.save(self.id, self._attachable_type or
+                                  snake_to_camel_case(self.get_response_key(self.element_type)))
         self.analyses.clean_up_after_save()
         if load_after_save:
             self.load()
@@ -1098,6 +1107,10 @@ class AbstractElement:
     #: (LabIMotion generic elements validate against their klass's JSON schema instead). Sample
     #: and Reaction set it too but keep their own handlers, which carry stoichiometry side effects.
     _properties_model: type[BaseModel] | None = None
+
+    #: The server's model name for attachments of this element type, when it is not the
+    #: camel-cased element type (``Attachment::ELEMENT_ATTACHABLE_TYPES`` in the ELN).
+    _attachable_type: str | None = None
 
     #: Properties the ELN stores as Quill rich text (a delta). They read as the stored delta;
     #: :func:`chemotion_api.utils.quill_to_text` flattens it. A write may be a plain string, which
@@ -1309,6 +1322,8 @@ class AbstractElement:
             return 'screen'
         elif name == 'sequence_based_macromolecule_sample':
             return 'sequence_based_macromolecule_sample'
+        elif name == 'cell_line':
+            return 'cell_line'
         return 'element'
 
     @classmethod
@@ -1334,6 +1349,8 @@ class AbstractElement:
             return '/api/v1/screens'
         elif name == 'sequence_based_macromolecule_sample':
             return '/api/v1/sequence_based_macromolecule_samples'
+        elif name == 'cell_line':
+            return '/api/v1/cell_lines'
         # Everything else is a LabIMotion generic type, listed through one shared endpoint and
         # discriminated by `el_type`. A *built-in* type that is not modelled above also lands
         # here and lists as a generic -- which returns nothing rather than erroring, so the

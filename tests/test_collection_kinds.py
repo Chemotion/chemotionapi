@@ -19,6 +19,12 @@ def two_collections(logged_in_instance):
     return logged_in_instance, root.get_collection(a), root.get_collection(b)
 
 
+def _cell_line(instance, col):
+    line = col.new_cell_line(f'API-kind-{uuid.uuid4().hex[:6]}', source='ATCC')
+    line.properties.update({'amount': 1, 'unit': 'cells', 'passage': 1})
+    return line
+
+
 def _device(instance, col):
     res = instance._con.post('/api/v1/device_descriptions', data={'collection_id': col.id, 'name': 'kind test'})
     device_id = res.json()['device_description']['id']
@@ -30,7 +36,9 @@ def _device(instance, col):
     (lambda inst, col: col.new_screen(), lambda col: col.get_screens()),
     (_device, lambda col: col.get_device_descriptions()),
     (lambda inst, col: col.new_generic('wrk'), lambda col: col.get_generics_by_name('wrk')),
-], ids=['wellplate', 'screen', 'device_description', 'generic'])
+    (_cell_line, lambda col: col.get_cell_lines()),
+    (lambda inst, col: col.new_sbmm_sample(uniprot='P69905'), lambda col: col.get_sbmm_samples()),
+], ids=['wellplate', 'screen', 'device_description', 'generic', 'cell_line', 'sbmm_sample'])
 def test_move_element_kind(two_collections, make, listing):
     instance, src, dst = two_collections
     element = make(instance, src)

@@ -231,7 +231,7 @@ class Attachments(Sequence):
             self._new_attachment_data.append(data)
             return data
 
-    def save(self, id: int, element_type: str) -> requests.Response:
+    def save(self, id: int, element_type: str) -> requests.Response | None:
         """
         Updates or creates the Attachments of an Element after saving it!
 
@@ -247,6 +247,10 @@ class Attachments(Sequence):
         :raises requests.RequestException: if the server returns a non-2xx response; the
             upload queue is left intact so a retried ``save()`` resends the pending files.
         """
+        if not self._to_uploads:
+            # Nothing queued: the upload request would carry no files and change nothing, and it
+            # used to be sent on every save of every element.
+            return None
         if element_type == 'Element':
             return self._save_generic(id)
         with contextlib.ExitStack() as stack:

@@ -343,3 +343,33 @@ class SbmmSamplePropertiesModel(_PropertiesBase):
     amount_as_used_mol: _QuantityModel | None = None
     amount_as_used_mass: _QuantityModel | None = None
     activity: _QuantityModel | None = None
+
+
+class CellLinePropertiesModel(_PropertiesBase):
+    """Validates a cell-line sample's own properties (types as the server's API declares)."""
+    model_config = ConfigDict(extra='allow')
+    name: str | None = None
+    description: str | None = None
+    amount: int | None = None
+    unit: str | None = None
+    passage: int | None = None
+    contamination: str | None = None
+
+
+class CellLineMaterialModel(_PropertiesBase):
+    """Validates a cell line's shared material — the cell line *concept* (types as the server declares)."""
+    model_config = ConfigDict(extra='allow')
+    name: str | None = None
+    source: str | None = None
+    organism: str | None = None
+    tissue: str | None = None
+    disease: str | None = None
+    cell_type: str | None = None
+    biosafety_level: str | None = None
+    growth_medium: str | None = None
+    variant: str | None = None
+    mutation: str | None = None
+    optimal_growth_temp: float | None = None
+    cryo_pres_medium: str | None = None
+    gender: str | None = None
+    description: str | None = None

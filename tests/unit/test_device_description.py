@@ -70,10 +70,10 @@ def test_an_unmodelled_builtin_type_refuses_by_name():
     """The error should name the type and the scope, not read 'Generic type X cannot be found'."""
     from chemotion_api.elements import ElementSet
     es = ElementSet.__new__(ElementSet)
-    es._element_type = {"name": "cell_line", "is_generic": False}
+    es._element_type = {"name": "vessel", "is_generic": False}
     with pytest.raises(TypeError) as exc:
         es._get_element_class()
     message = str(exc.value)
-    assert "cell_line" in message
+    assert "vessel" in message
     assert "does not model" in message
     assert "device_description" in message, "the message should name what IS supported"
