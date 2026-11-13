@@ -80,7 +80,12 @@ class SearchHelperBase(ABC):
         res = self._connection.post('/api/v1/search/advanced', json=self._payload)
         if res.status_code != 201:
             raise ConnectionError(res.status_code)
-        return res.json()[self.element_type_res]['elements']
+        result = res.json()[self.element_type_res]
+        if result.get('error'):
+            # The server refuses a field the collection's detail level does not allow, but still
+            # answers 201 with no elements; returning those would read as "nothing matched".
+            raise PermissionError(result['error'])
+        return result['elements']
 
     def request(self) -> ElementSet:
         """

@@ -125,7 +125,7 @@ generic_schema = {
         },
         "cond_fields": {
             "type": "array",
-            "item": {
+            "items": {
                 "$ref": "chemotion://generic/cond_field/draft-01"
             }
         },
