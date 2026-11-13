@@ -45,6 +45,42 @@ this updates the equivalents of all reaction materials. The converted amount is 
 
 .. autoenum:: chemotion_api.elements.utils.GasType
 
+Chemical inventory and safety data
+----------------------------------
+
+The ELN's *Chemicals* tab, with vendor, amounts, storage location and safety data, is a separate
+record. :meth:`~chemotion_api.elements.sample.Sample.get_chemical` returns it as a
+:class:`~chemotion_api.elements.sample.Chemical`. When the sample has none yet, ``exists`` is
+``False`` and ``save()`` creates it.
+
+.. code-block:: python
+
+    chemical = sample.get_chemical()
+    chemical.cas = '64-17-5'
+    chemical.data['location'] = 'Cabinet 3'
+    chemical.save()
+
+.. autoclass:: chemotion_api.elements.sample.Chemical
+    :members:
+
+Molecule names
+--------------
+
+A molecule is known by several names: IUPAC name, sum formula, and names users added. A sample
+shows one of them. :meth:`~chemotion_api.elements.sample.MoleculeManager.get_names` lists them,
+:meth:`~chemotion_api.elements.sample.MoleculeManager.add_name` adds one, and
+:attr:`~chemotion_api.elements.sample.Sample.molecule_name_id` chooses the one the sample shows.
+
+.. code-block:: python
+
+    molecules = instance.molecule()
+    name = molecules.add_name(sample.molecule['id'], 'Spirit')
+    sample.molecule_name_id = name.id
+    sample.save()
+
+.. autoclass:: chemotion_api.elements.sample.MoleculeName
+    :members:
+
 User labels
 -----------
 

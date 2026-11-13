@@ -30,10 +30,13 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    This release is tested against ELN **v4.0.1**. ``.eln`` / RO-Crate export is not included.
 
 .. note::
-   **Not every element type is equally supported.** Samples and reactions are first-class:
-   they are read and written over the API and carry typed element data. Wellplates, research
-   plans and LabIMotion generic elements are read and written over the API. Screens, cell lines,
-   device descriptions and vessels are not supported by any part of this client.
+   **Element types.** Samples, reactions, wellplates, research plans, screens, cell lines, SBMM
+   samples, device descriptions and LabIMotion generic elements can all be created, read, edited
+   and moved between collections. Vessels are not supported.
+
+.. note::
+   **Log in with an API token.** Logging in with a user name and password is deprecated. See
+   :meth:`~chemotion_api.Instance.login_token`.
 
 .. toctree::
    :maxdepth: 2
@@ -46,6 +49,10 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    SampleDetails
    ReactionDetails
    WellplateDetails
+   ScreenDetails
+   CellLineDetails
+   SbmmSampleDetails
+   DeviceDescriptionDetails
    GenericElementsDetails
    Segments
    Attachments

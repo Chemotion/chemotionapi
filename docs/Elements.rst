@@ -2,8 +2,8 @@ Elements
 ==========
 
 The API can handle different kinds of elements from Chemotion.
-It can read and write Samples, Reactions, Wellplates, and Research Plans
-as well as Generic Elements.
+It can read and write samples, reactions, wellplates, research plans, screens, cell lines,
+SBMM samples and device descriptions, as well as LabIMotion generic elements.
 
 How to load Elements
 ******************************
@@ -84,7 +84,7 @@ How to create Elements
 
 To make a new entry in the ELN, you must first select the collection in which the element is to be created. Collection objects have the appropriate methods for creating objects.
 
-The following methods can be used to create the standard objects. All of them have no parameters and create an empty object corresponding to its type.
+The following methods can be used to create the standard objects. They create an empty object of their type; cell lines and SBMM samples need a little information up front.
 
 The created object is not saved and must be saved explicitly so that the entry is transferred to the ELN.
 
@@ -92,6 +92,10 @@ The created object is not saved and must be saved explicitly so that the entry i
 * :meth:`chemotion_api.collection.Collection.new_reaction`
 * :meth:`chemotion_api.collection.Collection.new_research_plan`
 * :meth:`chemotion_api.collection.Collection.new_wellplate`
+* :meth:`chemotion_api.collection.Collection.new_screen`
+* :meth:`chemotion_api.collection.Collection.new_device_description`
+* :meth:`chemotion_api.collection.Collection.new_cell_line` (material name and source)
+* :meth:`chemotion_api.collection.Collection.new_sbmm_sample` (UniProt accession)
 
 To create a generic element, the type must be specified as a parameter. Either by the human-readable label or by the system-internal name:
 

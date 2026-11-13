@@ -41,6 +41,19 @@ is not an error: the id resolves to a placeholder :class:`~chemotion_api.user.Us
 ``display_title`` over ``title`` when building strings, so an unresolvable label cannot break a
 ``join``.
 
+To create a label, or change one of your own, use :meth:`~chemotion_api.Instance.save_user_label`.
+The ELN overwrites every field a request leaves out, so the whole label is always sent; set every
+field you want to keep. ``access_level`` is ``0`` for a private label and ``1`` or ``2`` for a
+shared one. Put labels on an element through ``properties['user_labels']`` and save it.
+
+.. code-block:: python
+
+    from chemotion_api.user import UserLabel
+
+    label = instance.save_user_label(UserLabel(title='Needs review', color='#d9534f', access_level=0))
+    sample.properties['user_labels'] = list(sample.properties['user_labels'] or []) + [label.id]
+    sample.save()
+
 .. autoclass:: chemotion_api.user.UserLabel
     :members:
 
