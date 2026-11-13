@@ -8,6 +8,7 @@ from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
 from chemotion_api.elements.research_plan import ResearchPlan
+from chemotion_api.elements.device_description import DeviceDescription
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
@@ -275,8 +276,17 @@ class ElementSet(list):
             return Wellplate
         elif self._element_type['name'] == 'research_plan':
             return ResearchPlan
+        elif self._element_type['name'] == 'device_description':
+            return DeviceDescription
 
-        raise TypeError('Generic type "{}" cannot be found'.format(self._element_type['name']))
+        # A built-in Chemotion type this client does not model (v4 adds cell_line, screen and
+        # sequence_based_macromolecule_sample alongside the five above). Name the type and what
+        # is supported: "Generic type X cannot be found" read like a lookup bug rather than a
+        # scope boundary.
+        raise TypeError(
+            "Element type '{}' is a built-in Chemotion type this client does not model, so it "
+            "cannot be loaded. Supported: sample, reaction, wellplate, research_plan, "
+            "device_description, and LabIMotion generic types.".format(self._element_type['name']))
 
     def _get_result_key(self):
         if self._element_type['is_generic']:

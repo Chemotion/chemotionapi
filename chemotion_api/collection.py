@@ -667,6 +667,25 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
+    def get_device_descriptions(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                                updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all device descriptions.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of device descriptions
+        """
+
+        root = self.get_root()
+        e = ElementSet(root._session,
+                       typing.cast(dict, root._element_manager.all_classes.get('device_description')),
+                       typing.cast(int, self.id))
+        e.load_elements(per_page, updated_to_date, updated_from_date)
+        return e
+
     def get_wellplates(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
         """

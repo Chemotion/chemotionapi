@@ -1195,6 +1195,8 @@ class AbstractElement:
             return 'wellplate'
         elif name == 'research_plan':
             return 'research_plan'
+        elif name == 'device_description':
+            return 'device_description'
         return 'element'
 
     @classmethod
@@ -1214,4 +1216,10 @@ class AbstractElement:
             return '/api/v1/wellplates'
         elif name == 'research_plan':
             return '/api/v1/research_plans'
-        return f'/api/v1/generic_elements'
+        elif name == 'device_description':
+            return '/api/v1/device_descriptions'
+        # Everything else is a LabIMotion generic type, listed through one shared endpoint and
+        # discriminated by `el_type`. A *built-in* type that is not modelled above also lands
+        # here and lists as a generic -- which returns nothing rather than erroring, so the
+        # element class lookup is what refuses it, by name.
+        return '/api/v1/generic_elements'
