@@ -98,22 +98,36 @@ to get both of these.
 - **Writes are never retried.** A `POST` or `PUT` that fails after the server received it would be
   applied twice on a second attempt, so the caller is told plainly that the write's fate is
   unknown instead of risking a duplicate. This holds whatever `retries` is set to.
-- Only *transport* failures are retried. An HTTP error status is a considered answer from the
-  server and is returned to the caller untouched.
+- Only *transport* failures are retried — a dropped connection, or a timeout on a read. An HTTP
+  error status is a considered answer from the server and is returned to the caller untouched.
+  Certificate and proxy errors are not retried either: they are configuration, and fail the same
+  way every time.
+- A read that times out on every attempt still raises `requests.Timeout`, as before.
 - **A request whose URL is not on this connection's host is now refused.** Every request carries
   the bearer token, so a URL pointing elsewhere would hand over the session. Relative paths —
   which is everything this client issues itself — are unaffected; this guards a caller that
-  passes an absolute URL, such as one the server supplied for a download or thumbnail.
+  passes an absolute URL, such as one the server supplied for a download or thumbnail. Host case
+  and default ports are not significant: `https://ELN.example.org:443` is the same origin as
+  `https://eln.example.org`.
 
 ### `Sample.gas_type` no longer makes a request or changes anything
 
 Reading it used to load the sample's linked reaction and, when there was none, write
 `GasType.OFF` back. So reading one property issued a request *and* mutated the sample — and it
 raised whenever the linked reaction held a field this client could not parse, an error with no
-relation to the value being read. It now returns what the server sent.
+relation to the value being read.
 
-The normalisation it was doing is still available deliberately, through `set_gas_type()`. If you
-relied on reading `gas_type` to reset a detached sample, that reset no longer happens implicitly.
+It still reads as `GasType.OFF` for a sample that belongs to no reaction, but decides that from
+the sample's own data — a reaction object attached to it, or a reaction id in its tag — and
+leaves the stored value alone. To change the stored value, use `set_gas_type()`.
+
+### Changed: `Sample.vessel_size` is a volume in ml
+
+It returned the reaction's stored `{'amount': 10, 'unit': 'ml'}` mapping. Both of its consumers —
+the gas amount conversions and the gas-product equivalent — do arithmetic with it, so a gas
+calculation on a reaction loaded from the server divided a mapping by a molecular weight. It now
+returns a float in millilitres (a `'l'` unit is scaled), or `None` when there is no vessel size.
+`reaction.properties['vessel_size']` is unchanged: still the `{amount, unit}` mapping.
 
 ### Aligned with ELN v4.0.1
 
@@ -252,6 +266,10 @@ Fixes to existing behaviour:
 - A missing reference amount yields `equivalent = None` instead of raising out of a getter, and a
   failed equivalent update is logged rather than silently swallowed.
 - Unknown solvent names suggest near matches.
+- `reaction.properties['vessel_size'] = 200` (or `'200'`) sets the amount and keeps the unit. It
+  used to store the bare number, which the server does not accept in place of `{amount, unit}`.
+- Joining collection paths no longer drops the segments after an absolute one:
+  `'a', '/b', 'c', 'd'` now gives `/b/c/d`.
 - Richer request errors (`ChemotionRequestError`, `ChemotionServerError`) carry the status, method,
   URL and a readable snippet instead of an entire HTML error page. They also subclass the builtin
   `ConnectionError`, so existing `except ConnectionError` handlers keep working.
