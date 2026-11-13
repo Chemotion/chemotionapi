@@ -172,34 +172,52 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.integration)
 
 
-# The generic-manager integration tests are a stateful chain against the *seed*: one creates klass
-# `ttes` and later ones fetch it by that name, assert versions such as '1.1', and count the seed's
-# klasses. On a stack that has already run them, nine fail with errors that look like regressions.
-# Until they are rewritten to be self-contained (owner, 2026-11-13: fail fast for now), refuse to
-# start them on a used seed. Runs once, in the parent process (tests run forked), and only when
-# those tests are selected.
-_GENERIC_CHAIN_FILE = 'test_generic_manager.py'
-_GENERIC_CHAIN_MARKER_KLASS = 'ttes'
+# Some integration tests are stateful chains against the *seed* and fail, with errors that look like
+# regressions, on a stack that has already run them. Until they are rewritten to be self-contained
+# (owner, 2026-11-13: fail fast for now), refuse to start them on a used seed. Checked once, in the
+# parent process (tests run forked), and only for the chains actually selected.
+#
+#   test_generic_manager.py — creates klass 'ttes', later tests fetch it by name, assert versions
+#                             such as '1.1' and count the seed's klasses.
+#   test_share.py           — test_new_user creates person 'VDR'; test_share_group then expects
+#                             VDR to see exactly one shared collection.
+
+
+def _generic_chain_used(instance) -> str | None:
+    names = {klass.name for klass in instance.generic_manager().load_all_elements()}
+    return "klass 'ttes' exists" if 'ttes' in names else None
+
+
+def _share_chain_used(instance) -> str | None:
+    found = [u for u in instance.find_user_by_name('TestUSer Mega') if u.name_abbreviation == 'VDR']
+    return "user 'VDR' exists" if found else None
+
+
+_SEED_CHAINS = {
+    'test_generic_manager.py': _generic_chain_used,
+    'test_share.py': _share_chain_used,
+}
 
 
 def pytest_collection_finish(session):
-    chain = [item for item in session.items
-             if item.path.name == _GENERIC_CHAIN_FILE and item.get_closest_marker('integration')]
-    if not chain:
+    selected = {item.path.name for item in session.items
+                if item.path.name in _SEED_CHAINS and item.get_closest_marker('integration')}
+    if not selected:
         return
     from chemotion_api import Instance  # lazy, as in the fixtures
     try:
         instance = Instance(CONFIG['ELN_URL']).test_connection().login(CONFIG['ELN_USER'], CONFIG['ELN_PASS'])
-        names = {klass.name for klass in instance.generic_manager().load_all_elements()}
+        used = {name: _SEED_CHAINS[name](instance) for name in sorted(selected)}
     except Exception as e:  # no server: let the tests report that themselves
         logging.warning('Could not check whether the seed is fresh: %s', e)
         return
-    if _GENERIC_CHAIN_MARKER_KLASS in names:
+    used = {name: why for name, why in used.items() if why}
+    if used:
+        reasons = '; '.join(f'{name} ({why})' for name, why in used.items())
+        deselect = ' '.join(f'--deselect {name}' for name in used)
         pytest.exit(
-            f'The test stack has already run the generic-manager tests (klass '
-            f'{_GENERIC_CHAIN_MARKER_KLASS!r} exists). They depend on a fresh seed, so on this stack '
-            f'several would fail for reasons unrelated to the code. Reseed first: '
-            f'`just stack-reset` (check for **SUCCESS**). '
-            f'To run other tests on this stack, deselect them: --deselect {_GENERIC_CHAIN_FILE} '
-            f'or -k "not generic_manager".',
+            f'The test stack has already run tests that need a fresh seed: {reasons}. On this stack '
+            f'several of them would fail for reasons unrelated to the code. Reseed first: '
+            f'`just stack-reset` (check for **SUCCESS**). To run other tests on this stack, '
+            f'deselect them: {deselect}.',
             returncode=4)

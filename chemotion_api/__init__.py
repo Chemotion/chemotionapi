@@ -27,7 +27,7 @@ from chemotion_api.search.reaction import ReactionSearcher
 from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import urlparse
-from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
+from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
@@ -469,6 +469,16 @@ class Instance:
         """
         e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('research_plan')))
         return typing.cast(ResearchPlan, e.load_element(id))
+
+    def get_screen(self, id: int) -> Screen:
+        """
+        Fetches one Screen from the Chemotion server by its database id.
+
+        :param id: The Database ID of the desired Element
+        :return: a Screen object
+        """
+        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('screen')))
+        return typing.cast(Screen, e.load_element(id))
 
     def get_sample(self, id: int) -> Sample:
         """

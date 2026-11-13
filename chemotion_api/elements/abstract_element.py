@@ -1219,6 +1219,8 @@ class AbstractElement:
             return 'research_plan'
         elif name == 'device_description':
             return 'device_description'
+        elif name == 'screen':
+            return 'screen'
         return 'element'
 
     @classmethod
@@ -1240,6 +1242,8 @@ class AbstractElement:
             return '/api/v1/research_plans'
         elif name == 'device_description':
             return '/api/v1/device_descriptions'
+        elif name == 'screen':
+            return '/api/v1/screens'
         # Everything else is a LabIMotion generic type, listed through one shared endpoint and
         # discriminated by `el_type`. A *built-in* type that is not modelled above also lands
         # here and lists as a generic -- which returns nothing rather than erroring, so the

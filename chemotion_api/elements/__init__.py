@@ -9,6 +9,7 @@ from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
 from chemotion_api.elements.research_plan import ResearchPlan
 from chemotion_api.elements.device_description import DeviceDescription
+from chemotion_api.elements.screen import Screen
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
@@ -278,6 +279,8 @@ class ElementSet(list):
             return ResearchPlan
         elif self._element_type['name'] == 'device_description':
             return DeviceDescription
+        elif self._element_type['name'] == 'screen':
+            return Screen
 
         # A built-in Chemotion type this client does not model (v4 adds cell_line, screen and
         # sequence_based_macromolecule_sample alongside the five above). Name the type and what

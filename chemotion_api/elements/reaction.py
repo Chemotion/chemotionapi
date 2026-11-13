@@ -1249,7 +1249,10 @@ class Reaction(AbstractElement):
             'volume': validated.volume or self.json_data.get('volume'),
             'use_reaction_volume': validated.use_reaction_volume or self.json_data.get('use_reaction_volume'),
             'weight_percentage': validated.weight_percentage or self.json_data.get('weight_percentage'),
-            'variations': validated.variations or self.json_data.get('variations')
+            'variations': validated.variations or self.json_data.get('variations'),
+            # Was validated and then dropped, so `properties['user_labels'] = …` raised KeyError and
+            # `user_labels_resolved` was always empty for a reaction.
+            'user_labels': list(validated.user_labels or []),
         }
         return res
 

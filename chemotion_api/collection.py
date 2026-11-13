@@ -19,7 +19,7 @@ from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
-from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan
+from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
@@ -745,6 +745,23 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
+    def get_screens(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                    updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all screens.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of screens
+        """
+        root = self.get_root()
+        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('screen')),
+                       typing.cast(int, self.id))
+        e.load_elements(per_page, updated_to_date, updated_from_date)
+        return e
+
     def get_wellplates(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
         """
@@ -856,6 +873,14 @@ class AbstractEditableCollection(AbstractCollection):
         :return: New (unsaved) ResearchPlan
         """
         return typing.cast(ResearchPlan, self._create_new_element('research_plan'))
+
+    def new_screen(self) -> Screen:
+        """
+        Creates a new screen in this collection.
+
+        :return: New (unsaved) Screen
+        """
+        return typing.cast(Screen, self._create_new_element('screen'))
 
     def new_wellplate(self) -> Wellplate:
         """

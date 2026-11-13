@@ -839,7 +839,12 @@ class Sample(AbstractElement):
         See :meth:`MoleculeManager.get_names` and :meth:`MoleculeManager.add_name`; set it to one
         of those ids and :meth:`save`.
         """
-        return (self.json_data or {}).get('molecule_name_id')
+        data = self.json_data or {}
+        if 'molecule_name_id' in data:          # set locally, not yet reloaded
+            return data['molecule_name_id']
+        # The server accepts `molecule_name_id` but returns the choice as `molecule_name_hash`.
+        chosen = data.get('molecule_name_hash')
+        return chosen.get('value') if isinstance(chosen, dict) else None
 
     @molecule_name_id.setter
     def molecule_name_id(self, name_id: int | None) -> None:
