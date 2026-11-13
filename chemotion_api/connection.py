@@ -1,3 +1,4 @@
+import base64
 import json
 import re
 import time
@@ -20,6 +21,31 @@ def _origin(parts) -> tuple[str, str | None, int | None]:
     """
     scheme = parts.scheme.lower()
     return scheme, parts.hostname, parts.port or _DEFAULT_PORTS.get(scheme)
+
+
+class TokenExpiredError(PermissionError):
+    """The bearer token's own ``exp`` claim has passed, so the server would refuse it.
+
+    Raised before the request is sent. A ``PermissionError``, as a failed login is. Log in again
+    (``Instance.login``) or supply a fresh token (``Instance.login_token``).
+    """
+
+
+def _jwt_expiry(token: str) -> float | None:
+    """The ``exp`` claim of a JWT as a Unix time, read without verifying the signature.
+
+    ``None`` for anything that is not a three-part JWT with a numeric ``exp`` — e.g. a
+    ``chemtoken_…`` API token — so only a token that says it has expired is ever refused.
+    """
+    parts = token.split('.')
+    if len(parts) != 3:
+        return None
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + '=' * (-len(parts[1]) % 4)))
+    except (ValueError, TypeError):
+        return None
+    exp = payload.get('exp') if isinstance(payload, dict) else None
+    return float(exp) if isinstance(exp, (int, float)) and not isinstance(exp, bool) else None
 
 
 class ChemotionRequestError(requests.exceptions.RequestException, ConnectionError):
@@ -150,6 +176,30 @@ class Connection(requests.Session):
         """Drop the cached user labels so the next read refetches them."""
         self._user_labels = None
 
+    def _assert_token_not_expired(self, url: str) -> None:
+        """Refuse to send a bearer token whose own ``exp`` claim has passed.
+
+        The server cannot tell us: it answers ``401 Unauthorized`` both for a dead token and for
+        an ordinary permission denial (over a hundred element-policy checks), so a 401 must not be
+        read as "log in again". The token itself can — Chemotion JWTs carry ``exp``, six months
+        out. Public routes (``/api/v1/public/…``, ``/about``) are exempt, so logging in again with
+        an expired token still set works.
+
+        :raises TokenExpiredError: if the token has expired and the route is not public.
+        """
+        if self._bearer_token is None:
+            return
+        path = urlsplit(url).path if '://' in url else url
+        if path.startswith('/api/v1/public/') or path.startswith('api/v1/public/') \
+                or path.rstrip('/') in ('/about', 'about'):
+            return
+        exp = _jwt_expiry(self._bearer_token)
+        if exp is not None and exp <= time.time():
+            raise TokenExpiredError(
+                'The login token expired at '
+                f'{time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(exp))}. Log in again '
+                '(Instance.login) or supply a fresh token (Instance.login_token).')
+
     def reset_bearer_token(self):
         self._bearer_token = None
         # A different (or absent) user sees a different set of labels — never serve the old one.
@@ -230,6 +280,7 @@ class Connection(requests.Session):
                 f'this connection is bound to {origin.scheme}://{origin.netloc}.')
 
     def _send_request(self, method: str, url_path: str, default_header: dict, kwargs: dict) -> requests.Response:
+        self._assert_token_not_expired(kwargs.get('url', url_path))
         kwargs['verify'] = kwargs.get('verify', self._verify)
         kwargs['url'] = kwargs.get('url', f"{self._host_url}/{url_path.lstrip('/')}")
         self._assert_same_origin(kwargs['url'])

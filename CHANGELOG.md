@@ -103,6 +103,11 @@ to get both of these.
   Certificate and proxy errors are not retried either: they are configuration, and fail the same
   way every time.
 - A read that times out on every attempt still raises `requests.Timeout`, as before.
+- **An expired login token is refused before it is sent**, with `TokenExpiredError` (a
+  `PermissionError`) saying when it expired and how to log in again. The check reads the JWT's own
+  `exp` claim; Chemotion tokens last six months. A `401` from the server is deliberately *not*
+  treated as "log in again": the server answers `401` for ordinary permission denials too. Public
+  routes are exempt, so logging in again with an expired token still set works.
 - **A request whose URL is not on this connection's host is now refused.** Every request carries
   the bearer token, so a URL pointing elsewhere would hand over the session. Relative paths —
   which is everything this client issues itself — are unaffected; this guards a caller that

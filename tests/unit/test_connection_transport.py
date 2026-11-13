@@ -163,3 +163,48 @@ def test_the_same_origin_spelled_differently_is_allowed(host_url, url):
 def test_a_different_port_is_a_different_origin():
     with pytest.raises(ConnectionError, match="Refusing to send credentials"):
         _conn()._assert_same_origin("https://eln.example.org:8443/api/v1/samples")
+
+
+# --- an expired token is refused locally; a 401 is never read as "log in again" -----------
+
+def _jwt(exp):
+    import base64, json as _json
+    enc = lambda d: base64.urlsafe_b64encode(_json.dumps(d).encode()).rstrip(b'=').decode()
+    return f"{enc({'alg': 'HS256'})}.{enc({'user_id': 1, 'exp': exp})}.sig"
+
+
+def test_an_expired_token_is_refused_before_sending(monkeypatch):
+    import time
+    from chemotion_api.connection import TokenExpiredError
+    conn, boom = _conn(), _Boom(fail_times=0)
+    conn.set_bearer_token(_jwt(time.time() - 60))
+    with pytest.raises(TokenExpiredError, match="Log in again"):
+        _send(conn, 'get', boom)
+    assert boom.calls == 0
+    assert isinstance(TokenExpiredError(), PermissionError)
+
+
+def test_a_valid_token_is_sent():
+    import time
+    conn, boom = _conn(), _Boom(fail_times=0)
+    conn.set_bearer_token(_jwt(time.time() + 3600))
+    _send(conn, 'get', boom)
+    assert boom.calls == 1
+
+
+@pytest.mark.parametrize("path", ["/api/v1/public/token", "/api/v1/public/ping", "/about"])
+def test_public_routes_ignore_an_expired_token_so_login_still_works(path):
+    import time, unittest.mock as mock
+    conn, boom = _conn(), _Boom(fail_times=0)
+    conn.set_bearer_token(_jwt(time.time() - 60))
+    with mock.patch.object(type(conn).__mro__[1], 'post', boom, create=True):
+        conn._send_request('post', path, {}, {})
+    assert boom.calls == 1
+
+
+@pytest.mark.parametrize("token", ["chemtoken_abc123", "not.a-jwt", "a.b.c"])
+def test_tokens_that_carry_no_expiry_are_never_refused(token):
+    conn, boom = _conn(), _Boom(fail_times=0)
+    conn.set_bearer_token(token)
+    _send(conn, 'get', boom)
+    assert boom.calls == 1
