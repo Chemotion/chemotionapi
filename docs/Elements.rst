@@ -139,6 +139,35 @@ All Objects have a set of common properties and methods:
     # Check the result in the Chemotion web client (you need to be logged in in the browser)
     sample.open()
 
+Restricted elements
+-------------------
+
+An element in a collection shared with you below the full detail level (10) comes with some fields
+withheld by the server. :attr:`~chemotion_api.elements.abstract_element.AbstractElement.is_restricted`
+tells you; withheld properties read as :data:`chemotion_api.utils.withheld.WITHHELD`, and
+``save()`` refuses such an element with ``PermissionError`` (it would write placeholders over the
+real values).
+
+``WITHHELD`` is neither ``None`` nor a number. Test for it by identity, ``value is WITHHELD``.
+Using it as a number — ``float()``, arithmetic, comparisons — raises ``WithheldValueError`` (a
+``PermissionError``). It is also a ``str`` whose text is ``'***'``, the server's own mask, so the
+element's raw ``json_data`` still serialises exactly as the server sent it. As a consequence,
+``WITHHELD == '***'`` is true and ``isinstance(WITHHELD, str)`` too: compare by identity, not by
+equality or type.
+
+.. code-block:: python
+
+    from chemotion_api.utils.withheld import WITHHELD
+
+    for sample in shared_collection.get_samples():
+        if sample.is_restricted and sample.properties['description'] is WITHHELD:
+            print(sample.id, 'description withheld')
+
+.. autodata:: chemotion_api.utils.withheld.WITHHELD
+    :no-value:
+
+.. autoexception:: chemotion_api.utils.withheld.WithheldValueError
+
 Rich text
 ---------
 

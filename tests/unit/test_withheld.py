@@ -170,3 +170,18 @@ def test_reaction_description_and_observation_are_rich_text():
     assert r.properties['observation'] == {'ops': [{'insert': 'turned yellow\n'}]}
     with pytest.raises(ValueError, match="rich text"):
         r.properties['description'] = {'ops': [{'insert': 1}]}
+
+
+def test_a_restricted_payload_still_serialises_as_the_server_sent_it():
+    """Downstream apps JSON-encode json_data (ChemAssistent's runner does); the sentinel is a str
+    reading '***', so that keeps working (owner, 2026-11-13)."""
+    import json as _json
+    s = _element(Sample, _payload('sample'))
+    assert s.properties['description'] is WITHHELD
+    encoded = _json.loads(_json.dumps(s.json_data))
+    assert encoded['description'] == '***'
+    assert str(WITHHELD) == '***' and f'{WITHHELD}' == '***'
+    with pytest.raises(WithheldValueError):
+        WITHHELD + 'x'
+    with pytest.raises(WithheldValueError):
+        3 + WITHHELD
