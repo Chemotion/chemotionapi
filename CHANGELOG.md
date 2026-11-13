@@ -265,6 +265,14 @@ New surface:
   well-formed delta, formatting included; anything else now raises `ValueError` at assignment
   rather than at save.
 
+- **Screens.** `Collection.get_screens()` / `new_screen()`, `Instance.get_screen()`. The linked
+  wellplates and research plans are id lists (`wellplate_ids`, `research_plan_ids`) that a save
+  sends as the new links; `wellplates` / `research_plans` load them.
+- **SBMM samples** (sequence-based macromolecules). `Collection.get_sbmm_samples()` /
+  `new_sbmm_sample(uniprot='P69905')`, `Instance.get_sbmm_sample()`. Quantities are
+  `{'value', 'unit'}` pairs in `properties`; the protein is readable as `macromolecule`.
+  Limitations: a new sample's protein is chosen by UniProt accession only, and a sample's protein
+  is read-only. If these affect you, please open an issue.
 - **Device descriptions.** `Collection.get_device_descriptions()` lists the v4
   `device_description` element; a `DeviceDescription` reads and saves its fields through
   `properties` (fields it does not model survive a save) and exposes its ontology annotations as

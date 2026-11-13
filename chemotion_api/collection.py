@@ -19,7 +19,7 @@ from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
-from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen
+from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, SbmmSample
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
@@ -746,6 +746,24 @@ class AbstractCollection:
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
 
+    def get_sbmm_samples(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                         updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all sequence-based macromolecule (SBMM) samples.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of SBMM samples
+        """
+        root = self.get_root()
+        e = ElementSet(root._session,
+                       typing.cast(dict, root._element_manager.all_classes.get('sequence_based_macromolecule_sample')),
+                       typing.cast(int, self.id))
+        e.load_elements(per_page, updated_to_date, updated_from_date)
+        return e
+
     def get_screens(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                     updated_from_date: datetime | None = None) -> ElementSet:
         """
@@ -874,6 +892,28 @@ class AbstractEditableCollection(AbstractCollection):
         :return: New (unsaved) ResearchPlan
         """
         return typing.cast(ResearchPlan, self._create_new_element('research_plan'))
+
+    def new_sbmm_sample(self, uniprot: str) -> SbmmSample:
+        """
+        Creates a new SBMM sample of the protein with the given UniProt accession, in this collection.
+
+        The server looks the accession up in UniProt when the sample is first saved.
+
+        .. note:: **Limitation.** Only proteins with a UniProt accession can be chosen here; a
+           protein that is not in UniProt, or a modified variant of one, has to be created in the
+           ELN's web UI. If this affects your work, please open an issue at
+           https://github.com/Chemotion/chemotionapi/issues and describe what you need.
+
+        :param uniprot: a UniProt accession, e.g. ``'P69905'``
+        :return: New (unsaved) SbmmSample
+        :raises ValueError: if ``uniprot`` is empty.
+        """
+        if not uniprot or not uniprot.strip():
+            raise ValueError('A UniProt accession is required, e.g. "P69905".')
+        sample = typing.cast(SbmmSample, self._create_new_element('sequence_based_macromolecule_sample'))
+        typing.cast(dict, sample.json_data)['sequence_based_macromolecule'] = {
+            'sbmm_type': 'protein', 'uniprot_derivation': 'uniprot', 'primary_accession': uniprot.strip()}
+        return sample
 
     def new_screen(self) -> Screen:
         """

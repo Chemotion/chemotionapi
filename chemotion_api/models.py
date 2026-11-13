@@ -312,3 +312,34 @@ class DeviceDescriptionPropertiesModel(_PropertiesBase):
     vendor_url: str | None = None
     general_tags: list[Any] | None = None
     operators: list[Any] | None = None
+
+
+class _QuantityModel(_PropertiesBase):
+    """A value with its unit, as an SBMM sample's quantities are held in ``properties``."""
+    model_config = ConfigDict(extra='forbid')
+    value: float | None = None
+    unit: str | None = None
+
+
+class SbmmSamplePropertiesModel(_PropertiesBase):
+    """Validates an SBMM sample's own properties (types and units as the server's API declares)."""
+    model_config = ConfigDict(extra='allow')
+    name: str | None = None
+    external_label: str | None = None
+    function_or_application: str | None = None
+    inventory_sample: bool | None = None
+    obtained_by: Literal['purchased', 'self_produced', ''] | None = None
+    supplier: str | None = None
+    formulation: Literal['dissolved', 'solid', ''] | None = None
+    purity: float | None = None
+    purity_detection: str | None = None
+    purification_method: str | None = None
+    concentration: _QuantityModel | None = None
+    concentration_rt: _QuantityModel | None = None
+    molarity: _QuantityModel | None = None
+    activity_per_volume: _QuantityModel | None = None
+    activity_per_mass: _QuantityModel | None = None
+    volume_as_used: _QuantityModel | None = None
+    amount_as_used_mol: _QuantityModel | None = None
+    amount_as_used_mass: _QuantityModel | None = None
+    activity: _QuantityModel | None = None
