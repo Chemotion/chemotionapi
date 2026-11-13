@@ -364,7 +364,7 @@ gm.hub_templates(ElementType.SEGMENT); gm.import_hub_template(identifier, Elemen
 el.variations(); el.save_variations(rows); el.create_mtt_request(plate)
 admin = Instance(url).login(admin_user, pw).get_user()        # an Admin
 admin.find_users('Smith'); admin.update_user(u, account_active=False); admin.reset_password(u)
-admin.add_device('NMR', 'NMR1'); admin.jobs(); admin.disk_usage(); admin.matrices()
+admin.create_device('NMR', 'NMR1'); admin.jobs(); admin.disk_usage(); admin.matrices()
 instance.profile(); instance.set_short_label_counter('samples', 100); instance.create_api_token(otp)
 ```
 

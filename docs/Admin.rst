@@ -55,8 +55,8 @@ restored. ``restart_job`` takes one job at a time.
     (user,) = admin.find_users('Smith')
     admin.update_user(user['id'], account_active=False)
     admin.set_user_rights(user['id'], generic_elements_admin=True)
-    device = admin.add_device('NMR 400', 'NMR1')
-    admin.update_device(device['id'], people=[user['id']])
+    device = admin.create_device('NMR 400', 'NMR1')
+    admin.update_device(device.id, people=[user['id']])
     print(admin.disk_usage(), len(admin.jobs()))
 
 .. autoclass:: chemotion_api.user.Admin

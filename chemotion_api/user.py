@@ -743,18 +743,6 @@ class Admin(Person):
         self._admin_check(res, f'loading device {_user_id(device)}')
         return res.json().get('device') or {}
 
-    def add_device(self, name: str, name_abbreviation: str, **fields) -> dict:
-        """Register an instrument as a device (``POST /api/v1/admin_devices``).
-
-        :param fields: ``email``, ``serial_number``, ``verification_status``, ``account_active``,
-            ``visibility``; configure collection afterwards with :meth:`update_device`.
-        """
-        allowed = {'email', 'serial_number', 'verification_status', 'account_active', 'visibility'}
-        if set(fields) - allowed:
-            raise ValueError(f'add_device takes {", ".join(sorted(allowed))}; set the rest with update_device.')
-        res = self._session.post('/api/v1/admin_devices', data={'name': name, 'name_abbreviation': name_abbreviation} | fields)
-        return self._device_answer(res, f'creating device {name_abbreviation}')
-
     def update_device(self, device, **fields) -> dict:
         """Change a device, its users and its data collector (``PUT /api/v1/admin_devices/:id``).
 

@@ -536,7 +536,7 @@ users    .find_users(name) / .update_user(u, **fields) / .delete_user(u, confirm
          .set_user_rights(u, molecule_editor=, converter_admin=, generic_elements_admin=, ...)
          .default_allocated_space() / .set_default_allocated_space(mb)
 groups   .remove_users_from_group(g, *users) / .set_group_admin(g, u, admin=True) / .delete_group(g, confirm=abbr)
-devices  .list_devices(name=None) / .get_device(d) / .add_device(name, abbr) / .update_device(d, **fields)
+devices  .list_devices(name=None) / .get_device(d) / .create_device(name, abbr, email=None, serial_number=None) -> Device / .update_device(d, **fields)
          .delete_device(d, confirm=abbr) / .remove_device_user(d, u) / .test_sftp(d, host, user)
          .local_collectors() / .device_metadata(d) / .save_device_metadata(d, **f) / .sync_device_metadata(d)
 system   .disk_usage() / .jobs() / .restart_job(job) / .queue_admin_task(task) / .matrices() / .update_matrix(m, **f)

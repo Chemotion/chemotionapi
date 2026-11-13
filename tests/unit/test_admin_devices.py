@@ -49,12 +49,8 @@ def test_update_keeps_the_required_names_and_flags_collector_fields():
 
 
 def test_errors_and_guards():
-    with pytest.raises(ValueError, match='add_device takes'):
-        _admin(_Session()).add_device('n', 'a', phone='1')
     with pytest.raises(ValueError, match='Unknown device fields'):
         _admin(_Session()).update_device(8, phone='1')
-    with pytest.raises(ValueError, match='taken'):
-        _admin(_Session(_Res(201, {'errors': {'name_abbreviation': ['taken']}}))).add_device('n', 'a')
     with pytest.raises(ValueError, match="confirm='NMR1'"):
         _admin(_Session(_Res(200, {'device': DEVICE}))).delete_device(8, confirm='x')
     with pytest.raises(PermissionError):
