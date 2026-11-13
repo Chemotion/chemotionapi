@@ -658,7 +658,7 @@ class AbstractElement:
         """
         # `properties` fetches the full record on first access; reading `_properties` directly
         # skipped that, so an element that had not been loaded reported no labels at all.
-        label_ids = (self.properties or {}).get('user_labels') or []
+        label_ids = self.properties.get('user_labels') or []
         if not label_ids:
             return []
         by_id = {row.get('id'): row for row in self._session.user_labels}
@@ -670,7 +670,9 @@ class AbstractElement:
     @property
     def _properties(self) -> dict:
         self._load_if_partial()
-        return self._properties_data
+        # Set by `_set_json_data` before anything reads it; `None` only on an element that was
+        # never given data, which no accessor is reached on.
+        return cast(dict, self._properties_data)
 
     @_properties.setter
     def _properties(self, properties: dict | None):
@@ -1054,10 +1056,11 @@ class AbstractElement:
         collection.remove_elements(self)
 
     def _web_collection_id(self) -> int | str:
-        if (self.json_data or {}).get('collection_id') is not None:
-            return self.json_data['collection_id']
+        data = self.json_data or {}
+        if data.get('collection_id') is not None:
+            return data['collection_id']
         try:
-            labels = self.json_data['tag']['taggable_data']['collection_labels'] or []
+            labels = data['tag']['taggable_data']['collection_labels'] or []
         except (KeyError, TypeError):
             labels = []
         # Shared and synchronized collections have different URLs in the web client

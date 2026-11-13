@@ -1347,8 +1347,9 @@ class RootCollection(AbstractCollection):
                     raise ConnectionError(f'{res.status_code} -> {res.text}')
                 created = json.loads(res.content)['collection']
                 child.id = created['id']
-                if isinstance(getattr(child, 'collection_json', None), dict):
-                    child.collection_json.pop('isNew', None)
+                collection_json = getattr(child, 'collection_json', None)
+                if isinstance(collection_json, dict):
+                    collection_json.pop('isNew', None)
             self._create_unsaved(child, child.id)
 
     def _bulk_update_tree(self, node: AbstractCollection) -> list[dict]:

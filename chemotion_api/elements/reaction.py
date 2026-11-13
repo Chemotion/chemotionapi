@@ -169,7 +169,7 @@ class SampleVariation:
             self._values = json_data
             self._set_aux(vessel_volume)
 
-    def set_aux(self, vessel_volume: float):
+    def set_aux(self, vessel_volume: float | None):
         """
         Updates the auxiliary values (purity, molecular weight, ...) from the sample.
 
@@ -344,7 +344,7 @@ class SampleVariation:
             return 1
         return self._values['aux']['molecularWeight']
 
-    def _set_aux(self, vessel_volume: float):
+    def _set_aux(self, vessel_volume: float | None):
         # TODO: [DONE] get density, molarity from sample (NOT only for new Variations)!!!!
         self._values['aux']['coefficient'] = self._sample.properties['coefficient']
         self._values['aux']['purity'] = self._sample.properties['purity']
@@ -376,7 +376,8 @@ class SampleVariation:
         def convert(value_unit: dict | None, out_unit: str):
             value_unit = value_unit or {}
             try:
-                return convert_value(value_unit.get('value'), value_unit.get('unit'), out_unit)
+                # A missing unit raises ValueError, handled below.
+                return convert_value(value_unit.get('value'), cast(str, value_unit.get('unit')), out_unit)
             except ValueError:
                 return None
 
@@ -559,7 +560,7 @@ class Variation:
 
     def populate(self, json_data: dict, analyses: AnalysesList, starting_materials: MaterialList,
                  reactants: MaterialList,
-                 products: MaterialList, solvents: MaterialList, vessel_size: dict,
+                 products: MaterialList, solvents: MaterialList, vessel_size: dict | None,
                  segment_klasses: Callable[[], dict[str, dict]]):
         """
         Do not use this method! It is used by :class:`Variations` to load a variation.
@@ -586,7 +587,7 @@ class Variation:
         }
 
     def sample_variation_factory(self, sample: Sample, sample_type: SampleVariationType,
-                                 vessel_size: dict) -> SampleVariation:
+                                 vessel_size: dict | None) -> SampleVariation:
         json_data = None
         for key, data in self._json_data.get(sample_type.value, {}).items():
             if key == str(sample.id):
@@ -625,11 +626,17 @@ class Variation:
 
         :raises ValueError: if the analysis has not been saved yet
         """
+        # An unsaved analysis has no id (None) or a client-side uuid. `int(None)` raises TypeError,
+        # which used to escape instead of this method's documented ValueError.
+        ana_id = analyses.id
+        unsaved = ValueError("Analyses has no id. please save the Reaction first")
+        if ana_id is None:
+            raise unsaved
         try:
-            int(analyses.id)
-            self._json_data['metadata']['analyses'].append(analyses.id)
+            int(ana_id)
         except ValueError:
-            raise ValueError("Analyses has no id. please save the Reaction first")
+            raise unsaved from None
+        self._json_data['metadata']['analyses'].append(ana_id)
 
     def get_analyses(self) -> Iterator[Analyses]:
         """
@@ -695,10 +702,10 @@ class Variations(MutableSequence):
 
     def __init__(self, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList,
                  products: MaterialList,
-                 solvents: MaterialList, vessel_size: Callable[[], dict],
+                 solvents: MaterialList, vessel_size: Callable[[], dict | None],
                  segment_klasses: Callable[[], dict[str, dict]] = dict):
         # Initialize the list with given items
-        self._data = list()
+        self._data: list[Variation] = []
         self._segment_klasses = segment_klasses
         self._materials = {'starting_materials': starting_materials, 'reactants': reactants, 'products': products,
                            'solvents': solvents}
@@ -717,7 +724,7 @@ class Variations(MutableSequence):
             self.append(v)
             self._highest_id = max(self._highest_id, variation['id'])
 
-    def remove(self, value: Variation) -> bool:
+    def remove(self, value: Variation) -> bool:  # type: ignore[override]  # returns whether it was found; public since 312
         """
         Removes a variation.
 

@@ -125,3 +125,23 @@ def test_a_share_granted_after_save_is_visible():
     s.shared.append({'id': 7, 'label': 'from a colleague', 'ancestry': None})
     r.load_sync_collection()                             # the call you make to see the new share
     assert [c.id for c in r.sync_root.children] == [7]
+
+
+# --- Variation.link_analyses: an unsaved analysis raises the documented ValueError ---------
+
+@pytest.mark.parametrize("ana_id", [None, "0f3c-uuid-not-saved"])
+def test_linking_an_unsaved_analysis_raises_value_error(ana_id):
+    from chemotion_api.elements.reaction import Variation
+    v = Variation.__new__(Variation)
+    v._json_data = {'metadata': {'analyses': []}}
+    with pytest.raises(ValueError, match="save the Reaction first"):
+        v.link_analyses(SimpleNamespace(id=ana_id))
+    assert v._json_data['metadata']['analyses'] == []
+
+
+def test_linking_a_saved_analysis_records_its_id():
+    from chemotion_api.elements.reaction import Variation
+    v = Variation.__new__(Variation)
+    v._json_data = {'metadata': {'analyses': []}}
+    v.link_analyses(SimpleNamespace(id=42))
+    assert v._json_data['metadata']['analyses'] == [42]
