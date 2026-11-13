@@ -149,6 +149,9 @@ returns a float in millilitres (a `'l'` unit is scaled), or `None` when there is
   `UnsupportedServerVersion` and naming both the detected version and the release line to use
   instead. The check reads `/about`, which is unauthenticated, so it fires **before** credentials
   are sent.
+- `login()` and `login_token()` apply the same check, so `Instance(url).login(...)` refuses an
+  unsupported server before sending the password. The result is cached per connection; after
+  `test_connection()` it costs no further request.
 - Version parsing no longer degrades silently. It previously fell back to the literal string
   `'TEST'`, which then appeared in every built-in element's JSON-LD `@type` IRI with no error.
 - Built-in `@type` IRIs now carry `major.minor` (`chemotion:type/sample/4.0`). Deployments track
@@ -238,6 +241,13 @@ Two things were **broken against the released server** and are fixed:
   would fall outside the new grid still holds data, and the server names the blocking positions.
 
 New surface:
+
+- **Device descriptions.** `Collection.get_device_descriptions()` lists the v4
+  `device_description` element; a `DeviceDescription` reads and saves its fields through
+  `properties` (fields it does not model survive a save) and exposes its ontology annotations as
+  `ontology_terms()`. Previously the type fell through to the generic-element endpoint and listed
+  as empty. The built-in types still not modelled (`cell_line`, `screen`,
+  `sequence_based_macromolecule_sample`) raise a `TypeError` naming the type.
 
 - **`Collection.assign_elements()` / `remove_elements()` / `move_elements()`** — put an element in
   another collection, take it out, or both. `move_elements()` is **not atomic**: v4 has no move

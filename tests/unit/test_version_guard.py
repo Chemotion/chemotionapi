@@ -76,3 +76,57 @@ def test_model_type_iri_uses_major_minor_so_it_survives_rebuilds():
 def test_generic_classes_keep_their_own_schema_version():
     sm = SchemaManager(_about("v4.0.0-rc-260818"))
     assert sm.generate_model_type("try", "1.0") == "chemotion:generic_type/try/1.0"
+
+
+# --- the gate also guards login() and login_token() (2026-11-13) --------------------------
+
+class _GatedConnection:
+    """A Connection stand-in serving /about and recording any POST."""
+
+    def __init__(self, version):
+        self.posts = []
+        self._schema_manager = None
+        self._about = _about(version)
+
+    @property
+    def schema_manager(self):
+        if self._schema_manager is None:
+            self._schema_manager = SchemaManager(self._about)
+        return self._schema_manager
+
+    def post(self, **kwargs):
+        self.posts.append(kwargs)
+        return type("R", (), {"status_code": 201, "json": lambda self: {"token": "t"}})()
+
+    def get_default_session_header(self):
+        return {}
+
+    def set_bearer_token(self, token):
+        self.token = token
+
+
+def _instance(con):
+    from chemotion_api import Instance
+    inst = Instance.__new__(Instance)
+    inst._con = con
+    return inst
+
+
+def test_login_refuses_an_unsupported_server_before_sending_the_password():
+    con = _GatedConnection("v3.1.2")
+    with pytest.raises(UnsupportedServerVersion):
+        _instance(con).login("user", "secret")
+    assert con.posts == [], "the password must not be sent to a server we refuse"
+
+
+def test_login_token_refuses_an_unsupported_server():
+    con = _GatedConnection("v3.1.2")
+    with pytest.raises(UnsupportedServerVersion):
+        _instance(con).login_token("jwt")
+    assert not hasattr(con, "token")
+
+
+def test_login_proceeds_on_a_supported_server():
+    con = _GatedConnection("v4.0.1")
+    _instance(con).login("user", "secret")
+    assert len(con.posts) == 1 and con.token == "t"

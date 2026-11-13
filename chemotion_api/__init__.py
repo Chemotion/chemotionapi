@@ -143,6 +143,16 @@ class Instance:
         self._con.schema_manager  # noqa: B018  (property access performs the check)
         return self
 
+    def _check_server_version(self) -> None:
+        """Apply the ELN version gate before credentials go anywhere.
+
+        It used to run only inside :meth:`test_connection`, so ``Instance(url).login(...)`` —
+        the documented way to log in — skipped it, and a client for one ELN major version would
+        log in to another and fail later on whichever endpoint had moved. ``schema_manager`` is
+        cached, so this costs one unauthenticated ``/about`` request per connection at most.
+        """
+        self._con.schema_manager  # noqa: B018  (property access performs the check)
+
     def get_all_types(self) -> list[str]:
         """
         Generates a list of all JSON-LD types (IRIs) in the system.
@@ -162,8 +172,10 @@ class Instance:
         :return: the instance itself
 
         :raise PermissionError: if the login was not successful.
+        :raises UnsupportedServerVersion: if the instance is not a supported ELN version. Checked
+            before the password is sent; free when :meth:`test_connection` already ran.
         """
-
+        self._check_server_version()
         payload = {'username': user, 'password': password}
         login_url = "/api/v1/public/token"
 
@@ -180,16 +192,17 @@ class Instance:
         """
         You can use this login_token method to log in to a Chemotion instance.
         To do this, you need a valid Chemotion JWT. The token of a logged-in instance can be read
-        with the :attr:`token` property; a token for a device can be generated with the
-        :attr:`device_manager`.
+        with the :attr:`token` property.
 
         The token is not checked by this method. An invalid token causes the following requests to fail.
 
         :param jwt_token: a JSON Web Token.
 
         :return: the instance itself
-        """
 
+        :raises UnsupportedServerVersion: if the instance is not a supported ELN version.
+        """
+        self._check_server_version()
         self._con.set_bearer_token(jwt_token)
         return self
 
