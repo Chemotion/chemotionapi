@@ -407,14 +407,18 @@ class Sample(AbstractElement):
         :raises KeyError: If the sample carries no reaction reference
         """
         from chemotion_api import Instance
-        try:
-            # A new sample has no tag (None)
-            reaction_id = self.json_data['tag']['taggable_data']['reaction_id']
-        except (KeyError, IndexError, TypeError):
-            reaction_id = None
+        reaction_id = self._tagged_reaction_id()
         if reaction_id is None:
             raise KeyError(f'Could not find Reaction of Sample: {self}')
         return Instance(self._session).get_reaction(reaction_id)
+
+    def _tagged_reaction_id(self) -> int | None:
+        """The id of the reaction this sample's tag data points at — read locally, no request."""
+        try:
+            # A new sample has no tag (None); split() and copy() delete it.
+            return self.json_data['tag']['taggable_data']['reaction_id']
+        except (KeyError, IndexError, TypeError):
+            return None
 
     @property
     def role_in_reaction(self) -> Literal[
@@ -595,12 +599,9 @@ class Sample(AbstractElement):
             purity=self.properties['purity'],
             molarity=self.properties['molarity']['value'],
             density=self.properties['density'],
-            # A gas role only means anything inside a reaction — `vessel_size` comes from one, so
-            # a detached sample would feed `None` into the gas arithmetic and raise. Resolved
-            # here, at the point of use, rather than by having the `gas_type` getter quietly
-            # rewrite the sample (which is what it used to do, at the cost of a request on every
-            # read; see :attr:`gas_type`).
-            gas_type=self.gas_type if self.reaction is not None else GasType.OFF,
+            # The getter already reports OFF for a sample outside any reaction, so a detached
+            # sample never feeds a `None` vessel size into the gas arithmetic.
+            gas_type=self.gas_type,
             vessel_size=self.vessel_size,
             **gas_attres
         )
@@ -635,11 +636,17 @@ class Sample(AbstractElement):
         field this client could not parse — an error with no relation to the value being read.
         A downstream consumer had to subclass ``Sample`` to stop it.
 
-        The normalisation it was doing is still available deliberately, via
-        :meth:`set_gas_type`; it is no longer a side effect of reading.
+        A sample that belongs to no reaction still reads as :attr:`GasType.OFF`, as before — a gas
+        role means nothing outside a reaction, and the unit and equivalent rules key off it. That
+        is decided from local data only: a sample attached to a reaction object, or whose tag
+        names one, reports its stored role; anything else (a new sample, or one made by
+        :meth:`split` or :meth:`copy`, which drop the tag) reports OFF. The stored value is left
+        alone; use :meth:`set_gas_type` to change it.
 
         :return: The current :class:`chemotion_api.elements.sample.GasType`
         """
+        if self._reaction is None and self._tagged_reaction_id() is None:
+            return GasType.OFF
         return self._properties.get('gas_type', GasType.OFF)
 
     @property
@@ -668,6 +675,11 @@ class Sample(AbstractElement):
         :raises ValueError: If the gas type is not allowed for this sample or the reaction is not a
             gas-schema reaction
         """
+        # Load the full record *before* writing `_properties` directly. A sample built from a
+        # parent's payload (a reaction material, a wellplate well) loads lazily, on the first
+        # `properties` read — and that load re-parses `_properties`, discarding anything written
+        # to it first. Several paths here write before they read (a solvent's amount, for one).
+        self._ensure_loaded()
         if isinstance(gas_type, str):
             gas_type = GasType(gas_type)
 
@@ -1036,6 +1048,11 @@ class Sample(AbstractElement):
 
         Sets the equivalent to ``None`` if it cannot be computed.
         """
+        # Load the full record *before* writing `_properties` directly. A sample built from a
+        # parent's payload (a reaction material, a wellplate well) loads lazily, on the first
+        # `properties` read — and that load re-parses `_properties`, discarding anything written
+        # to it first. Several paths here write before they read (a solvent's amount, for one).
+        self._ensure_loaded()
         try:
             self._set_equivalent()
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
@@ -1086,6 +1103,11 @@ class Sample(AbstractElement):
         :param check_ref: If ``True``, route through the properties handler so the reaction is kept
             consistent; if ``False``, set the flag directly without side effects
         """
+        # Load the full record *before* writing `_properties` directly. A sample built from a
+        # parent's payload (a reaction material, a wellplate well) loads lazily, on the first
+        # `properties` read — and that load re-parses `_properties`, discarding anything written
+        # to it first. Several paths here write before they read (a solvent's amount, for one).
+        self._ensure_loaded()
         if check_ref:
             self.properties['reference'] = is_ref
         else:
@@ -1118,6 +1140,11 @@ class Sample(AbstractElement):
         :raises ValueError: if the unit is not allowed or the value is negative
         :raises KeyError: if the unit is Yield
         """
+        # Load the full record *before* writing `_properties` directly. A sample built from a
+        # parent's payload (a reaction material, a wellplate well) loads lazily, on the first
+        # `properties` read — and that load re-parses `_properties`, discarding anything written
+        # to it first. Several paths here write before they read (a solvent's amount, for one).
+        self._ensure_loaded()
         if isinstance(unit, str):
             unit_str = unit
             unit = QuantityUnit.from_string(unit_str)

@@ -468,3 +468,38 @@ def test_an_unrelated_bad_field_no_longer_blocks_a_write():
     sample._properties['coefficient'] = 'garbage already stored'
     sample.properties['purity'] = 0.9
     assert sample._properties['purity'] == 0.9
+
+
+# --- 2026-11-13 review of v4/align-eln-4.0.1 ----------------------------------------------
+
+def test_a_solvent_amount_set_on_a_loaded_reaction_survives_the_lazy_load(monkeypatch):
+    # A material built from the reaction payload loads its full record lazily. `set_amount` on a
+    # solvent writes `_properties` without reading `properties` first, and the first read (from
+    # `update_equivalent`) used to trigger that load — which re-parsed over the new amount.
+    import copy
+    solvent_json = _sample_json(7, target_amount_unit='l', target_amount_value=0.5)
+    reaction = Reaction(SEGMENTS, SESSION, json_data={
+        'id': 1, 'type': 'reaction', 'name': '', 'starting_materials': [], 'reactants': [],
+        'products': [], 'solvents': [copy.deepcopy(solvent_json)], 'purification_solvents': []})
+    solvent = reaction.properties['solvents'][0]
+    loads = []
+    monkeypatch.setattr(solvent, '_load_data_from_server',
+                        lambda: loads.append(1) or (None, copy.deepcopy(solvent_json)))
+    solvent.set_amount(0.01, 'l')
+    assert loads == [1]
+    assert solvent.properties['target_amount']['value'] == 0.01
+
+
+def test_a_sample_outside_any_reaction_reads_gas_type_off():
+    # A split or copy drops the tag, but keeps the stored role. It must not keep the gas rules:
+    # a feedstock may only be measured in l/mol, which would refuse grams on a plain sample.
+    sample = _sample(gas_type='feedstock')
+    assert sample._properties['gas_type'].value == 'feedstock'      # stored value untouched
+    assert sample.gas_type.value == 'off'
+    assert QuantityUnit.Gram in sample.allowed_quantity_units()
+
+
+def test_a_tagged_sample_reports_its_stored_gas_type_without_a_request():
+    # SESSION has no `get`: any attempt to fetch the reaction would raise.
+    sample = _sample(gas_type='feedstock', tag={'taggable_data': {'reaction_id': 42}})
+    assert sample.gas_type.value == 'feedstock'
