@@ -15,7 +15,8 @@ This is the **first release of the 4xx line**; no `400.x` was ever tagged.
 candidate.** Until 2026-11-10 the only v4 container was a rolling `next-release` tag, so earlier
 work could only claim alignment "by source inspection". ComPlat now publishes immutable
 per-release images, and this client is tested against `complat/chemotion:eln-4.0.1`
-(digest-pinned; `/about` reports `v4.0.1-0-g84f58f4`): **81 passed, 1 skipped, 0 failed**.
+(digest-pinned; `/about` reports `v4.0.1-0-g84f58f4`): the integration suite, on a freshly seeded
+instance, **106 passed, 0 skipped, 0 failed**.
 
 **`.eln` / RO-Crate export is not in this release.**
 
