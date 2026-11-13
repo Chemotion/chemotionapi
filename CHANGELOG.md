@@ -76,6 +76,9 @@ offers none.
 
 ### Also
 
+- **Joining collection paths no longer drops the segments after an absolute one.**
+  `'a', '/b', 'c', 'd'` gave `/b/`; it now gives `/b/c/d`. A later absolute segment still resets
+  the path, so `'a', '/b', '/c', 'd'` gives `/c/d`.
 - **Three tests were deleted and one added.** `test_get_admin_devices` was a bare `pass` over a
   commented-out body; `test_create_devices` was a `# TODO` followed by `return`; and
   `test_get_user` asserted that `create_new_device` *raises*, which held only because the route
