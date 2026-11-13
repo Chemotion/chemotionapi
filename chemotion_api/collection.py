@@ -472,10 +472,11 @@ class AbstractCollection:
             raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
-    #: Element kinds this client will send to `collection_elements`. v4 declares
-    #: sample/reaction/wellplate/screen/research_plan in `main_ui_state_params`, and the usecase
-    #: resolves more besides — but a kind we have not exercised is untested, not supported.
-    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan')
+    #: Built-in element kinds this client sends to `collection_elements`, each exercised against
+    #: ELN v4.0.1 (assign, then remove). LabIMotion generic elements are accepted too, keyed by
+    #: their klass name, which the server resolves. Other kinds are refused until exercised.
+    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'wellplate', 'screen',
+                                 'device_description')
 
     def assign_elements(self, dest: AbstractCollection, *elements) -> None:
         """Add elements of this collection to ``dest`` as well — they stay here too.
@@ -544,11 +545,11 @@ class AbstractCollection:
             if getattr(element, 'is_new', False) or element.id is None:
                 raise ValueError('The element has not been saved yet. Save it first.')
             kind = element.element_type
-            if kind not in self._COLLECTION_ELEMENT_KINDS:
+            if kind not in self._COLLECTION_ELEMENT_KINDS and not isinstance(element, GenericElement):
                 raise ValueError(
-                    f"Moving {kind} elements between collections is not implemented. The server "
-                    f"may well accept it — this client only sends kinds it has exercised "
-                    f"({', '.join(self._COLLECTION_ELEMENT_KINDS)}); see AI/DEFERRED.md.")
+                    f"Moving {kind} elements between collections is not supported by this client; "
+                    f"it sends only kinds it has verified against the server: "
+                    f"{', '.join(self._COLLECTION_ELEMENT_KINDS)}, and generic elements.")
             # `checkedAll` is deliberately never sent: the server reduces it to
             # `where.not(id: unchecked_ids)` over the *whole* element class, not this collection,
             # so one request could attach a user's entire sample library.
