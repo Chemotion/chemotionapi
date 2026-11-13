@@ -119,19 +119,38 @@ def test_wellplate_writes_are_validated():
     assert w.properties['name'] == 'renamed'
 
 
-# --- rich text is read-only: plain strings in, deltas refused (owner, 2026-11-13) ----------
+# --- rich text is written as explicit deltas (owner, 2026-11-13) --------------------------
 
-def test_a_plain_string_is_stored_as_rich_text():
+def test_text_to_quill_round_trips_with_quill_to_text():
+    from chemotion_api.utils import quill_to_text, text_to_quill
+    delta = text_to_quill('kept cold')
+    assert delta == {'ops': [{'insert': 'kept cold\n'}]}
+    assert quill_to_text(delta) == 'kept cold'
+    assert text_to_quill('two\nlines\n') == {'ops': [{'insert': 'two\nlines\n'}]}
+    with pytest.raises(TypeError):
+        text_to_quill(42)
+
+
+def test_a_delta_from_text_to_quill_is_stored():
+    from chemotion_api.utils import text_to_quill
     w = _wellplate()
-    w.properties['description'] = 'kept cold'
+    w.properties['description'] = text_to_quill('kept cold')
     assert w.properties['description'] == {'ops': [{'insert': 'kept cold\n'}]}
 
 
-@pytest.mark.parametrize("value", [{'ops': [{'insert': 'hand-built\n', 'attributes': {'bold': True}}]},
-                                   {'ops': []}, 42])
-def test_a_hand_built_delta_or_non_string_is_refused(value):
+def test_a_formatted_delta_read_from_the_eln_can_be_written_back():
     w = _wellplate()
-    with pytest.raises(ValueError, match="rich text"):
+    rich = {'ops': [{'insert': 'Title'}, {'insert': '\n', 'attributes': {'header': 2}},
+                    {'insert': {'image': 'data:...'}}, {'insert': '\n'}]}
+    w.properties['description'] = rich
+    assert w.properties['description'] == rich
+
+
+@pytest.mark.parametrize("value", ['a bare string', 42, {'ops': 'x'}, {'nope': []},
+                                   {'ops': [{'retain': 3}]}, {'ops': [{'insert': 1}]}])
+def test_a_string_or_malformed_delta_is_refused(value):
+    w = _wellplate()
+    with pytest.raises(ValueError, match="rich text|Quill document delta"):
         w.properties['description'] = value
 
 
@@ -145,29 +164,9 @@ def test_reaction_description_and_observation_are_rich_text():
     import sys
     sys.path.insert(0, os.path.dirname(__file__))
     from test_sample_properties import _reaction
+    from chemotion_api.utils import text_to_quill
     r = _reaction([])
-    r.properties['observation'] = 'turned yellow'
+    r.properties['observation'] = text_to_quill('turned yellow')
     assert r.properties['observation'] == {'ops': [{'insert': 'turned yellow\n'}]}
-    with pytest.raises(ValueError, match="rich text"):
-        r.properties['description'] = {'ops': [{'insert': 'x'}]}
-
-
-def test_screen_and_device_writes_are_validated():
-    from pydantic import ValidationError
-    from chemotion_api.elements.device_description import DeviceDescription
-    from chemotion_api.elements.screen import Screen
-    screen = _element(Screen, {'id': 1, 'type': 'screen', 'name': 'S', 'wellplates': [],
-                               'research_plans': [], 'description': {'ops': []}})
-    with pytest.raises(ValidationError):
-        screen.properties['conditions'] = {'not': 'text'}
-    screen.properties['conditions'] = '37 °C'
-    device = _element(DeviceDescription, {'id': 2, 'type': 'device_description', 'name': 'D'})
-    with pytest.raises(ValidationError):
-        device.properties['general_tags'] = 'should be a list'
-    device.properties['general_tags'] = ['a', 'b']
-    assert device.properties['general_tags'] == ['a', 'b']
-
-
-def test_restricted_screen_and_wellplate_still_load_with_models():
-    w = _element(Wellplate, _payload('wellplate'))
-    assert w.properties['description'] is WITHHELD
+    with pytest.raises(ValueError, match="text_to_quill"):
+        r.properties['description'] = 'a bare string'

@@ -31,6 +31,9 @@ from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, Gene
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
+# Rich-text helpers, public: reaction descriptions/observations and wellplate/screen descriptions
+# are Quill deltas, written explicitly with text_to_quill() and read back with quill_to_text().
+from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
