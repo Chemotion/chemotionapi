@@ -54,6 +54,20 @@ compose() {
 # Ensure the stack is up (no-op if already running).
 compose up -d || { echo "ERROR: docker compose up failed"; exit 1; }
 
+wait_for_eln() {
+    for i in $(seq 1 120); do
+        code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${ELN_PORT}/about" 2>/dev/null)
+        [ "$code" = "200" ] && return 0
+        sleep 5
+    done
+    return 1
+}
+
+# Wait until the ELN serves before touching its database. On boot the container runs its own
+# migrations (`make all-eln`) before starting the server; running ours while that is in progress
+# lost the race with ActiveRecord::ConcurrentMigrationError (seen twice on a freshly started stack).
+wait_for_eln || { echo "ERROR: ELN did not come up on port ${ELN_PORT}"; exit 1; }
+
 # Route psql/pg_dump through host tools when present, else through the db container.
 if command -v psql >/dev/null 2>&1; then
     echo "Using host Postgres client tools (${PG_HOST}:${PG_PORT})"
@@ -95,18 +109,26 @@ echo "DB reset from seed: ${SEED}"
 
 # Bring the schema up to the running server version (normally a no-op: the committed seed is
 # already dumped at the current stack version; this covers stack upgrades).
-compose exec -T "${DOCKER_COMPOSE_SERVICE}" bash -c "cd /chemotion/app && bundle exec rake db:migrate" \
-    || { echo "ERROR: rake db:migrate failed"; exit 1; }
+# Retried on ConcurrentMigrationError only: another migrator holding the advisory lock is
+# transient, any other failure is not.
+for attempt in 1 2 3; do
+    out=$(compose exec -T "${DOCKER_COMPOSE_SERVICE}" bash -c "cd /chemotion/app && bundle exec rake db:migrate" 2>&1)
+    status=$?
+    [ $status -eq 0 ] && break
+    if [ $attempt -lt 3 ] && grep -q "ConcurrentMigrationError" <<< "$out"; then
+        echo "Migration lock held by another process; retrying ($attempt/3)"
+        sleep 15
+        continue
+    fi
+    echo "$out"
+    echo "ERROR: rake db:migrate failed"
+    exit 1
+done
 echo "Migrations completed"
 
 # Restart the ELN so it reconnects to the fresh database, then wait for it.
 compose restart "${DOCKER_COMPOSE_SERVICE}" || exit 1
-for i in $(seq 1 120); do
-    code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${ELN_PORT}/about" 2>/dev/null)
-    [ "$code" = "200" ] && break
-    [ "$i" = "120" ] && { echo "ERROR: ELN did not come up on port ${ELN_PORT}"; exit 1; }
-    sleep 5
-done
+wait_for_eln || { echo "ERROR: ELN did not come up on port ${ELN_PORT}"; exit 1; }
 echo "Chemotion is running on port ${ELN_PORT}"
 echo "**SUCCESS**"
 exit 0

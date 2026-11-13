@@ -170,3 +170,36 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if SERVER_FIXTURES.intersection(getattr(item, "fixturenames", [])):
             item.add_marker(pytest.mark.integration)
+
+
+# The generic-manager integration tests are a stateful chain against the *seed*: one creates klass
+# `ttes` and later ones fetch it by that name, assert versions such as '1.1', and count the seed's
+# klasses. On a stack that has already run them, nine fail with errors that look like regressions.
+# Until they are rewritten to be self-contained (owner, 2026-11-13: fail fast for now), refuse to
+# start them on a used seed. Runs once, in the parent process (tests run forked), and only when
+# those tests are selected.
+_GENERIC_CHAIN_FILE = 'test_generic_manager.py'
+_GENERIC_CHAIN_MARKER_KLASS = 'ttes'
+
+
+def pytest_collection_finish(session):
+    chain = [item for item in session.items
+             if item.path.name == _GENERIC_CHAIN_FILE and item.get_closest_marker('integration')]
+    if not chain:
+        return
+    from chemotion_api import Instance  # lazy, as in the fixtures
+    try:
+        instance = Instance(CONFIG['ELN_URL']).test_connection().login(CONFIG['ELN_USER'], CONFIG['ELN_PASS'])
+        names = {klass.name for klass in instance.generic_manager().load_all_elements()}
+    except Exception as e:  # no server: let the tests report that themselves
+        logging.warning('Could not check whether the seed is fresh: %s', e)
+        return
+    if _GENERIC_CHAIN_MARKER_KLASS in names:
+        pytest.exit(
+            f'The test stack has already run the generic-manager tests (klass '
+            f'{_GENERIC_CHAIN_MARKER_KLASS!r} exists). They depend on a fresh seed, so on this stack '
+            f'several would fail for reasons unrelated to the code. Reseed first: '
+            f'`just stack-reset` (check for **SUCCESS**). '
+            f'To run other tests on this stack, deselect them: --deselect {_GENERIC_CHAIN_FILE} '
+            f'or -k "not generic_manager".',
+            returncode=4)
