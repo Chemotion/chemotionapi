@@ -24,8 +24,8 @@ def instance_with_test_reaction(instance_with_test_samples):
 def test_get_collection_from_reaction(instance_with_test_reaction: dict):
     logged_in_instance: Instance = instance_with_test_reaction['instance']
     col: Collection = instance_with_test_reaction['main_collection']
-    reaction = logged_in_instance.get_reaction(1)
-    assert logged_in_instance.get_collection_of_element(reaction).id == 11
+    reaction = logged_in_instance.get_reaction(instance_with_test_reaction['reaction'].id)
+    assert logged_in_instance.get_collection_of_element(reaction).id == col.id
 
 
 def test_get_reaction_success(instance_with_test_reaction: dict):
@@ -218,7 +218,7 @@ def test_extended_reaction_amount(instance_with_test_reaction: dict):
     col = instance_with_test_reaction['main_collection']
     sol = col.new_solvent('Acetone')
     sol.set_amount(300, 'l')
-    reactant = i.get_sample(2)
+    reactant = i.get_sample(instance_with_test_reaction['sample_ids'][1])   # ammonia
     st_mt = col.new_sample_smiles('N')
     pr_mt = col.new_sample_smiles('NO')
     st_mt.save()

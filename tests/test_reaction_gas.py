@@ -12,7 +12,7 @@ def instance_with_test_reaction(instance_with_test_samples):
     col = instance_with_test_samples['main_collection']
     sol = col.new_solvent('Acetone')
     sol.set_amount(300, 'l')
-    reactant = i.get_sample(2)
+    reactant = i.get_sample(instance_with_test_samples['sample_ids'][1])   # ammonia
     st_mt = col.new_sample_smiles('N')
     pr_mt = col.new_sample_smiles('NO')
     reaction = col.new_reaction()

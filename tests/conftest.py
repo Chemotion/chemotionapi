@@ -166,10 +166,27 @@ SERVER_FIXTURES = {
 }
 
 
+# Integration tests that need the committed seed itself — its admin and second account, its generic
+# klasses ('wrk', 'try'), its prepared reaction, or its exact klass counts — and so cannot run
+# against another instance. Everything else needs only one ordinary account:
+#   ELN_URL=… ELN_USER=… ELN_PASS=… NO_SETUP=1 pytest -m "integration and not seeded"
+SEEDED_MODULES = {
+    'test_generic_manager.py', 'test_share.py', 'test_workflow.py', 'test_generic.py',
+    'test_reaction_variants.py', 'test_groups.py',
+}
+SEEDED_TESTS = {
+    'test_user.py::test_get_user', 'test_user.py::test_create_device_and_delete',
+    'test_json_ld.py::test_new_generics', 'test_collection_kinds.py::test_move_element_kind[generic]',
+}
+
+
 def pytest_collection_modifyitems(config, items):
     for item in items:
         if SERVER_FIXTURES.intersection(getattr(item, "fixturenames", [])):
             item.add_marker(pytest.mark.integration)
+        if item.get_closest_marker('integration') and (
+                item.path.name in SEEDED_MODULES or f'{item.path.name}::{item.name}' in SEEDED_TESTS):
+            item.add_marker(pytest.mark.seeded)
 
 
 # Some integration tests are stateful chains against the *seed* and fail, with errors that look like
@@ -200,6 +217,8 @@ _SEED_CHAINS = {
 
 
 def pytest_collection_finish(session):
+    if session.config.option.collectonly:
+        return      # listing tests must not contact a server
     selected = {item.path.name for item in session.items
                 if item.path.name in _SEED_CHAINS and item.get_closest_marker('integration')}
     if not selected:

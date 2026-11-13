@@ -49,7 +49,7 @@ def test_reaction_variants(instance_with_test_reaction):
 
 @pytest.mark.skip(reason="potential_units() offers Equivalent for a variation's starting "
                          "material; this test says it should not. Which is right is a question "
-                         "about variation semantics, not a client bug — see AI/DEFERRED.md.")
+                         "about variation semantics, not a client bug.")
 def test_add_variations(instance_with_test_reaction):
     ra = instance_with_test_reaction['instance'].get_reaction(1)
     ra.variations.add_new()
