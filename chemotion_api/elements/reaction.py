@@ -1082,6 +1082,9 @@ class Reaction(AbstractElement):
 
         :return: The flagged reference :class:`Sample`, or ``None`` if nothing is flagged
         """
+        cached = getattr(self, '_reference_in_pass', None)
+        if cached is not None:
+            return cached[0]
         for mat in [*self.starting_materials, *self.reactants]:
             if mat.properties['reference']:
                 return mat
@@ -1156,10 +1159,18 @@ class Reaction(AbstractElement):
     def update_equivalent(self):
         """
         Recomputes the molar equivalent of every material (sample) of the reaction.
+
+        The reference is resolved once for the whole pass: every material's equivalent is relative
+        to it, and finding it scans all materials, so resolving it per material made one pass
+        quadratic.
         """
-        for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
-                    *self.purification_solvents]:
-            mat.update_equivalent()
+        self._reference_in_pass = [self.reference_sample]
+        try:
+            for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
+                        *self.purification_solvents]:
+                mat.update_equivalent()
+        finally:
+            self._reference_in_pass = None
 
     def _parse_properties(self) -> dict:
         reaction_elements = {}

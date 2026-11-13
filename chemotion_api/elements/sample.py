@@ -1202,6 +1202,18 @@ class Sample(AbstractElement):
                 return default_set + [QuantityUnit.Mole]
         return default_set + [QuantityUnit.Mole]
 
+    def _update_equivalents_after_own_change(self):
+        """Recompute what a change to this sample's amount, purity or coefficient affects.
+
+        Every equivalent is relative to the reference alone, so a change to any other sample moves
+        only that sample's own equivalent; only a change to the reference moves all of them.
+        Recomputing the whole reaction on every change made adding n materials cost n full passes.
+        """
+        if self.properties['reference']:
+            self.reaction.update_equivalent()
+        else:
+            self.update_equivalent()
+
     def update_equivalent(self):
         """
         Recomputes the molar equivalent of the sample relative to its reaction's reference sample.
@@ -1341,7 +1353,7 @@ class Sample(AbstractElement):
             # burying the real equivalent failures this except clause exists to surface.
             if self.reaction is not None:
                 try:
-                    self.reaction.update_equivalent()
+                    self._update_equivalents_after_own_change()
                 except (KeyError, ValueError, TypeError, ZeroDivisionError, AttributeError) as e:
                     # Was a bare `pass`. Failing to recompute equivalents is not fatal — the amount
                     # was still set — but it leaves the reaction's stoichiometry stale, and silence
@@ -1434,7 +1446,7 @@ class Sample(AbstractElement):
             else:
                 self._properties[name[-1]] = None if value[-1] is None else float(value[-1])
                 if self.reaction is not None:
-                    self.reaction.update_equivalent()
+                    self._update_equivalents_after_own_change()
                 return False
         if name[-1] == 'coefficient':
             if value[-1] is not None and value[-1] <= 0:
@@ -1442,7 +1454,7 @@ class Sample(AbstractElement):
             else:
                 self._properties[name[-1]] = value[-1]
                 if self.reaction is not None:
-                    self.reaction.update_equivalent()
+                    self._update_equivalents_after_own_change()
                 return False
         if name[-1] == 'reference' and self.reaction is not None:
             if value[-1]:
