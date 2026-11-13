@@ -3,7 +3,7 @@
 The version scheme tracks the server: `312.x.y` ↔ ELN 3.1.2, `211.x.y` ↔ ELN 2.1.1.
 For an ELN v4 server, use the `4xx` line instead.
 
-## 🚨 312.1.0 — wrong-type generic elements, and three device methods that never worked
+## 🚨 312.1.0 — wrong-type generic elements, and four device methods that never worked
 
 ### Fixed: `get_generic_by_name()` could return an element of the wrong type ([#14])
 
@@ -24,11 +24,11 @@ Reported by **@SebaWitt**. Also present on the v4 line and fixed there.
 
 [#14]: https://github.com/Chemotion/chemotionapi/issues/14
 
-### Removed: three device methods that never worked
+### Removed: four device methods that never worked
 
-**Breaking, but only for calls that could not have succeeded.** Three public methods are gone.
-Each one posted to a route no Chemotion release serves, so every call raised `ConnectionError`
-on a 404:
+**Breaking, but only for calls that could not have succeeded.** Four public methods are gone.
+Three posted to a route no Chemotion release serves, so every call raised `ConnectionError` on a
+404:
 
 | Removed | Called |
 |---|---|
@@ -43,6 +43,12 @@ in none of them, and appears in no version of the server's own Swagger document.
 `POST /api/v1/devices` describes an *instrument* — `title`, `code`, `types`, `samples` — not the
 device-*user* these methods took (`first_name`, `last_name`, `name_abbreviation`), so pointing
 them at it would have changed what they mean rather than fixed them.
+
+The fourth, `AdminMenu.greate_device()`, reached a real route — `POST
+/api/v1/admin/group_device/create` — which cannot create a device (see `Admin.create_device()`
+below). Against ELN 3.1.2 it returned `{'error': 'Validation failed: Name Please enter a name'}`
+from a `201`, so a caller saw a dict and no exception: the failure was silent. `AdminMenu` remains
+as an empty class, so an import of it keeps working.
 
 `DeviceManager` itself remains: `add_users_to_group()` and `add_users_to_group_by_id()` use
 `PUT /api/v1/admin/group_device/update/:id`, which is real and unaffected.

@@ -49,10 +49,10 @@ def test_create_device_and_delete(config_login):
     """`Admin.create_device()` is the supported way to create a device user.
 
     This is what the deleted tests should have covered. It exercises the real route
-    (`/api/v1/admin/group_device/create`), checks a typed `Device` comes back rather than a raw
-    payload, and asserts the duplicate case raises — the server answers a rejected
-    `name_abbreviation` with 201 and an `error` key, so a wrapper that trusted the status code
-    would report a creation that did not happen.
+    (`/api/v1/admin_devices`), checks a typed `Device` comes back rather than a raw payload, and
+    asserts the duplicate case raises — the server can answer a rejected create with 201 and an
+    `error` key, so a wrapper that trusted the status code would report a creation that did not
+    happen.
     """
     instance = Instance(config_login.get('ELN_URL')).test_connection().login(
         config_login.get('ELN_ADMIN_USER'), config_login.get('ELN_ADMIN_PASS'))
