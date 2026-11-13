@@ -3,9 +3,6 @@
 Defines the :class:`Sample` element together with its molecule, solvent and gas-phase helpers,
 and its quantity/equivalent calculations.
 """
-from pydantic import BaseModel, ValidationError
-from chemotion_api.models import SamplePropertiesModel, GasPhaseModel, UnitDictModel, validate_field
-from chemotion_api.utils import UnitDict
 import json
 import logging
 import re
@@ -14,7 +11,7 @@ import warnings
 from enum import Enum
 from typing import Any, Literal, Optional, Self, cast
 
-
+from pydantic import BaseModel, ValidationError
 from requests import Response
 
 from chemotion_api.elements.utils.converter import convert_value_to_default
@@ -22,6 +19,7 @@ from chemotion_api.elements.utils.equivalent import get_equivalent
 from chemotion_api.user import User
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.empty_elements import init_container
+from chemotion_api.models import SamplePropertiesModel, GasPhaseModel, UnitDictModel, validate_field
 
 logger = logging.getLogger(__name__)
 from collections.abc import MutableMapping

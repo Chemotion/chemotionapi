@@ -55,10 +55,10 @@ def test_an_account_without_an_all_collection_says_so():
 def test_load_sync_collection_refetches_instead_of_serving_a_stale_cache():
     """A standalone `load_sync_collection()` must see shares granted since the last fetch.
 
-    `_collections_payload` exists only so `get_root_collection()` can serve both halves of the
-    listing from one request. Retaining it meant a caller who ran `load_sync_collection()` to
-    pick up a new share got whatever `load_collection()` had last seen, with nothing to indicate
-    it was stale.
+    `get_root_collection()` serves both halves of the listing from one request by passing it to
+    each loader as `payload`. Called on its own, without a payload, `load_sync_collection()` must
+    fetch afresh: a listing kept on the collection meant a caller who ran it to pick up a new share
+    got whatever `load_collection()` had last seen, with nothing to indicate it was stale.
     """
     import json
 

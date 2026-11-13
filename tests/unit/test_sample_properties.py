@@ -503,3 +503,10 @@ def test_a_tagged_sample_reports_its_stored_gas_type_without_a_request():
     # SESSION has no `get`: any attempt to fetch the reaction would raise.
     sample = _sample(gas_type='feedstock', tag={'taggable_data': {'reaction_id': 42}})
     assert sample.gas_type.value == 'feedstock'
+
+
+@pytest.mark.parametrize("raw", ["200", " 200 ", 200, 200.0])
+def test_a_bare_vessel_size_may_be_a_numeric_string(raw):
+    reaction = _reaction([])
+    reaction.properties['vessel_size'] = raw
+    assert reaction.properties['vessel_size'] == {'amount': 200.0, 'unit': 'ml'}

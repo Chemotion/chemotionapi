@@ -21,7 +21,7 @@ class _Stub:
 
     def __init__(self, gas_type, reaction):
         self._properties = {'gas_type': gas_type}
-        self.reaction = reaction
+        self.reaction = self._reaction = reaction
         self.role_in_reaction = 'starting_materials'
         self.vessel_size = None if reaction is None else 1.0
         self.molecule = {'molecular_weight': 100.0}
@@ -34,6 +34,9 @@ class _Stub:
         }
 
     gas_type = property(lambda self: Sample.gas_type.fget(self))
+
+    def _tagged_reaction_id(self):
+        return None
 
 
 # --- reading gas_type is pure -------------------------------------------------------------
@@ -64,7 +67,8 @@ def test_reading_gas_type_makes_no_request_and_no_write(stored):
 def test_amount_conversion_neutralises_gas_for_a_detached_sample(monkeypatch, reaction, expected):
     """`vessel_size` comes from the reaction, so a detached gas sample would pass `None` in.
 
-    The getter no longer rewrites the sample, so the guard has to live here instead.
+    The getter reports OFF for a sample in no reaction — without rewriting the sample — and the
+    conversion takes its role from the getter.
     """
     seen = {}
     monkeypatch.setattr(sample_mod, 'calculate_quantity',

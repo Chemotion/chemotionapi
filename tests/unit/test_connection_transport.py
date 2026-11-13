@@ -110,3 +110,56 @@ def test_retries_can_be_switched_off(monkeypatch):
     with pytest.raises(ConnectionError):
         _send(conn, 'get', boom)
     assert boom.calls == 1
+
+
+# --- 2026-11-13 review: which transport errors are retried, and what an origin is ---------
+
+class _Raises:
+    def __init__(self, exc):
+        self.exc, self.calls = exc, 0
+
+    def __call__(self, **kwargs):
+        self.calls += 1
+        raise self.exc
+
+
+@pytest.mark.parametrize("exc_name", ["SSLError", "ProxyError"])
+def test_configuration_errors_are_not_retried(monkeypatch, exc_name):
+    import requests.exceptions as rex
+    sleeps = []
+    monkeypatch.setattr('chemotion_api.connection.time.sleep', sleeps.append)
+    boom = _Raises(getattr(rex, exc_name)("bad certificate"))
+    with pytest.raises(ConnectionError):
+        _send(_conn(retries=3), 'get', boom)
+    assert boom.calls == 1 and sleeps == []
+
+
+def test_a_read_timeout_on_a_get_is_retried_and_keeps_its_type(monkeypatch):
+    from requests.exceptions import ReadTimeout
+    monkeypatch.setattr('chemotion_api.connection.time.sleep', lambda _: None)
+    boom = _Raises(ReadTimeout("slow"))
+    with pytest.raises(ReadTimeout):
+        _send(_conn(retries=3), 'get', boom)
+    assert boom.calls == 3
+
+
+def test_a_read_timeout_on_a_write_is_not_retried(monkeypatch):
+    from requests.exceptions import ReadTimeout
+    boom = _Raises(ReadTimeout("slow"))
+    with pytest.raises(ReadTimeout):
+        _send(_conn(retries=3), 'post', boom)
+    assert boom.calls == 1
+
+
+@pytest.mark.parametrize("host_url, url", [
+    ("https://ELN.example.org", "https://eln.example.org/api/v1/samples"),
+    ("https://eln.example.org:443", "https://eln.example.org/api/v1/samples"),
+    ("https://eln.example.org", "HTTPS://eln.example.org:443/api/v1/samples"),
+])
+def test_the_same_origin_spelled_differently_is_allowed(host_url, url):
+    Connection(host_url)._assert_same_origin(url)
+
+
+def test_a_different_port_is_a_different_origin():
+    with pytest.raises(ConnectionError, match="Refusing to send credentials"):
+        _conn()._assert_same_origin("https://eln.example.org:8443/api/v1/samples")

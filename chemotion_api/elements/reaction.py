@@ -7,9 +7,6 @@ Defines :class:`Reaction` (a Chemotion reaction, extending
 ``equivalent`` cache.
 """
 import copy
-from pydantic import BaseModel
-from chemotion_api.models import ReactionPropertiesModel, VesselSizeModel, UnitDictModel, validate_field
-from chemotion_api.utils import UnitDict
 import logging
 import re
 from enum import Enum
@@ -25,6 +22,7 @@ _DURATION_UNIT_SECONDS = {
 }
 
 
+from pydantic import BaseModel
 from requests import Response
 
 from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
@@ -34,7 +32,8 @@ from chemotion_api.elements.sample import Sample, SampleVariationType, GasPhaseO
 from chemotion_api.elements.utils.converter import convert_value, TIME_UNITS, TEMPERATURE_UNITS, TON_UNITS
 from chemotion_api.elements.utils import QuantityUnit, GasType, vessel_volume_ml
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
-from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict
+from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict, UnitDict
+from chemotion_api.models import ReactionPropertiesModel, VesselSizeModel, UnitDictModel, validate_field
 from chemotion_api.utils.segment_fields import SegmentField, VARIATION_FIELD_TYPES, iter_fields
 from collections.abc import MutableSequence
 from copy import deepcopy
@@ -859,6 +858,20 @@ class Temperature(dict):
             {'time': f'{str(hour).zfill(2)}:{str(minute).zfill(2)}:{str(second).zfill(2)}', 'value': str(temperature)})
 
 
+def _bare_amount(value) -> float | None:
+    """``value`` as a float if it is a plain number or a numeric string, else ``None``."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
 def _flattened_field_error(pyd_name: list[str]) -> ValueError:
     """Explain a nested write into a field the model keeps as a scalar."""
     field = pyd_name[0]
@@ -1458,14 +1471,13 @@ class Reaction(AbstractElement):
             pyd_name[0] = 'yield_value'
         top = pyd_name[0]
 
-        if list(name) == ['vessel_size'] and isinstance(value[-1], (int, float)) \
-                and not isinstance(value[-1], bool):
-            # `properties['vessel_size'] = 200` sets the amount and keeps the unit. Storing the
-            # bare number instead (as before 401.0) put a float on the wire where the server
-            # expects `{amount, unit}`.
+        if list(name) == ['vessel_size'] and _bare_amount(value[-1]) is not None:
+            # `properties['vessel_size'] = 200` (or `'200'`, as read from a form or CSV) sets the
+            # amount and keeps the unit. Storing the bare number instead (as before 401.0) put a
+            # float on the wire where the server expects `{amount, unit}`.
             current = self._properties.get('vessel_size')
             unit = current.get('unit') if isinstance(current, dict) and current.get('unit') else 'ml'
-            value[-1] = {'amount': float(value[-1]), 'unit': unit}
+            value[-1] = {'amount': _bare_amount(value[-1]), 'unit': unit}
 
         # Only the field being written is copied and validated (see `validate_field`). A whole
         # field is the new value outright; a nested write is applied to a copy of that one field.

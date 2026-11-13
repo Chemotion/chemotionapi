@@ -1,12 +1,25 @@
 import json
 import re
 import time
+import typing
 from urllib.parse import urlsplit
 
 import requests
 from dateutil.parser import parse as parsedate
-from requests.exceptions import ConnectionError as CError
+from requests.exceptions import ConnectionError as CError, ProxyError, SSLError, Timeout
 from chemotion_api.schema_manager import SchemaManager
+
+
+_DEFAULT_PORTS = {'http': 80, 'https': 443}
+
+
+def _origin(parts) -> tuple[str, str | None, int | None]:
+    """``(scheme, host, port)`` with host case and a default port normalised away.
+
+    ``https://ELN.example.org:443`` and ``https://eln.example.org`` are the same origin.
+    """
+    scheme = parts.scheme.lower()
+    return scheme, parts.hostname, parts.port or _DEFAULT_PORTS.get(scheme)
 
 
 class ChemotionRequestError(requests.exceptions.RequestException, ConnectionError):
@@ -211,7 +224,7 @@ class Connection(requests.Session):
         target, origin = urlsplit(url), urlsplit(self._host_url)
         if not target.scheme and not target.netloc:
             return
-        if (target.scheme, target.netloc) != (origin.scheme, origin.netloc):
+        if _origin(target) != _origin(origin):
             raise ConnectionError(
                 f'Refusing to send credentials to {target.scheme}://{target.netloc} — '
                 f'this connection is bound to {origin.scheme}://{origin.netloc}.')
@@ -239,7 +252,14 @@ class Connection(requests.Session):
             try:
                 res = getattr(super(), method)(**kwargs)
                 break
-            except CError as e:
+            except (SSLError, ProxyError) as e:
+                # A certificate or proxy failure is configuration, not a transient fault: the
+                # next attempt fails identically, so retrying only delays the error.
+                raise ConnectionError(str(e)) from e
+            except (CError, Timeout) as e:
+                # `Timeout` covers a read timeout, which is not a `requests` ConnectionError
+                # (a connect timeout is both). A GET that timed out is as safe to repeat as one
+                # whose connection dropped.
                 last_error = e
                 # Compare against the attempts actually allowed, not the configured maximum:
                 # a write gets one attempt, so it must raise immediately rather than sleep
@@ -247,12 +267,17 @@ class Connection(requests.Session):
                 if attempt + 1 < attempts:
                     time.sleep(_RETRY_BACKOFF_SECONDS * (attempt + 1))
         else:
+            if isinstance(last_error, Timeout) and not isinstance(last_error, CError):
+                # A read timeout has always reached the caller as `requests.Timeout`; keep that
+                # type so an existing `except requests.Timeout` still catches it.
+                raise typing.cast(Timeout, last_error)
             if method in _IDEMPOTENT_METHODS:
                 raise ConnectionError(
-                    f'Could not reach the server after {self._retries} attempts: {last_error}')
+                    f'Could not reach the server after {self._retries} attempts: {last_error}'
+                ) from last_error
             raise ConnectionError(
                 f'Could not reach the server; the {method.upper()} was not retried, so it may '
-                f'or may not have been applied: {last_error}')
+                f'or may not have been applied: {last_error}') from last_error
         if self.tzinfo is None:
             if 'Date' in res.headers:
                 self.tzinfo = parsedate(res.headers['Date']).astimezone().tzinfo
