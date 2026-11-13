@@ -1395,7 +1395,8 @@ class Reaction(AbstractElement):
         serialize_data['literatures'] = self.json_data.get('literatures')
 
         serialize_data['research_plans'] = self.json_data.get('research_plans')
-        serialize_data['user_labels'] = self.json_data.get('user_labels')
+        # From `properties`, where callers edit it — reading `json_data` silently dropped a change.
+        serialize_data['user_labels'] = self.properties.get('user_labels')
         serialize_data['solvent'] = self.json_data.get('solvent')
 
         serialize_data['volume'] = get_prop_or_json('volume')

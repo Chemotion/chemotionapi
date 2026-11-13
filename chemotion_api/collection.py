@@ -23,7 +23,7 @@ from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, 
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 
 from chemotion_api.element_manager import ElementManager
 
@@ -666,6 +666,65 @@ class AbstractCollection:
                        typing.cast(int, self.id))
         e.load_elements(per_page, updated_to_date, updated_from_date)
         return e
+
+    def _apply_user_labels(self, *elements: AbstractElement, add: typing.Iterable[int] = (),
+                           remove: typing.Iterable[int] = ()) -> None:
+        """Add and remove user labels on several elements of this collection in one request.
+
+        .. warning:: **Beta, and private on purpose.** Prefer the supported way: set an element's
+           ``properties['user_labels']`` (a list of label ids) and ``save()`` it. This wraps the
+           ELN's bulk endpoint (``POST /api/v1/user_labels/bulk``), which applies all changes in a
+           single transaction — useful for many elements at once — but its selection model (a UI
+           state per element type, scoped to this collection) is the web UI's, and may change.
+
+        Only labels you may use (yours, or shared ones) are applied; the server drops any other id.
+
+        :param elements: elements of this collection; each must be saved (have an id).
+        :param add: ids of labels to add.
+        :param remove: ids of labels to remove.
+        :raises ValueError: if there is nothing to do, or none of the label ids is usable by you.
+        :raises PermissionError: if you may not update one of the elements (401).
+        """
+        add, remove = list(add), list(remove)
+        if not add and not remove:
+            raise ValueError('Give label ids to add or remove.')
+        ui_state: dict[str, Any] = {'currentCollection': {'id': self.id}}
+        for element in elements:
+            if element.is_new:
+                raise ValueError(f'{element} is not saved yet.')
+            key = element.json_data.get('type') if element.json_data else None
+            key = key or element.element_type
+            selection = ui_state.setdefault(key, {'all': False, 'included_ids': [], 'excluded_ids': []})
+            selection['included_ids'].append(element.id)
+        res = self.get_root()._session.post('/api/v1/user_labels/bulk', data={
+            'ui_state': ui_state, 'add_label_ids': add, 'remove_label_ids': remove})
+        if res.status_code == 400:
+            raise ValueError('The server found nothing to do.')
+        if res.status_code == 403:
+            raise ValueError('None of these label ids is yours or shared with you.')
+        if res.status_code == 401:
+            raise PermissionError('You may not update all of these elements.')
+        if res.status_code not in (200, 201, 204):
+            raise request_error(res, 'applying user labels')
+
+    def export_zip(self, destination: str | os.PathLike, timeout: float = 900) -> str:
+        """Export this collection with the server's own exporter and save the ZIP.
+
+        This is Chemotion's native export archive (the one its UI produces and
+        ``import_export_zip`` reads offline), not ``.eln``. The server builds it in a background
+        job; this waits for its notification, then downloads the archive to ``destination``.
+
+        :raises PermissionError: if you may not export this collection.
+        :raises TimeoutError: if the archive is not ready within ``timeout`` seconds.
+        :return: the path written
+        """
+        from chemotion_api.utils.collection_zip import export_collection_zip
+        if not self.label:
+            # The finished export is recognised by its label in the notification text.
+            raise ValueError('Only a saved, labelled collection can be exported.')
+        session = self.get_root()._session
+        return str(export_collection_zip(session, typing.cast(int, self.id), self.label, destination,
+                                         timeout=timeout))
 
     def get_device_descriptions(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                                 updated_from_date: datetime | None = None) -> ElementSet:

@@ -4,6 +4,7 @@ Defines the :class:`Sample` element together with its molecule, solvent and gas-
 and its quantity/equivalent calculations.
 """
 import json
+from dataclasses import dataclass
 import logging
 import re
 import copy
@@ -24,7 +25,7 @@ from chemotion_api.utils.withheld import WITHHELD
 
 logger = logging.getLogger(__name__)
 from collections.abc import MutableMapping
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from chemotion_api.utils import UnitDict, FixedDict, PropertyDict
 from chemotion_api.utils.solvent_manager import get_solvent_list, get_solvent_info
 from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity, GasCalculations, vessel_volume_ml
@@ -35,6 +36,76 @@ def _molarity_unit(raw):
     if raw is None or raw is WITHHELD:
         return raw
     return format(raw)
+
+
+class Chemical:
+    """A sample's inventory and safety record (the ELN's *Chemicals* tab).
+
+    Vendor, amounts, storage and safety data that the sample entity itself does not carry.
+    Get one with :meth:`Sample.get_chemical`; change :attr:`data` or :attr:`cas`, then :meth:`save`.
+
+    The server stores ``chemical_data`` as a list of mappings but only ever uses the first one
+    (its UI reads ``chemical_data[0]`` throughout), so that entry is exposed as :attr:`data`. Any
+    further entries are kept unchanged on save.
+
+    :ivar cas: the CAS number, or ``None``
+    :ivar data: the inventory fields (``vendor``, ``amount``, ``location``, ``safetySheetPath``, …)
+    """
+
+    def __init__(self, session: Connection, sample_id: int, payload: dict):
+        self._session = session
+        self.sample_id = sample_id
+        self._set(payload)
+
+    def _set(self, payload: dict) -> None:
+        self.id: int | None = payload.get('id')
+        self.cas: str | None = payload.get('cas')
+        entries = payload.get('chemical_data') or []
+        first = entries[0] if entries and isinstance(entries[0], dict) else {}
+        self.data: dict = dict(first)
+        self._further_entries: list = list(entries[1:])
+
+    @property
+    def exists(self) -> bool:
+        """Whether the server has a record yet. It answers an unsaved one (no ``id``) otherwise."""
+        return self.id is not None
+
+    def save(self) -> Chemical:
+        """Create the record if it does not exist yet, else update it; then re-read it.
+
+        :raises PermissionError: if you may not write this sample (401).
+        :raises ChemotionRequestError: on any other failure.
+        """
+        body: dict = {'sample_id': self.sample_id,
+                      'chemical_data': [self.data, *self._further_entries]}
+        if self.exists:
+            if self.cas is not None:
+                body['cas'] = self.cas
+            res = self._session.put('/api/v1/chemicals', data=body)
+        else:
+            body['cas'] = self.cas or ''        # required by the create route
+            res = self._session.post('/api/v1/chemicals/create', data=body)
+        if res.status_code == 401:
+            raise PermissionError(f'You may not change the chemical record of sample {self.sample_id}.')
+        if res.status_code not in (200, 201, 204):
+            raise request_error(res, f'saving the chemical record of sample {self.sample_id}')
+        # PUT answers with the result of `update!` (true), not the record.
+        self._set(_fetch_chemical(self._session, self.sample_id))
+        return self
+
+    def __repr__(self) -> str:
+        return f'Chemical(sample_id={self.sample_id}, cas={self.cas!r}, exists={self.exists})'
+
+
+def _fetch_chemical(session: Connection, sample_id: int) -> dict:
+    res = session.get(f'/api/v1/chemicals?sample_id={sample_id}')
+    if res.status_code == 401:
+        raise PermissionError(
+            f'You may not read the chemical record of sample {sample_id}: it needs full read access '
+            f'(a share below detail level 10 is not enough).')
+    if res.status_code != 200:
+        raise request_error(res, f'loading the chemical record of sample {sample_id}')
+    return res.json() or {}
 
 
 class GasPhaseObj(FixedDict):
@@ -288,6 +359,19 @@ class Molecule(MutableMapping):
         return self._model.clean()
 
 
+@dataclass(frozen=True)
+class MoleculeName:
+    """One of a molecule's names, as the ELN's name selector lists them.
+
+    :ivar id: the name's id — what a sample's :attr:`Sample.molecule_name_id` refers to
+    :ivar name: the name itself
+    :ivar description: e.g. ``"iupac_name"``, ``"sum_formular"`` or ``"defined by user"``
+    """
+    id: int
+    name: str
+    description: str | None = None
+
+
 class MoleculeManager:
     """
     The MoleculeManager can be used to load and create molecules in the Chemotion Instance
@@ -295,6 +379,40 @@ class MoleculeManager:
 
     def __init__(self, session: Connection):
         self._session = session
+
+    def _names(self, molecule_id: int, new_name: str | None = None) -> list[MoleculeName]:
+        params = {'id': molecule_id} | ({'new_name': new_name} if new_name else {})
+        res = self._session.get('/api/v1/molecules/names', params=params)
+        if res.status_code != 200:
+            raise request_error(res, f'reading the names of molecule {molecule_id}')
+        body = res.json()
+        # An unknown molecule id answers a bare `[]` rather than `{"molecules": []}`.
+        rows = body.get('molecules', []) if isinstance(body, dict) else []
+        return [MoleculeName(id=row['value'], name=row['label'], description=row.get('desc'))
+                for row in rows]
+
+    def get_names(self, molecule_id: int) -> list[MoleculeName]:
+        """The names a molecule is known by (``GET /api/v1/molecules/names``).
+
+        :raises ChemotionRequestError: if the request fails. An unknown id gives ``[]``.
+        """
+        return self._names(molecule_id)
+
+    def add_name(self, molecule_id: int, name: str) -> MoleculeName:
+        """Add a user-defined name to a molecule and return it.
+
+        The server does this as a side effect of *reading* the names with ``new_name`` set; this
+        method is the explicit form of that.
+
+        :raises ValueError: if the name is empty, or the molecule does not exist.
+        """
+        if not name or not name.strip():
+            raise ValueError('A molecule name must not be empty.')
+        names = self._names(molecule_id, new_name=name)
+        match = next((n for n in names if n.name == name), None)
+        if match is None:
+            raise ValueError(f'Molecule {molecule_id} does not exist, or the server did not add the name.')
+        return match
 
     def create_molecule_by_smiles(self, smiles_code: str, density: float | None = None) -> Molecule:
         """
@@ -713,6 +831,33 @@ class Sample(AbstractElement):
                 cat_sample.gas_type = GasType.OFF
         if has_change and reaction_update:
             self.reaction.update_amount()
+
+    @property
+    def molecule_name_id(self) -> int | None:
+        """The id of the :class:`MoleculeName` chosen as this sample's molecule name.
+
+        See :meth:`MoleculeManager.get_names` and :meth:`MoleculeManager.add_name`; set it to one
+        of those ids and :meth:`save`.
+        """
+        return (self.json_data or {}).get('molecule_name_id')
+
+    @molecule_name_id.setter
+    def molecule_name_id(self, name_id: int | None) -> None:
+        self._ensure_loaded()
+        cast(dict, self.json_data)['molecule_name_id'] = name_id
+
+    def get_chemical(self) -> Chemical:
+        """Fetch this sample's inventory and safety record (``GET /api/v1/chemicals``).
+
+        Always returns a :class:`Chemical`; when the sample has none yet, its
+        :attr:`~Chemical.exists` is ``False`` and :meth:`~Chemical.save` creates it.
+
+        :raises ValueError: if the sample has not been saved yet.
+        :raises PermissionError: if you lack full read access to the sample.
+        """
+        if self.is_new:
+            raise ValueError('Save the sample before reading its chemical record.')
+        return Chemical(self._session, cast(int, self.id), _fetch_chemical(self._session, cast(int, self.id)))
 
     def load_image(self) -> Response:
         """

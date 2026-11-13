@@ -30,7 +30,7 @@ from urllib.parse import urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 TInstance = TypeVar("TInstance", bound="Instance")
@@ -246,6 +246,26 @@ class Instance:
         :raise PermissionError: if the labels cannot be fetched. Make sure that you are logged in.
         """
         return self.get_user().get_user_labels(refresh=refresh)
+
+    def save_user_label(self, label: UserLabel) -> UserLabel:
+        """Create a user label (``label.id`` is ``None``) or update one of yours.
+
+        ``PUT /api/v1/user_labels/save_label``. The server overwrites every field a request leaves
+        out — an omitted ``access_level`` makes a shared label private again — so the whole label
+        is always sent; set every field you want to keep. Labels are applied to an element through
+        its ``properties['user_labels']`` (a list of label ids) and ``save()``.
+
+        :return: the label as the server stored it. The cached label list is refreshed.
+        :raises ValueError: if ``label.id`` is not one of your labels (404).
+        """
+        res = self._con.put('/api/v1/user_labels/save_label', data=label.to_dict())
+        if res.status_code == 404:
+            raise ValueError(f'Label {label.id} does not exist or is not yours.')
+        if res.status_code not in (200, 201):
+            raise request_error(res, 'saving a user label')
+        self._con.reset_user_labels()
+        body = res.json()
+        return UserLabel.from_json(body.get('user_label', body) if isinstance(body, dict) else {})
 
     def find_user_by_name(self, name: str) -> list[Person]:
         """
@@ -537,6 +557,25 @@ class Instance:
             raise ValueError(f'Could not find a generic element under the name: "{path_array[-2]}"')
         e = ElementSet(self._con, elem)
         return e.load_element(int(path_array[-1][:-5]))
+
+    def import_zip(self, path: str) -> list[Collection]:
+        """Import a Chemotion collection export archive into your collections.
+
+        ``POST /api/v1/collections/import``; the server imports before it answers. Returns the
+        collections that are new afterwards (it may create more than one).
+
+        :raises PermissionError: on 401.
+        :raises ValueError: if the archive is too large or the server reports the import failed.
+        """
+        from chemotion_api.utils.collection_zip import import_collection_zip
+
+        def ids(root) -> set[int]:
+            return {c.id for c in root.walk() if isinstance(c.id, int)}
+
+        before = ids(self.get_root_collection())
+        import_collection_zip(self._con, path)
+        root = self.get_root_collection()
+        return [c for c in root.walk() if isinstance(c.id, int) and c.id not in before]
 
     def molecule(self) -> MoleculeManager:
         """
