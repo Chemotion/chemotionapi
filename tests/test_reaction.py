@@ -295,3 +295,26 @@ def test_reaction_yield_properties(instance_with_test_reaction: dict):
     assert reloaded_reaction.properties.get('yield') == 85.0
 
 
+
+
+def test_solvent_amount_set_on_a_loaded_reaction_is_saved(instance_with_test_reaction: dict):
+    """A material built from the reaction payload loads its full record lazily. A solvent's
+    `set_amount` used to write first and trigger that load second, so the load re-parsed over the
+    new amount and `save()` sent the old one back, reporting success."""
+    i = instance_with_test_reaction['instance']
+    col = instance_with_test_reaction['main_collection']
+    sol = col.new_solvent('Acetone')
+    sol.set_amount(0.5, 'l')
+    st_mt = col.new_sample_smiles('N')
+    st_mt.save()
+    reaction = col.new_reaction()
+    reaction.starting_materials.append(st_mt)
+    reaction.solvents.append(sol)
+    reaction.save()
+
+    loaded = i.get_reaction(reaction.id)
+    loaded.solvents[0].set_amount(0.01, 'l')
+    assert loaded.solvents[0].properties['target_amount']['value'] == 0.01
+    loaded.save()
+
+    assert i.get_reaction(reaction.id).solvents[0].properties['target_amount']['value'] == 0.01
