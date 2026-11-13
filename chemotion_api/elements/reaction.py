@@ -1180,6 +1180,13 @@ class Reaction(AbstractElement):
             for sample in obj_list:
                 sample_obj = Sample(self._generic_segments, self._session, sample)
                 sample_obj.reaction = self
+                if self._data_loaded:
+                    # A loaded reaction's materials are complete: the server builds each from the
+                    # full sample entity plus its link to this reaction (ReactionMaterialEntity).
+                    # Fetching /samples/:id instead would add nothing and lose the link —
+                    # reference, equivalent, coefficient, position — which the next save then
+                    # wrote back, clearing the reaction's reference flag.
+                    sample_obj._data_loaded = True
                 temp.append(sample_obj)
             reaction_elements[reaction_elm_names] = MaterialList(self, cast(Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'], reaction_elm_names), temp)
 

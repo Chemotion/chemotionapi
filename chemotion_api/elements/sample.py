@@ -453,6 +453,13 @@ class MoleculeManager:
         raise NotImplementedError
 
 
+#: Fields that belong to a sample's link to a reaction (the ELN's reactions_samples), not to the
+#: sample. A reaction's payload carries them; the sample's own record does not.
+REACTION_LINK_FIELDS = ('reference', 'equivalent', 'coefficient', 'position', 'show_label', 'waste',
+                        'gas_type', 'gas_phase_data', 'conversion_rate',
+                        'weight_percentage_reference', 'weight_percentage')
+
+
 class Sample(AbstractElement):
     """
     A chemotion Sample object.
@@ -499,6 +506,13 @@ class Sample(AbstractElement):
         super().__init__(*args, **kwargs)
 
     def _set_json_data(self, json_data):
+        previous = getattr(self, 'json_data', None)
+        if self._reaction is not None and isinstance(previous, dict):
+            # Reloading a reaction material from its own record (/samples/:id) must not drop its
+            # link to the reaction, which only the reaction's payload carries.
+            for key in REACTION_LINK_FIELDS:
+                if key not in json_data and key in previous:
+                    json_data[key] = previous[key]
         super()._set_json_data(json_data)
         self._molecule = Molecule(json_data.get('molecule'))
         self._svg_file = json_data.get('sample_svg_file')
