@@ -284,6 +284,8 @@ New surface:
   fetched its own sample record, which lacks the fields of its link to the reaction (reference,
   equivalent, coefficient, position), and the save wrote those back as empty. Materials of a loaded
   reaction now keep the reaction's complete data.
+- **`Collection.parent`** (read-only; `None` for a root) and **`element.is_loaded`** (whether the full
+  record has been fetched) are public.
 - **`ElementSet.page = n` works before anything is loaded**, and a page that does not exist raises
   `IndexError`. It used to compare `n` with a page count that is only known after a first load, so
   every page but the first was refused — silently, the set staying where it was.

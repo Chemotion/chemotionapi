@@ -235,6 +235,12 @@ class AbstractCollection:
         self._id = id
 
     @property
+    def parent(self) -> AbstractCollection | None:
+        """The collection this one sits in, or ``None`` for a root. Read-only: move a collection
+        with :meth:`move` (and save the tree)."""
+        return self._parent
+
+    @property
     def label(self) -> str | None:
         """
         The collection label

@@ -145,3 +145,27 @@ def test_linking_a_saved_analysis_records_its_id():
     v._json_data = {'metadata': {'analyses': []}}
     v.link_analyses(SimpleNamespace(id=42))
     assert v._json_data['metadata']['analyses'] == [42]
+
+
+# --- public hooks a downstream package needs (2026-11-13) ---------------------------------
+
+def test_collection_parent_is_public_and_read_only():
+    from chemotion_api.collection import AbstractCollection
+    root, child = AbstractCollection(), AbstractCollection()
+    child._parent = root
+    assert child.parent is root and root.parent is None
+    with pytest.raises(AttributeError):
+        child.parent = None
+
+
+def test_is_loaded_reports_whether_the_full_record_is_there():
+    from chemotion_api.elements.sample import Sample
+    from types import SimpleNamespace as NS
+    session = NS(_host_url='http://localhost', schema_manager=NS(generate_model_type=lambda *a: 't'))
+    s = Sample(NS(all_classes=[]), session, json_data={'id': 5, 'type': 'sample', 'name': 'x',
+                                                       'molecule': {'id': 1}})
+    assert s.is_loaded is False
+    s._data_loaded = True
+    assert s.is_loaded is True
+    new = Sample(NS(all_classes=[]), session, json_data={'id': 'a-uuid', 'type': 'sample', 'molecule': {}})
+    assert new.is_loaded is True

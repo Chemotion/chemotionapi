@@ -579,6 +579,16 @@ class AbstractElement:
         return self._short_label
 
     @property
+    def is_loaded(self) -> bool:
+        """Whether the element's full record has been fetched from the server.
+
+        An element from a listing starts with part of its data and fetches the rest on first use
+        of its properties, segments, analyses or attachments; :meth:`load` fetches it explicitly.
+        A new (unsaved) element is complete by definition.
+        """
+        return self.is_new or self._data_loaded
+
+    @property
     def is_restricted(self) -> bool:
         """Whether the server withheld fields of this element from you.
 
