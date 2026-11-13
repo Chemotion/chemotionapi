@@ -1,9 +1,11 @@
 """Pydantic v2 data models used to validate and normalize element properties on read and write."""
 from functools import cache
 
-from pydantic import BaseModel, Field, ConfigDict, TypeAdapter
+from pydantic import BaseModel, Field, ConfigDict, TypeAdapter, field_validator
 from typing import Annotated, Literal, Any
 from enum import Enum
+
+from chemotion_api.utils.withheld import WITHHELD
 
 class GasType(str, Enum):  # noqa: UP042 — StrEnum would change str()/format() output ('GasType.OFF' -> 'off')
     """Enumeration of the gas roles a sample can play in a gas-phase reaction.
@@ -15,7 +17,21 @@ class GasType(str, Enum):  # noqa: UP042 — StrEnum would change str()/format()
     CATALYST = 'catalyst'
     GAS = 'gas'
 
-class VesselSizeModel(BaseModel):
+class _PropertiesBase(BaseModel):
+    """Base for every properties model: lets :data:`~chemotion_api.utils.withheld.WITHHELD` through.
+
+    A field the server withheld (shared below full detail) carries the sentinel instead of a value
+    of the field's type. It must survive validation untouched rather than fail it, or a restricted
+    element could not be loaded at all.
+    """
+
+    @field_validator('*', mode='wrap')
+    @classmethod
+    def _keep_withheld(cls, value, handler):
+        return value if value is WITHHELD else handler(value)
+
+
+class VesselSizeModel(_PropertiesBase):
     """A reaction's vessel size, as the server stores it: ``{'amount': 10, 'unit': 'ml'}``.
 
     Note ``amount``, not ``value`` — this is why it is not a :class:`UnitDictModel`. Until 401.0
@@ -31,7 +47,7 @@ class VesselSizeModel(BaseModel):
     unit: str | None = None
 
 
-class UnitDictModel(BaseModel):
+class UnitDictModel(_PropertiesBase):
     """A scalar value together with its unit.
 
     Used throughout the API for quantities such as amounts, temperatures and durations.
@@ -51,7 +67,7 @@ class UnitDictModel(BaseModel):
         """
         return self.model_dump()
 
-class GasPhaseModel(BaseModel):
+class GasPhaseModel(_PropertiesBase):
     """Gas-phase kinetic data attached to a sample taking part in a gas-phase reaction.
 
     :ivar time: reaction time (default unit ``"h"``).
@@ -74,7 +90,7 @@ class GasPhaseModel(BaseModel):
         """
         return self.model_dump()
 
-class MoleculeModel(BaseModel):
+class MoleculeModel(_PropertiesBase):
     """Physico-chemical and identity properties of the molecule behind a sample.
 
     Holds structural identifiers (SMILES, InChI, InChIKey, molfile, sum formula, CAS, names) and
@@ -111,7 +127,7 @@ class MoleculeModel(BaseModel):
             "inchikey": self.inchikey
         }
 
-class SamplePropertiesModel(BaseModel):
+class SamplePropertiesModel(_PropertiesBase):
     """Editable properties of a Chemotion *sample* element.
 
     Covers identity (name, labels), amounts (target/real amount, molarity, purity, density,
@@ -158,7 +174,7 @@ class SamplePropertiesModel(BaseModel):
     impurities: str | None = None
     xref: dict[str, Any] | None = Field(default_factory=dict)
 
-class ReactionPropertiesModel(BaseModel):
+class ReactionPropertiesModel(_PropertiesBase):
     """Editable properties of a Chemotion *reaction* element.
 
     Covers identity (name, labels, status), conditions (temperature, duration, vessel, vessel

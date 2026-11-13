@@ -33,6 +33,7 @@ from chemotion_api.elements.utils.converter import convert_value, TIME_UNITS, TE
 from chemotion_api.elements.utils import QuantityUnit, GasType, vessel_volume_ml
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
 from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict, UnitDict
+from chemotion_api.utils.withheld import WITHHELD
 from chemotion_api.models import ReactionPropertiesModel, VesselSizeModel, UnitDictModel, validate_field
 from chemotion_api.utils.segment_fields import SegmentField, VARIATION_FIELD_TYPES, iter_fields
 from collections.abc import MutableSequence
@@ -1168,14 +1169,16 @@ class Reaction(AbstractElement):
                 temp.append(sample_obj)
             reaction_elements[reaction_elm_names] = MaterialList(self, cast(Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'], reaction_elm_names), temp)
 
-        try:
-            timestamp_start = datetime.strptime(cast(str, self.json_data.get('timestamp_start')), self.datetime_format)
-        except (ValueError, TypeError):
-            timestamp_start = None
-        try:
-            timestamp_stop = datetime.strptime(cast(str, self.json_data.get('timestamp_stop')), self.datetime_format)
-        except (ValueError, TypeError):
-            timestamp_stop = None
+        def parse_timestamp(raw):
+            if raw is WITHHELD:
+                return WITHHELD     # shared below full detail; not the same as "no timestamp"
+            try:
+                return datetime.strptime(cast(str, raw), self.datetime_format)
+            except (ValueError, TypeError):
+                return None
+
+        timestamp_start = parse_timestamp(self.json_data.get('timestamp_start'))
+        timestamp_stop = parse_timestamp(self.json_data.get('timestamp_stop'))
 
         raw_dict = {
             'name': self.json_data.get('name'),

@@ -1,0 +1,80 @@
+{
+ "detail": {
+  "research_plan": {
+   "can_copy": false,
+   "can_update": false,
+   "body": [],
+   "container": {
+    "id": 47,
+    "name": null,
+    "container_type": "root",
+    "description": "",
+    "extended_metadata": {
+     "report": false,
+     "status": null,
+     "kind": null,
+     "index": null,
+     "instrument": null,
+     "preferred_thumbnail": null
+    },
+    "children": [
+     {
+      "id": 48,
+      "name": "new",
+      "container_type": "analyses",
+      "description": "",
+      "extended_metadata": {
+       "report": true,
+       "status": null,
+       "kind": null,
+       "index": null,
+       "instrument": null,
+       "preferred_thumbnail": null
+      },
+      "children": []
+     }
+    ]
+   },
+   "id": 1,
+   "is_restricted": true,
+   "name": "New Research Plan",
+   "preview_attachment": null,
+   "type": "research_plan",
+   "comment_count": 0,
+   "user_labels": [],
+   "attachment_count": "***",
+   "research_plan_metadata": null,
+   "tag": null,
+   "wellplates": [],
+   "segments": [],
+   "short_label": "***",
+   "created_at": "13.11.2026, 01:41:37 +0000",
+   "updated_at": "13.11.2026, 01:41:37 +0000"
+  },
+  "attachments": [],
+  "literatures": []
+ },
+ "listing": {
+  "research_plans": [
+   {
+    "body": [],
+    "container": null,
+    "id": 1,
+    "is_restricted": true,
+    "name": "New Research Plan",
+    "preview_attachment": null,
+    "type": "research_plan",
+    "comment_count": 0,
+    "user_labels": [],
+    "attachment_count": "***",
+    "research_plan_metadata": null,
+    "tag": null,
+    "wellplates": [],
+    "segments": [],
+    "short_label": "***",
+    "created_at": "13.11.2026, 01:41:37 +0000",
+    "updated_at": "13.11.2026, 01:41:37 +0000"
+   }
+  ]
+ }
+}

@@ -14,6 +14,7 @@ from jsonschema.validators import validate
 
 from chemotion_api.elements.analyses_manager import AnalysesManager
 
+from chemotion_api.utils.withheld import mark_withheld
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.user import UserLabel
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
@@ -570,6 +571,16 @@ class AbstractElement:
         return self._short_label
 
     @property
+    def is_restricted(self) -> bool:
+        """Whether the server withheld fields of this element from you.
+
+        True when the element reached you through a share below the full detail level (10). The
+        withheld fields read as :data:`~chemotion_api.utils.withheld.WITHHELD`, and :meth:`save`
+        refuses the element.
+        """
+        return bool((self.json_data or {}).get('is_restricted'))
+
+    @property
     def can_update(self) -> bool | None:
         """Whether the server says *this user* may write this element.
 
@@ -854,6 +865,9 @@ class AbstractElement:
             return None
 
     def _set_json_data(self, json_data):
+        if json_data.get('is_restricted') is True:
+            # Shared below full detail: the server put '***' where it withheld a value.
+            mark_withheld(json_data)
         self.json_data = json_data
         # Only overwrite when a value actually parses, so a payload without them leaves what we
         # already knew intact.
@@ -925,6 +939,11 @@ class AbstractElement:
             _attachment_data, json_data = self._load_data_from_server()
             self._set_json_data(json_data)
 
+        if self.is_restricted:
+            raise PermissionError(
+                f'{self.element_type} {self.id} is shared with you below the full detail level, so '
+                f'the server withheld some of its fields. Saving it would write placeholders over '
+                f'the real values, so it is refused.')
         self._data_loaded = True
         self.analyses.save_attachments()
         data = self.clean_data()

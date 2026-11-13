@@ -165,6 +165,14 @@ returns a float in millilitres (a `'l'` unit is scaled), or `None` when there is
 
 ### Collections and sharing (the bulk of the v4 delta)
 
+- **Elements shared with you below the full detail level now load.** The server sends them with
+  `is_restricted: true` and the string `'***'` in place of each withheld field — numbers and
+  booleans included — and the client used to fail parsing them, so a recipient could not even list
+  the collection's samples. Withheld fields now read as `chemotion_api.utils.withheld.WITHHELD`, a
+  sentinel that is neither `None` nor a number (using it as one raises `WithheldValueError`, a
+  `PermissionError`). `element.is_restricted` says whether this applies, and `save()` on such an
+  element raises `PermissionError`, since it would write placeholders over the real values.
+
 - `GET /collections/roots.json` is gone — it now answers **400 `id is invalid`**, because v4 routes
   it to `/collections/:id` whose id pattern rejects `"roots.json"`. Replaced by
   `GET /api/v1/collections/`, which returns `{own, shared_with_me}` as flat lists; the tree is

@@ -20,6 +20,7 @@ from chemotion_api.user import User
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.empty_elements import init_container
 from chemotion_api.models import SamplePropertiesModel, GasPhaseModel, UnitDictModel, validate_field
+from chemotion_api.utils.withheld import WITHHELD
 
 logger = logging.getLogger(__name__)
 from collections.abc import MutableMapping
@@ -27,6 +28,13 @@ from chemotion_api.connection import Connection
 from chemotion_api.utils import UnitDict, FixedDict, PropertyDict
 from chemotion_api.utils.solvent_manager import get_solvent_list, get_solvent_info
 from chemotion_api.elements.utils import GasType, QuantityUnit, calculate_quantity, GasCalculations, vessel_volume_ml
+
+
+def _molarity_unit(raw):
+    """The stored molarity unit as a string, keeping ``None`` and :data:`WITHHELD` as they are."""
+    if raw is None or raw is WITHHELD:
+        return raw
+    return format(raw)
 
 
 class GasPhaseObj(FixedDict):
@@ -798,6 +806,8 @@ class Sample(AbstractElement):
             """
             if val is None:
                 return None, None
+            if val is WITHHELD:
+                return WITHHELD, WITHHELD
 
             def bound(text: str):
                 text = text.strip()
@@ -847,7 +857,7 @@ class Sample(AbstractElement):
             'equivalent': self.json_data.get('equivalent'),
             'coefficient': self.json_data.get('coefficient', 1),
             'reaction_description': self.json_data.get('reaction_description'),
-            'molarity': {'unit': format(self.json_data.get('molarity_unit')) if self.json_data.get('molarity_unit') is not None else None, 'value': self.json_data.get('molarity_value')},
+            'molarity': {'unit': _molarity_unit(self.json_data.get('molarity_unit')), 'value': self.json_data.get('molarity_value')},
             'molecular_mass': self.json_data.get('molecular_mass'),
             'inventory_sample': self.json_data.get('inventory_sample'),
             'position': self.json_data.get('position'),
