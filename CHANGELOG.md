@@ -23,7 +23,7 @@ instance, **106 passed, 0 skipped, 0 failed**.
 ### Deprecated: logging in with a user name and password
 
 `Instance.login(user, password)` and `Instance(url, username=..., password=...)` still log in, but
-issue a `FutureWarning`; password login will be removed in the next major release. Create an API
+issue a `FutureWarning`: password login is deprecated. Create an API
 token in the ELN (*Account & Profile* → *Account* → *Authentication Token*; the ELN requires
 two-factor authentication for this) and use
 `Instance.login_token(token)`, or the new `Instance(url, token=...)`. Giving a token together
@@ -206,8 +206,8 @@ returns a float in millilitres (a `'l'` unit is scaled), or `None` when there is
   put (`Delete` → `RemoveElements`). Port call sites **by name, not by number**.
 - `PUT /collections/elements` (the single-call "move elements between collections" verb) was removed
   server-side. The replacement is the `POST` / `DELETE /api/v1/collection_elements` pair — i.e.
-  add-then-remove, as two calls. **This client does not wrap either yet**: it has no
-  move-elements API at all, so use the endpoints directly.
+  add-then-remove, as two calls. `Collection.assign_elements()`, `remove_elements()` and
+  `move_elements()` use this pair (below).
 
 ### LabIMotion 2.3
 
@@ -248,8 +248,10 @@ returns a float in millilitres (a `'l'` unit is scaled), or `None` when there is
   request; the cache is dropped on every bearer-token change, since serving one user's private
   labels to another after a re-login would be a cross-user leak rather than mere staleness.
 - A label owned by another user resolves to a placeholder carrying only the id — never an error.
-- Write support (`save_label`, `bulk`) is deliberately absent: `save_label` has no ownership check
-  server-side, so wrapping it would ship a method capable of hijacking another user's label.
+- `Instance.save_user_label(label)` creates a label or updates one of yours. The server overwrites
+  every field a request leaves out, so the whole label is always sent. Labels are put on an element
+  through `properties['user_labels']` (a list of ids) and `save()`; for reactions, labels set this
+  way used to be dropped on save, and reaction `properties` had no `user_labels` key.
 
 ### Caught up with ELN v4.0.0
 
@@ -319,8 +321,8 @@ New surface:
   another collection, take it out, or both. `move_elements()` is **not atomic**: v4 has no move
   endpoint, so it adds and then removes, and returns the ids of anything left in both. A sample
   belonging to a reaction or wellplate still in the collection cannot be removed alone — v4
-  reports that as **200 with `locked_sample_ids`**, a 2xx that is not success. Scoped to samples,
-  reactions and research plans.
+  reports that as **200 with `locked_sample_ids`**, a 2xx that is not success. Covers every
+  element type the client models.
 - **`Collection.update_share()`** — edit one share, and the only route accepting
   `include_new_subcollections`, which cascades into sub-collections *not previously shared*. That
   grants access rather than adjusting it, so it is off by default and refused without
@@ -330,6 +332,16 @@ New surface:
 - **`reaction.properties['concentration_mode']`** — replaces the `use_reaction_volume` boolean,
   whose two values could not express `combined`.
 - **`sample.molecule.molecular_weight`** — molecule fields are readable as attributes.
+- **Chemical inventory.** `Sample.get_chemical()` returns the sample's inventory and safety record
+  (a `Chemical`); when there is none yet, saving it creates one.
+- **Molecule names.** `MoleculeManager.get_names(molecule_id)` lists the names a molecule is known
+  by and `add_name(molecule_id, name)` adds one. `Sample.molecule_name_id` chooses which of them a
+  sample shows.
+- **The server's own collection export and import.** `Collection.export_zip(destination)` waits
+  for the ELN to build its export archive and saves it; `Instance.import_zip(path)` imports such an
+  archive and returns the collections it created. This is Chemotion's native format, not `.eln`.
+- `Collection.load_collection()` / `load_sync_collection()` take an optional listing to reuse;
+  called alone, each fetches afresh instead of sharing a cached listing.
 
 Fixes to existing behaviour:
 
@@ -346,6 +358,23 @@ Fixes to existing behaviour:
   used to store the bare number, which the server does not accept in place of `{amount, unit}`.
 - Joining collection paths no longer drops the segments after an absolute one:
   `'a', '/b', 'c', 'd'` now gives `/b/c/d`.
+- **Search:** a search on a field the collection's detail level
+  hides now raises `PermissionError`; it used to return an empty result.
+- **Listing elements** no longer fetches each element's full record; it is fetched when you first
+  read data the listing did not carry.
+- **Adding materials to a reaction** recomputes only the equivalents the change affects, about ten
+  times faster for a reaction with 60 materials.
+- **Research plans** with an empty text block, a deleted or unreadable linked sample or reaction,
+  or a missing image load and save. Image zoom and a table's collapsed state survive a save.
+- **Inbox:** with exactly 20, 40, … sender boxes, every box appeared twice. `Inbox.upload()`
+  closes its file and raises when the server refuses the upload.
+- **Command line:** `insert-dataset` never inserted anything; it does now, and fails loudly.
+  `new` works for a directory that does not exist yet. Image versions match exactly (`1.2` no
+  longer matches `1.1.2`).
+- **LabIMotion field conditions** are validated; a typo in the schema meant they never were.
+- `Molecule['missing']` raises `KeyError`, so `in` and `.get(default)` behave. A wellplate cannot
+  be resized to 0, which the server refuses. Attachments are sized without reading the file into
+  memory.
 - Richer request errors (`ChemotionRequestError`, `ChemotionServerError`) carry the status, method,
   URL and a readable snippet instead of an entire HTML error page. They also subclass the builtin
   `ConnectionError`, so existing `except ConnectionError` handlers keep working.

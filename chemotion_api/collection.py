@@ -719,8 +719,7 @@ class AbstractCollection:
     def export_zip(self, destination: str | os.PathLike, timeout: float = 900) -> str:
         """Export this collection with the server's own exporter and save the ZIP.
 
-        This is Chemotion's native export archive (the one its UI produces and
-        ``import_export_zip`` reads offline), not ``.eln``. The server builds it in a background
+        This is Chemotion's native export archive (the one its UI produces), not ``.eln``. The server builds it in a background
         job; this waits for its notification, then downloads the archive to ``destination``.
 
         :raises PermissionError: if you may not export this collection.

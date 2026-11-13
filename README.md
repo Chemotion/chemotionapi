@@ -57,7 +57,7 @@ just build              # build sdist + wheel
 
 Log in with an API token. Create one in the ELN under *Account & Profile* → *Account* →
 *Authentication Token*; the ELN requires two-factor authentication for this. Logging in with a user name and password still works but is deprecated: it issues a
-`FutureWarning` and will be removed in the next major release.
+`FutureWarning`.
 
 Connect and create a validated sample and reaction:
 

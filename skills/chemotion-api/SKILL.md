@@ -20,7 +20,7 @@ from chemotion_api import Instance
 instance = Instance('https://eln.example.org').test_connection().login_token('chemtoken_...')
 # test_connection() raises ConnectionError
 # API token: ELN > Account & Profile > Account > Authentication Token (needs 2FA). Instance(url, token=...) also works.
-# login(user, password) is deprecated (FutureWarning); removed in the next major release
+# login(user, password) is deprecated (FutureWarning)
 ```
 
 ## Find things

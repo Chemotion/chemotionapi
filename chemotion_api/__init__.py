@@ -40,8 +40,7 @@ from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerV
 
 #: Shown by :meth:`Instance.login` and by ``Instance(username=..., password=...)``.
 PASSWORD_LOGIN_DEPRECATED = (
-    'Logging in with a user name and password is deprecated and will be removed in the next major '
-    'release. Create an API token in the ELN (Account & Profile > Account > Authentication Token; '
+    'Logging in with a user name and password is deprecated. Create an API token in the ELN (Account & Profile > Account > Authentication Token; '
     'the ELN requires two-factor authentication for this) and use Instance.login_token(token) or '
     'Instance(url, token=token).'
 )
@@ -187,8 +186,7 @@ class Instance:
         To do this, you need a valid Chemotion user (name abbreviation or e-mail) and password.
 
         .. deprecated:: 401.0.0
-            Logging in with a user name and password will be removed in the next major release.
-            Create an API token in the ELN (*Account & Profile* → *Account* → *Authentication
+            Logging in with a user name and password is deprecated. Create an API token in the ELN (*Account & Profile* → *Account* → *Authentication
             Token*; the ELN requires two-factor authentication for this) and use
             :meth:`login_token`, or ``Instance(url, token=...)``. Calling this method issues a
             :class:`FutureWarning`.

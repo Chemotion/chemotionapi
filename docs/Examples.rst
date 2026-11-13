@@ -16,7 +16,7 @@ The package has been published on PyPi, it can be installed using pip.
    Log in with an API token: create one in the ELN under *Account & Profile* → *Account* →
    *Authentication Token* (the ELN requires two-factor authentication for this) and pass it to :meth:`~chemotion_api.Instance.login_token`.
    :meth:`~chemotion_api.Instance.login` with a user name and password is deprecated, issues a
-   ``FutureWarning`` and will be removed in the next major release.
+   ``FutureWarning``.
 
 .. code-block:: bash
 

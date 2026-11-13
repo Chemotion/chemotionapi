@@ -147,7 +147,7 @@ def test_linking_a_saved_analysis_records_its_id():
     assert v._json_data['metadata']['analyses'] == [42]
 
 
-# --- public hooks a downstream package needs (2026-11-13) ---------------------------------
+# --- public accessors for what callers reached privately (2026-11-13) ----------------------
 
 def test_collection_parent_is_public_and_read_only():
     from chemotion_api.collection import AbstractCollection
