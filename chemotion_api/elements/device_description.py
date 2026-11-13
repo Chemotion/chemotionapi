@@ -7,6 +7,7 @@ chain at all — see :meth:`DeviceDescription.ontology_terms`.
 """
 from typing import cast
 
+from chemotion_api.models import DeviceDescriptionPropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
 
 #: Scalar fields the ELN exposes as ``properties``. Deliberately not the whole entity:
@@ -35,9 +36,11 @@ class DeviceDescription(AbstractElement):
         ...     print(device.properties['name'], device.ontology_terms())
     """
 
+    _properties_model = DeviceDescriptionPropertiesModel
+
     def _parse_properties(self) -> dict:
         data = cast(dict, self.json_data)
-        return {key: data.get(key) for key in DEVICE_FIELDS}
+        return self._validated_properties({key: data.get(key) for key in DEVICE_FIELDS})
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         serialize_data = serialize_data if serialize_data is not None else {}

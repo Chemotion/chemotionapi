@@ -9,6 +9,7 @@ from typing import Self
 
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.sample import Sample
+from chemotion_api.models import ResearchPlanPropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
 
 
@@ -373,11 +374,13 @@ class ResearchPlan(AbstractElement):
     def _parse_ketcher(self, value):
         return value
 
+    _properties_model = ResearchPlanPropertiesModel
+
     def _parse_properties(self) -> dict:
         body = cast(dict, self.json_data).get('body')
-        return {
+        return self._validated_properties({
             'body': [self._parse_body_element(x) for x in cast(list, body)]
-        }
+        })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         cast(dict, self.json_data)['body'] = []

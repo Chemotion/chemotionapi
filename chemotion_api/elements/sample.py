@@ -483,6 +483,8 @@ class Sample(AbstractElement):
     >>> s.save()
     """
 
+    _properties_model = SamplePropertiesModel
+
     material_types: list[Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']] = ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']
 
     json_data: dict

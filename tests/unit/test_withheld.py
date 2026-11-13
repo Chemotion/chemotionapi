@@ -64,10 +64,11 @@ def test_withheld_reaction_timestamps_are_not_read_as_missing():
 
 def test_an_unrestricted_payload_keeps_a_literal_three_stars():
     """'***' can be a value somebody typed; only a restricted payload is the server's mask."""
-    payload = _payload('wellplate') | {'is_restricted': False, 'description': '***'}
+    payload = _payload('wellplate') | {'is_restricted': False, 'name': '***',
+                                       'description': {'ops': [{'insert': 'x'}]}}
     w = _element(Wellplate, payload)
     assert not w.is_restricted
-    assert w.json_data['description'] == '***'
+    assert w.properties['name'] == '***'
 
 
 @pytest.mark.parametrize("kind, cls", KINDS)
@@ -100,3 +101,73 @@ def test_mark_withheld_reaches_nested_values():
     data = {'a': '***', 'b': {'c': '***', 'd': 'x'}, 'e': ['***', 1]}
     mark_withheld(data)
     assert data == {'a': WITHHELD, 'b': {'c': WITHHELD, 'd': 'x'}, 'e': [WITHHELD, 1]}
+
+
+# --- every built-in element type validates its properties (owner, 2026-11-13) --------------
+
+def _wellplate():
+    return _element(Wellplate, _payload('wellplate') | {'is_restricted': False, 'name': 'W',
+                                                        'description': {'ops': [{'insert': 'x\n'}]}})
+
+
+def test_wellplate_writes_are_validated():
+    from pydantic import ValidationError
+    w = _wellplate()
+    with pytest.raises(ValidationError):
+        w.properties['name'] = ['a list']
+    w.properties['name'] = 'renamed'
+    assert w.properties['name'] == 'renamed'
+
+
+# --- rich text is read-only: plain strings in, deltas refused (owner, 2026-11-13) ----------
+
+def test_a_plain_string_is_stored_as_rich_text():
+    w = _wellplate()
+    w.properties['description'] = 'kept cold'
+    assert w.properties['description'] == {'ops': [{'insert': 'kept cold\n'}]}
+
+
+@pytest.mark.parametrize("value", [{'ops': [{'insert': 'hand-built\n', 'attributes': {'bold': True}}]},
+                                   {'ops': []}, 42])
+def test_a_hand_built_delta_or_non_string_is_refused(value):
+    w = _wellplate()
+    with pytest.raises(ValueError, match="rich text"):
+        w.properties['description'] = value
+
+
+def test_writing_into_a_delta_is_refused():
+    w = _wellplate()
+    with pytest.raises(ValueError, match="rich text"):
+        w.properties['description']['ops'] = []
+
+
+def test_reaction_description_and_observation_are_rich_text():
+    import sys
+    sys.path.insert(0, os.path.dirname(__file__))
+    from test_sample_properties import _reaction
+    r = _reaction([])
+    r.properties['observation'] = 'turned yellow'
+    assert r.properties['observation'] == {'ops': [{'insert': 'turned yellow\n'}]}
+    with pytest.raises(ValueError, match="rich text"):
+        r.properties['description'] = {'ops': [{'insert': 'x'}]}
+
+
+def test_screen_and_device_writes_are_validated():
+    from pydantic import ValidationError
+    from chemotion_api.elements.device_description import DeviceDescription
+    from chemotion_api.elements.screen import Screen
+    screen = _element(Screen, {'id': 1, 'type': 'screen', 'name': 'S', 'wellplates': [],
+                               'research_plans': [], 'description': {'ops': []}})
+    with pytest.raises(ValidationError):
+        screen.properties['conditions'] = {'not': 'text'}
+    screen.properties['conditions'] = '37 °C'
+    device = _element(DeviceDescription, {'id': 2, 'type': 'device_description', 'name': 'D'})
+    with pytest.raises(ValidationError):
+        device.properties['general_tags'] = 'should be a list'
+    device.properties['general_tags'] = ['a', 'b']
+    assert device.properties['general_tags'] == ['a', 'b']
+
+
+def test_restricted_screen_and_wellplate_still_load_with_models():
+    w = _element(Wellplate, _payload('wellplate'))
+    assert w.properties['description'] is WITHHELD

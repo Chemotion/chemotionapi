@@ -1,5 +1,6 @@
 """Wellplate element: a grid of wells, each optionally holding a :class:`~chemotion_api.elements.sample.Sample`."""
 import logging
+from chemotion_api.models import WellplatePropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
 
 from chemotion_api.elements.sample import Sample
@@ -238,12 +239,14 @@ class Wellplate(AbstractElement):
                 row_label(y), Sample(self._generic_segments, self._session, element['sample']))
         return wells
 
-    def _parse_properties(self) -> dict:
+    _properties_model = WellplatePropertiesModel
+    _rich_text_fields = ('description',)
 
-        return {
+    def _parse_properties(self) -> dict:
+        return self._validated_properties({
             'name': cast(dict, self.json_data).get('name'),
             'description': cast(dict, self.json_data).get('description')
-        }
+        })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         # The former `wells[:json_data.get('size')]` was always `[:None]`, i.e. a no-op copy:

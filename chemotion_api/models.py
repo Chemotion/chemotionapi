@@ -243,3 +243,72 @@ def validate_field(model: type[BaseModel], field: str, value: Any) -> Any:
     if field not in model.model_fields:
         return value
     return _field_adapter(model, field).validate_python(value)
+
+
+class WellplatePropertiesModel(_PropertiesBase):
+    """Validates the writable properties of a wellplate.
+
+    ``description`` is Quill delta (the server declares it a ``Hash``). Wells and their samples are
+    edited through :attr:`Wellplate.wells`, not through properties.
+    """
+    model_config = ConfigDict(extra='allow')
+    name: str | None = None
+    description: dict[str, Any] | None = None
+
+
+class ResearchPlanPropertiesModel(_PropertiesBase):
+    """Validates the properties of a research plan.
+
+    Its only property is ``body``: the plan's blocks (text, tables, images, samples, reactions),
+    each a typed object with its own API. The model checks it is a list; the blocks validate
+    themselves.
+    """
+    model_config = ConfigDict(extra='allow')
+    body: list[Any] = Field(default_factory=list)
+
+
+class ScreenPropertiesModel(_PropertiesBase):
+    """Validates the writable properties of a screen (types as the server's update route declares)."""
+    model_config = ConfigDict(extra='allow')
+    name: str | None = None
+    collaborator: str | None = None
+    requirements: str | None = None
+    conditions: str | None = None
+    result: str | None = None
+    description: dict[str, Any] | str | None = None   # Quill delta; a plain string is wrapped on save
+    component_graph_data: dict[str, Any] | None = None
+    user_labels: list[int] = Field(default_factory=list)
+
+
+class DeviceDescriptionPropertiesModel(_PropertiesBase):
+    """Validates the modelled fields of a device description (types as the server's API declares)."""
+    model_config = ConfigDict(extra='allow')
+    name: str | None = None
+    short_label: str | None = None
+    description: str | None = None
+    device_type_name: str | None = None
+    device_type_id: str | None = None
+    device_type_id_type: str | None = None
+    device_class: str | None = None
+    device_class_detail: str | None = None
+    operation_mode: str | None = None
+    vendor_device_name: str | None = None
+    vendor_device_id: str | None = None
+    vendor_company_name: str | None = None
+    serial_number: str | None = None
+    version_number: str | None = None
+    version_doi: str | None = None
+    version_doi_url: str | None = None
+    version_characterization: str | None = None
+    version_installation_start_date: str | None = None   # ISO date-time
+    version_installation_end_date: str | None = None
+    owner_institution: str | None = None
+    university_campus: str | None = None
+    institute: str | None = None
+    building: str | None = None
+    room: str | None = None
+    application_name: str | None = None
+    application_version: str | None = None
+    vendor_url: str | None = None
+    general_tags: list[Any] | None = None
+    operators: list[Any] | None = None

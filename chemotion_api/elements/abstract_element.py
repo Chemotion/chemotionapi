@@ -1,4 +1,5 @@
 """Base class and shared building blocks for all Chemotion elements (lifecycle, analyses, datasets, attachments)."""
+import copy
 import json
 import os.path
 import re
@@ -15,6 +16,8 @@ from jsonschema.validators import validate
 from chemotion_api.elements.analyses_manager import AnalysesManager
 
 from chemotion_api.utils.withheld import mark_withheld
+from pydantic import BaseModel
+from chemotion_api.models import validate_field
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.user import UserLabel
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
@@ -480,6 +483,11 @@ class Segment(dict):
         :raises TypeError: if the field is not a system-defined field
         """
         return self.field(segment, layer, field).units()
+
+
+def _plain(value):
+    """A validated value as properties hold it: nested models become plain dicts."""
+    return value.model_dump() if isinstance(value, BaseModel) else value
 
 
 class AbstractElement:
@@ -1086,19 +1094,83 @@ class AbstractElement:
         owned = next((x for x in labels if not x.get('is_shared') and not x.get('is_synchronized')), None)
         return owned['id'] if owned is not None else 'all'
 
+    #: The pydantic model that validates this element type's properties, or ``None`` for none
+    #: (LabIMotion generic elements validate against their klass's JSON schema instead). Sample
+    #: and Reaction set it too but keep their own handlers, which carry stoichiometry side effects.
+    _properties_model: type[BaseModel] | None = None
+
+    #: Properties the ELN stores as Quill rich text. They read as the stored delta (flatten with
+    #: :func:`chemotion_api.utils.quill_to_text`); a write must be a plain string, which is stored
+    #: as a one-line delta. Hand-built deltas, and writes *into* a delta, are refused (owner,
+    #: 2026-11-13): the format is the ELN editor's, and text written around it would not mean
+    #: what the caller intended.
+    _rich_text_fields: tuple[str, ...] = ()
+
+    def _rich_text_write(self, name: list, value: list) -> None:
+        """Enforce :attr:`_rich_text_fields` on a properties write; wrap a plain string in place."""
+        top = name[0]
+        if top not in self._rich_text_fields:
+            return
+        if len(name) > 1 or not isinstance(value[-1], str):
+            raise ValueError(
+                f"properties[{top!r}] is rich text (a Quill delta). Assign a plain string — it is "
+                f"stored as text — or read the text with chemotion_api.utils.quill_to_text(). "
+                f"Writing a delta, or into one, is not supported.")
+        value[-1] = {'ops': [{'insert': value[-1] if value[-1].endswith('\n') else value[-1] + '\n'}]}
+
+    def _validated_properties(self, props: dict) -> dict:
+        """Run freshly parsed properties through :attr:`_properties_model` and keep the coerced values.
+
+        Keys the model does not declare pass through unchanged (the models allow extras).
+        """
+        model = self._properties_model
+        if model is None:
+            return props
+        validated = model.model_validate(props)
+        return {key: (_plain(getattr(validated, key)) if key in model.model_fields else value)
+                for key, value in props.items()}
+
     def on_properties_change(self, dict_obj, name, value):
         """
         Hook invoked when a value in the :attr:`properties` dict is changed.
 
-        Subclasses override this to validate, coerce and propagate side effects of a change. The
-        base implementation accepts every change unchanged.
+        With a :attr:`_properties_model`, the written field alone is validated and coerced (a
+        nested write is applied to a copy of its field first), and the coerced value is stored.
+        Without one, every change is accepted unchanged. Subclasses override this to add side
+        effects.
 
         :param dict_obj: The chain of dicts leading to the changed value
         :param name: The chain of keys identifying the changed value
         :param value: The chain of values, the last being the new value
-        :return: ``True`` to let the default assignment proceed
+        :return: ``True`` to let the default assignment proceed, ``False`` when it was applied here
+        :raises pydantic.ValidationError: if the new value does not fit the field.
         """
-        return True
+        self._rich_text_write(name, value)
+        model = self._properties_model
+        if model is None:
+            if name[0] in self._rich_text_fields:
+                dict_obj[-1][name[-1]] = value[-1]
+                return False
+            return True
+        top = name[0]
+        if len(name) == 1:
+            proposed = value[-1]
+        else:
+            source = self._properties.get(top)
+            proposed = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
+            temp = proposed
+            for key in name[1:-1]:
+                if not isinstance(temp, dict):
+                    raise ValueError(f'properties[{top!r}] has no mapping at {key!r} to write into.')
+                temp = temp.setdefault(key, {})
+            if not isinstance(temp, dict):
+                raise ValueError(f'properties[{top!r}] is a single value; assign the whole field.')
+            temp[name[-1]] = value[-1]
+        coerced = validate_field(model, top, proposed)
+        for key in name[1:]:
+            coerced = coerced[key] if isinstance(coerced, dict) else getattr(coerced, key)
+        dict_obj[-1][name[-1]] = _plain(coerced)
+        return False
 
     def __eq__(self, other):
         return isinstance(other, AbstractElement) and self.json_ld['@id'] == other.json_ld['@id']

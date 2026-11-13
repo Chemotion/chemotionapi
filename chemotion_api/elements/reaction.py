@@ -918,6 +918,9 @@ class Reaction(AbstractElement):
     >>> rea.save()
     """
 
+    _properties_model = ReactionPropertiesModel
+    _rich_text_fields = ('description', 'observation')
+
     # Narrowed from the base class's `dict | None`: a Reaction always has its
     # json_data/_properties populated via _set_json_data/load before any method
     # that reads them runs. Annotation-only.
@@ -1478,6 +1481,7 @@ class Reaction(AbstractElement):
         :param value: The chain of values, the last being the new value
         :return: ``False``, as the handler applies the change itself
         """
+        self._rich_text_write(name, value)
         pyd_name = list(name)
         if pyd_name[0] == 'gaseous':
             pyd_name[0] = 'gas_schema'

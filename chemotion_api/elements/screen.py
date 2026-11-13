@@ -4,6 +4,7 @@ Mirrors the ELN's own empty screen (``Screen.buildEmpty`` in the frontend) for n
 """
 from typing import cast
 
+from chemotion_api.models import ScreenPropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.utils import quill_hedging
 
@@ -28,15 +29,18 @@ class Screen(AbstractElement):
         >>> screen.save()
     """
 
+    _properties_model = ScreenPropertiesModel
+    _rich_text_fields = ('description',)
+
     def _parse_properties(self) -> dict:
         data = cast(dict, self.json_data)
         self.wellplate_ids: list[int] = _ids(data.get('wellplates'))
         self.research_plan_ids: list[int] = _ids(data.get('research_plans'))
-        return {key: data.get(key) for key in SCREEN_FIELDS} | {
+        return self._validated_properties({key: data.get(key) for key in SCREEN_FIELDS} | {
             'description': data.get('description'),
             'component_graph_data': data.get('component_graph_data'),
             'user_labels': data.get('user_labels') or [],
-        }
+        })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         props = self.properties
