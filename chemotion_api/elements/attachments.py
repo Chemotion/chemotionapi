@@ -200,36 +200,33 @@ class Attachments(Sequence):
         filename = os.path.basename(file_path)
         file_uuid = uuid.uuid4().__str__()
         file_magic = magic.Magic(mime=True)
-        with open(file_path, 'rb') as f:
-            upload_file_obj = {
-                'file_uuid': file_uuid,
-                'file_path': file_path,
-                'filename': filename,
-                'mime_type': file_magic.from_file(file_path)
+        upload_file_obj = {
+            'file_uuid': file_uuid,
+            'file_path': file_path,
+            'filename': filename,
+            'mime_type': file_magic.from_file(file_path)
 
-            }
-            chunk = f.read()
+        }
+        filesize = os.path.getsize(file_path)   # no need to read the file to know its size
+        data: dict[str, object] = OrderedDict(file={"preview": f"{self._con.host_url}/images/wild_card/not_available.svg"},
+                           name=filename,
+                           filename=filename,
+                           is_deleted=False,
+                           _preview="/images/wild_card/not_available.svg",
+                           is_image_field=filename.lower().endswith(
+                               ('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')),
+                           filesize=filesize,
+                           id=file_uuid,
+                           is_new=True)
+        data_hash_str = json.dumps(data, separators=(',', ':'))
+        data_hash = hashlib.sha256(data_hash_str.encode()).hexdigest()
+        data = dict(data)
+        data["_checksum"] = data_hash
+        data["identifier"] = file_uuid
 
-            f.close()
-            data: dict[str, object] = OrderedDict(file={"preview": f"{self._con.host_url}/images/wild_card/not_available.svg"},
-                               name=filename,
-                               filename=filename,
-                               is_deleted=False,
-                               _preview="/images/wild_card/not_available.svg",
-                               is_image_field=filename.lower().endswith(
-                                   ('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')),
-                               filesize=len(chunk),
-                               id=file_uuid,
-                               is_new=True)
-            data_hash_str = json.dumps(data, separators=(',', ':'))
-            data_hash = hashlib.sha256(data_hash_str.encode()).hexdigest()
-            data = dict(data)
-            data["_checksum"] = data_hash
-            data["identifier"] = file_uuid
-
-            self._to_uploads.append(upload_file_obj)
-            self._new_attachment_data.append(data)
-            return data
+        self._to_uploads.append(upload_file_obj)
+        self._new_attachment_data.append(data)
+        return data
 
     def save(self, id: int, element_type: str) -> requests.Response | None:
         """
