@@ -25,10 +25,10 @@ each element type. Read the section you need; SKILL.md has the workflows.
 ## 1. Instance (`from chemotion_api import Instance`)
 
 ```
-Instance(host_url: str | Connection, verify_ssl: bool = True)
+Instance(host_url: str | Connection, verify_ssl: bool = True, username=None, password=None, token=None)  # username/password deprecated
   .test_connection() -> Instance              # ConnectionError if the server is not reachable
-  .login(user, password) -> Instance          # user = name abbreviation or e-mail; PermissionError
-  .login_token(jwt_token) -> Instance         # token not checked until the next request
+  .login(user, password) -> Instance          # DEPRECATED (FutureWarning); use login_token. PermissionError
+  .login_token(jwt_token) -> Instance         # API token (chemtoken_...) or JWT; not checked until the next request
   .token / .host_url                          # properties
   .get_user() -> Person | Admin | Group | Device
   .find_user_by_name(name) -> list[Person]    # top 3 matches

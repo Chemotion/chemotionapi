@@ -55,12 +55,16 @@ just build              # build sdist + wheel
 
 ## Quickstart
 
+Log in with an API token. Create one in the ELN under *Account & Profile* → *Account* →
+*Authentication Token*; the ELN requires two-factor authentication for this. Logging in with a user name and password still works but is deprecated: it issues a
+`FutureWarning` and will be removed in the next major release.
+
 Connect and create a validated sample and reaction:
 
 ```python
 from chemotion_api import Instance
 
-with Instance("https://chemotion.dept.uni.de", username="USER", password="PASS") as instance:
+with Instance("https://chemotion.dept.uni.de", token="chemtoken_...") as instance:
     project = instance.get_or_create_collection("My Synthesis Project")
 
     sample = project.new_sample_smiles("CCO")
@@ -85,7 +89,7 @@ use the generic manager:
 ```python
 from chemotion_api import Instance
 
-with Instance("https://...", username="USER", password="PASS") as instance:
+with Instance("https://...", token="chemtoken_...") as instance:
     instance.generic_manager().write_all_validation_schemas()
 ```
 

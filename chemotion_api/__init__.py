@@ -5,13 +5,14 @@ reaching every other part of the client: collections and elements, users/groups/
 and generic managers, sample/reaction search, and the inbox. Typical use is::
 
     from chemotion_api import Instance
-    instance = Instance("https://my.chemotion").test_connection().login("user", "password")
+    instance = Instance("https://my.chemotion").test_connection().login_token("chemtoken_...")
     root = instance.get_root_collection()
 
 """
 
 import logging as _logging
 import typing
+import warnings as _warnings
 from typing import TypeVar, Optional, Self
 
 # Library logging hygiene: attach a NullHandler so importing chemotion_api never emits log
@@ -37,6 +38,14 @@ from chemotion_api.connection import Connection, request_error
 from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
+#: Shown by :meth:`Instance.login` and by ``Instance(username=..., password=...)``.
+PASSWORD_LOGIN_DEPRECATED = (
+    'Logging in with a user name and password is deprecated and will be removed in the next major '
+    'release. Create an API token in the ELN (Account & Profile > Account > Authentication Token; '
+    'the ELN requires two-factor authentication for this) and use Instance.login_token(token) or '
+    'Instance(url, token=token).'
+)
+
 TInstance = TypeVar("TInstance", bound="Instance")
 
 
@@ -56,14 +65,15 @@ class Instance:
     >>> from chemotion_api import Instance
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
 
 
     """
 
-    def __init__(self, host_url: str | Connection, verify_ssl: bool = True, username: str | None = None, password: str | None = None):
+    def __init__(self, host_url: str | Connection, verify_ssl: bool = True, username: str | None = None,
+                 password: str | None = None, token: str | None = None):
         if isinstance(host_url, Connection):
             self._con = host_url
         else:
@@ -71,9 +81,15 @@ class Instance:
         self._root_col: RootCollection | None = None
         self._inbox: Inbox | None = None
         self.element_manager = ElementManager(self._con)
-        if username and password:
+        if token and (username or password):
+            raise ValueError('Give either token, or username and password, not both')
+        if token:
             self.test_connection()
-            self.login(username, password)
+            self.login_token(token)
+        elif username and password:
+            _warnings.warn(PASSWORD_LOGIN_DEPRECATED, FutureWarning, stacklevel=2)
+            self.test_connection()
+            self._login_password(username, password)
 
     def __enter__(self) -> Self:
         return self
@@ -170,6 +186,13 @@ class Instance:
         This login method allows you to log in to a Chemotion instance.
         To do this, you need a valid Chemotion user (name abbreviation or e-mail) and password.
 
+        .. deprecated:: 401.0.0
+            Logging in with a user name and password will be removed in the next major release.
+            Create an API token in the ELN (*Account & Profile* → *Account* → *Authentication
+            Token*; the ELN requires two-factor authentication for this) and use
+            :meth:`login_token`, or ``Instance(url, token=...)``. Calling this method issues a
+            :class:`FutureWarning`.
+
         :param user: name abbreviation or e-mail of a Chemotion user
         :param password: The password of the user
 
@@ -179,6 +202,12 @@ class Instance:
         :raises UnsupportedServerVersion: if the instance is not a supported ELN version. Checked
             before the password is sent; free when :meth:`test_connection` already ran.
         """
+        _warnings.warn(PASSWORD_LOGIN_DEPRECATED, FutureWarning, stacklevel=2)
+        return self._login_password(user, password)
+
+    def _login_password(self, user: str, password: str) -> Self:
+        """:meth:`login` without its deprecation warning, so each public entry point warns once,
+        attributed to the caller's own line."""
         self._check_server_version()
         payload = {'username': user, 'password': password}
         login_url = "/api/v1/public/token"
@@ -195,8 +224,10 @@ class Instance:
     def login_token(self, jwt_token: str) -> Self:
         """
         You can use this login_token method to log in to a Chemotion instance.
-        To do this, you need a valid Chemotion JWT. The token of a logged-in instance can be read
-        with the :attr:`token` property.
+        To do this, you need a valid Chemotion token: an API token (``chemtoken_…``), created in
+        the ELN under *Account & Profile* → *Account* → *Authentication Token* (the ELN requires
+        two-factor authentication for this), or a JWT. The token of a
+        logged-in instance can be read with the :attr:`token` property.
 
         The token is not checked by this method. An invalid token causes the following requests to fail.
 
@@ -378,7 +409,7 @@ class Instance:
         >>> from chemotion_api.search.utils import EnumMatch, EnumConnector
         >>>
         >>> try:
-        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
         >>> except ConnectionError as e:
         >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
         >>> (instance.search_sample().
@@ -406,7 +437,7 @@ class Instance:
         >>> from chemotion_api.search.utils import EnumMatch, EnumConnector
         >>>
         >>> try:
-        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
         >>> except ConnectionError as e:
         >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
         >>> (instance.search_reaction().

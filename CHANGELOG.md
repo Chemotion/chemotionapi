@@ -20,6 +20,15 @@ instance, **106 passed, 0 skipped, 0 failed**.
 
 **`.eln` / RO-Crate export is not in this release.**
 
+### Deprecated: logging in with a user name and password
+
+`Instance.login(user, password)` and `Instance(url, username=..., password=...)` still log in, but
+issue a `FutureWarning`; password login will be removed in the next major release. Create an API
+token in the ELN (*Account & Profile* → *Account* → *Authentication Token*; the ELN requires
+two-factor authentication for this) and use
+`Instance.login_token(token)`, or the new `Instance(url, token=...)`. Giving a token together
+with a user name or password raises `ValueError`.
+
 ### Removed: three device methods that never worked
 
 Each posted to a route no Chemotion release serves, so every call raised `ConnectionError` on a
