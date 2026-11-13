@@ -45,7 +45,7 @@ Everything is automated through [`just`](./justfile) — run `just` for the full
 ```bash
 just sync               # create/refresh the locked virtualenv (uv)
 just check              # lint + mypy + offline test suite (the local gate)
-just test-integration   # integration suite against the self-contained docker ELN (also runs nightly in CI)
+just test-integration   # integration suite against the self-contained docker ELN (local only; not run in CI)
 just cov                # offline-suite coverage report (gated at 54%)
 just docs               # build the Sphinx documentation
 just schemas            # dump the LabIMotion JSON schemas from a live ELN
@@ -112,8 +112,8 @@ chemotion_api --help    # scaffold, start/stop, configure ports, back up local i
 
 ## Documentation
 
-Sphinx documentation (API reference + guides) lives in [docs/](./docs) and builds in CI on
-every push:
+Sphinx documentation (API reference + guides) lives in [docs/](./docs). Read the Docs builds it
+from `main` and publishes it at <https://chemotionapi.readthedocs.io/>; to build it locally:
 
 ```bash
 just docs    # → docs/_build/html/index.html
