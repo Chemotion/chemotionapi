@@ -17,6 +17,20 @@ from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
 
 
+
+#: The class of each built-in element type (the keys of
+#: :data:`chemotion_api.elements.abstract_element.BUILTIN_ELEMENT_URLS`).
+_BUILTIN_ELEMENT_CLASSES: dict[str, type[AbstractElement]] = {
+    'sample': Sample,
+    'reaction': Reaction,
+    'wellplate': Wellplate,
+    'research_plan': ResearchPlan,
+    'device_description': DeviceDescription,
+    'screen': Screen,
+    'sequence_based_macromolecule_sample': SbmmSample,
+    'cell_line': CellLine,
+}
+
 class ElementSet(list):
     """
     The ElementSet class allows you to access all elements of a type in a collection.
@@ -293,31 +307,17 @@ class ElementSet(list):
     def _get_element_class(self) -> type[AbstractElement]:
         if self._element_type['is_generic']:
             return GenericElement
-        elif self._element_type['name'] == 'sample':
-            return Sample
-        elif self._element_type['name'] == 'reaction':
-            return Reaction
-        elif self._element_type['name'] == 'wellplate':
-            return Wellplate
-        elif self._element_type['name'] == 'research_plan':
-            return ResearchPlan
-        elif self._element_type['name'] == 'device_description':
-            return DeviceDescription
-        elif self._element_type['name'] == 'screen':
-            return Screen
-        elif self._element_type['name'] == 'sequence_based_macromolecule_sample':
-            return SbmmSample
-        elif self._element_type['name'] == 'cell_line':
-            return CellLine
+        element_class = _BUILTIN_ELEMENT_CLASSES.get(self._element_type['name'])
+        if element_class is not None:
+            return element_class
 
         # A built-in Chemotion type this client does not model. Name the type and what is
         # supported: "Generic type X cannot be found" read like a lookup bug rather than a scope
         # boundary.
         raise TypeError(
             "Element type '{}' is a built-in Chemotion type this client does not model, so it "
-            "cannot be loaded. Supported: sample, reaction, wellplate, research_plan, screen, "
-            "device_description, cell_line, sequence_based_macromolecule_sample, and LabIMotion "
-            "generic types.".format(self._element_type['name']))
+            "cannot be loaded. Supported: {}, and LabIMotion generic types.".format(
+                self._element_type['name'], ', '.join(_BUILTIN_ELEMENT_CLASSES)))
 
     def _get_result_key(self):
         if self._element_type['is_generic']:

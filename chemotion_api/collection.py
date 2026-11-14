@@ -592,6 +592,17 @@ class AbstractCollection:
                 return []
         return []
 
+    def _element_set(self, type_name: str, per_page: int | None, updated_to_date: datetime | None,
+                     updated_from_date: datetime | None, product_only: bool = False) -> ElementSet:
+        """Load the first page of this collection's elements of one built-in type."""
+        root = self.get_root()
+        element_type = root._element_manager.all_classes.get(type_name)
+        if element_type is None:
+            raise ValueError(f'The server has no element type "{type_name}".')
+        e = ElementSet(root._session, element_type, typing.cast(int, self.id))
+        e.load_elements(per_page, updated_to_date, updated_from_date, product_only)
+        return e
+
     def get_elements_of_iri(self, element_type: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
         """
@@ -634,11 +645,7 @@ class AbstractCollection:
         :return: ElementSet of samples
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('sample')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date, product_only)
-        return e
+        return self._element_set('sample', per_page, updated_to_date, updated_from_date, product_only)
 
     def get_reactions(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
@@ -652,11 +659,7 @@ class AbstractCollection:
         :return: ElementSet of reactions
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('reaction')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('reaction', per_page, updated_to_date, updated_from_date)
 
     def get_research_plans(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
@@ -670,11 +673,7 @@ class AbstractCollection:
         :return: ElementSet of research plans
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('research_plan')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('research_plan', per_page, updated_to_date, updated_from_date)
 
     def _apply_user_labels(self, *elements: AbstractElement, add: typing.Iterable[int] = (),
                            remove: typing.Iterable[int] = ()) -> None:
@@ -746,12 +745,7 @@ class AbstractCollection:
         :return: ElementSet of device descriptions
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session,
-                       typing.cast(dict, root._element_manager.all_classes.get('device_description')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('device_description', per_page, updated_to_date, updated_from_date)
 
     def get_cell_lines(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                        updated_from_date: datetime | None = None) -> ElementSet:
@@ -764,11 +758,7 @@ class AbstractCollection:
 
         :return: ElementSet of cell lines
         """
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('cell_line')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('cell_line', per_page, updated_to_date, updated_from_date)
 
     def get_sbmm_samples(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                          updated_from_date: datetime | None = None) -> ElementSet:
@@ -781,12 +771,7 @@ class AbstractCollection:
 
         :return: ElementSet of SBMM samples
         """
-        root = self.get_root()
-        e = ElementSet(root._session,
-                       typing.cast(dict, root._element_manager.all_classes.get('sequence_based_macromolecule_sample')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('sequence_based_macromolecule_sample', per_page, updated_to_date, updated_from_date)
 
     def get_screens(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                     updated_from_date: datetime | None = None) -> ElementSet:
@@ -799,11 +784,7 @@ class AbstractCollection:
 
         :return: ElementSet of screens
         """
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('screen')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('screen', per_page, updated_to_date, updated_from_date)
 
     def get_wellplates(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
@@ -817,11 +798,7 @@ class AbstractCollection:
         :return: ElementSet of well plates
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('wellplate')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('wellplate', per_page, updated_to_date, updated_from_date)
 
     def get_generics_by_name(self, name: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:

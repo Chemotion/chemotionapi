@@ -461,6 +461,13 @@ class Instance:
         """
         return self.element_manager.all_classes
 
+    def _get_element(self, type_name: str, id: int) -> AbstractElement:
+        """Load one element of a built-in type by its database id."""
+        element_type = self.all_element_classes.get(type_name)
+        if element_type is None:
+            raise ValueError(f'The server has no element type "{type_name}".')
+        return ElementSet(self._con, element_type).load_element(id)
+
     def get_reaction(self, id: int) -> Reaction:
         """
         Fetches data of one Reaction object from the Chemotion server.
@@ -472,8 +479,7 @@ class Instance:
         :return: a Reaction object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('reaction')))
-        return typing.cast(Reaction, e.load_element(id))
+        return typing.cast(Reaction, self._get_element('reaction', id))
 
     def get_wellplate(self, id: int) -> Wellplate:
         """
@@ -486,8 +492,7 @@ class Instance:
         :return: a Wellplate object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('wellplate')))
-        return typing.cast(Wellplate, e.load_element(id))
+        return typing.cast(Wellplate, self._get_element('wellplate', id))
 
     def get_research_plan(self, id: int) -> ResearchPlan:
         """
@@ -500,8 +505,7 @@ class Instance:
         :return: a ResearchPlan object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('research_plan')))
-        return typing.cast(ResearchPlan, e.load_element(id))
+        return typing.cast(ResearchPlan, self._get_element('research_plan', id))
 
     def get_cell_line(self, id: int) -> CellLine:
         """
@@ -510,8 +514,7 @@ class Instance:
         :param id: The Database ID of the desired Element
         :return: a CellLine object
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('cell_line')))
-        return typing.cast(CellLine, e.load_element(id))
+        return typing.cast(CellLine, self._get_element('cell_line', id))
 
     def get_sbmm_sample(self, id: int) -> SbmmSample:
         """
@@ -520,8 +523,7 @@ class Instance:
         :param id: The Database ID of the desired Element
         :return: an SbmmSample object
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('sequence_based_macromolecule_sample')))
-        return typing.cast(SbmmSample, e.load_element(id))
+        return typing.cast(SbmmSample, self._get_element('sequence_based_macromolecule_sample', id))
 
     def get_device_description(self, id: int) -> DeviceDescription:
         """
@@ -530,8 +532,7 @@ class Instance:
         :param id: The Database ID of the desired Element
         :return: a DeviceDescription object
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('device_description')))
-        return typing.cast(DeviceDescription, e.load_element(id))
+        return typing.cast(DeviceDescription, self._get_element('device_description', id))
 
     def get_screen(self, id: int) -> Screen:
         """
@@ -540,8 +541,7 @@ class Instance:
         :param id: The Database ID of the desired Element
         :return: a Screen object
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('screen')))
-        return typing.cast(Screen, e.load_element(id))
+        return typing.cast(Screen, self._get_element('screen', id))
 
     def get_sample(self, id: int) -> Sample:
         """
@@ -554,8 +554,7 @@ class Instance:
         :return: a Sample object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('sample')))
-        return typing.cast(Sample, e.load_element(id))
+        return typing.cast(Sample, self._get_element('sample', id))
 
     def get_generic_by_name(self, name: str, id: int) -> GenericElement:
         """

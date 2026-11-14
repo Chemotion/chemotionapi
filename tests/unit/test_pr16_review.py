@@ -148,3 +148,44 @@ def test_image_lookup_without_any_eln_tag_raises_a_clear_error():
         from chemotion_api.commands import InstanceManager
         with pytest.raises(LookupError, match='eln-'):
             InstanceManager.get_image_of_versions()
+
+
+# --- second review round: the duplicated code is shared ---------------------------------------
+
+def test_proposed_field_writes_into_a_copy_and_creates_missing_mappings():
+    from chemotion_api.elements.abstract_element import proposed_field
+    stored = {'a': {'b': 1}}
+    assert proposed_field(stored, ['f', 'a', 'c', 'd'], 2) == {'a': {'b': 1, 'c': {'d': 2}}}
+    assert stored == {'a': {'b': 1}}, 'the stored field is untouched'
+    assert proposed_field(stored, ['f'], 5) == 5
+
+
+def test_proposed_field_refuses_to_walk_into_a_scalar():
+    from chemotion_api.elements.abstract_element import proposed_field
+    with pytest.raises(ValueError, match='stored as a single value'):
+        proposed_field({'a': 1}, ['f', 'a', 'b'], 2)
+    with pytest.raises(ValueError, match='stored as a single value'):
+        proposed_field(3.0, ['f', 'x'], 2)
+
+
+def test_every_builtin_type_has_a_url_and_a_class():
+    from chemotion_api.elements import _BUILTIN_ELEMENT_CLASSES
+    from chemotion_api.elements.abstract_element import BUILTIN_ELEMENT_URLS, AbstractElement
+    assert set(_BUILTIN_ELEMENT_CLASSES) == set(BUILTIN_ELEMENT_URLS)
+    assert AbstractElement.get_url('cell_line') == '/api/v1/cell_lines'
+    assert AbstractElement.get_response_key('cell_line') == 'cell_line'
+    assert AbstractElement.get_url('my_generic') == '/api/v1/generic_elements'
+    assert AbstractElement.get_response_key('my_generic') == 'element'
+
+
+def test_a_type_the_server_does_not_have_is_named():
+    from chemotion_api.collection import AbstractCollection
+    collection = AbstractCollection.__new__(AbstractCollection)
+    root = SimpleNamespace(_element_manager=SimpleNamespace(all_classes={}), _session=None)
+    collection.get_root = lambda: root
+    with pytest.raises(ValueError, match='no element type "screen"'):
+        collection.get_screens()
+    instance = chemotion_api.Instance.__new__(chemotion_api.Instance)
+    with patch.object(chemotion_api.Instance, 'all_element_classes', new={}):
+        with pytest.raises(ValueError, match='no element type "screen"'):
+            instance.get_screen(1)

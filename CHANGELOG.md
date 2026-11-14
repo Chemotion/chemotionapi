@@ -309,7 +309,8 @@ New surface:
 - **Loading a reaction and saving it no longer clears its reference material.** Each material
   fetched its own sample record, which lacks the fields of its link to the reaction (reference,
   equivalent, coefficient, position), and the save wrote those back as empty. Materials of a loaded
-  reaction now keep the reaction's complete data.
+  reaction now keep the reaction's complete data, and a material that does reload reads its
+  reaction's record rather than `/samples/:id`.
 - **`Collection.parent`** (read-only; `None` for a root) and **`element.is_loaded`** (whether the full
   record has been fetched) are public.
 - **`ElementSet.page = n` works before anything is loaded**, and a page that does not exist raises

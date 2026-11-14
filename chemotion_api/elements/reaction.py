@@ -6,7 +6,6 @@ Defines :class:`Reaction` (a Chemotion reaction, extending
 :class:`Temperature` (a temperature-time profile). Reactions persist the product yield through an
 ``equivalent`` cache.
 """
-import copy
 import logging
 import re
 from enum import Enum
@@ -22,10 +21,9 @@ _DURATION_UNIT_SECONDS = {
 }
 
 
-from pydantic import BaseModel
 from requests import Response
 
-from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
+from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList, proposed_field, value_at
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample, SampleVariationType, GasPhaseObj
@@ -904,15 +902,6 @@ def _vessel_size_mapping(raw):
     return {'amount': amount, 'unit': 'ml'} if amount is not None else raw
 
 
-def _flattened_field_error(pyd_name: list[str]) -> ValueError:
-    """Explain a nested write into a field the model keeps as a scalar."""
-    field = pyd_name[0]
-    return ValueError(
-        f"{field!r} is stored as a single value, not a mapping, so "
-        f"properties[{field!r}][{pyd_name[-1]!r}] cannot be set. Assign the whole field instead, "
-        f"e.g. properties[{field!r}] = <value>.")
-
-
 class Reaction(AbstractElement):
     """
     A chemotion Reaction object.
@@ -1206,10 +1195,9 @@ class Reaction(AbstractElement):
                 sample_obj.reaction = self
                 if self._data_loaded:
                     # A loaded reaction's materials are complete: the server builds each from the
-                    # full sample entity plus its link to this reaction (ReactionMaterialEntity).
-                    # Fetching /samples/:id instead would add nothing and lose the link —
-                    # reference, equivalent, coefficient, position — which the next save then
-                    # wrote back, clearing the reaction's reference flag.
+                    # full sample entity plus its link to this reaction (ReactionMaterialEntity),
+                    # so there is nothing to fetch. (A material that does load reads the
+                    # reaction's record; see Sample._load_data_from_server.)
                     sample_obj._data_loaded = True
                 temp.append(sample_obj)
             reaction_elements[reaction_elm_names] = MaterialList(self, cast(Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'], reaction_elm_names), temp)
@@ -1545,33 +1533,8 @@ class Reaction(AbstractElement):
 
         # Only the field being written is copied and validated (see `validate_field`). A whole
         # field is the new value outright; a nested write is applied to a copy of that one field.
-        if len(pyd_name) == 1:
-            proposed = value[-1]
-        else:
-            source = self._model_field_source(top)
-            proposed = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
-            temp = proposed
-            for key in pyd_name[1:-1]:
-                if not isinstance(temp, dict):
-                    raise _flattened_field_error(pyd_name)
-                if key not in temp:
-                    temp[key] = {}
-                temp = temp[key]
-            if not isinstance(temp, dict):
-                # Walking into a scalar field (`reaction.properties['name']['x'] = …`) has nowhere
-                # to go. Without this it ended in `TypeError: argument of type 'float' is not
-                # iterable`, which says nothing about what the caller did wrong.
-                raise _flattened_field_error(pyd_name)
-            temp[pyd_name[-1]] = value[-1]
-
-        coerced_val = validate_field(ReactionPropertiesModel, top, proposed)
-        for key in pyd_name[1:]:
-            if isinstance(coerced_val, BaseModel):
-                coerced_val = getattr(coerced_val, key)
-            elif isinstance(coerced_val, dict):
-                coerced_val = coerced_val[key]
-            else:
-                coerced_val = getattr(coerced_val, key)
+        proposed = proposed_field(self._model_field_source(top), pyd_name, value[-1])
+        coerced_val = value_at(validate_field(ReactionPropertiesModel, top, proposed), pyd_name[1:])
 
         if isinstance(coerced_val, UnitDictModel):
             if name[0] == 'temperature':

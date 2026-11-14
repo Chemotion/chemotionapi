@@ -37,23 +37,70 @@ def test_materials_of_a_loaded_reaction_are_not_refetched():
     assert mat.properties['coefficient'] == 2.0
 
 
-def test_reloading_a_material_keeps_its_link_fields():
-    material = _sample_json(2) | {'reference': True, 'equivalent': 1.0, 'position': 0}
-    sample = Sample(SEGMENTS, SESSION, json_data=material)
-    sample.reaction = SimpleNamespace()     # bound to a reaction
-    standalone = _sample_json(2)             # /samples/:id: no link fields at all
-    for key in ('reference', 'equivalent', 'position'):
-        standalone.pop(key, None)
-    sample._set_json_data(standalone)
-    assert sample.json_data['reference'] is True
-    assert sample.json_data['equivalent'] == 1.0
+class _Server:
+    """Answers the reaction's and the sample's detail routes and records what was asked."""
+
+    def __init__(self, reaction_record, sample_record):
+        self.urls = []
+        self._routes = {'/api/v1/reactions/1.json': {'reaction': reaction_record},
+                        '/api/v1/samples/2.json': {'sample': sample_record}}
+        self._host_url = SESSION._host_url
+        self.schema_manager = SESSION.schema_manager
+
+    def get(self, url, **kwargs):
+        self.urls.append(url)
+        return SimpleNamespace(status_code=200, json=lambda: self._routes[url])
 
 
-def test_a_value_the_server_sends_is_not_overridden():
-    sample = Sample(SEGMENTS, SESSION, json_data=_sample_json(2) | {'reference': True})
-    sample.reaction = SimpleNamespace()
-    sample._set_json_data(_sample_json(2) | {'reference': False})
-    assert sample.json_data['reference'] is False
+def _unloaded_reaction(server, material):
+    """A reaction built from a payload, not loaded: its materials load lazily."""
+    return Reaction(SEGMENTS, server, json_data={
+        'id': 1, 'type': 'reaction', 'name': '', 'starting_materials': [material], 'reactants': [],
+        'products': [], 'solvents': [], 'purification_solvents': []})
+
+
+
+def _material(reaction):
+    """The parsed material, read without loading the reaction (whose own load would mark it loaded)."""
+    return reaction._properties_data['starting_materials'][0]
+
+def test_a_material_loads_from_its_reactions_record():
+    """Review of PR #16: the link loss was patched twice (materials marked loaded, link fields
+    merged back from the old payload). The root cause was that a material reloaded itself from
+    /samples/:id, which has no link. It now reads the reaction's record."""
+    link = {'reference': True, 'equivalent': 1.0, 'coefficient': 2.0, 'position': 0}
+    material = _sample_json(2) | link
+    standalone = {k: v for k, v in _sample_json(2).items() if k not in link}
+    server = _Server({'id': 1, 'starting_materials': [material | {'name': 'fresh'}]}, standalone)
+    reaction = _unloaded_reaction(server, material)
+    mat = _material(reaction)
+    assert not mat._data_loaded
+    mat.load()
+    assert server.urls == ['/api/v1/reactions/1.json']
+    assert mat.json_data['name'] == 'fresh'
+    assert mat.properties['reference'] is True
+    assert mat.properties['coefficient'] == 2.0
+
+
+def test_a_sample_the_reaction_no_longer_lists_loads_its_own_record():
+    material = _sample_json(2) | {'reference': True}
+    server = _Server({'id': 1, 'starting_materials': []}, _sample_json(2) | {'name': 'own'})
+    mat = _material(_unloaded_reaction(server, material))
+    mat.load()
+    assert server.urls == ['/api/v1/reactions/1.json', '/api/v1/samples/2.json']
+    assert mat.json_data['name'] == 'own'
+
+
+def test_a_direct_write_on_an_unloaded_material_survives_the_load():
+    """Review of PR #16: `_properties` loaded only listed elements, so each Sample writer called
+    `_ensure_loaded()` itself. It now loads any element that is not loaded yet, so a writer that
+    touches `_properties` first (set_ref without the handler, here) keeps its write."""
+    material = _sample_json(2) | {'reference': False}
+    server = _Server({'id': 1, 'starting_materials': [material]}, _sample_json(2))
+    mat = _material(_unloaded_reaction(server, material))
+    mat.set_ref(True, check_ref=False)
+    assert server.urls == ['/api/v1/reactions/1.json'], 'loaded once, before the write'
+    assert mat.properties['reference'] is True
 
 
 def test_a_reaction_reread_by_save_keeps_its_materials_loaded(monkeypatch):
