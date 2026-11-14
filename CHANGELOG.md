@@ -80,6 +80,15 @@ the status code, or only the singular key, reads a failure as a success.
 There is no replacement for `get_jwt_for_device()` / `Device.get_jwt()`, because the server
 offers none.
 
+### Changed: a success reply that reports a failure now raises
+
+The ELN answers some refused requests with a success status and the reason in the body:
+`{"errors": …}`, `{"error": …}` or `{"success": false}`. A method that checked only the status code
+read these as success. The connection now checks every JSON reply and raises
+`ChemotionRejectedError`, with the server's reason in its message and the decoded reply in `body`.
+It is a `ConnectionError` and a `ValueError` as well, so existing handlers keep catching it. Empty
+values (`{"error": 0}`, `{"errors": []}`) count as success.
+
 ### Fixed: five results that were wrong without an error
 
 - **`ElementSet.page = n` loads page `n`.** It was ignored for any page not yet seen: before the
