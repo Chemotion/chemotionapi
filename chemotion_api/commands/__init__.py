@@ -188,19 +188,34 @@ class InstanceManager:
         click.secho(f"Restored {file_path} -> {database}!", fg='green', bg='white')
 
     @staticmethod
+    def _tags() -> list[str]:
+        """Every tag of ``ptrxyz/chemotion``, following Docker Hub's pages (at most 100 per page)."""
+        url: str | None = 'https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=100'
+        names: list[str] = []
+        while url:
+            res = requests.get(url, timeout=30)
+            res.raise_for_status()
+            body = res.json()
+            names += [x['name'] for x in body.get('results', [])]
+            url = body.get('next')
+        return names
+
+    @staticmethod
     def get_versions():
-        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024')
-        return [x['name'][4:] for x in res.json()['results'] if x['name'].startswith('eln')]
+        return [name[4:] for name in InstanceManager._tags() if name.startswith('eln-')]
 
     @staticmethod
     def get_image_of_versions(version: None | str = None):
-        v_list = InstanceManager.get_versions()
+        tags = InstanceManager._tags()
         if version is None:
-            version = v_list[0]
-        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024')
-        return dict(
-            [(x['name'][:-(len(version) + 1)], f"ptrxyz/chemotion:{x['name']}") for x in res.json()['results'] if
-             x['name'].endswith(version)])
+            version = next((name[4:] for name in tags if name.startswith('eln-')), None)
+            if version is None:
+                raise LookupError('Docker Hub lists no eln- tag for ptrxyz/chemotion.')
+        # Match the whole `-<version>` suffix: `endswith(version)` let "1.2" pick "eln-1.1.2". A
+        # service name may contain hyphens itself (`ketchersvc-sc`).
+        suffix = f'-{version}'
+        return {name[:-len(suffix)]: f'ptrxyz/chemotion:{name}' for name in tags
+                if name.endswith(suffix) and len(name) > len(suffix)}
 
     @staticmethod
     def insert_dataset(ols_term_id: str, pguser='postgres', port=5432, host='localhost', pgpassword='postgres',
@@ -208,7 +223,7 @@ class InstanceManager:
 
         ols_term_id_num = ols_term_id.split(':')[-1]
         ols_link = f'https://www.ebi.ac.uk/ols4/api/v2/ontologies/chmo/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FCHMO_{ols_term_id_num}?lang=en&includeObsoleteEntities=t'
-        res = requests.get(ols_link)
+        res = requests.get(ols_link, timeout=30)
         if res.status_code != 200:
             raise ConnectionError(f'Unable to find: {ols_term_id} ({ols_link})')
         res_json = res.json()
@@ -216,9 +231,28 @@ class InstanceManager:
         label = res_json['label']
         definition = res_json['definition']['value']
         created_at = datetime.now().strftime("%Y-%m-%d, %H:%M:%S.%f")
-        sql_command = f"INSERT INTO public.dataset_klasses (ols_term_id, label, \"desc\", created_by, created_at) VALUES ('{ols_term_id}', '{label}', '{definition}', 1, '{created_at}')";
+        # The label and definition come from a third-party API (EBI OLS), so they are never put into
+        # the SQL text: an apostrophe, ordinary in chemistry definitions, broke the statement, and
+        # the failure went unnoticed because the exit code was not checked. They are passed as psql
+        # variables and referenced as :'name', psql's quote-and-escape form. The statement goes in
+        # on stdin, because psql substitutes variables only in input it reads itself (not in -c).
+        sql_command = (
+            'INSERT INTO public.dataset_klasses '
+            '(ols_term_id, label, "desc", created_by, created_at) '
+            "VALUES (:'ols_term_id', :'label', :'definition', 1, :'created_at')"
+        )
         my_env = os.environ.copy()
         my_env["PGPASSWORD"] = pgpassword
-        command = ['psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database, '-c', sql_command]
-        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=my_env)
-        proc.communicate()
+        command = [
+            'psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database,
+            '-v', 'ON_ERROR_STOP=1',
+            '-v', f'ols_term_id={ols_term_id}',
+            '-v', f'label={label}',
+            '-v', f'definition={definition}',
+            '-v', f'created_at={created_at}',
+        ]
+        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, env=my_env, text=True)
+        _out, err = proc.communicate(sql_command + ';\n')
+        if proc.returncode != 0:
+            raise ChildProcessError(f'psql could not insert the dataset klass: {err.strip()}')

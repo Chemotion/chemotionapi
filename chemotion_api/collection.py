@@ -22,15 +22,18 @@ TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
 
 
 def _col_path_join(path_part: str, *path_parts: str) -> str:
-    path_parts_list = list(path_parts)
-    path_parts_list.reverse()
+    """Join unix-style collection path segments, collapsing duplicate slashes (helper)."""
+    # An absolute segment (starting with '/') resets the path to that segment onward.
     for i, x in enumerate(path_parts):
         if x.startswith('/'):
-            if i == 0:
-                return _col_path_join(x)
-            return _col_path_join(x, *path_parts[-i:])
-    path_parts_str = '/'.join(path_parts)
-    return f'{path_part}/{path_parts_str}'.replace('//', '/').replace('//', '/')
+            # `path_parts[i + 1:]` — everything *after* the absolute segment. It used to take
+            # `path_parts[-i:]` (the last i items, a different slice) and, for i == 0, dropped
+            # the tail entirely: join('a', '/b', 'c', 'd') returned '/b/'.
+            return _col_path_join(x, *path_parts[i + 1:])
+    joined = '/'.join([path_part, *path_parts])
+    while '//' in joined:
+        joined = joined.replace('//', '/')
+    return joined
 
 
 class SyncPermission(Enum):

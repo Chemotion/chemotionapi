@@ -26,6 +26,34 @@ def test_new_generics(instance_with_collection):
     test = instance.get_json_ld_id(a1.json_ld['@id'])
     assert test.json_ld == a1.json_ld
 
+
+def test_generic_by_name_refuses_an_element_of_another_type(instance_with_collection):
+    """Issue #14: the id decides what you get, not the type in the request.
+
+    The server resolves a generic element by id alone, so asking for one type and passing the id
+    of another used to return the wrong element silently — a `try` request yielding a `wrk`
+    object, with nothing to indicate it.
+    """
+    instance: Instance = instance_with_collection['instance']
+    col = instance_with_collection['main_collection']
+
+    created = col.new_generic('try')
+    created.save()
+
+    # the same id, requested as a different generic type that also exists on this server
+    other = next(name for name in instance.all_element_classes
+                 if name != 'try' and instance.all_element_classes[name].get('is_generic'))
+    with pytest.raises(ValueError, match='not a'):
+        instance.get_generic_by_name(other, created.id)
+
+    # and by label, which delegates to the same path
+    other_label = instance.all_element_classes[other]['label']
+    with pytest.raises(ValueError, match='not a'):
+        instance.get_generic_by_label(other_label, created.id)
+
+    # the correct type is unaffected
+    assert instance.get_generic_by_name('try', created.id).id == created.id
+
 def test_generic_field_template(instance_with_collection):
     col = instance_with_collection['main_collection']
     a = col.new_generic('try')

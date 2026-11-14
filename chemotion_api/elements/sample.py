@@ -441,7 +441,9 @@ class Sample(AbstractElement):
         The molecule of the sample. Its density (or molarity) is copied to the sample if the sample has
         neither a density nor a molarity yet.
         """
-
+        # Load first: on a listed sample, reading `properties` below fetched the full record, and
+        # that re-parsed the server's molecule over the one just assigned.
+        self._load_if_partial()
         self._molecule = molecule
         self._apply_molecule_density_or_molarity()
 
