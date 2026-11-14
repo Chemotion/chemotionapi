@@ -92,6 +92,37 @@ class ChemotionServerError(ChemotionRequestError):
     accept, such as a sample whose molecule never resolved."""
 
 
+class ChemotionRejectedError(ChemotionRequestError, ValueError):
+    """The server answered with a success status but said in the body that it did not do it.
+
+    The ELN does this on several routes: ``201`` with ``{"errors": {...}}`` for a refused create,
+    ``200`` with ``{"error": "..."}`` for a rescued exception, ``{"success": false, ...}``. Checking
+    only the status code reads each as success. The connection checks every JSON reply for these
+    keys and raises this; a call that reads such a body itself passes ``allow_error_body=True``.
+
+    It is a ``ValueError`` as well as a ``ConnectionError``, because the server usually means
+    "your input was not accepted", and methods that checked these bodies themselves raised
+    ``ValueError``.
+
+    :ivar body: the decoded reply
+    """
+
+    def __init__(self, response: requests.Response, body: dict, context: str | None = None):
+        self.body = body
+        super().__init__(response, context)
+
+
+def _rejection(body) -> bool:
+    """Whether a decoded 2xx reply says the request failed.
+
+    ``error`` / ``errors`` count only when they carry something: ``{"error": 0}`` (a public route)
+    and ``{"errors": []}`` (an import with nothing to report) are successes.
+    """
+    if not isinstance(body, dict):
+        return False
+    return bool(body.get('error')) or bool(body.get('errors')) or body.get('success') is False
+
+
 def request_error(response: requests.Response,
                   context: str | None = None) -> ChemotionRequestError:
     """Build the right error for a failed response: 5xx is the server's fault, 4xx the caller's.
@@ -289,6 +320,7 @@ class Connection(requests.Session):
                 f'this connection is bound to {origin.scheme}://{origin.netloc}.')
 
     def _send_request(self, method: str, url_path: str, default_header: dict, kwargs: dict) -> requests.Response:
+        allow_error_body = kwargs.pop('allow_error_body', False)
         self._assert_token_not_expired(kwargs.get('url', url_path))
         kwargs['verify'] = kwargs.get('verify', self._verify)
         kwargs['url'] = kwargs.get('url', f"{self._host_url}/{url_path.lstrip('/')}")
@@ -344,8 +376,30 @@ class Connection(requests.Session):
         if self.tzinfo is None:
             if 'Date' in res.headers:
                 self.tzinfo = parsedate(res.headers['Date']).astimezone().tzinfo
-
+        if not allow_error_body and not kwargs.get('stream'):
+            self._raise_on_rejection(res)
         return res
+
+    @staticmethod
+    def _raise_on_rejection(res: requests.Response) -> None:
+        """Raise :class:`ChemotionRejectedError` for a 2xx JSON reply that reports a failure.
+
+        The body is only decoded when it mentions one of the keys, so a large listing costs a
+        byte search, not a second parse.
+        """
+        if not 200 <= res.status_code < 300:
+            return
+        if 'json' not in (res.headers.get('Content-Type') or ''):
+            return
+        content = res.content or b''
+        if b'"error' not in content and b'"success"' not in content:
+            return
+        try:
+            body = res.json()
+        except ValueError:
+            return
+        if _rejection(body):
+            raise ChemotionRejectedError(res, body)
 
     def get_default_session_header(self) -> dict[str, str]:
         headers = {'User-Agent': 'Mozilla/5.0'}
