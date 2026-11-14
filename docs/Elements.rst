@@ -39,6 +39,7 @@ This method returns an Object of class ElementSet
         pass
 
 The elements are loaded lazily, page by page, with 10 elements per page by default.
+Setting ``page`` loads that page; a page that does not exist raises ``IndexError``.
 You can change the page size with the *per_page* argument of the get methods
 (e.g. ``col.get_samples(per_page=50)``). All get methods also accept *updated_from_date* and
 *updated_to_date* to fetch only elements updated in a time range.
