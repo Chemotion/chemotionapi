@@ -220,11 +220,14 @@ class InstanceManager:
     def get_image_of_versions(version: None | str = None):
         tags = InstanceManager._tags()
         if version is None:
-            version = next(name[4:] for name in tags if name.startswith('eln-'))
-        # Exact `<service>-<version>` match: `endswith(version)` let "1.2" match "eln-1.1.2".
+            version = next((name[4:] for name in tags if name.startswith('eln-')), None)
+            if version is None:
+                raise LookupError('Docker Hub lists no eln- tag for ptrxyz/chemotion.')
+        # Match the whole `-<version>` suffix: `endswith(version)` let "1.2" pick "eln-1.1.2". A
+        # service name may contain hyphens itself (`ketchersvc-sc`).
         suffix = f'-{version}'
         return {name[:-len(suffix)]: f'ptrxyz/chemotion:{name}' for name in tags
-                if name.endswith(suffix) and '-' not in name[:-len(suffix)]}
+                if name.endswith(suffix) and len(name) > len(suffix)}
 
     @staticmethod
     def insert_dataset(ols_term_id: str, pguser='postgres', port=5432, host='localhost', pgpassword='postgres',

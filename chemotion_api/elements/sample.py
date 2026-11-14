@@ -404,10 +404,16 @@ class MoleculeManager:
         The server does this as a side effect of *reading* the names with ``new_name`` set; this
         method is the explicit form of that.
 
-        :raises ValueError: if the name is empty, or the molecule does not exist.
+        The ELN strips surrounding whitespace, and treats ``;`` as a separator between several
+        names, so a name containing ``;`` is refused here.
+
+        :raises ValueError: if the name is empty or contains ``;``, or the molecule does not exist.
         """
-        if not name or not name.strip():
+        name = (name or '').strip()
+        if not name:
             raise ValueError('A molecule name must not be empty.')
+        if ';' in name:
+            raise ValueError('The ELN splits a molecule name at ";", so it cannot be part of one.')
         names = self._names(molecule_id, new_name=name)
         match = next((n for n in names if n.name == name), None)
         if match is None:

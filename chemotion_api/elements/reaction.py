@@ -897,6 +897,13 @@ def _bare_amount(value) -> float | None:
     return None
 
 
+def _vessel_size_mapping(raw):
+    """The stored vessel size as ``{amount, unit}``. Clients before 401.0 could store a bare
+    number; it reads as that many ml, so such a reaction still loads."""
+    amount = _bare_amount(raw)
+    return {'amount': amount, 'unit': 'ml'} if amount is not None else raw
+
+
 def _flattened_field_error(pyd_name: list[str]) -> ValueError:
     """Explain a nested write into a field the model keeps as a scalar."""
     field = pyd_name[0]
@@ -1224,7 +1231,7 @@ class Reaction(AbstractElement):
             'status': self.json_data.get('status'),
             'duration': self.json_data.get('duration'),
             'temperature': self.json_data.get('temperature', {}),
-            'vessel_size': self.json_data.get('vessel_size'),
+            'vessel_size': _vessel_size_mapping(self.json_data.get('vessel_size')),
             'yield_value': self.json_data.get('yield') if self.json_data.get('yield') is not None else (
                 float(self.json_data['products'][0]['equivalent']) * 100.0 if (
                     self.json_data.get('products') and self.json_data['products'][0].get('equivalent') is not None
@@ -1524,13 +1531,17 @@ class Reaction(AbstractElement):
             pyd_name[0] = 'yield_value'
         top = pyd_name[0]
 
-        if list(name) == ['vessel_size'] and _bare_amount(value[-1]) is not None:
+        if list(name) == ['vessel_size']:
             # `properties['vessel_size'] = 200` (or `'200'`, as read from a form or CSV) sets the
             # amount and keeps the unit. Storing the bare number instead (as before 401.0) put a
-            # float on the wire where the server expects `{amount, unit}`.
+            # float on the wire where the server expects `{amount, unit}`. A mapping without a
+            # unit (`{'amount': 50}`) keeps the current unit too, rather than sending a null one.
             current = self._properties.get('vessel_size')
             unit = current.get('unit') if isinstance(current, dict) and current.get('unit') else 'ml'
-            value[-1] = {'amount': _bare_amount(value[-1]), 'unit': unit}
+            if _bare_amount(value[-1]) is not None:
+                value[-1] = {'amount': _bare_amount(value[-1]), 'unit': unit}
+            elif isinstance(value[-1], dict) and not value[-1].get('unit'):
+                value[-1] = dict(value[-1]) | {'unit': unit}
 
         # Only the field being written is copied and validated (see `validate_field`). A whole
         # field is the new value outright; a nested write is applied to a copy of that one field.

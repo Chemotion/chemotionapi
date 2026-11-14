@@ -16,7 +16,7 @@ from jsonschema.validators import validate
 from chemotion_api.elements.analyses_manager import AnalysesManager
 
 from chemotion_api.utils.withheld import mark_withheld
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from chemotion_api.models import validate_field
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.user import UserLabel
@@ -963,6 +963,9 @@ class AbstractElement:
             # precisely because `_data_loaded` is False — nothing lazily-derived has been handed
             # out yet to be clobbered.
             _attachment_data, json_data = self._load_data_from_server()
+            # Parsed as a loaded element, as load() does, so that what the parse builds (a
+            # reaction's materials) is not itself treated as incomplete and refetched.
+            self._data_loaded = True
             self._set_json_data(json_data)
 
         if self.is_restricted:
@@ -1129,16 +1132,20 @@ class AbstractElement:
     _rich_text_fields: tuple[str, ...] = ()
 
     def _rich_text_write(self, name: list, value: list) -> None:
-        """Convert a plain string to a delta and check the field stays a well-formed delta."""
+        """Convert a plain string (or ``None``, which clears the field) to a delta, and check the
+        field stays a well-formed delta."""
         from chemotion_api.utils import is_quill_document, text_to_quill
         top = name[0]
         if top not in self._rich_text_fields:
             return
         if len(name) == 1:
-            if isinstance(value[-1], str):
+            if value[-1] is None:
+                # Clearing the field: stored as an empty delta, which every element type saves.
+                value[-1] = text_to_quill('')
+            elif isinstance(value[-1], str):
                 value[-1] = text_to_quill(value[-1])
             elif not is_quill_document(value[-1]):
-                raise ValueError(f"properties[{top!r}] is rich text: assign a string or a Quill "
+                raise ValueError(f"properties[{top!r}] is rich text: assign a string, None or a Quill "
                                  f"delta ({{'ops': [{{'insert': ...}}, ...]}}); see text_to_quill().")
             else:
                 value[-1] = value[-1].to_dict() if hasattr(value[-1], 'to_dict') else dict(value[-1])
@@ -1159,11 +1166,27 @@ class AbstractElement:
         """Run freshly parsed properties through :attr:`_properties_model` and keep the coerced values.
 
         Keys the model does not declare pass through unchanged (the models allow extras).
+
+        This reads what the server sent, so a value the model rejects does not make the element
+        unloadable: that field keeps the value as sent, with a warning, and the others are still
+        coerced. Writes through :attr:`properties` stay strict.
         """
         model = self._properties_model
         if model is None:
             return props
-        validated = model.model_validate(props)
+        try:
+            validated = model.model_validate(props)
+        except ValidationError:
+            out = {}
+            for key, value in props.items():
+                try:
+                    out[key] = _plain(validate_field(model, key, value))
+                except ValidationError as e:
+                    logger.warning('%s %s: kept %r for %r as the server sent it; it does not fit %s (%s)',
+                                   self.element_type, self.id, value, key, model.__name__,
+                                   e.errors()[0].get('msg') if e.errors() else e)
+                    out[key] = value
+            return out
         return {key: (_plain(getattr(validated, key)) if key in model.model_fields else value)
                 for key, value in props.items()}
 

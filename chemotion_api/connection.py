@@ -144,6 +144,7 @@ class Connection(requests.Session):
         self.tzinfo = None
         self._schema_manager = None
         self._user_labels: list[dict] | None = None
+        self._current_user_id: int | None = None
 
     @property
     def schema_manager(self) -> SchemaManager:
@@ -173,8 +174,16 @@ class Connection(requests.Session):
         return self._user_labels
 
     def reset_user_labels(self):
-        """Drop the cached user labels so the next read refetches them."""
+        """Drop the cached user labels, and the cached user id, so the next read refetches them."""
         self._user_labels = None
+        self._current_user_id = None
+
+    def current_user_id(self) -> int:
+        """The logged-in user's id, fetched once per login."""
+        if self._current_user_id is None:
+            from chemotion_api.user import User
+            self._current_user_id = User.load_me(self).id
+        return typing.cast(int, self._current_user_id)
 
     def _assert_token_not_expired(self, url: str) -> None:
         """Refuse to send a bearer token whose own ``exp`` claim has passed.
@@ -307,10 +316,17 @@ class Connection(requests.Session):
                 # A certificate or proxy failure is configuration, not a transient fault: the
                 # next attempt fails identically, so retrying only delays the error.
                 raise ConnectionError(str(e)) from e
-            except (CError, Timeout) as e:
-                # `Timeout` covers a read timeout, which is not a `requests` ConnectionError
-                # (a connect timeout is both). A GET that timed out is as safe to repeat as one
-                # whose connection dropped.
+            except Timeout as e:
+                if not isinstance(e, CError):
+                    # A read timeout (the server took the request but did not answer in time) is
+                    # not retried: the timeout is long on purpose, so repeating it multiplies the
+                    # wait, and the server may still be working on the request. A connect timeout
+                    # is also a ConnectionError and is retried below.
+                    raise
+                last_error = e
+                if attempt + 1 < attempts:
+                    time.sleep(_RETRY_BACKOFF_SECONDS * (attempt + 1))
+            except CError as e:
                 last_error = e
                 # Compare against the attempts actually allowed, not the configured maximum:
                 # a write gets one attempt, so it must raise immediately rather than sleep
@@ -318,10 +334,6 @@ class Connection(requests.Session):
                 if attempt + 1 < attempts:
                     time.sleep(_RETRY_BACKOFF_SECONDS * (attempt + 1))
         else:
-            if isinstance(last_error, Timeout) and not isinstance(last_error, CError):
-                # A read timeout has always reached the caller as `requests.Timeout`; keep that
-                # type so an existing `except requests.Timeout` still catches it.
-                raise typing.cast(Timeout, last_error)
             if method in _IDEMPOTENT_METHODS:
                 raise ConnectionError(
                     f'Could not reach the server after {self._retries} attempts: {last_error}'

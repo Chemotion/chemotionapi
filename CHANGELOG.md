@@ -108,11 +108,12 @@ to get both of these.
 - **Writes are never retried.** A `POST` or `PUT` that fails after the server received it would be
   applied twice on a second attempt, so the caller is told plainly that the write's fate is
   unknown instead of risking a duplicate. This holds whatever `retries` is set to.
-- Only *transport* failures are retried — a dropped connection, or a timeout on a read. An HTTP
+- Only *connection* failures are retried — a dropped connection, or a timeout while connecting. An HTTP
   error status is a considered answer from the server and is returned to the caller untouched.
   Certificate and proxy errors are not retried either: they are configuration, and fail the same
   way every time.
-- A read that times out on every attempt still raises `requests.Timeout`, as before.
+- A read timeout is not retried: the server may still be working, and the timeout is long on
+  purpose. It raises `requests.Timeout` at once, as before.
 - **An expired login token is refused before it is sent**, with `TokenExpiredError` (a
   `PermissionError`) saying when it expired and how to log in again. The check reads the JWT's own
   `exp` claim; Chemotion tokens last six months. A `401` from the server is deliberately *not*
@@ -271,14 +272,15 @@ Two things were **broken against the released server** and are fixed:
 New surface:
 
 - **Every built-in element type validates its properties.** Wellplates, research plans, screens and
-  device descriptions now have pydantic models, as samples and reactions did: payloads are
-  validated on load, and each `properties[...] = …` write is validated for that field alone.
+  device descriptions now have pydantic models, as samples and reactions did. Each
+  `properties[...] = …` write is validated for that field alone. A value from the server that
+  does not fit is kept as sent, with a warning, so the element still loads.
 - **Rich-text helpers.** Reaction `description`/`observation` and wellplate/screen `description`
   are Quill deltas, the ELN editor's format. New public `chemotion_api.quill_to_text()` flattens
   one to text and `chemotion_api.text_to_quill()` builds one from text (the shape the ELN creates
-  itself). Writing these properties accepts a plain string (stored via `text_to_quill`) or a
-  well-formed delta, formatting included; anything else now raises `ValueError` at assignment
-  rather than at save.
+  itself). Writing these properties accepts a plain string (stored via `text_to_quill`), a
+  well-formed delta, formatting included, or `None`, which clears the field; anything else now
+  raises `ValueError` at assignment rather than at save.
 
 - **Screens.** `Collection.get_screens()` / `new_screen()`, `Instance.get_screen()`. The linked
   wellplates and research plans are id lists (`wellplate_ids`, `research_plan_ids`) that a save
@@ -335,7 +337,8 @@ New surface:
 - **Chemical inventory.** `Sample.get_chemical()` returns the sample's inventory and safety record
   (a `Chemical`); when there is none yet, saving it creates one.
 - **Molecule names.** `MoleculeManager.get_names(molecule_id)` lists the names a molecule is known
-  by and `add_name(molecule_id, name)` adds one. `Sample.molecule_name_id` chooses which of them a
+  by and `add_name(molecule_id, name)` adds one (surrounding whitespace is dropped, and a `;` is
+  refused, because the ELN splits names there). `Sample.molecule_name_id` chooses which of them a
   sample shows.
 - **The server's own collection export and import.** `Collection.export_zip(destination)` waits
   for the ELN to build its export archive and saves it; `Instance.import_zip(path)` imports such an
@@ -356,6 +359,8 @@ Fixes to existing behaviour:
 - Unknown solvent names suggest near matches.
 - `reaction.properties['vessel_size'] = 200` (or `'200'`) sets the amount and keeps the unit. It
   used to store the bare number, which the server does not accept in place of `{amount, unit}`.
+  A mapping without a unit keeps the current unit too, and a reaction stored with a bare number
+  loads, reading it as ml.
 - Joining collection paths no longer drops the segments after an absolute one:
   `'a', '/b', 'c', 'd'` now gives `/b/c/d`.
 - **Search:** a search on a field the collection's detail level

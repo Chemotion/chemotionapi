@@ -134,11 +134,22 @@ def test_configuration_errors_are_not_retried(monkeypatch, exc_name):
     assert boom.calls == 1 and sleeps == []
 
 
-def test_a_read_timeout_on_a_get_is_retried_and_keeps_its_type(monkeypatch):
+def test_a_read_timeout_is_not_retried_and_keeps_its_type(monkeypatch):
+    """The read timeout is long on purpose; retrying it tripled the wait on a stalled server."""
     from requests.exceptions import ReadTimeout
-    monkeypatch.setattr('chemotion_api.connection.time.sleep', lambda _: None)
+    sleeps = []
+    monkeypatch.setattr('chemotion_api.connection.time.sleep', sleeps.append)
     boom = _Raises(ReadTimeout("slow"))
     with pytest.raises(ReadTimeout):
+        _send(_conn(retries=3), 'get', boom)
+    assert boom.calls == 1 and sleeps == []
+
+
+def test_a_connect_timeout_on_a_get_is_retried(monkeypatch):
+    from requests.exceptions import ConnectTimeout
+    monkeypatch.setattr('chemotion_api.connection.time.sleep', lambda _: None)
+    boom = _Raises(ConnectTimeout("no route"))
+    with pytest.raises(ConnectionError):
         _send(_conn(retries=3), 'get', boom)
     assert boom.calls == 3
 

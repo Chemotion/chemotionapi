@@ -40,6 +40,25 @@ def _text(message: dict) -> str:
     return str(content.get('data') or '') if isinstance(content, dict) else str(content)
 
 
+def _ruby_inspect(text: str) -> str:
+    """``text`` as Ruby's ``String#inspect`` writes it, which is how the label reaches the message."""
+    escaped = (text.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+               .replace('\t', '\\t').replace('\r', '\\r'))
+    for c in '{$@':
+        escaped = escaped.replace('#' + c, '\\#' + c)
+    return f'"{escaped}"'
+
+
+def _is_export_of(text: str, label: str) -> bool:
+    """Whether a notification is about exporting exactly the collection ``label``.
+
+    The ELN formats its list of labels into the message, giving ``Collection Export: ["NMR"] …``.
+    Matching the bracketed, quoted label tells ``NMR`` from ``NMR 2024``; a plain substring test
+    took another collection's export for this one.
+    """
+    return text.startswith('Collection Export:') and f'[{_ruby_inspect(label)}]' in text
+
+
 def export_collection_zip(session: Connection, collection_id: int, label: str, destination,
                           timeout: float = 900, poll_interval: float = 2.0) -> Path:
     """Ask the server to export one collection and save the archive to ``destination``.
@@ -62,7 +81,7 @@ def export_collection_zip(session: Connection, collection_id: int, label: str, d
     while time.monotonic() < deadline:
         for message in new_messages(session, seen):
             text = _text(message)
-            if 'Export' not in text or label not in text:
+            if not _is_export_of(text, label):
                 continue
             if message.get('subject') == SUBJECT_FAIL:
                 raise ConnectionError(f'The server could not export collection {collection_id}: {text}')

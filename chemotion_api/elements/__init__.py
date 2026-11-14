@@ -131,11 +131,12 @@ class ElementSet(list):
             return
         if not isinstance(page, int) or isinstance(page, bool) or page < 1:
             raise IndexError(f'Pages are numbered from 1; got {page!r}.')
-        if self._loaded and page > self.max_page:
+        # An empty result reports 0 pages, but its page 1 exists (and is empty).
+        if self._loaded and page > max(1, self.max_page):
             raise IndexError(f'There are {self.max_page} page(s); page {page} does not exist.')
         self._page = page
         self.load_elements(**self._load_options)
-        if page > self.max_page:
+        if page > max(1, self.max_page):
             # The server answers an out-of-range page with page 1, so that is what is loaded now.
             self._page = 1
             raise IndexError(f'There are {self.max_page} page(s); page {page} does not exist.')
