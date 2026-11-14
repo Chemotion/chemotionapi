@@ -80,6 +80,21 @@ the status code, or only the singular key, reads a failure as a success.
 There is no replacement for `get_jwt_for_device()` / `Device.get_jwt()`, because the server
 offers none.
 
+### Fixed: four results that were wrong without an error
+
+- **`ElementSet.page = n` loads page `n`.** It was ignored for any page not yet seen: before the
+  first load every page but the first was refused, and the set stayed where it was without a word.
+  A page that does not exist now raises `IndexError`. Page 1 of an empty collection is fine.
+- **The inbox lists each sender box once.** With exactly 20, 40, … boxes it requested one page too
+  many, which the server answers with page 1 again, so every box appeared twice.
+- **`insert-dataset` inserts the dataset, or says why not.** The term's label and definition, which
+  come from the EBI ontology service, were pasted into the SQL statement: an apostrophe, common in
+  definitions, broke it, and psql's exit code was never checked. They are now passed as psql
+  variables, and a failure raises `ChildProcessError` with psql's message.
+- **Image lookup by version picks that version.** Matching by ending let version `1.2` select the
+  `eln-1.1.2` image. Versions now match exactly, every page of Docker Hub's tag list is read, and
+  the requests time out instead of hanging. With no `eln-` tag at all, it raises `LookupError`.
+
 ### Also
 
 - **Joining collection paths no longer drops the segments after an absolute one.**

@@ -79,7 +79,9 @@ class Inbox:
             if res.status_code != 200:
                 raise ConnectionError(f"Inbox could not be fetched! {res} -> {res.status_code}")
             json_res = res.json()['inbox']
-            max_page = 1 + json_res['count'] // per_page
+            # Ceiling, not 1 + floor: at an exact multiple of per_page the extra page is out of range,
+            # and the server answers an out-of-range page with page 1 again, duplicating every box.
+            max_page = max(1, -(-json_res['count'] // per_page))
             for child in json_res['children']:
                 self._content[child['name']] = SenderBox(self._con, child)
         for child in json_res['unlinked_attachments']:
