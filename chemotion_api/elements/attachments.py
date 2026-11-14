@@ -187,7 +187,9 @@ class Attachment(AttrAccessMixin, dict):
         res = self._con.delete(f"/api/v1/attachments/link/{self['id']}")
         if res.status_code not in (200, 204):
             raise request_error(res, f"unlinking attachment {self['id']}")
-        self.update(res.json().get('attachment') or {})
+        if res.status_code != 204:
+            # A 204 has no body to read; the unlink has happened all the same.
+            self.update(res.json().get('attachment') or {})
 
 
 def _attachment_ids(attachments) -> list[int]:

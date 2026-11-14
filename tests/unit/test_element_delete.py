@@ -25,22 +25,31 @@ class _Res:
 
 
 class _Session:
-    """DELETE answers from ``responses``; the follow-up GETs answer 200 for ids in ``kept``
-    (``(url, id)`` is matched on the id in the URL), 404 for everything else."""
+    """DELETE answers from ``responses``; the follow-up GETs answer 200 for the URLs in ``kept``
+    (in your collection 11) and ``shared`` (only in someone else's collection 99), 404 for
+    everything else. Your own collections are 11 and your "All", 3."""
 
-    def __init__(self, *responses, kept=(), get_status=None):
+    def __init__(self, *responses, kept=(), shared=(), get_status=None):
         self._responses, self.calls, self.gets = list(responses), [], []
-        self._kept, self._get_status = set(kept), get_status
+        self._kept, self._shared, self._get_status = set(kept), set(shared), get_status
 
     def delete(self, url, data=None, **kwargs):
         self.calls.append((url, json.loads(data), kwargs.get("headers")))
         return self._responses.pop(0) if self._responses else _Res(200, {"selecteds": []})
 
     def get(self, url, **kwargs):
+        if url == "/api/v1/collections/":
+            return _Res(200, {"own": [{"id": 11}], "shared_with_me": [{"id": 99}]})
+        if url == "/api/v1/collections/all":
+            return _Res(200, {"collection": {"id": 3}})
         self.gets.append(url)
         if self._get_status is not None:
             return _Res(self._get_status)
-        return _Res(200, {}) if url in self._kept else _Res(404, {"error": "404 Not Found"})
+        for urls, collection_id in ((self._kept, 11), (self._shared, 99)):
+            if url in urls:
+                return _Res(200, {"element": {"tag": {"taggable_data": {
+                    "collection_labels": [{"id": collection_id}]}}}})
+        return _Res(404, {"error": "404 Not Found"})
 
     @staticmethod
     def get_json_session_header():
@@ -114,6 +123,13 @@ def test_elements_that_still_load_afterwards_are_returned_as_kept():
     session = _Session(kept={"/api/v1/samples/2.json"})
     assert delete_elements(session, [a, b, c]) == [b]
     assert session.gets == ["/api/v1/samples/1.json", "/api/v1/samples/2.json", "/api/v1/reactions/7.json"]
+
+
+def test_an_element_left_only_in_someone_elses_share_is_not_kept():
+    """Review of PR #17: it still loads, through the share, but it left all your collections,
+    which is all a delete does to an element that is not only yours."""
+    session = _Session(shared={"/api/v1/samples/1.json"})
+    assert delete_elements(session, [_Plain("sample", 1)]) == []
 
 
 def test_kept_is_decided_per_kind_and_id():

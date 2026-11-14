@@ -1086,8 +1086,9 @@ class AbstractElement:
                 if child.get('id') == analysis.id:
                     child['is_deleted'] = True
         self._put_container(container)
+        # Only this analysis goes. The others stay the objects they were, so their unsaved edits
+        # and new (unsaved) analyses survive; re-parsing the server's answer would drop both.
         del self.analyses[index]
-        self._analyses = self._parse_analyses()
 
     def _put_container(self, container: dict) -> None:
         res = self._session.put('/api/v1/containers/container',
@@ -1579,6 +1580,32 @@ def ui_state_selection(elements, action: str) -> dict[str, dict[str, Any]]:
     return selection
 
 
+
+def _own_collection_ids(session: Connection) -> set[int]:
+    """The ids of the collections the current user owns, their "All" included."""
+    res = session.get('/api/v1/collections/')
+    if res.status_code != 200:
+        raise request_error(res, 'listing your collections')
+    ids = {row['id'] for row in (res.json() or {}).get('own') or [] if row.get('id') is not None}
+    res = session.get('/api/v1/collections/all')
+    if res.status_code != 200:
+        raise request_error(res, 'loading your "All" collection')
+    all_collection = (res.json() or {}).get('collection') or {}
+    if all_collection.get('id') is not None:
+        ids.add(all_collection['id'])
+    return ids
+
+
+def _collection_ids_of(detail: dict) -> set[int]:
+    """The ids of the collections a detail response says its element is in."""
+    record = next((v for v in detail.values() if isinstance(v, dict) and 'tag' in v), detail)
+    try:
+        labels = record['tag']['taggable_data']['collection_labels'] or []
+    except (KeyError, TypeError):
+        return set()
+    return {label['id'] for label in labels if isinstance(label, dict) and label.get('id') is not None}
+
+
 def delete_elements(session: Connection, elements, collection_id: int | None = None,
                     delete_subsamples: bool = False) -> list[AbstractElement]:
     """
@@ -1604,9 +1631,12 @@ def delete_elements(session: Connection, elements, collection_id: int | None = N
     :param collection_id: the collection the elements are selected in. Elements not in it are
         ignored. Defaults to your "All" collection.
     :param delete_subsamples: also withdraw all samples of deleted reactions.
-    :return: the given elements the server **kept** (they still load afterwards), empty when all of
-        them are gone. Like :meth:`chemotion_api.collection.AbstractCollection.remove_elements`, a
-        2xx answer is not proof that everything went. Finding out costs one GET per element.
+    :return: the given elements the server **kept** (still in one of your own collections
+        afterwards), empty when all of them are gone. One that is now only visible through
+        someone else's share counts as gone: that is all this delete can do to it. Like
+        :meth:`chemotion_api.collection.AbstractCollection.remove_elements`, a 2xx answer is not
+        proof that everything went. Finding out costs one GET per element, plus two to list your
+        collections when one still loads.
     :raises ValueError: if no elements are given or one is unsaved.
     :raises PermissionError: if the collection is one shared with you (403).
     :raises ConnectionError: if the request fails, or checking an element afterwards does.
@@ -1631,17 +1661,23 @@ def delete_elements(session: Connection, elements, collection_id: int | None = N
     # Which elements went has to be asked afterwards. The response's `selecteds` is meant to echo
     # the selection minus what left the view, but ELN main (a8b47c7) returns built-in elements
     # there even after destroying them (generic ones are filtered correctly), so it is not used.
-    # An element that still loads was kept; one that answers 404 (destroyed, or no longer in any
-    # collection you can see) is gone.
+    # An element that answers 404 (destroyed, or in no collection you can see) is gone. One that
+    # still loads may only be visible through someone else's share, which this delete does not
+    # touch: it was kept only if it is still in one of your own collections.
     kept_elements = []
+    own_ids: set[int] | None = None
     for element in elements:
         check = session.get(f'{AbstractElement.get_url(element.element_type)}/{element.id}.json')
-        if check.status_code == 200:
-            kept_elements.append(element)
-        elif check.status_code not in (401, 403, 404):
+        if check.status_code in (401, 403, 404):
+            continue
+        if check.status_code != 200:
             raise ConnectionError(
                 f'The delete request was accepted, but checking {element.element_type} {element.id} '
                 f'afterwards failed: {check.status_code} -> {check.text}')
+        if own_ids is None:
+            own_ids = _own_collection_ids(session)
+        if _collection_ids_of(check.json()) & own_ids:
+            kept_elements.append(element)
     if kept_elements:
         logger.warning('delete_elements: the server kept %d of %d element(s): %s', len(kept_elements),
                        len(elements), ', '.join(f'{e.element_type} {e.id}' for e in kept_elements))

@@ -320,15 +320,23 @@ class Wellplate(AbstractElement):
         attached to the wellplate, then ``PUT /api/v1/wellplates/import_spreadsheet/:id`` reads
         its samples and readouts into the wells. Use :meth:`download_template` for the layout.
 
+        Only the file is uploaded: the wellplate itself is not saved, so edits you have not
+        saved are not written. They are discarded, as the wellplate is refreshed from the
+        server's answer.
+
         :return: self, refreshed from the server's answer.
         :raises ValueError: if the server cannot read the spreadsheet.
         """
+        from chemotion_api.elements.attachments import Attachments
         wellplate_id = self._saved_id_for('spreadsheet import')
         before = {a['id'] for a in self.attachments}
-        self.attachments.add_file(file_path)
-        self.save()
-        self.load()
-        new = [a for a in self.attachments if a['id'] not in before]
+        upload = Attachments(self._session)
+        upload.add_file(file_path)
+        upload.save(wellplate_id, 'Wellplate')
+        attachments_data, record = self._load_data_from_server()
+        if attachments_data is None:
+            attachments_data = record.get('attachments') or []
+        new = [a for a in attachments_data if a['id'] not in before]
         if not new:
             raise ConnectionError(f'The spreadsheet was not attached to wellplate {wellplate_id}.')
         res = self._session.put(f'/api/v1/wellplates/import_spreadsheet/{wellplate_id}',
@@ -340,5 +348,6 @@ class Wellplate(AbstractElement):
         if res.status_code not in (200, 201):
             raise ConnectionError(f'{res.status_code} -> {res.text}')
         self._set_json_data(res.json()['wellplate'])
+        self._attachments = Attachments(self._session, attachments_data)
         self._wells = None
         return self

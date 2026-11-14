@@ -154,9 +154,12 @@ class StructureSearcher:
         sets: dict[str, ElementSet] = {}
         totals: dict[str, int] = {}
         for name, klass in self._element_manager.all_classes.items():
-            block = data.get(f'{name}s')
-            if not isinstance(block, dict) or name == 'generic_element':
+            if name == 'generic_element':
                 continue
+            # A type the answer has no block for has no matches: an empty set, as total() says 0.
+            block = data.get(f'{name}s')
+            if not isinstance(block, dict):
+                block = {}
             totals[name] = int(block.get('totalElements') or 0)
             if not klass.get('is_generic') and element_type_info(name) is None:
                 continue  # a type this client has no class for (one it does not model): counted only

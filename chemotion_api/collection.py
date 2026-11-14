@@ -9,7 +9,6 @@ elements, and sharing/syncing.
 import json
 import os
 import re
-import time
 from dataclasses import dataclass
 import typing
 import logging
@@ -36,7 +35,7 @@ from chemotion_api.elements import ElementSet, AbstractElement
 from chemotion_api.elements.abstract_element import delete_elements, ui_state_selection
 from chemotion_api.elements.literature import Reference, collection_references
 from chemotion_api import reports, vessels
-from chemotion_api.notifications import notification_ids, server_path, wait_for_notification
+from chemotion_api.notifications import notification_ids, wait_for_notification
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
@@ -83,6 +82,16 @@ SAMPLE_IMPORT_FORMATS = ('.sdf', '.mol', '.csv', '.xlsx')
 IMPORT_SAMPLES_SUBJECT = 'Import Samples Completed'
 #: Channel subject of ELN-to-ELN transfer notifications (``Channel::GATE_TRANSFER_NOTIFICATION``).
 GATE_TRANSFER_SUBJECT = 'Gate Transfer Completed'
+
+
+def _child_of(label: str) -> typing.Callable[[dict], bool]:
+    """Matches the list row of a split child of ``label`` (``<label>-<n>``), not of ``<label>0``."""
+    pattern = re.compile(rf'^{re.escape(label)}-\d+$')
+    return lambda row: bool(pattern.match(row.get('short_label') or ''))
+
+
+def _named(name: str) -> typing.Callable[[dict], bool]:
+    return lambda row: row.get('name') == name
 
 
 @dataclass(frozen=True)
@@ -603,7 +612,7 @@ class AbstractCollection:
         labels = {sample.id: sample.short_label or '' for sample in samples}
         session = self.get_root()._session
 
-        newest_before = max((row['id'] for row in self._newest_sample_rows(session, pages=1)), default=0)
+        newest_before = self._newest_id(session, 'samples')
         res = session.post('/api/v1/samples/subsamples', data={'ui_state': {
             'sample': {'all': False, 'included_ids': selection, 'excluded_ids': []},
             'currentCollectionId': self.id}})
@@ -611,42 +620,57 @@ class AbstractCollection:
             raise PermissionError(f'You may not add samples to collection "{self.label}".')
         if res.status_code not in (200, 201):
             raise ConnectionError(f'{res.status_code} -> {res.text}')
+        found = self._find_new_rows(session, 'samples', newest_before, 'split', [
+            (_child_of(labels[pid]), f'new subsample of {labels[pid]}') for pid in selection])
+        return typing.cast(list[Sample], self._load_found('sample', found))
 
-        patterns = {pid: re.compile(rf'^{re.escape(label)}-\d+$') for pid, label in labels.items()}
-        found: dict[int, int] = {}
-        for row in self._newest_sample_rows(session, stop_at_id=newest_before):
-            for parent_id, pattern in patterns.items():
-                if parent_id not in found and pattern.match(row.get('short_label') or ''):
-                    found[parent_id] = row['id']
-                    break
-        missing = [labels[pid] for pid in selection if pid not in found]
-        if missing:
-            raise ConnectionError(f'The split request was accepted, but no new subsample of '
-                                  f'{", ".join(missing)} was found in "{self.label}".')
-        root = self.get_root()
-        loader = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('sample')),
-                            typing.cast(int, self.id))
-        return [typing.cast(Sample, loader.load_element(found[pid])) for pid in selection]
-
-    def _newest_sample_rows(self, session, pages: int | None = None, stop_at_id: int | None = None):
-        """This collection's samples as list rows, newest first, page by page."""
-        return self._newest_rows(session, 'samples', pages, stop_at_id)
-
-    def _newest_rows(self, session, kind: str, pages: int | None = None, stop_at_id: int | None = None):
-        """This collection's ``kind`` (``'samples'``, ``'wellplates'``) as list rows, newest first."""
-        page = 1
-        while pages is None or page <= pages:
-            res = session.get(f'/api/v1/{kind}', params={'collection_id': self.id, 'page': page, 'per_page': 50})
+    def _newest_rows(self, session, kind: str, pages: int, params: dict | None = None):
+        """This collection's ``kind`` (``'samples'``, ``'wellplates'``, ...) as list rows, most
+        recently updated first, for at most ``pages`` pages of 50."""
+        collection_id = self._own_id(kind.replace('_', ' '))
+        for page in range(1, pages + 1):
+            res = session.get(f'/api/v1/{kind}', params={'collection_id': collection_id, 'page': page,
+                                                          'per_page': 50} | (params or {}))
             if res.status_code != 200:
                 raise ConnectionError(f'{res.status_code} -> {res.text}')
             rows = res.json().get(kind) or []
-            for row in rows:
-                if stop_at_id is not None and row['id'] <= stop_at_id:
-                    return
-                yield row
+            yield from rows
             if len(rows) < 50:
                 return
-            page += 1
+
+    def _newest_id(self, session, kind: str, params: dict | None = None) -> int:
+        return max((row['id'] for row in self._newest_rows(session, kind, 1, params)), default=0)
+
+    def _find_new_rows(self, session, kind: str, newest_before: int, action: str,
+                       wanted: list[tuple[typing.Callable[[dict], bool], str]],
+                       params: dict | None = None) -> list[int]:
+        """The ids of elements a bulk request (a split, a bulk create) just made, which the
+        server does not return.
+
+        Each ``(match, description)`` in ``wanted`` takes the newest row above ``newest_before``
+        that it matches and no earlier entry took. The lists are ordered by update time, not by
+        id, so an older element updated in between can sit among the new ones; the rows are
+        filtered by id rather than read until the first old one.
+
+        :raises ConnectionError: if one is not found. The request did happen, so the message says
+            so: repeating it would create the elements again.
+        """
+        pages = 2 + len(wanted) // 50
+        new_rows = [row for row in self._newest_rows(session, kind, pages, params) if row['id'] > newest_before]
+        found: list[int] = []
+        for match, description in wanted:
+            row_id = max((row['id'] for row in new_rows if row['id'] not in found and match(row)), default=None)
+            if row_id is None:
+                raise ConnectionError(f'The {action} request was accepted, but no {description} was found '
+                                      f'in "{self.label}".')
+            found.append(row_id)
+        return found
+
+    def _load_found(self, type_name: str, ids: list[int]) -> list:
+        root = self.get_root()
+        loader = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get(type_name)),
+                            typing.cast(int, self.id))
+        return [loader.load_element(element_id) for element_id in ids]
 
     def split_wellplates(self, *wellplates: Wellplate) -> list[Wellplate]:
         """Split wellplates into sub-wellplates on the server, as the UI's *Split* button does.
@@ -703,26 +727,10 @@ class AbstractCollection:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
         return self._find_new_wellplates(session, newest_before, list(names))
 
-    def _newest_id(self, session, kind: str) -> int:
-        return max((row['id'] for row in self._newest_rows(session, kind, pages=1)), default=0)
-
     def _find_new_wellplates(self, session, newest_before: int, names: list[str]) -> list[Wellplate]:
-        # Not stopping at the first old row: the list is ordered by update time, and a split may
-        # touch its source wellplate. Created ones are newer than anything there before.
-        pages = 2 + len(names) // 50
-        new_rows = sorted((row for row in self._newest_rows(session, 'wellplates', pages=pages)
-                           if row['id'] > newest_before), key=lambda row: row['id'])
-        found: list[int] = []
-        for name in names:
-            match = next((row['id'] for row in new_rows if row.get('name') == name and row['id'] not in found), None)
-            if match is None:
-                raise ConnectionError(f'The request was accepted, but no new wellplate "{name}" was found in '
-                                      f'"{self.label}".')
-            found.append(match)
-        root = self.get_root()
-        loader = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('wellplate')),
-                            typing.cast(int, self.id))
-        return [typing.cast(Wellplate, loader.load_element(wid)) for wid in found]
+        found = self._find_new_rows(session, 'wellplates', newest_before, 'wellplate', [
+            (_named(name), f'new wellplate "{name}"') for name in names])
+        return typing.cast(list[Wellplate], self._load_found('wellplate', found))
 
     def import_samples(self, file_path: str, as_chemicals: bool = False, wait: bool = True,
                        timeout: float = 300, poll_interval: float = 2) -> ImportResult | None:
@@ -752,7 +760,8 @@ class AbstractCollection:
             raise ValueError(f'Cannot import {ext or "files without an extension"}; '
                              f'use one of {", ".join(SAMPLE_IMPORT_FORMATS)}.')
         session = self.get_root()._session
-        seen = {m['id'] for m in self._import_reports(session)} if wait else set()
+        subjects = (IMPORT_SAMPLES_SUBJECT,)
+        seen = notification_ids(session, subjects) if wait else set()
         with open(file_path, 'rb') as f:
             res = session.post('/api/v1/samples/import',
                                data={'currentCollectionId': self.id,
@@ -764,25 +773,11 @@ class AbstractCollection:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
         if not wait:
             return None
-
-        deadline = time.monotonic() + timeout
-        while True:
-            for message in self._import_reports(session):
-                if message['id'] not in seen:
-                    return ImportResult.from_message(message)
-            if time.monotonic() >= deadline:
-                raise TimeoutError(f'The import into "{self.label}" did not report back within {timeout} s; '
-                                   'it may still be running on the server.')
-            time.sleep(poll_interval)
-
-    def _import_reports(self, session) -> list[dict]:
-        """Your sample-import notifications for this collection (acknowledged ones included)."""
-        res = session.get('/api/v1/messages/list', params={'is_ack': 9})
-        if res.status_code != 200:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
-        return [m for m in res.json().get('messages') or []
-                if (m.get('content') or {}).get('channel_subject') == IMPORT_SAMPLES_SUBJECT
-                and (m.get('content') or {}).get('collection_id') == self.id]
+        message = wait_for_notification(
+            session, subjects, seen, f'The import into "{self.label}"',
+            match=lambda m: (m.get('content') or {}).get('collection_id') == self.id,
+            timeout=timeout, poll_interval=poll_interval)
+        return ImportResult.from_message(message)
 
     def export_elements(self, file_path: str, *elements, file_format: str = 'xlsx',
                         columns: dict[str, list[str]] | None = None) -> str | None:
@@ -1176,38 +1171,16 @@ class AbstractCollection:
         if any(i is None for i in ids):
             raise ValueError('Save the elements before splitting them.')
         session = self.get_root()._session
-
-        def rows(pages=2):
-            for page in range(1, pages + 1):
-                res = session.get('/api/v1/generic_elements', params={
-                    'collection_id': self._own_id('generic elements'), 'el_type': klass_name, 'page': page,
-                    'per_page': 50})
-                if res.status_code != 200:
-                    raise ConnectionError(f'{res.status_code} -> {res.text}')
-                batch = res.json().get('generic_elements') or []
-                yield from batch
-                if len(batch) < 50:
-                    return
-
-        before = max((r['id'] for r in rows(1)), default=0)
+        by_template = {'el_type': klass_name}
+        before = self._newest_id(session, 'generic_elements', by_template)
         res = session.post('/api/v1/generic_elements/split', data={'ui_state': {
             'element': {'name': klass_name, 'all': False, 'included_ids': ids, 'excluded_ids': []},
             'currentCollectionId': self._own_id('generic elements')}})
         if res.status_code not in (200, 201) or (res.json() or {}).get('error'):
             raise ConnectionError(f'Splitting failed: {res.status_code} -> {res.text}')
-        new_rows = [r for r in rows() if r['id'] > before]
-        found: list[int] = []
-        for element in elements:
-            pattern = re.compile(rf'^{re.escape(element.short_label or "")}-\d+$')
-            match = max((r['id'] for r in new_rows if pattern.match(r.get('short_label') or '') and r['id'] not in found),
-                        default=None)
-            if match is None:
-                raise ConnectionError(f'No split of {element.short_label} was found in "{self.label}".')
-            found.append(match)
-        root = self.get_root()
-        loader = ElementSet(session, typing.cast(dict, root._element_manager.all_classes.get(klass_name)),
-                            typing.cast(int, self.id))
-        return [typing.cast(GenericElement, loader.load_element(i)) for i in found]
+        found = self._find_new_rows(session, 'generic_elements', before, 'split', [
+            (_child_of(e.short_label or ''), f'split of {e.short_label}') for e in elements], by_template)
+        return typing.cast(list[GenericElement], self._load_found(klass_name, found))
 
     def _split_by_label(self, elements, kind: str, list_key: str, url: str) -> list:
         if not elements or any(getattr(e, 'element_type', None) != kind for e in elements):
@@ -1222,20 +1195,10 @@ class AbstractCollection:
             raise PermissionError(f'You may not add elements to collection "{self.label}".')
         if res.status_code not in (200, 201):
             raise ConnectionError(f'{res.status_code} -> {res.text}')
-        rows = [row for row in self._newest_rows(session, list_key, pages=2) if row['id'] > before]
-        labels = {e.id: e.short_label for e in elements}
-        found: list[int] = []
-        for element_id in selection:
-            pattern = re.compile(rf'^{re.escape(labels[element_id] or "")}-\d+$')
-            match = max((r['id'] for r in rows if pattern.match(r.get('short_label') or '') and r['id'] not in found),
-                        default=None)
-            if match is None:
-                raise ConnectionError(f'No split of {labels[element_id]} was found in "{self.label}".')
-            found.append(match)
-        root = self.get_root()
-        loader = ElementSet(session, typing.cast(dict, root._element_manager.all_classes.get(kind)),
-                            typing.cast(int, self.id))
-        return [loader.load_element(i) for i in found]
+        labels = {e.id: e.short_label or '' for e in elements}
+        found = self._find_new_rows(session, list_key, before, 'split', [
+            (_child_of(labels[element_id]), f'split of {labels[element_id]}') for element_id in selection])
+        return self._load_found(kind, found)
 
     def inventory_label(self):
         """This collection's inventory label (prefix, name, counter), or ``None``."""

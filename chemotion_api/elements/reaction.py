@@ -22,6 +22,24 @@ _DURATION_UNIT_SECONDS = {
 }
 
 
+
+def _duration_text(duration) -> str:
+    """A reaction's duration as the text the scheme prints under the arrow (``'2 Hour(s)'``).
+
+    ``POST /api/v1/reaction_svg`` takes it as a string and answers 400 for the ``{value, unit}``
+    mapping the client keeps, an empty one included.
+    """
+    if duration is None or isinstance(duration, str):
+        return duration or ''
+    value = duration.get('value') if hasattr(duration, 'get') else getattr(duration, 'value', None)
+    unit = duration.get('unit') if hasattr(duration, 'get') else getattr(duration, 'unit', None)
+    if value in (None, ''):
+        return ''
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return f'{value} {unit}' if unit else str(value)
+
+
 from pydantic import BaseModel
 from requests import Response
 
@@ -979,7 +997,7 @@ class Reaction(AbstractElement):
             },
             'temperature': temp_text,
             'solvents': [m.name for m in props['solvents'] if m.name],
-            'duration': props.get('duration') or '',
+            'duration': _duration_text(props.get('duration')),
             'conditions': props.get('conditions') or '',
             'products_only': products_only,
             'show_yield': not products_only,
