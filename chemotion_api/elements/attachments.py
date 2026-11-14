@@ -1,4 +1,5 @@
 """Attachment containers for elements and datasets, with chunked upload and streaming download."""
+import base64
 import contextlib
 import hashlib
 import json
@@ -12,7 +13,7 @@ from chemotion_api.utils import safe_join
 import magic
 import requests
 
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements.analyses_manager import AnalysesManager
 from chemotion_api.utils import AttrAccessMixin
 
@@ -106,6 +107,150 @@ class Attachment(AttrAccessMixin, dict):
             f.write(res.content)
 
         return os.path.abspath(file_path)
+
+    def load_image(self) -> bytes:
+        """
+        Loads the attachment as a displayable image (``GET /api/v1/attachments/image/:id``), the way
+        the UI's image viewer does: images as they are, TIFFs converted to PNG, and an annotated
+        image's annotated version.
+
+        :raises ValueError: if the file is not an image (or PDF) the server can serve.
+        """
+        res = self._con.get(f"/api/v1/attachments/image/{self['id']}")
+        if 400 <= res.status_code < 500 and res.status_code not in (401, 404):
+            raise ValueError(f"Attachment {self['id']} ({self.get('filename')}) cannot be shown as an image: {res.text}")
+        if res.status_code != 200:
+            raise request_error(res, f"loading attachment {self['id']} as image")
+        return res.content
+
+    def load_annotation(self) -> str:
+        """
+        The annotation drawn over this image, as SVG (``GET /api/v1/attachments/:id/annotation``).
+        An image without one gets an empty annotation, which embeds the image itself.
+
+        :raises ValueError: if the attachment is not an annotatable image.
+        """
+        res = self._con.get(f"/api/v1/attachments/{self['id']}/annotation")
+        if res.status_code == 500:
+            # The server raises (an HTML 500 page) for any file it cannot annotate.
+            raise ValueError(f"Attachment {self['id']} ({self.get('filename')}) cannot be annotated "
+                             "(the server could not load an annotation for it; only images can be annotated).")
+        if res.status_code != 200:
+            raise request_error(res, f"loading the annotation of attachment {self['id']}")
+        text = res.text
+        # Grape renders the SVG string as JSON.
+        return json.loads(text) if text.startswith('"') else text
+
+    def save_annotation(self, svg: str) -> None:
+        """
+        Replaces the annotation of this image (``POST /api/v1/attachments/:id/annotation``). The
+        server keeps only plain drawing elements (``svg``, ``g``, ``rect``, ``text``, ``path``,
+        ``line``, ``ellipse``, ``image``), and an ``<image>`` may only point at
+        ``/api/v1/attachments/image/<id>``. It also renders the annotated image and thumbnail
+        that :meth:`load_image` then returns.
+
+        :param svg: start from :meth:`load_annotation` and add elements to it.
+        """
+        if not svg or '<svg' not in svg:
+            raise ValueError('Not an SVG annotation.')
+        res = self._con.post(f"/api/v1/attachments/{self['id']}/annotation", data={'updated_svg_string': svg})
+        if res.status_code == 401:
+            raise PermissionError(f"You may not edit attachment {self['id']}.")
+        if res.status_code not in (200, 201):
+            raise request_error(res, f"saving the annotation of attachment {self['id']}")
+
+    def load_thumbnail(self) -> bytes | None:
+        """
+        The attachment's preview thumbnail (PNG bytes), or ``None`` if the server made none
+        (``GET /api/v1/attachments/thumbnail/:id``).
+        """
+        res = self._con.get(f"/api/v1/attachments/thumbnail/{self['id']}")
+        if res.status_code != 200:
+            raise request_error(res, f"loading the thumbnail of attachment {self['id']}")
+        encoded = res.json()
+        return base64.b64decode(encoded) if encoded else None
+
+    def delete(self) -> None:
+        """
+        Deletes this attachment and its file right away (``DELETE /api/v1/attachments/:id``).
+        """
+        res = self._con.delete(f"/api/v1/attachments/{self['id']}")
+        if res.status_code not in (200, 204):
+            raise request_error(res, f"deleting attachment {self['id']}")
+
+    def unlink(self) -> None:
+        """
+        Takes this attachment out of its dataset without deleting it
+        (``DELETE /api/v1/attachments/link/:id``); it then shows up in your inbox's unlinked
+        files, from where :meth:`chemotion_api.inbox.Inbox.assign` can move it elsewhere.
+        """
+        res = self._con.delete(f"/api/v1/attachments/link/{self['id']}")
+        if res.status_code not in (200, 204):
+            raise request_error(res, f"unlinking attachment {self['id']}")
+        if res.status_code != 204:
+            # A 204 has no body to read; the unlink has happened all the same.
+            self.update(res.json().get('attachment') or {})
+
+
+def _attachment_ids(attachments) -> list[int]:
+    ids = [a if isinstance(a, int) else a['id'] for a in attachments]
+    if not ids:
+        raise ValueError('No attachments given.')
+    return ids
+
+
+def delete_attachments(con: Connection, attachments) -> list[int]:
+    """
+    Deletes several attachments in one request, all or none (``DELETE /api/v1/attachments/bulk_delete``).
+
+    :param attachments: :class:`Attachment` objects or ids.
+    :return: the ids of the deleted attachments.
+    :raises PermissionError: if you may not delete one of them; then none is deleted.
+    """
+    res = con.delete('/api/v1/attachments/bulk_delete', data=json.dumps({'ids': _attachment_ids(attachments)}),
+                     headers=con.get_json_session_header())
+    if res.status_code == 401:
+        raise PermissionError('You may not delete every one of these attachments; none was deleted.')
+    if res.status_code not in (200, 204):
+        raise request_error(res, 'deleting attachments')
+    return [a['id'] for a in res.json().get('deleted_attachments') or []]
+
+
+def load_thumbnails(con: Connection, attachments) -> dict[int, bytes | None]:
+    """
+    The preview thumbnails of several attachments in one request (``POST /api/v1/attachments/thumbnails``):
+    ``{id: png_bytes}``, with ``None`` for an attachment that has no thumbnail or that you may not read.
+    """
+    ids = _attachment_ids(attachments)
+    res = con.post('/api/v1/attachments/thumbnails', data={'ids': ids})
+    if res.status_code not in (200, 201):
+        raise request_error(res, 'loading thumbnails')
+    out: dict[int, bytes | None] = dict.fromkeys(ids)
+    for entry in res.json().get('thumbnails') or []:
+        if entry and entry.get('thumbnail'):
+            out[entry['id']] = base64.b64decode(entry['thumbnail'])
+    return out
+
+
+def load_files(con: Connection, attachments) -> dict[int, bytes | None]:
+    """
+    The contents of several attachments in one request (``POST /api/v1/attachments/files``):
+    ``{id: bytes}``, with ``None`` for one that you may not read or whose file is missing.
+
+    Everything comes base64-encoded in one JSON answer, so this is meant for small files such as
+    spectra; download large ones one by one with :meth:`Attachment.iter_file`.
+    """
+    ids = _attachment_ids(attachments)
+    res = con.post('/api/v1/attachments/files', data={'ids': ids})
+    if res.status_code == 401:
+        raise PermissionError('You may not read any of these attachments.')
+    if res.status_code not in (200, 201):
+        raise request_error(res, 'loading attachment files')
+    out: dict[int, bytes | None] = dict.fromkeys(ids)
+    for entry in res.json().get('files') or []:
+        if entry and entry.get('file'):
+            out[entry['id']] = base64.b64decode(entry['file'])
+    return out
 
 
 class Attachments(Sequence):

@@ -565,6 +565,415 @@ class Admin(Person):
             raise ConnectionError(f'{res.text}')
         return data
 
+    def find_users(self, name: str, types=('Person', 'Group', 'Device', 'Admin'), limit: int = 5) -> list[dict]:
+        """Users whose name matches, of any kind (``GET /api/v1/admin/users/byname``):
+        ``{'id', 'name', 'initials', 'type'}`` dicts."""
+        if not name:
+            return []
+        res = self._session.get('/api/v1/admin/users/byname', params={'name': name, 'type': ','.join(types),
+                                                                       'limit': limit})
+        self._admin_check(res, 'finding users')
+        return res.json().get('users') or []
+
+    def default_allocated_space(self) -> int:
+        """The disk space new users get, in MB (``GET /api/v1/admin/usersDefault``)."""
+        res = self._session.get('/api/v1/admin/usersDefault')
+        self._admin_check(res, 'reading the default user space')
+        return int(res.json().get('allocated_user_space') or 0)
+
+    def set_default_allocated_space(self, megabytes: int) -> None:
+        """Set the disk space new users get, in MB (``PUT /api/v1/admin/usersDefault``)."""
+        if megabytes < 0:
+            raise ValueError('The space is 0 MB or more.')
+        res = self._session.put('/api/v1/admin/usersDefault', data={'allocatedUserSpace': megabytes})
+        self._admin_check(res, 'setting the default user space')
+
+    def update_user(self, user, **fields) -> dict:
+        """Change a user account (``PUT /api/v1/admin/users/:id``).
+
+        :param user: a :class:`User` or its id.
+        :param fields: ``email``, ``first_name``, ``last_name``, ``name_abbreviation``, ``type``,
+            ``allocated_space``, ``account_active`` (bool), ``enable`` (False locks the account),
+            ``confirm_user`` / ``reconfirm_user`` (bool).
+        :return: the account as stored.
+        """
+        allowed = {'email', 'first_name', 'last_name', 'name_abbreviation', 'type', 'allocated_space',
+                   'account_active', 'enable', 'confirm_user', 'reconfirm_user'}
+        unknown = set(fields) - allowed
+        if unknown:
+            raise ValueError(f'Unknown user fields: {", ".join(sorted(unknown))}')
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}', data=fields)
+        self._admin_check(res, f'updating user {_user_id(user)}')
+        data = res.json() or {}
+        if data.get('error'):
+            raise ValueError(f'User {_user_id(user)} not updated: {data["error"]}')
+        return data.get('user', data)
+
+    def delete_user(self, user, *, confirm: str) -> None:
+        """Delete a user account (``DELETE /api/v1/admin/users/:id``). The account is soft-deleted:
+        :meth:`restore_user` brings it back.
+
+        :param confirm: the account's name abbreviation, to guard against deleting the wrong one.
+        """
+        current = self._session.get(f'/api/v1/admin/users/{_user_id(user)}')
+        self._admin_check(current, f'loading user {_user_id(user)}')
+        record = current.json().get('user') or current.json()
+        abbreviation = record.get('initials') or record.get('name_abbreviation')
+        if confirm != abbreviation:
+            raise ValueError(f'To delete user {_user_id(user)}, pass confirm={abbreviation!r}.')
+        res = self._session.delete(f'/api/v1/admin/users/{_user_id(user)}')
+        if res.status_code == 422:
+            raise ValueError(f'User {abbreviation} cannot be deleted: {res.text}')
+        self._admin_check(res, f'deleting user {abbreviation}')
+
+    def restore_user(self, name_abbreviation: str | None = None, user_id: int | None = None) -> dict:
+        """Restore a deleted account (``POST /api/v1/admin/users/restoreAccount``). If another account
+        now has the abbreviation, the restored one is left inactive and the answer says so.
+
+        :return: ``{'status': 'success' | 'warning', 'message': ...}``.
+        :raises LookupError: if no such deleted account exists, or several match (give ``user_id``).
+        """
+        if name_abbreviation is None and user_id is None:
+            raise ValueError('Give the name abbreviation or the id of the deleted account.')
+        body = {k: v for k, v in (('name_abbreviation', name_abbreviation), ('id', user_id)) if v is not None}
+        res = self._session.post('/api/v1/admin/users/restoreAccount', data=body)
+        if res.status_code in (400, 404, 500) and 'error' in res.text:
+            raise LookupError(res.json().get('message') if res.text.startswith('{') else res.text)
+        self._admin_check(res, 'restoring an account')
+        return res.json()
+
+    def reset_password(self, user, password: str | None = None) -> str | None:
+        """Set a user's password (``PUT /api/v1/admin/users/:id/resetPassword``).
+
+        :param password: the new password (8+ characters); ``None`` generates a random one.
+        :return: the new password.
+        """
+        if password is not None and len(password) < 8:
+            raise ValueError('A password has at least 8 characters.')
+        body: dict = {'random': password is None}
+        if password is not None:
+            body['password'] = password
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}/resetPassword', data=body)
+        self._admin_check(res, f'resetting the password of user {_user_id(user)}')
+        return res.json().get('pwd')
+
+    def disable_two_factor(self, user) -> None:
+        """Switch off a user's two-factor login (``PUT /api/v1/admin/users/:id/otp``)."""
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}/otp', data={'enable': False})
+        self._admin_check(res, f'disabling two-factor login of user {_user_id(user)}')
+
+    def two_factor_enable_link(self, user) -> str:
+        """The link with which a user switches on two-factor login (``PUT /api/v1/admin/users/:id/otp``)."""
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}/otp', data={'enable': True})
+        self._admin_check(res, f'creating a two-factor link for user {_user_id(user)}')
+        return res.json()['link']
+
+    def set_user_rights(self, user, *, templates_moderator: bool | None = None, molecule_editor: bool | None = None,
+                        converter_admin: bool | None = None, text_template_editor: bool | None = None,
+                        generic_elements_admin: bool | None = None, generic_segments_admin: bool | None = None,
+                        generic_datasets_admin: bool | None = None) -> dict:
+        """Grant or withdraw a user's special rights (``PUT /api/v1/admin/users/:id/profile``).
+        Rights left at ``None`` are not changed."""
+        body: dict = {k: v for k, v in (('is_templates_moderator', templates_moderator),
+                                        ('molecule_editor', molecule_editor), ('converter_admin', converter_admin),
+                                        ('global_text_template_editor', text_template_editor)) if v is not None}
+        generic = {k: v for k, v in (('elements', generic_elements_admin), ('segments', generic_segments_admin),
+                                     ('datasets', generic_datasets_admin)) if v is not None}
+        if generic:
+            body['auth_generic_admin'] = generic
+        if not body:
+            raise ValueError('Name the rights to change.')
+        res = self._session.put(f'/api/v1/admin/users/{_user_id(user)}/profile', data=body)
+        self._admin_check(res, f'changing the rights of user {_user_id(user)}')
+        return res.json()
+
+    def remove_users_from_group(self, group, *users) -> dict:
+        """Take people out of a group (``PUT /api/v1/admin/group_device/update/:id``, ``NodeDel``)."""
+        return self._group_update(group, 'NodeDel', actionType='Person', rm_users=[_user_id(u) for u in users])
+
+    def remove_devices_from(self, owner, *devices, owner_type: str = 'Group') -> dict:
+        """Detach devices from a group (``NodeDel``, ``actionType=Device``)."""
+        return self._group_update(owner, 'NodeDel', rootType=owner_type, actionType='Device',
+                                  rm_users=[_user_id(d) for d in devices])
+
+    def set_group_admin(self, group, user, admin: bool = True) -> dict:
+        """Make a member an administrator of the group, or not (``NodeAdm``). The last
+        administrator cannot be removed."""
+        return self._group_update(group, 'NodeAdm', actionType='Adm', admin_id=_user_id(user), set_admin=admin)
+
+    def delete_group(self, group, *, confirm: str, group_type: str = 'Group') -> None:
+        """Delete a group or device (``RootDel`` with ``destroy_obj``).
+
+        :param confirm: its name abbreviation, to guard against deleting the wrong one.
+        """
+        abbreviation = getattr(group, 'name_abbreviation', None)
+        if abbreviation is None or confirm != abbreviation:
+            raise ValueError(f'To delete this {group_type.lower()}, pass a loaded one and confirm={abbreviation!r}.')
+        self._group_update(group, 'RootDel', rootType=group_type, destroy_obj=True)
+
+    def _group_update(self, group, action: str, rootType: str = 'Group', **fields) -> dict:
+        group_id = _user_id(group)
+        res = self._session.put(f'/api/v1/admin/group_device/update/{group_id}',
+                                data={'action': action, 'rootType': rootType, 'id': group_id, **fields})
+        if res.status_code == 422:
+            raise ValueError(res.text)
+        self._admin_check(res, f'{action} on {rootType.lower()} {group_id}')
+        return res.json() if res.content else {}
+
+    #: Device fields the admin device routes accept. The ``datacollector_*`` ones configure how the
+    #: ELN collects files from the instrument (local folder or SFTP), the ``novnc_*`` ones the
+    #: remote-desktop link.
+    DEVICE_FIELDS = ('name', 'name_abbreviation', 'email', 'serial_number', 'verification_status', 'account_active',
+                     'visibility', 'people', 'groups', 'datacollector_fields', 'datacollector_method',
+                     'datacollector_dir', 'datacollector_host', 'datacollector_user', 'datacollector_authentication',
+                     'datacollector_key_name', 'datacollector_user_level_selected', 'datacollector_number_of_files',
+                     'novnc_target', 'novnc_token', 'novnc_password')
+
+    def list_devices(self, name: str | None = None, limit: int = 5) -> list[dict]:
+        """All devices, or those whose name matches (``GET /api/v1/admin_devices[/byname]``)."""
+        if name:
+            res = self._session.get('/api/v1/admin_devices/byname', params={'name': name, 'limit': limit})
+        else:
+            res = self._session.get('/api/v1/admin_devices')
+        self._admin_check(res, 'listing devices')
+        return res.json().get('devices') or []
+
+    def get_device(self, device) -> dict:
+        res = self._session.get(f'/api/v1/admin_devices/{_user_id(device)}')
+        self._admin_check(res, f'loading device {_user_id(device)}')
+        return res.json().get('device') or {}
+
+    def update_device(self, device, **fields) -> dict:
+        """Change a device, its users and its data collector (``PUT /api/v1/admin_devices/:id``).
+
+        :param fields: any of :data:`DEVICE_FIELDS`; ``people`` / ``groups`` are user ids and replace
+            the current ones (an empty list removes all). ``name`` and ``name_abbreviation`` are
+            required by the server and default to the device's current values.
+        """
+        unknown = set(fields) - set(self.DEVICE_FIELDS)
+        if unknown:
+            raise ValueError(f'Unknown device fields: {", ".join(sorted(unknown))}')
+        current = self.get_device(device)
+        body = {'id': _user_id(device), 'name': current.get('name'),
+                'name_abbreviation': current.get('name_abbreviation') or current.get('initials')} | fields
+        if any(k.startswith('datacollector_') for k in fields):
+            body.setdefault('datacollector_fields', True)
+        res = self._session.put(f'/api/v1/admin_devices/{_user_id(device)}', data=body)
+        return self._device_answer(res, f'updating device {_user_id(device)}')
+
+    def _device_answer(self, res, what: str) -> dict:
+        self._admin_check(res, what)
+        data = res.json() or {}
+        if data.get('errors'):
+            raise ValueError(f'{what}: {data["errors"]}')
+        return data.get('device') or data
+
+    def delete_device(self, device, *, confirm: str) -> None:
+        """Delete a device (``DELETE /api/v1/admin_devices/:id``).
+
+        :param confirm: its name abbreviation, to guard against deleting the wrong one.
+        """
+        current = self.get_device(device)
+        abbreviation = current.get('name_abbreviation') or current.get('initials')
+        if confirm != abbreviation:
+            raise ValueError(f'To delete device {_user_id(device)}, pass confirm={abbreviation!r}.')
+        res = self._session.delete(f'/api/v1/admin_devices/{_user_id(device)}')
+        if res.status_code == 400:
+            raise ValueError(f'Device {abbreviation} could not be deleted.')
+        self._admin_check(res, f'deleting device {abbreviation}')
+
+    def remove_device_user(self, device, user) -> None:
+        """Take a user's access to a device away (``PUT /api/v1/admin_devices/delete_relation/:user_id``)."""
+        res = self._session.put(f'/api/v1/admin_devices/delete_relation/{_user_id(user)}',
+                                data={'id': _user_id(user), 'device_id': _user_id(device)})
+        if res.status_code == 400:
+            raise LookupError(f'User {_user_id(user)} has no access to device {_user_id(device)}.')
+        self._admin_check(res, 'removing a device user')
+
+    def test_sftp(self, device, host: str, user: str, authentication: str = 'password',
+                  key_name: str | None = None, method: str = 'filewatchersftp') -> dict:
+        """Check that the ELN can log in to a data collector's SFTP server
+        (``POST /api/v1/admin_devices/test_sftp``). The ELN connects to ``host`` for this.
+
+        :return: ``{'status': 'success' | 'error', 'message': ...}``.
+        """
+        body = {'id': _user_id(device), 'datacollector_method': method, 'datacollector_host': host,
+                'datacollector_user': user, 'datacollector_authentication': authentication}
+        if key_name is not None:
+            body['datacollector_key_name'] = key_name
+        res = self._session.post('/api/v1/admin_devices/test_sftp', data=body)
+        self._admin_check(res, 'testing an SFTP connection')
+        return res.json()
+
+    def local_collectors(self) -> list[dict]:
+        """The local data-collector folders configured on the server (``GET /api/v1/admin/listLocalCollector/all``)."""
+        res = self._session.get('/api/v1/admin/listLocalCollector/all')
+        self._admin_check(res, 'listing local collectors')
+        return res.json().get('listLocalCollector') or []
+
+    def device_metadata(self, device) -> dict | None:
+        """A device's publication metadata, or ``None`` (``GET /api/v1/admin_device_metadata/:id``)."""
+        res = self._session.get(f'/api/v1/admin_device_metadata/{_user_id(device)}')
+        self._admin_check(res, f'loading the metadata of device {_user_id(device)}')
+        return res.json().get('device_metadata')
+
+    def save_device_metadata(self, device, **fields) -> dict:
+        """Create or update a device's publication metadata (``POST /api/v1/admin_device_metadata``):
+        ``name``, ``doi``, ``url``, ``landing_page``, ``type``, ``description``, ``publisher``,
+        ``publication_year``, ``data_cite_state``, ``owners``, ``manufacturers``, ``dates``.
+        Creating it also registers the device at DataCite when the ELN is configured for that."""
+        allowed = {'name', 'doi', 'url', 'landing_page', 'type', 'description', 'publisher', 'publication_year',
+                   'data_cite_state', 'owners', 'manufacturers', 'dates'}
+        if set(fields) - allowed:
+            raise ValueError(f'Unknown metadata fields: {", ".join(sorted(set(fields) - allowed))}')
+        res = self._session.post('/api/v1/admin_device_metadata', data={'device_id': _user_id(device)} | fields)
+        self._admin_check(res, f'saving the metadata of device {_user_id(device)}')
+        data = res.json() or {}
+        if data.get('error'):
+            raise ValueError(data['error'])
+        return data.get('device_metadata') or {}
+
+    def sync_device_metadata(self, device) -> dict:
+        """Push a device's metadata to DataCite (``PUT /api/v1/admin_device_metadata/:id/sync_to_data_cite``)."""
+        res = self._session.put(f'/api/v1/admin_device_metadata/{_user_id(device)}/sync_to_data_cite')
+        self._admin_check(res, f'syncing the metadata of device {_user_id(device)}')
+        data = res.json() or {}
+        if data.get('error'):
+            raise ConnectionError(data['error'])
+        return data.get('device_metadata') or {}
+
+    #: Maintenance tasks :meth:`queue_admin_task` can start (``AdminJob``).
+    ADMIN_TASKS = ('collection_restore', 'install_ketcher2', 'rerender_reactions')
+
+    def disk_usage(self) -> dict:
+        """The server's disk: ``{'percent_used', 'mb_available'}`` (``GET /api/v1/admin/disk``)."""
+        res = self._session.get('/api/v1/admin/disk')
+        self._admin_check(res, 'reading the disk usage')
+        return res.json()
+
+    def jobs(self) -> list[dict]:
+        """The background jobs waiting or failed (``GET /api/v1/admin/jobs``): ``id``, ``queue``,
+        ``run_at``, ``failed_at``, ``attempts``, ``last_error``, …"""
+        res = self._session.get('/api/v1/admin/jobs')
+        self._admin_check(res, 'listing background jobs')
+        return res.json().get('jobs') or []
+
+    def restart_job(self, job) -> None:
+        """Run one (failed) background job again in a minute (``PUT /api/v1/admin/jobs/restart``).
+
+        :param job: a job from :meth:`jobs`, or its id. There is deliberately no "restart all".
+        """
+        job_id = job['id'] if isinstance(job, dict) else job
+        if not isinstance(job_id, int):
+            raise ValueError('Give one job or job id.')
+        res = self._session.put('/api/v1/admin/jobs/restart', data={'id': job_id})
+        if res.status_code == 404 or (res.status_code == 500 and 'RecordNotFound' in res.text):
+            raise LookupError(f'No background job {job_id}.')
+        self._admin_check(res, f'restarting job {job_id}')
+
+    def queue_admin_task(self, task: str) -> None:
+        """Start a maintenance task in the background (``GET /api/v1/admin/jobs/queue_task``): one of
+        :data:`ADMIN_TASKS`."""
+        if task not in self.ADMIN_TASKS:
+            raise ValueError(f'task is one of {", ".join(self.ADMIN_TASKS)}.')
+        res = self._session.get('/api/v1/admin/jobs/queue_task', params={'task': task})
+        self._admin_check(res, f'queuing {task}')
+
+    def matrices(self) -> list[dict]:
+        """The feature switches (``GET /api/v1/admin/matrix``): each feature's ``name``, ``label``,
+        ``enabled`` and the users it is switched on (``include_ids``) or off (``exclude_ids``) for."""
+        res = self._session.get('/api/v1/admin/matrix')
+        self._admin_check(res, 'listing the feature switches')
+        return res.json().get('matrices') or []
+
+    def update_matrix(self, matrix, **fields) -> None:
+        """Change a feature switch (``PUT /api/v1/admin/matrix``): ``label``, ``enabled``,
+        ``include_ids``, ``exclude_ids``, ``configs``."""
+        allowed = {'label', 'enabled', 'include_ids', 'exclude_ids', 'configs'}
+        if not fields or set(fields) - allowed:
+            raise ValueError(f'Change any of {", ".join(sorted(allowed))}.')
+        matrix_id = matrix['id'] if isinstance(matrix, dict) else matrix
+        res = self._session.put('/api/v1/admin/matrix', data={'id': matrix_id} | fields)
+        self._admin_check(res, f'updating feature switch {matrix_id}')
+        data = res.json() if res.content else {}
+        if isinstance(data, dict) and data.get('error'):
+            raise ValueError(data['error'])
+
+    def save_spectra_data_types(self, data_types: dict) -> None:
+        """Replace the ELN's mapping of spectra layouts to data types (``PUT /api/v1/admin/data_types``),
+        as compared in ``instance.spectra().layouts()``."""
+        res = self._session.put('/api/v1/admin/data_types', data=json.dumps(data_types),
+                                headers=self._session.get_json_session_header())
+        self._admin_check(res, 'saving the spectra data types')
+
+    def info_support_links(self) -> list[dict]:
+        """The *Info & support* menu links (``GET /api/v1/admin/info_support_links``)."""
+        res = self._session.get('/api/v1/admin/info_support_links')
+        self._admin_check(res, 'listing the support links')
+        return res.json() or []
+
+    def add_info_support_link(self, label: str, url: str, position: int = 0, enabled: bool = True) -> dict:
+        res = self._session.post('/api/v1/admin/info_support_links',
+                                 data={'label': label, 'url': url, 'position': position, 'enabled': enabled})
+        if res.status_code == 422:
+            raise ValueError(res.text)
+        self._admin_check(res, f'adding the support link {label}')
+        return res.json()
+
+    def update_info_support_link(self, link, **fields) -> dict:
+        """Change a support link: ``label``, ``url``, ``position``, ``enabled``."""
+        link_id = link['id'] if isinstance(link, dict) else link
+        res = self._session.put(f'/api/v1/admin/info_support_links/{link_id}', data=fields)
+        if res.status_code == 422:
+            raise ValueError(res.text)
+        self._admin_check(res, f'updating support link {link_id}')
+        return res.json()
+
+    def delete_info_support_link(self, link) -> None:
+        link_id = link['id'] if isinstance(link, dict) else link
+        res = self._session.delete(f'/api/v1/admin/info_support_links/{link_id}')
+        self._admin_check(res, f'deleting support link {link_id}')
+
+    def import_ols_terms(self, owl_file: str) -> None:
+        """Replace an ontology's terms with those of an OWL file, as *Admin > Ontologies* does
+        (``POST /api/v1/admin/importOlsTerms``). The file name without extension is the ontology
+        name, e.g. ``chmo.owl``.
+        """
+        import os
+        if not os.path.splitext(owl_file)[1].lower() in ('.owl', '.xml', '.ow'):
+            raise ValueError('Give an .owl or .xml file.')
+        with open(owl_file, 'rb') as f:
+            res = self._session.post('/api/v1/admin/importOlsTerms',
+                                     files={'file': (os.path.basename(owl_file), f, 'application/rdf+xml')})
+        self._admin_check(res, f'importing {owl_file}')
+
+    def set_ols_terms_enabled(self, owl_name: str, enable=(), disable=()) -> None:
+        """Show or hide ontology terms in the ELN's term pickers
+        (``POST /api/v1/admin/olsEnableDisable``).
+
+        :param owl_name: ``'chmo'``, ``'rxno'``, ``'bao'``, …
+        :param enable: term ids to show, e.g. ``'CHMO:0000595'``.
+        :param disable: term ids to hide (with their branches in the pickers).
+        """
+        if not enable and not disable:
+            raise ValueError('Give term ids to enable or disable.')
+        # The server rewrites the ontology's public term lists from its database. With no terms
+        # imported there, that replaces the ELN's built-in lists with empty ones, so refuse.
+        root = self._session.get('/api/v1/ols_terms/root', params={'name': owl_name})
+        if root.status_code == 200 and not (root.json() or {}).get('ols_terms'):
+            raise ValueError(f'No {owl_name} terms are imported on this ELN; import the ontology first '
+                             f'(import_ols_terms). Switching terms now would empty its term lists.')
+        res = self._session.post('/api/v1/admin/olsEnableDisable',
+                                 data={'owl_name': owl_name, 'enableIds': list(enable), 'disableIds': list(disable)})
+        self._admin_check(res, f'switching {owl_name} terms')
+
+    @staticmethod
+    def _admin_check(res, what: str) -> None:
+        if res.status_code == 401:
+            raise PermissionError(f'Only admins can do this ({what}).')
+        if res.status_code not in (200, 201, 204):
+            raise ConnectionError(f'{what}: {res.status_code} -> {res.text}')
+
     def fetchDevices(self) -> list[Device]:
         u_type = 'Device'
         d_list = self.fetchGroupAndDevice(u_type)
@@ -620,3 +1029,10 @@ class DeviceManager:
         res = self._session.put(f'/api/v1/admin/group_device/update/{group.id}', data=payload)
         if res.status_code != 200:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
+
+
+def _user_id(user) -> int:
+    user_id = user if isinstance(user, int) else getattr(user, 'id', None)
+    if not isinstance(user_id, int):
+        raise ValueError(f'Not a user or user id: {user!r}')
+    return user_id

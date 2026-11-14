@@ -8,6 +8,8 @@ elements, and sharing/syncing.
 
 import json
 import os
+import re
+from dataclasses import dataclass
 import typing
 import logging
 from datetime import datetime
@@ -30,6 +32,10 @@ from chemotion_api.element_manager import ElementManager
 
 from chemotion_api.utils import break_parent_cycles
 from chemotion_api.elements import ElementSet, AbstractElement
+from chemotion_api.elements.abstract_element import delete_elements, ui_state_selection
+from chemotion_api.elements.literature import Reference, collection_references
+from chemotion_api import reports, vessels
+from chemotion_api.notifications import notification_ids, wait_for_notification
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
@@ -68,6 +74,45 @@ def _share_target_ids(users) -> list[int]:
     if not ids:
         raise ValueError("share() needs at least one person or group to share with")
     return ids
+
+
+#: File types the sample import accepts (``ImportSamplesJob``).
+SAMPLE_IMPORT_FORMATS = ('.sdf', '.mol', '.csv', '.xlsx')
+#: The channel subject of the import's completion notification.
+IMPORT_SAMPLES_SUBJECT = 'Import Samples Completed'
+#: Channel subject of ELN-to-ELN transfer notifications (``Channel::GATE_TRANSFER_NOTIFICATION``).
+GATE_TRANSFER_SUBJECT = 'Gate Transfer Completed'
+
+
+def _child_of(label: str) -> typing.Callable[[dict], bool]:
+    """Matches the list row of a split child of ``label`` (``<label>-<n>``), not of ``<label>0``."""
+    pattern = re.compile(rf'^{re.escape(label)}-\d+$')
+    return lambda row: bool(pattern.match(row.get('short_label') or ''))
+
+
+def _named(name: str) -> typing.Callable[[dict], bool]:
+    return lambda row: row.get('name') == name
+
+
+@dataclass(frozen=True)
+class ImportResult:
+    """The outcome of :meth:`AbstractCollection.import_samples`, as the server reported it."""
+    #: ``'success'``, ``'warning'`` (partly imported), ``'error'`` or ``'info'``.
+    level: str
+    #: The server's summary, e.g. "Created 2 samples. Import successful!".
+    message: str
+    #: A link to the downloadable import report, when the server wrote one.
+    report_url: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return self.level == 'success'
+
+    @classmethod
+    def from_message(cls, message: dict) -> ImportResult:
+        content = message.get('content') or {}
+        return cls(level=content.get('level') or 'info', message=str(content.get('data') or '').strip(),
+                   report_url=content.get('url'))
 
 
 def nest_by_ancestry(flat: list[dict]) -> list[dict]:
@@ -514,6 +559,270 @@ class AbstractCollection:
         """
         return self._send_collection_elements('delete', elements)
 
+    def delete_elements(self, *elements, delete_subsamples: bool = False) -> list:
+        """Delete elements of this collection the way the web UI does.
+
+        ``DELETE /api/v1/ui_state``. ELN v4 **withdraws** the elements from every collection you
+        own and destroys only the records left in no collection at all, so an element another user
+        also holds survives for them. Elements not in this collection are ignored. See
+        :func:`chemotion_api.elements.abstract_element.delete_elements`.
+
+        :param elements: saved elements of this collection, named one by one — there is no
+            "delete everything" form.
+        :param delete_subsamples: when deleting reactions, also withdraw all of their samples, not
+            only their reactants and solvents.
+        :return: the given elements the server **kept**, empty when all were deleted: samples still
+            bound to a reaction or wellplate, and elements that are in none of your own collections.
+        :raises ValueError: if no elements are given, one is unsaved, or this collection cannot hold
+            elements.
+        :raises PermissionError: if this collection is one shared with you (403).
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        return delete_elements(self.get_root()._session, elements, collection_id=self.id,
+                               delete_subsamples=delete_subsamples)
+
+    def split_samples(self, *samples: Sample) -> list[Sample]:
+        """Split samples into subsamples on the server, the way the UI's *Split* button does.
+
+        ``POST /api/v1/samples/subsamples``. Each sample gets one new subsample, created right away
+        in this collection (and your "All"), linked to its parent and labelled
+        ``<parent label>-<n>``. Unlike :meth:`chemotion_api.elements.sample.Sample.split`, which
+        builds an unsaved copy for you to edit and save, nothing is left to save.
+
+        The server answers without the new ids, so they are found afterwards among this
+        collection's newest samples by their labels. Another split of the same samples at the same
+        moment could be picked up instead.
+
+        :param samples: saved samples of this collection that you created; the server skips others.
+        :return: the new subsamples, loaded, in the order of ``samples``.
+        :raises ValueError: if a sample is unsaved or not a sample, or this collection cannot hold
+            elements.
+        :raises PermissionError: if you may not add samples to this collection.
+        :raises ConnectionError: if the request fails or not every subsample is found.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        if not samples:
+            raise ValueError('No samples given.')
+        for sample in samples:
+            if getattr(sample, 'element_type', None) != 'sample':
+                raise ValueError(f'Only samples can be split, not {getattr(sample, "element_type", sample)!r}.')
+        selection = ui_state_selection(samples, 'split')['sample']['checkedIds']
+        labels = {sample.id: sample.short_label or '' for sample in samples}
+        session = self.get_root()._session
+
+        newest_before = self._newest_id(session, 'samples')
+        res = session.post('/api/v1/samples/subsamples', data={'ui_state': {
+            'sample': {'all': False, 'included_ids': selection, 'excluded_ids': []},
+            'currentCollectionId': self.id}})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add samples to collection "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        found = self._find_new_rows(session, 'samples', newest_before, 'split', [
+            (_child_of(labels[pid]), f'new subsample of {labels[pid]}') for pid in selection])
+        return typing.cast(list[Sample], self._load_found('sample', found))
+
+    def _newest_rows(self, session, kind: str, pages: int, params: dict | None = None):
+        """This collection's ``kind`` (``'samples'``, ``'wellplates'``, ...) as list rows, most
+        recently updated first, for at most ``pages`` pages of 50."""
+        collection_id = self._own_id(kind.replace('_', ' '))
+        for page in range(1, pages + 1):
+            res = session.get(f'/api/v1/{kind}', params={'collection_id': collection_id, 'page': page,
+                                                          'per_page': 50} | (params or {}))
+            if res.status_code != 200:
+                raise ConnectionError(f'{res.status_code} -> {res.text}')
+            rows = res.json().get(kind) or []
+            yield from rows
+            if len(rows) < 50:
+                return
+
+    def _newest_id(self, session, kind: str, params: dict | None = None) -> int:
+        return max((row['id'] for row in self._newest_rows(session, kind, 1, params)), default=0)
+
+    def _find_new_rows(self, session, kind: str, newest_before: int, action: str,
+                       wanted: list[tuple[typing.Callable[[dict], bool], str]],
+                       params: dict | None = None) -> list[int]:
+        """The ids of elements a bulk request (a split, a bulk create) just made, which the
+        server does not return.
+
+        Each ``(match, description)`` in ``wanted`` takes the newest row above ``newest_before``
+        that it matches and no earlier entry took. The lists are ordered by update time, not by
+        id, so an older element updated in between can sit among the new ones; the rows are
+        filtered by id rather than read until the first old one.
+
+        :raises ConnectionError: if one is not found. The request did happen, so the message says
+            so: repeating it would create the elements again.
+        """
+        pages = 2 + len(wanted) // 50
+        new_rows = [row for row in self._newest_rows(session, kind, pages, params) if row['id'] > newest_before]
+        found: list[int] = []
+        for match, description in wanted:
+            row_id = max((row['id'] for row in new_rows if row['id'] not in found and match(row)), default=None)
+            if row_id is None:
+                raise ConnectionError(f'The {action} request was accepted, but no {description} was found '
+                                      f'in "{self.label}".')
+            found.append(row_id)
+        return found
+
+    def _load_found(self, type_name: str, ids: list[int]) -> list:
+        root = self.get_root()
+        loader = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get(type_name)),
+                            typing.cast(int, self.id))
+        return [loader.load_element(element_id) for element_id in ids]
+
+    def split_wellplates(self, *wellplates: Wellplate) -> list[Wellplate]:
+        """Split wellplates into sub-wellplates on the server, as the UI's *Split* button does.
+
+        ``POST /api/v1/wellplates/subwellplates``. Each wellplate gets a copy named
+        ``<name>-Split`` in this collection, whose wells hold subsamples of the original wells'
+        samples.
+
+        The server answers without the new ids, so they are found among this collection's newest
+        wellplates by their names.
+
+        :return: the new sub-wellplates, loaded, in the order of ``wellplates``.
+        :raises PermissionError: if you may not add elements to this collection.
+        :raises ConnectionError: if not every sub-wellplate is found afterwards.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        if not wellplates:
+            raise ValueError('No wellplates given.')
+        if any(getattr(w, 'element_type', None) != 'wellplate' for w in wellplates):
+            raise ValueError('Only wellplates can be split into sub-wellplates.')
+        selection = ui_state_selection(wellplates, 'split')['wellplate']['checkedIds']
+        session = self.get_root()._session
+        newest_before = self._newest_id(session, 'wellplates')
+        res = session.post('/api/v1/wellplates/subwellplates', data={'ui_state': {
+            'wellplate': {'all': False, 'included_ids': selection, 'excluded_ids': []},
+            'currentCollectionId': self.id}})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add wellplates to collection "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        names = {w.id: f'{w.properties.get("name") or w.name}-Split' for w in wellplates}
+        return self._find_new_wellplates(session, newest_before, [names[i] for i in selection])
+
+    def create_wellplates(self, *names: str) -> list[Wellplate]:
+        """Create several empty wellplates (12 x 8) in this collection in one request.
+
+        ``POST /api/v1/wellplates/bulk``. The server answers without the new ids, so they are found
+        among this collection's newest wellplates by their names.
+
+        :return: the new wellplates, loaded, in the order of ``names``.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        if not names or not all(isinstance(n, str) and n for n in names):
+            raise ValueError('Give each new wellplate a name.')
+        session = self.get_root()._session
+        newest_before = self._newest_id(session, 'wellplates')
+        res = session.post('/api/v1/wellplates/bulk', data={'wellplates': [
+            {'name': name, 'collection_id': self.id, 'wells': []} for name in names]})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add wellplates to collection "{self.label}".')
+        if res.status_code not in (200, 201, 204):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        return self._find_new_wellplates(session, newest_before, list(names))
+
+    def _find_new_wellplates(self, session, newest_before: int, names: list[str]) -> list[Wellplate]:
+        found = self._find_new_rows(session, 'wellplates', newest_before, 'wellplate', [
+            (_named(name), f'new wellplate "{name}"') for name in names])
+        return typing.cast(list[Wellplate], self._load_found('wellplate', found))
+
+    def import_samples(self, file_path: str, as_chemicals: bool = False, wait: bool = True,
+                       timeout: float = 300, poll_interval: float = 2) -> ImportResult | None:
+        """Import samples from an SDF, MOL, CSV or XLSX file into this collection, like the UI's
+        *Import samples* dialog. ``POST /api/v1/samples/import``.
+
+        The server imports in a background job and reports the outcome as a notification. With
+        ``wait`` (the default) this polls your notifications until that report arrives; the
+        imported samples are then in this collection.
+
+        :param file_path: the file; its extension picks the format (``.sdf``, ``.mol``, ``.csv``,
+            ``.xlsx``). Spreadsheets use the ELN's import template columns.
+        :param as_chemicals: import into the chemical inventory instead (the UI's "import as
+            chemicals"): the samples become inventory samples with chemical data.
+        :param wait: wait for the import to finish.
+        :param timeout: seconds to wait before giving up with :class:`TimeoutError` (the import
+            keeps running on the server).
+        :param poll_interval: seconds between notification checks.
+        :return: the outcome when waiting, else ``None``.
+        :raises ValueError: for an unsupported file type, or a collection that cannot hold elements.
+        :raises PermissionError: if this is not one of your collections.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold elements')
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext not in SAMPLE_IMPORT_FORMATS:
+            raise ValueError(f'Cannot import {ext or "files without an extension"}; '
+                             f'use one of {", ".join(SAMPLE_IMPORT_FORMATS)}.')
+        session = self.get_root()._session
+        subjects = (IMPORT_SAMPLES_SUBJECT,)
+        seen = notification_ids(session, subjects) if wait else set()
+        with open(file_path, 'rb') as f:
+            res = session.post('/api/v1/samples/import',
+                               data={'currentCollectionId': self.id,
+                                     'import_type': 'chemical' if as_chemicals else 'sample'},
+                               files={'file': (os.path.basename(file_path), f)})
+        if res.status_code == 401:
+            raise PermissionError(f'You can only import into your own collections, not "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        if not wait:
+            return None
+        message = wait_for_notification(
+            session, subjects, seen, f'The import into "{self.label}"',
+            match=lambda m: (m.get('content') or {}).get('collection_id') == self.id,
+            timeout=timeout, poll_interval=poll_interval)
+        return ImportResult.from_message(message)
+
+    def export_elements(self, file_path: str, *elements, file_format: str = 'xlsx',
+                        columns: dict[str, list[str]] | None = None) -> str | None:
+        """Export samples, reactions and wellplates of this collection as a table, like the list's
+        *Export* dialog. ``POST /api/v1/reports/export_samples_from_selections``.
+
+        The file has one sheet per table: the selected samples, and the samples of the selected
+        reactions and wellplates.
+
+        :param file_path: where to save the file.
+        :param elements: saved samples, reactions and wellplates of this collection.
+        :param file_format: ``'xlsx'`` or ``'sdf'``.
+        :param columns: ``{table: [column, ...]}`` for the tables ``sample``, ``molecule``,
+            ``reaction``, ``wellplate``, ``analyses``, ``chemicals`` and ``components``;
+            defaults to the dialog's preselection, :data:`chemotion_api.reports.DEFAULT_EXPORT_COLUMNS`.
+        :return: ``file_path``, or ``None`` if the server found nothing to export.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot export elements')
+        return reports.export_elements(self.get_root()._session, self.id, elements, file_path,
+                                       file_format, columns)
+
+    def export_reaction_smiles(self, file_path: str, *reactions, notation: str = 'SM>R>P') -> str | None:
+        """Export reactions of this collection as reaction SMILES, one per line, like the list's
+        *Export reactions* dialog. ``POST /api/v1/reports/export_reactions_from_selections``.
+
+        :param notation: one of :data:`chemotion_api.reports.REACTION_SMILES_NOTATIONS`, where SM are
+            the starting materials, R the reactants, S the solvents and P the products.
+        :return: ``file_path``, or ``None`` if the server found nothing to export.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot export elements')
+        return reports.export_reaction_smiles(self.get_root()._session, self.id, reactions, file_path, notation)
+
+    def references(self) -> dict[str, list[Reference]]:
+        """The literature cited in this collection, like the UI's collection *References* tab.
+
+        ``GET /api/v1/literatures/collection``. Keys are ``'collection'``, ``'sample'``,
+        ``'reaction'`` and ``'research_plan'``; each reference's ``count`` says how many elements
+        of that kind cite it.
+        """
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" has no references')
+        return collection_references(self.get_root()._session, self.id)
+
     def move_elements(self, dest: AbstractCollection, *elements) -> list[int]:
         """Move elements from this collection into ``dest``.
 
@@ -800,6 +1109,103 @@ class AbstractCollection:
 
         return self._element_set('wellplate', per_page, updated_to_date, updated_from_date)
 
+    def split_device_descriptions(self, *devices: DeviceDescription) -> list[DeviceDescription]:
+        """Split device descriptions into sub-device descriptions, as the UI's *Split* does
+        (``POST /api/v1/device_descriptions/sub_device_descriptions``). Each gets a copy in this
+        collection labelled ``<short label>-<n>``, with the segments but no analyses or attachments.
+
+        :return: the new sub-device descriptions, loaded, in the order of ``devices``.
+        """
+        return typing.cast(list[DeviceDescription], self._split_by_label(
+            devices, 'device_description', 'device_descriptions',
+            '/api/v1/device_descriptions/sub_device_descriptions'))
+
+    def split_sbmm_samples(self, *samples: SbmmSample) -> list[SbmmSample]:
+        """Split SBMM samples into subsamples (``<short label>-<n>``) in this collection
+        (``POST /api/v1/sequence_based_macromolecule_samples/sub_sequence_based_macromolecule_samples``).
+
+        :return: the new subsamples, loaded, in the order of ``samples``.
+        """
+        return typing.cast(list[SbmmSample], self._split_by_label(
+            samples, 'sequence_based_macromolecule_sample', 'sequence_based_macromolecule_samples',
+            '/api/v1/sequence_based_macromolecule_samples/sub_sequence_based_macromolecule_samples'))
+
+    def split_generic_elements(self, *elements: GenericElement) -> list[GenericElement]:
+        """Split generic elements, as the UI's *Split* does (``POST /api/v1/generic_elements/split``).
+        Each gets a child in this collection labelled ``<short label>-<n>``, with the same name
+        and a copy of the properties.
+
+        :param elements: elements of one template (the route splits per template).
+        :return: the new elements, loaded, in the order of ``elements``.
+        """
+        if not elements or any(not isinstance(e, GenericElement) for e in elements):
+            raise ValueError('Give the generic elements to split.')
+        klass_names = {e.element_type for e in elements}
+        if len(klass_names) != 1:
+            raise ValueError('Split elements of one template at a time.')
+        (klass_name,) = klass_names
+        ids = [typing.cast(int, e.id) for e in elements]
+        if any(i is None for i in ids):
+            raise ValueError('Save the elements before splitting them.')
+        session = self.get_root()._session
+        by_template = {'el_type': klass_name}
+        before = self._newest_id(session, 'generic_elements', by_template)
+        res = session.post('/api/v1/generic_elements/split', data={'ui_state': {
+            'element': {'name': klass_name, 'all': False, 'included_ids': ids, 'excluded_ids': []},
+            'currentCollectionId': self._own_id('generic elements')}})
+        if res.status_code not in (200, 201) or (res.json() or {}).get('error'):
+            raise ConnectionError(f'Splitting failed: {res.status_code} -> {res.text}')
+        found = self._find_new_rows(session, 'generic_elements', before, 'split', [
+            (_child_of(e.short_label or ''), f'split of {e.short_label}') for e in elements], by_template)
+        return typing.cast(list[GenericElement], self._load_found(klass_name, found))
+
+    def _split_by_label(self, elements, kind: str, list_key: str, url: str) -> list:
+        if not elements or any(getattr(e, 'element_type', None) != kind for e in elements):
+            raise ValueError(f'Give the {kind.replace("_", " ")}s to split.')
+        selection = ui_state_selection(elements, 'split')[kind]['checkedIds']
+        session = self.get_root()._session
+        before = self._newest_id(session, list_key)
+        res = session.post(url, data={'ui_state': {
+            kind: {'all': False, 'included_ids': selection, 'excluded_ids': []},
+            'currentCollectionId': self._own_id(list_key.replace('_', ' '))}})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not add elements to collection "{self.label}".')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        labels = {e.id: e.short_label or '' for e in elements}
+        found = self._find_new_rows(session, list_key, before, 'split', [
+            (_child_of(labels[element_id]), f'split of {labels[element_id]}') for element_id in selection])
+        return self._load_found(kind, found)
+
+    def inventory_label(self):
+        """This collection's inventory label (prefix, name, counter), or ``None``."""
+        from chemotion_api import chemicals
+        return chemicals.inventory_label(self.get_root()._session, self._own_id('an inventory'))
+
+    def get_vessels(self) -> list[vessels.Vessel]:
+        """All vessels in this collection, newest first (see :mod:`chemotion_api.vessels`)."""
+        return vessels.list_vessels(self.get_root()._session, self._own_id('vessels'))
+
+    def new_vessel(self, template: vessels.VesselTemplate | str, **fields) -> vessels.Vessel:
+        """Create one vessel of ``template`` in this collection, right away.
+
+        :param fields: ``name``, ``description``, ``short_label``, ``weight_amount``, ``weight_unit``.
+            The server names it ``<template> instance`` and labels it ``<initials>-V<n>`` by default.
+        """
+        return vessels.create_vessel(self.get_root()._session, self._own_id('vessels'), template, **fields)
+
+    def new_vessels(self, template: vessels.VesselTemplate | str, count: int, base_name: str | None = None,
+                    short_labels: list[str] | None = None) -> list[vessels.Vessel]:
+        """Create ``count`` (1-100) vessels of ``template`` in this collection in one request,
+        named ``<base_name> 1``, ``<base_name> 2``, …"""
+        return vessels.bulk_create_vessels(self.get_root()._session, self._own_id('vessels'), template, count,
+                                           base_name, short_labels)
+
+    def _own_id(self, what: str) -> int:
+        if self.id is None:
+            raise ValueError(f'Collection "{self.label}" cannot hold {what}')
+        return self.id
+
     def get_generics_by_name(self, name: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
         """
@@ -864,6 +1270,18 @@ class AbstractEditableCollection(AbstractCollection):
         mol = MoleculeManager(self.get_root()._session).create_molecule_by_smiles(smiles_code)
         sample.molecule = mol
         return typing.cast(Sample, sample)
+
+    def new_sample_molfile(self, molfile: str) -> Sample:
+        """
+        Creates a new sample in this collection whose molecule comes from a molfile, e.g. one drawn
+        in an editor or exported from another tool.
+
+        :param molfile: the structure as molfile text (V2000 or V3000).
+        :return: New (unsaved) Sample
+        """
+        sample = typing.cast(Sample, self._create_new_element('sample'))
+        sample.molecule = MoleculeManager(self.get_root()._session).create_molecule_by_molfile(molfile)
+        return sample
 
     def new_solvent(self, name) -> Sample:
         """
@@ -1110,6 +1528,9 @@ class Collection(AbstractEditableCollection):
         abs_path = self.get_path()
         self.get_root().delete(abs_path)
 
+    def _root_session(self) -> Connection:
+        return typing.cast(Connection, getattr(self.get_root(), '_session'))
+
     def add_collection(self, name: str):  # type: ignore[override]
         """
         Creates a new child collection. The collection is not saved.
@@ -1230,6 +1651,134 @@ class Collection(AbstractEditableCollection):
         if res.status_code not in (200, 201):
             raise ConnectionError(f"{res.status_code} -> {res.text}")
         return res.json() if res.content else {}
+
+    def metadata(self) -> dict | None:
+        """This collection's publication metadata (DataCite fields such as ``title``,
+        ``creators``, ``description``, ``subjects``), as the UI's *Metadata* dialog edits it, or
+        ``None`` if none was saved. ``GET /api/v1/collections/:id/metadata``.
+
+        Only your own collections have metadata you can read.
+        """
+        res = self._root_session().get(f'/api/v1/collections/{self.id}/metadata')
+        if res.status_code == 404:
+            return None
+        if res.status_code != 200:
+            raise request_error(res, f'loading the metadata of collection "{self.label}"')
+        return (res.json() or {}).get('metadata')
+
+    def save_metadata(self, metadata: dict) -> dict:
+        """Replace this collection's publication metadata (``POST /api/v1/collections/metadata``).
+
+        The server stores the dict as given; the UI's dialog writes DataCite keys, e.g.
+        ``{'title': ..., 'description': ..., 'creators': [{'givenName': ..., 'familyName': ...}],
+        'subjects': [{'subject': ...}]}``.
+
+        :return: the stored metadata.
+        :raises ValueError: if this is not one of your own collections.
+        """
+        if not isinstance(metadata, dict):
+            raise ValueError('metadata is a dict of DataCite fields.')
+        res = self._root_session().post('/api/v1/collections/metadata',
+                                        data={'collection_id': self.id, 'metadata': metadata})
+        if res.status_code == 404:
+            raise ValueError(f'Only your own collections have metadata; "{self.label}" is not one of them.')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'saving the metadata of collection "{self.label}"')
+        return (res.json() or {}).get('metadata') or {}
+
+    def take_ownership(self) -> dict:
+        """Accept an ownership offer: become the owner of this collection shared with you, and of
+        all its sub-collections and elements. ``POST /api/v1/collection_shares/take_ownership/:id``.
+
+        The owner offers it by sharing the collection with you at
+        :attr:`CollectionSharePermission.PassOwnership`. The former owner keeps a
+        :attr:`~CollectionSharePermission.ManageShares` share. Reload your collection tree to see
+        the collection among your own.
+
+        :return: the collection, as the server now lists it among yours.
+        :raises PermissionError: if you hold no ownership offer for this collection, or it is locked.
+        """
+        res = self._root_session().post(f'/api/v1/collection_shares/take_ownership/{self.id}')
+        if res.status_code in (401, 403, 422):
+            raise PermissionError(f'Cannot take ownership of "{self.label}": {res.text}')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'taking ownership of collection "{self.label}"')
+        return (res.json() or {}).get('collection') or {}
+
+    def gate_token(self, origin: str) -> str:
+        """Receiving side of an ELN-to-ELN transfer: a token that lets another ELN send samples and
+        reactions into this collection of yours (``GET /api/v1/gate/jwt/new``). Valid for 7 days.
+
+        Hand the token to the sender, who registers it with :meth:`register_gate`.
+
+        :param origin: the sending ELN's address (``https://eln.example.org``); requests from
+            elsewhere are refused.
+        """
+        res = self._root_session().get('/api/v1/gate/jwt/new', params={'collection_id': self.id, 'origin': origin})
+        if res.status_code == 401:
+            raise PermissionError(f'Only your own collections can receive transfers, not "{self.label}".')
+        if res.status_code != 200:
+            raise request_error(res, f'creating a transfer token for collection "{self.label}"')
+        return res.json()['jwt']
+
+    def register_gate(self, destination: str, token: str) -> None:
+        """Sending side: store the token another ELN issued (:meth:`gate_token` there) for sending
+        this collection to it (``POST /api/v1/gate/register_gate``)."""
+        res = self._root_session().post('/api/v1/gate/register_gate',
+                                        data={'collection_id': self.id, 'destination': destination, 'token': token})
+        if res.status_code == 401:
+            raise PermissionError(f'Only your own collections can be transferred, not "{self.label}".')
+        if res.status_code not in (200, 201, 204):
+            raise request_error(res, f'registering a transfer target for collection "{self.label}"')
+
+    def check_transmission(self, target: str) -> dict:
+        """Check that this collection can be sent to ``target``: the server pings it and validates
+        the registered token there (``GET /api/v1/gate/transmitting/:id``).
+
+        :param target: the receiving ELN, e.g. ``'https://www.chemotion-repository.net/'``. It has
+            no default here: the server's default is the public Chemotion repository.
+        :return: the target's answer, e.g. ``{'target': ..., 'expire_at': ...}``.
+        :raises ConnectionError: if the target is unreachable, or no valid token is registered for it.
+        """
+        return self._transmitting('get', target).json()
+
+    def transmit(self, target: str, wait: bool = True, timeout: float = 600, poll_interval: float = 3) -> str | None:
+        """Send this collection's samples and reactions to another ELN, as the UI's *Transfer*
+        action does (``POST /api/v1/gate/transmitting/:id``). Register a token first
+        (:meth:`register_gate`).
+
+        After a successful transfer the server moves the sent elements into your locked
+        ``chemotion-repository.net`` collection.
+
+        :param target: the receiving ELN (see :meth:`check_transmission`).
+        :param wait: wait for the job's *Gate Transfer Completed* notification.
+        :return: the notification text when waiting, else ``None``.
+        :raises ConnectionError: if the transfer fails.
+        """
+        session = self._root_session()
+        seen = notification_ids(session, (GATE_TRANSFER_SUBJECT,)) if wait else set()
+        self._transmitting('post', target)
+        if not wait:
+            return None
+        message = wait_for_notification(session, (GATE_TRANSFER_SUBJECT,), seen, f'The transfer of "{self.label}"',
+                                        timeout=timeout, poll_interval=poll_interval)
+        content = message.get('content') or {}
+        text = str(content.get('data') or '')
+        if content.get('level') == 'error':
+            raise ConnectionError(f'The transfer of "{self.label}" failed: {text}')
+        return text
+
+    def _transmitting(self, method: str, target: str):
+        if not target:
+            raise ValueError('Name the receiving ELN; the server would default to the public repository.')
+        session = self._root_session()
+        # The server forwards this Referer to the target as Origin, where it must match the token.
+        headers = {**session.get_json_session_header(), 'Referer': f'{session.host_url}/'}
+        res = getattr(session, method)(f'/api/v1/gate/transmitting/{self.id}', params={'target': target},
+                                       headers=headers)
+        if res.status_code in (200, 201, 202):
+            return res
+        raise ConnectionError(f'Cannot transfer "{self.label}" to {target}: {res.status_code} -> {res.text}')
 
     def get_shares(self) -> list[dict]:
         """Return this collection's shares, as the server reports them.

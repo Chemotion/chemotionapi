@@ -19,6 +19,8 @@ from chemotion_api.elements.utils.converter import convert_value_to_default
 from chemotion_api.elements.utils.equivalent import get_equivalent
 from chemotion_api.user import User
 from chemotion_api.elements.abstract_element import AbstractElement, proposed_field, value_at
+from chemotion_api.elements.registry import register_element_type
+from chemotion_api.elements.components import Component, load_components, save_components
 from chemotion_api.elements.empty_elements import init_container
 from chemotion_api.models import SamplePropertiesModel, GasPhaseModel, UnitDictModel, validate_field
 from chemotion_api.utils.withheld import WITHHELD
@@ -92,6 +94,15 @@ class Chemical:
         # PUT answers with the result of `update!` (true), not the record.
         self._set(_fetch_chemical(self._session, self.sample_id))
         return self
+
+    @property
+    def safety_sheets(self) -> list[str]:
+        """The paths of the saved safety data sheets (``/safety_sheets/<vendor>/<file>.pdf``).
+
+        Download one with :meth:`chemotion_api.Instance.download_safety_sheet`.
+        """
+        return [path for entry in self.data.get('safetySheetPath') or [] if isinstance(entry, dict)
+                for path in entry.values()]
 
     def __repr__(self) -> str:
         return f'Chemical(sample_id={self.sample_id}, cas={self.cas!r}, exists={self.exists})'
@@ -370,6 +381,8 @@ class MoleculeName:
     id: int
     name: str
     description: str | None = None
+#: The InChIKey of the server's placeholder molecule (``Molecule.find_or_create_dummy``).
+DUMMY_INCHIKEY = 'DUMMY'
 
 
 class MoleculeManager:
@@ -455,10 +468,118 @@ class MoleculeManager:
         return Molecule(res_json)
 
     def create_molecule_by_cls(self, host_url, session, inchikey) -> Molecule:
-        """Not implemented yet!!"""
+        """Not implemented. Use :meth:`get_molecule_by_inchikey` to look a molecule up by InChIKey."""
         raise NotImplementedError
 
+    def create_molecule_by_molfile(self, molfile: str, decoupled: bool = False) -> Molecule:
+        """
+        Creates the molecule for a molfile (V2000 or V3000), or returns it if the server already
+        has it. ``POST /api/v1/molecules``, the UI's path for a drawn structure.
 
+        :param molfile: the structure as molfile text.
+        :param decoupled: for a sample decoupled from its molecule: the server then returns its
+            placeholder molecule instead of parsing the structure.
+        :return: the molecule; for a new structure the server renders its SVG as well.
+        :raises ValueError: if the molfile is empty or the server cannot make a molecule of it.
+        :raises ConnectionError: if the request fails.
+        """
+        if not molfile or not molfile.strip():
+            raise ValueError('The molfile is empty.')
+        res = self._session.post('/api/v1/molecules', data={'molfile': molfile, 'decoupled': decoupled})
+        if res.status_code == 422:
+            raise ValueError(f'The server could not render the molfile: {res.text}')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        res_json = res.json()
+        if not res_json or res_json.get('id') is None:
+            raise ValueError('The server could not create a molecule for this molfile.')
+        # A molfile the server cannot parse is not an error there: it answers 201 with its
+        # placeholder molecule (the one decoupled samples use), whose InChIKey is "DUMMY".
+        if not decoupled and res_json.get('inchikey') == DUMMY_INCHIKEY:
+            raise ValueError('The server could not read the molfile; it returned its placeholder molecule.')
+        return Molecule(res_json)
+
+    def lookup_cas(self, cas_number: str) -> dict:
+        """
+        Resolves a CAS registry number to a structure, through the server's CAS/PubChem lookup
+        (``POST /api/v1/cas_lookup/lookup``): ``{'smiles', 'cas', 'source'}`` with ``source``
+        ``'cas'`` or ``'pubchem'``. Pass the SMILES to :meth:`create_molecule_by_smiles` to use it.
+
+        :raises ValueError: if no CAS number is given.
+        :raises RequestException: if the lookup fails (unknown number, or no access to CAS/PubChem).
+        """
+        if not cas_number or not cas_number.strip():
+            raise ValueError('A CAS number is required.')
+        res = self._session.post('/api/v1/cas_lookup/lookup', data={'cas_number': cas_number.strip()})
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'looking up CAS number {cas_number}')
+        return res.json()
+
+    def get_molecule_by_inchikey(self, inchikey: str) -> Molecule | None:
+        """
+        The molecule with this InChIKey, if the server already has it, else ``None``. Nothing is
+        created. ``POST /api/v1/molecules/inchikey``.
+        """
+        res = self._session.post('/api/v1/molecules/inchikey', data={'inchikey': inchikey})
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        data = (res.json() or {}).get('molecule')
+        return Molecule(data) if data and data.get('id') is not None else None
+
+    def load_cas(self, inchikey: str) -> list[str]:
+        """
+        The CAS registry numbers of a molecule the server has, looked up at PubChem by the server
+        (``GET /api/v1/molecules/cas``). Empty if the molecule is unknown or PubChem has none, and
+        when the server cannot reach PubChem.
+        """
+        res = self._session.get('/api/v1/molecules/cas', params={'inchikey': inchikey})
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        data = res.json() or {}
+        return [c for c in data.get('cas') or [] if c]
+
+    def render_svg(self, molfile: str) -> str:
+        """
+        Renders a molfile's structure and stores it as its molecule's SVG
+        (``POST /api/v1/molecules/render_svg``). Returns the image path on the server, e.g.
+        ``/images/molecules/<file>.svg``; fetch it with :meth:`load_svg`.
+
+        :raises ValueError: if the server could not render it.
+        """
+        res = self._session.post('/api/v1/molecules/render_svg', data={'molfile': molfile})
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        data = res.json() or {}
+        if not data.get('success'):
+            raise ValueError(f'The server could not render the molfile: {data.get("error")}')
+        return data['svg_path']
+
+    def load_svg(self, molecule: Molecule | str) -> bytes:
+        """
+        The SVG image of a molecule, by :class:`Molecule` or by its ``molecule_svg_file`` name or
+        path.
+        """
+        name = molecule['molecule_svg_file'] if isinstance(molecule, Molecule) else molecule
+        if not name:
+            raise ValueError('The molecule has no SVG file.')
+        path = name if str(name).startswith('/') else f'/images/molecules/{name}'
+        res = self._session.get(path)
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        return res.content
+
+    def molecular_weight(self, sum_formula: str) -> float:
+        """
+        The molecular weight of a sum formula, e.g. ``'C2H6O'`` (``GET /api/v1/molecules/molecular_weight``),
+        as used for decoupled samples. The server answers ``0.0`` for a formula it cannot parse.
+        """
+        res = self._session.get('/api/v1/molecules/molecular_weight', params={'molecular_formula': sum_formula})
+        if res.status_code != 200:
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        return float(res.json())
+
+
+@register_element_type('sample', url='/api/v1/samples')
 class Sample(AbstractElement):
     """
     A chemotion Sample object.
@@ -774,11 +895,45 @@ class Sample(AbstractElement):
     @property
     def is_mixture(self) -> bool:
         """
-        True if the sample is a mixture. Mixtures are only partially supported: their components are
-        passed through unchanged, and they can't be quantified in reaction variations.
+        True if the sample is a mixture. Make one with ``properties['sample_type'] = 'Mixture'``;
+        its components are read and written with :meth:`components` and :meth:`save_components`.
+        Mixtures can't be quantified in reaction variations.
         """
         sample_type = self.properties.get('sample_type', (self.json_data or {}).get('sample_type'))
         return sample_type == SampleType.SAMPLE_TYPE_MIXTURE.value
+
+    @property
+    def svg_path(self) -> str | None:
+        """The server path of this sample's structure image, as the UI uses it: the sample's own SVG,
+        else its molecule's; ``None`` if there is neither."""
+        if self._svg_file:
+            return f'/images/samples/{self._svg_file}'
+        molecule_svg = self.molecule['molecule_svg_file'] if self.molecule is not None else None
+        return f'/images/molecules/{molecule_svg}' if molecule_svg else None
+
+    def components(self) -> list[Component]:
+        """
+        The components of this mixture sample, by position, fetched right away
+        (``GET /api/v1/components/:sample_id``).
+
+        :raises ValueError: if the sample is unsaved.
+        """
+        return load_components(self._session, self._saved_id_for('components'))
+
+    def save_components(self, components: list[Component]) -> list[Component]:
+        """
+        Sets this mixture's components, sent right away (``PUT /api/v1/components``). The list
+        **replaces** the current one: components left out are deleted. Pass the result of
+        :meth:`components` with your changes, plus new ones from
+        :meth:`Component.new <chemotion_api.elements.components.Component.new>`.
+
+        :return: the components as the server stored them.
+        :raises ValueError: if the sample is unsaved or not a mixture, or a component has no molecule.
+        """
+        if not self.is_mixture:
+            raise ValueError("Only mixture samples have components; set properties['sample_type'] = "
+                             "'Mixture' and save the sample first.")
+        return save_components(self._session, self._saved_id_for('components'), list(components))
 
     @property
     def gas_type(self) -> GasType:
@@ -891,6 +1046,27 @@ class Sample(AbstractElement):
             raise ValueError('Save the sample before reading its chemical record.')
         return Chemical(self._session, cast(int, self.id), _fetch_chemical(self._session, cast(int, self.id)))
 
+    def attach_safety_sheet(self, file_path: str, vendor_name: str, vendor_product: str,
+                            vendor_info: dict | None = None, cas: str | None = None) -> Chemical:
+        """Store a safety data sheet file with this sample, as the *Inventory* tab's manual upload
+        does; creates the chemical record if there is none. See
+        :func:`chemotion_api.chemicals.attach_safety_sheet`.
+
+        :return: the chemical record afterwards (:meth:`get_chemical`).
+        """
+        from chemotion_api import chemicals
+        return chemicals.attach_safety_sheet(self._session, self, file_path, vendor_name, vendor_product,
+                                             vendor_info, cas)
+
+    def save_vendor_safety_sheet(self, chemical: Chemical, vendor_product: str) -> Chemical:
+        """Have the server download a vendor's safety data sheet for this sample. See
+        :func:`chemotion_api.chemicals.save_vendor_safety_sheet`.
+
+        :return: the chemical record afterwards (:meth:`get_chemical`).
+        """
+        from chemotion_api import chemicals
+        return chemicals.save_vendor_safety_sheet(self._session, self, chemical, vendor_product)
+
     def load_image(self) -> Response:
         """
         Loads the sample structure as svg image
@@ -906,7 +1082,16 @@ class Sample(AbstractElement):
 
     def split(self):
         """
-        Splits the sample. The sample is saved first. The split is not saved.
+        Splits the sample locally: returns an unsaved subsample (``parent_id`` set, label
+        ``<label>-NaN`` until the server assigns one). The sample is saved first.
+
+        This is what reactions and wellplates do with a sample put into them: the server creates
+        the real, linked subsample when the *reaction or wellplate* is saved. Saved on its own, the
+        result is **not** linked to its parent — ``POST /api/v1/samples`` takes no ``parent_id`` —
+        so it is just a copy.
+
+        To split on the server in one step, as the UI's *Split* button does, use
+        :meth:`chemotion_api.collection.AbstractCollection.split_samples`.
 
         :return: A new sample object
         :rtype: :class:`chemotion_api.elements.sample.Sample`

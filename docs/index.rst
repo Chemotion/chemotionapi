@@ -32,7 +32,13 @@ workflows that leverage the ELN's capabilities and streamline their research pro
 .. note::
    **Element types.** Samples, reactions, wellplates, research plans, screens, cell lines, SBMM
    samples, device descriptions and LabIMotion generic elements can all be created, read, edited
-   and moved between collections. Vessels are not supported.
+   and moved between collections. Vessels (templates and instances) have their own classes in
+   :mod:`chemotion_api.vessels`.
+
+   **Acting immediately.** Element edits reach the server on ``save()``. Most other calls — moving,
+   sharing, deleting, splitting, comments, references, exports, imports, reports, inventory data and
+   administration — are sent right away. Deleting templates, users, groups or devices needs the
+   item's label or abbreviation passed back as ``confirm=``.
 
 .. note::
    **Log in with an API token.** Logging in with a user name and password is deprecated. See
@@ -57,7 +63,11 @@ workflows that leverage the ELN's capabilities and streamline their research pro
    Segments
    Attachments
    Analyses
+   MoreElements
    Search
+   DataExchange
+   LabData
+   Account
    Admin
 
 .. toctree::

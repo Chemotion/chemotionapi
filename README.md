@@ -7,9 +7,17 @@ The FAIR `.eln` (RO-Crate) export and the offline ingester are **not** in this r
 
 ## Key features
 
-- **Full REST client** — collections, samples, reactions, wellplates, research plans, LabIMotion
-  generic elements/segments/datasets, attachments and analyses, search, users/groups/devices,
-  inbox, converter profiles, and admin endpoints.
+- **Full REST client for ELN v4** — collections and sharing; samples, reactions, wellplates,
+  research plans, screens, cell lines, device descriptions, sequence-based macromolecule samples,
+  vessels and LabIMotion generic elements/segments/datasets; analyses, attachments and image
+  annotations; comments, private notes, versions, literature and user labels.
+- **Workflows beyond single elements** — structure and advanced search, deletion and splitting,
+  collection export/import (ZIP), sample import (SDF/CSV/XLSX), reports and table exports, the
+  inbox, chemical inventory and safety data sheets, measurements, spectra processing, text
+  templates, ELN-to-ELN transfer.
+- **Administration** — users, groups, devices and data collectors, background jobs, feature
+  switches, ontologies, LabIMotion templates and the LabIMotion Hub. `MISSING_FEATURES.md` tracks
+  what the web UI offers and the client does not.
 - **Pydantic v2 type safety** — element properties are validated and normalized on read and write.
 - **Instance management CLI** — the `chemotion_api` command scaffolds and manages local
   dockerized Chemotion instances (start/stop, ports, backups).
@@ -122,6 +130,9 @@ from `main` and publishes it at <https://chemotionapi.readthedocs.io/>; to build
 ```bash
 just docs    # → docs/_build/html/index.html
 ```
+
+For AI coding assistants, [skills/chemotion-api/](./skills/chemotion-api/SKILL.md) is a skill with
+the common workflows and a signature reference (`references/api.md`).
 
 ## Testing
 

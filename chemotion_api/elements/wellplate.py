@@ -2,6 +2,7 @@
 import logging
 from chemotion_api.models import WellplatePropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 
 from chemotion_api.elements.sample import Sample
 from collections.abc import MutableMapping
@@ -86,6 +87,7 @@ class WellplateCol(MutableMapping):
         return key
 
 
+@register_element_type('wellplate', url='/api/v1/wellplates')
 class Wellplate(AbstractElement):
     """
     Wellplates represent the localization of materials (chemicals)
@@ -245,7 +247,8 @@ class Wellplate(AbstractElement):
     def _parse_properties(self) -> dict:
         return self._validated_properties({
             'name': cast(dict, self.json_data).get('name'),
-            'description': cast(dict, self.json_data).get('description')
+            'description': cast(dict, self.json_data).get('description'),
+            'user_labels': cast(dict, self.json_data).get('user_labels') or [],
         })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
@@ -278,6 +281,7 @@ class Wellplate(AbstractElement):
             'wells': out_wells,
             'name': self.properties.get('name'),
             'description': self.properties.get('description'),
+            'user_labels': self.properties.get('user_labels'),
         }
 
 
@@ -287,3 +291,63 @@ class Wellplate(AbstractElement):
         """
         super().save()
         self.load()
+
+    def export_samples_excel(self, file_path: str) -> str:
+        """
+        Saves the samples of this wellplate as an XLSX table
+        (``GET /api/v1/reports/excel_wellplate``), with the server's default columns.
+
+        :return: ``file_path``
+        """
+        from chemotion_api.reports import download_to
+        return download_to(self._session, '/api/v1/reports/excel_wellplate', {'id': self._saved_id_for('sample export')},
+                           file_path, f'exporting the samples of wellplate {self.id}')
+
+    def download_template(self, file_path: str) -> str:
+        """
+        Saves the XLSX template for :meth:`import_spreadsheet`: one row per well of this plate
+        (``GET /api/v1/wellplates/template/:id``).
+
+        :return: ``file_path``
+        """
+        from chemotion_api.reports import download_to
+        return download_to(self._session, f'/api/v1/wellplates/template/{self._saved_id_for("template")}', {},
+                           file_path, f'downloading the template of wellplate {self.id}')
+
+    def import_spreadsheet(self, file_path: str) -> Wellplate:
+        """
+        Fills the wells from a spreadsheet, as the wellplate's *Import* button does: the file is
+        attached to the wellplate, then ``PUT /api/v1/wellplates/import_spreadsheet/:id`` reads
+        its samples and readouts into the wells. Use :meth:`download_template` for the layout.
+
+        Only the file is uploaded: the wellplate itself is not saved, so edits you have not
+        saved are not written. They are discarded, as the wellplate is refreshed from the
+        server's answer.
+
+        :return: self, refreshed from the server's answer.
+        :raises ValueError: if the server cannot read the spreadsheet.
+        """
+        from chemotion_api.elements.attachments import Attachments
+        wellplate_id = self._saved_id_for('spreadsheet import')
+        before = {a['id'] for a in self.attachments}
+        upload = Attachments(self._session)
+        upload.add_file(file_path)
+        upload.save(wellplate_id, 'Wellplate')
+        attachments_data, record = self._load_data_from_server()
+        if attachments_data is None:
+            attachments_data = record.get('attachments') or []
+        new = [a for a in attachments_data if a['id'] not in before]
+        if not new:
+            raise ConnectionError(f'The spreadsheet was not attached to wellplate {wellplate_id}.')
+        res = self._session.put(f'/api/v1/wellplates/import_spreadsheet/{wellplate_id}',
+                                data={'wellplate_id': wellplate_id, 'attachment_id': new[-1]['id']})
+        if res.status_code == 401:
+            raise PermissionError(f'You may not update wellplate {wellplate_id}.')
+        if res.status_code == 500:
+            raise ValueError(f'The server could not import {file_path}: {res.text}')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        self._set_json_data(res.json()['wellplate'])
+        self._attachments = Attachments(self._session, attachments_data)
+        self._wells = None
+        return self

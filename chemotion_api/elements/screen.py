@@ -6,12 +6,14 @@ from typing import cast
 
 from chemotion_api.models import ScreenPropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 from chemotion_api.utils import quill_hedging
 
 #: Writable scalar fields, sent on every save.
 SCREEN_FIELDS = ('name', 'collaborator', 'requirements', 'conditions', 'result')
 
 
+@register_element_type('screen', url='/api/v1/screens')
 class Screen(AbstractElement):
     """A Chemotion screen.
 

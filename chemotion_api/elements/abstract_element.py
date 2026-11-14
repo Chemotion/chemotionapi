@@ -21,6 +21,11 @@ from chemotion_api.models import validate_field
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.user import UserLabel
 from chemotion_api.elements.attachments import Attachments, MutableAttachments
+from chemotion_api.elements.registry import element_type_info, GENERIC_ELEMENTS_URL, GENERIC_RESPONSE_KEY
+from chemotion_api.elements.comments import Comment, create_comment, load_comments
+from chemotion_api.elements import private_notes, literature
+from chemotion_api.elements.literature import Reference
+from chemotion_api.elements.versions import Version, load_versions
 
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils.segment_fields import SegmentField, iter_fields
@@ -533,19 +538,6 @@ def value_at(field_value: Any, path: list[str]) -> Any:
     return field_value
 
 
-#: The built-in element types this client models, by the server's type name, with their API
-#: endpoint. The type name is also the element's key in the server's responses.
-BUILTIN_ELEMENT_URLS: dict[str, str] = {
-    'sample': '/api/v1/samples',
-    'reaction': '/api/v1/reactions',
-    'wellplate': '/api/v1/wellplates',
-    'research_plan': '/api/v1/research_plans',
-    'device_description': '/api/v1/device_descriptions',
-    'screen': '/api/v1/screens',
-    'sequence_based_macromolecule_sample': '/api/v1/sequence_based_macromolecule_samples',
-    'cell_line': '/api/v1/cell_lines',
-}
-
 class AbstractElement:
     """
     This abstract element is the basis for all chemotion-api elements. It provides all the necessary functions and properties to work with these elements.
@@ -569,7 +561,7 @@ class AbstractElement:
 
         self._short_label = None
         self._properties = None
-        self._analyses = None
+        self._analyses: AnalysesList | None = None
         self._segments = None
         # Name of element instance
         self._name: str = ''
@@ -717,10 +709,8 @@ class AbstractElement:
         """The element's user labels, resolved from ids to :class:`UserLabel` objects.
 
         .. note::
-           Populated for **samples and reactions**. The server also exposes ``user_labels`` on
-           wellplates, research plans and screens, but only ``Sample`` and ``Reaction`` currently
-           map it into ``properties``, so this returns an empty list on the others even when they
-           do carry labels.
+           Populated for samples, reactions, wellplates, research plans and screens. Generic
+           elements keep their labels elsewhere, so this is empty for them.
 
 
         Elements carry user labels as bare numeric ids (``properties['user_labels']``), which on
@@ -971,7 +961,7 @@ class AbstractElement:
         self.id = json_data.get('id', self._id)
 
         self._properties = self._parse_properties()
-        self._analyses: AnalysesList = self._parse_analyses()
+        self._analyses = self._parse_analyses()
         segment_temp = self._parse_segments()
         self._segments_mapping = segment_temp.get('obj_mapping')
         self._segments = Segment(self._generic_segments,
@@ -1061,6 +1051,107 @@ class AbstractElement:
         self.analyses.clean_up_after_save()
         if load_after_save:
             self.load()
+
+    def linked_research_plans(self) -> list[dict]:
+        """
+        The research plans whose body shows this sample or reaction, as the element's
+        *Research plans* list in the UI: ``{'id', 'name'}`` dicts
+        (``GET /api/v1/research_plans/linked``).
+
+        :raises ValueError: for an element that is not a sample or reaction.
+        """
+        if self.element_type not in ('sample', 'reaction'):
+            raise ValueError('Only samples and reactions are linked into research plans.')
+        res = self._session.get('/api/v1/research_plans/linked',
+                                params={'id': self._saved_id_for('research plan links'), 'element': self.element_type})
+        if res.status_code != 200:
+            raise request_error(res, f'loading the research plans linking {self.element_type} {self.id}')
+        return [{'id': rp['id'], 'name': rp.get('name')} for rp in res.json() or []]
+
+    def measurements(self, hierarchy: bool = True, source=None) -> list:
+        """
+        This sample's measurements (see :mod:`chemotion_api.measurements`).
+
+        :param hierarchy: include those of the sample's whole split family.
+        :param source: only those taken from this element (e.g. a research plan).
+        """
+        if self.element_type != 'sample':
+            raise ValueError('Only samples have measurements.')
+        from chemotion_api import measurements
+        return measurements.load_measurements(self._session, self._saved_id_for('measurements'), hierarchy, source)
+
+    def create_measurements(self, rows) -> list[dict]:
+        """
+        Records measurements of samples taken from this element (usually a research plan). See
+        :func:`chemotion_api.measurements.create_measurements`.
+        """
+        from chemotion_api import measurements
+        return measurements.create_measurements(self._session, self, rows)
+
+    def save_analyses(self) -> None:
+        """
+        Saves only the analyses of this element — names, descriptions, status, content, dataset
+        metadata, new analyses and new dataset files — without saving its other properties, the way
+        the UI's analysis tab does (``PUT /api/v1/containers/container``).
+
+        Unsaved changes to the element's properties are kept locally but not sent.
+
+        :raises ValueError: if the element has not been saved yet.
+        :raises PermissionError: if you may not edit the element.
+        """
+        self._saved_id_for('analyses')
+        container = cast(dict, self.json_data).get('container')
+        if container is None:
+            raise ValueError(f'{self.element_type} {self.id} has no analyses container.')
+        self.analyses.save_attachments()
+        payload = merge_dicts(copy.deepcopy(container), self._clean_analyses_data()['container'])
+        self._put_container(payload)
+        self.analyses.clean_up_after_save()
+        self._analyses = self._parse_analyses()
+
+    def delete_analysis(self, analysis: Analyses) -> None:
+        """
+        Deletes one analysis of this element, with its datasets and their files, right away.
+        Deleted files cannot be restored.
+
+        Sent like the UI's analysis tab does: the element's container with the analysis marked
+        deleted (``PUT /api/v1/containers/container``). ``DELETE /api/v1/containers/:id`` is not
+        used: on ELN main it refuses element owners (the inbox owner check of the neighbouring
+        ``PATCH`` route also guards it).
+
+        :param analysis: one of :attr:`analyses`.
+        :raises ValueError: if the analysis is not one of this element's analyses.
+        :raises PermissionError: if you may not edit the element.
+        """
+        # By identity: analyses are dicts, so `in`/`remove` would match an equal-looking other one.
+        index = next((i for i, a in enumerate(self.analyses) if a is analysis), None)
+        if index is None:
+            raise ValueError('The analysis is not one of this element\'s analyses.')
+        if analysis.is_new or analysis.id is None:
+            del self.analyses[index]
+            return
+        self._saved_id_for('analyses')
+        container = copy.deepcopy(cast(dict, self.json_data).get('container') or {})
+        for group in container.get('children') or []:
+            for child in group.get('children') or []:
+                if child.get('id') == analysis.id:
+                    child['is_deleted'] = True
+        self._put_container(container)
+        # Only this analysis goes. The others stay the objects they were, so their unsaved edits
+        # and new (unsaved) analyses survive; re-parsing the server's answer would drop both.
+        del self.analyses[index]
+
+    def _put_container(self, container: dict) -> None:
+        res = self._session.put('/api/v1/containers/container',
+                                data=json.dumps({'container': container}, default=fixeddict_serializer))
+        if res.status_code == 401:
+            raise PermissionError(f'You may not edit the analyses of {self.element_type} {self.id}.')
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'saving the analyses of {self.element_type} {self.id}')
+        answer = res.json()
+        cast(dict, self.json_data)['container'] = answer['container']
+        if 'variations' in answer and 'variations' in cast(dict, self.json_data):
+            cast(dict, self.json_data)['variations'] = answer['variations']
 
     def clean_data(self) -> dict:
         """
@@ -1164,6 +1255,126 @@ class AbstractElement:
         :param collection: Collection the element is currently in (not the root collection)
         """
         collection.remove_elements(self)
+
+    def delete(self, delete_subsamples: bool = False) -> bool:
+        """
+        Deletes this element the way the web UI does. The request is sent right away.
+
+        This **withdraws** the element from every collection *you own* and destroys the record only
+        if that leaves it in no collection at all. An element someone else also holds in their own
+        collections survives for them. See :func:`delete_elements` for the details.
+
+        :param delete_subsamples: when deleting a reaction, also withdraw all of its samples
+            (products included). By default only its reactants and solvents go with it.
+        :return: ``True`` if the element left your collections, ``False`` if the server kept it
+            (a sample still bound to a reaction or wellplate, or an element that is in none of
+            your own collections, e.g. one only shared with you).
+        :raises ValueError: if the element has not been saved.
+        """
+        return not delete_elements(self._session, [self], delete_subsamples=delete_subsamples)
+
+    def comments(self) -> list[Comment]:
+        """
+        The comments on this element and its sections, fetched right away. Pending comments come
+        first, then by section, newest first.
+
+        :raises ValueError: if the element is unsaved, or of a type that takes no comments
+            (LabIMotion generic elements).
+        """
+        return load_comments(self._session, self.element_type, self._saved_id_for('comments'))
+
+    def add_comment(self, content: str, section: str | None = None) -> Comment:
+        """
+        Comments on this element, or on one of its sections. Sent right away.
+
+        :param content: the comment text.
+        :param section: ``None`` for the element as a whole, or a section such as
+            ``'properties'`` or ``'analyses'`` (see :data:`chemotion_api.elements.comments.SECTIONS`;
+            the server's full value, e.g. ``'sample_analyses'``, works too).
+        :return: the new comment.
+        :raises ValueError: if the element is unsaved, takes no comments, or has no such section.
+        """
+        return create_comment(self._session, self.element_type, self._saved_id_for('comments'),
+                              content, section)
+
+    def private_note(self) -> str | None:
+        """
+        Your private note on this element — visible only to you — or ``None`` if you have none.
+        Fetched right away.
+
+        :raises ValueError: if the element is unsaved, or of a type that takes no private notes
+            (LabIMotion generic elements).
+        """
+        return private_notes.get_private_note(self._session, self.element_type,
+                                              self._saved_id_for('private note'))
+
+    def set_private_note(self, content: str) -> None:
+        """
+        Writes your private note on this element, creating it or replacing its text. Sent right
+        away. There is one private note per user per element.
+
+        :raises ValueError: if the element is unsaved or takes no private notes.
+        """
+        private_notes.set_private_note(self._session, self.element_type,
+                                       self._saved_id_for('private note'), content)
+
+    def delete_private_note(self) -> bool:
+        """
+        Deletes your private note on this element. Sent right away.
+
+        :return: ``False`` if you had none.
+        """
+        return private_notes.delete_private_note(self._session, self.element_type,
+                                                 self._saved_id_for('private note'))
+
+    def versions(self) -> list[Version]:
+        """
+        This element's change history, newest first, fetched right away. Each
+        :class:`~chemotion_api.elements.versions.Version` can be reverted, whole or field by field;
+        reload the element afterwards to see the result.
+
+        :raises ValueError: if the element is unsaved, or of a type without a history (LabIMotion
+            generic elements).
+        """
+        return load_versions(self._session, self.element_type, self._saved_id_for('version history'))
+
+    def references(self) -> list[Reference]:
+        """
+        The literature references of this element, fetched right away.
+
+        :raises ValueError: if the element is unsaved, or of a type without references (generic
+            elements).
+        """
+        return literature.load_references(self._session, self.element_type, self._saved_id_for('references'))
+
+    def add_reference(self, doi: str | None = None, url: str | None = None, title: str | None = None,
+                      isbn: str | None = None, bibtex: str | None = None,
+                      litype: str = 'citedOwn') -> list[Reference]:
+        """
+        Cites a reference on this element, sent right away. The server reuses an existing
+        literature record with the same DOI, URL, title and ISBN. Fetch BibTeX for a DOI with
+        :meth:`chemotion_api.Instance.doi_metadata`.
+
+        :param litype: one of :data:`chemotion_api.elements.literature.REFERENCE_TYPES`.
+        :return: the element's references afterwards.
+        """
+        return literature.add_reference(self._session, self.element_type, self._saved_id_for('references'),
+                                        doi=doi, url=url, title=title, isbn=isbn, bibtex=bibtex, litype=litype)
+
+    def remove_reference(self, reference: Reference) -> None:
+        """Removes a reference from this element (the literature record itself stays). Sent right away."""
+        literature.remove_reference(self._session, self.element_type, self._saved_id_for('references'),
+                                    reference)
+
+    def set_reference_type(self, reference: Reference, litype: str) -> list[Reference]:
+        """Changes how this element cites a reference, e.g. to ``'citedRef'``. Sent right away."""
+        return literature.set_reference_type(self._session, self.element_type,
+                                             self._saved_id_for('references'), reference, litype)
+
+    def _saved_id_for(self, what: str) -> int:
+        if self.is_new or self.id is None:
+            raise ValueError(f'Save the {self.element_type} before using its {what}.')
+        return self.id
 
     def _web_collection_id(self) -> int | str:
         data = self.json_data or {}
@@ -1381,7 +1592,8 @@ class AbstractElement:
 
         :return: the key of the element in the server response
         """
-        return name if name in BUILTIN_ELEMENT_URLS else 'element'
+        info = element_type_info(name)
+        return info.response_key if info is not None else GENERIC_RESPONSE_KEY
 
     @classmethod
     def get_url(cls, name: str) -> str:
@@ -1392,8 +1604,131 @@ class AbstractElement:
 
         :return: The load url
         """
-        # Everything not in the table is a LabIMotion generic type, listed through one shared
-        # endpoint and discriminated by `el_type`. A *built-in* type that is not modelled also
-        # lands here and lists as a generic -- which returns nothing rather than erroring, so the
-        # element class lookup is what refuses it, by name.
-        return BUILTIN_ELEMENT_URLS.get(name, '/api/v1/generic_elements')
+        info = element_type_info(name)
+        return info.url if info is not None else GENERIC_ELEMENTS_URL
+
+
+def ui_state_selection(elements, action: str) -> dict[str, dict[str, Any]]:
+    """
+    The per-type part of a UI ``ui_state`` selecting exactly ``elements``:
+    ``{type: {'checkedAll': False, 'checkedIds': [...]}}``.
+
+    ``checkedAll`` is deliberately never set: the server resolves it to every element of the type in
+    the collection, so one request could reach a user's whole library.
+
+    :param action: what the selection is for, used in the error message.
+    :raises ValueError: if no elements are given or one is unsaved.
+    """
+    selection: dict[str, dict[str, Any]] = {}
+    for element in elements:
+        if getattr(element, 'is_new', False) or element.id is None:
+            raise ValueError(f'The element has not been saved yet, so it cannot be used to {action}.')
+        selection.setdefault(element.element_type, {'checkedAll': False, 'checkedIds': []})['checkedIds'] \
+            .append(element.id)
+    if not selection:
+        raise ValueError('No elements given.')
+    return selection
+
+
+
+def _own_collection_ids(session: Connection) -> set[int]:
+    """The ids of the collections the current user owns, their "All" included."""
+    res = session.get('/api/v1/collections/')
+    if res.status_code != 200:
+        raise request_error(res, 'listing your collections')
+    ids = {row['id'] for row in (res.json() or {}).get('own') or [] if row.get('id') is not None}
+    res = session.get('/api/v1/collections/all')
+    if res.status_code != 200:
+        raise request_error(res, 'loading your "All" collection')
+    all_collection = (res.json() or {}).get('collection') or {}
+    if all_collection.get('id') is not None:
+        ids.add(all_collection['id'])
+    return ids
+
+
+def _collection_ids_of(detail: dict) -> set[int]:
+    """The ids of the collections a detail response says its element is in."""
+    record = next((v for v in detail.values() if isinstance(v, dict) and 'tag' in v), detail)
+    try:
+        labels = record['tag']['taggable_data']['collection_labels'] or []
+    except (KeyError, TypeError):
+        return set()
+    return {label['id'] for label in labels if isinstance(label, dict) and label.get('id') is not None}
+
+
+def delete_elements(session: Connection, elements, collection_id: int | None = None,
+                    delete_subsamples: bool = False) -> list[AbstractElement]:
+    """
+    Deletes elements the way the web UI does: ``DELETE /api/v1/ui_state``.
+
+    ELN v4 does not destroy the selected records outright. It **withdraws** them from every
+    collection the current user owns (their "All" included) and then destroys only the records left
+    in no collection at all. So:
+
+    * an element another user also holds in their own collections survives for them;
+    * a sample still bound to a reaction or wellplate in one of your collections is kept;
+    * an element that is in none of your own collections (one only shared with you) is untouched.
+
+    Deleting a reaction also withdraws its reactants and solvents, or all of its samples with
+    ``delete_subsamples=True``.
+
+    The elements must be named one by one: this never sends the UI's ``checkedAll``, which would
+    select every element of a type.
+
+    :param session: the connection to send the request on.
+    :param elements: saved elements; samples, reactions, wellplates, research plans and generic
+        elements.
+    :param collection_id: the collection the elements are selected in. Elements not in it are
+        ignored. Defaults to your "All" collection.
+    :param delete_subsamples: also withdraw all samples of deleted reactions.
+    :return: the given elements the server **kept** (still in one of your own collections
+        afterwards), empty when all of them are gone. One that is now only visible through
+        someone else's share counts as gone: that is all this delete can do to it. Like
+        :meth:`chemotion_api.collection.AbstractCollection.remove_elements`, a 2xx answer is not
+        proof that everything went. Finding out costs one GET per element, plus two to list your
+        collections when one still loads.
+    :raises ValueError: if no elements are given or one is unsaved.
+    :raises PermissionError: if the collection is one shared with you (403).
+    :raises ConnectionError: if the request fails, or checking an element afterwards does.
+    """
+    elements = list(elements)
+    ui_state: dict[str, Any] = {
+        'currentCollection': {'id': collection_id} if collection_id is not None else {},
+        'options': {'deleteSubsamples': bool(delete_subsamples)},
+    }
+    ui_state |= ui_state_selection(elements, 'delete')
+    ui_state['selecteds'] = [{'type': e.element_type, 'id': e.id} for e in elements]
+
+    res = session.delete('/api/v1/ui_state', data=json.dumps(ui_state),
+                         headers=session.get_json_session_header())
+    if res.status_code == 403:
+        raise PermissionError(f'You may not delete elements of this collection: {res.text}')
+    if res.status_code == 404:
+        raise ValueError('Collection not found')
+    if res.status_code not in (200, 204):
+        raise ConnectionError(f'{res.status_code} -> {res.text}')
+
+    # Which elements went has to be asked afterwards. The response's `selecteds` is meant to echo
+    # the selection minus what left the view, but ELN main (a8b47c7) returns built-in elements
+    # there even after destroying them (generic ones are filtered correctly), so it is not used.
+    # An element that answers 404 (destroyed, or in no collection you can see) is gone. One that
+    # still loads may only be visible through someone else's share, which this delete does not
+    # touch: it was kept only if it is still in one of your own collections.
+    kept_elements = []
+    own_ids: set[int] | None = None
+    for element in elements:
+        check = session.get(f'{AbstractElement.get_url(element.element_type)}/{element.id}.json')
+        if check.status_code in (401, 403, 404):
+            continue
+        if check.status_code != 200:
+            raise ConnectionError(
+                f'The delete request was accepted, but checking {element.element_type} {element.id} '
+                f'afterwards failed: {check.status_code} -> {check.text}')
+        if own_ids is None:
+            own_ids = _own_collection_ids(session)
+        if _collection_ids_of(check.json()) & own_ids:
+            kept_elements.append(element)
+    if kept_elements:
+        logger.warning('delete_elements: the server kept %d of %d element(s): %s', len(kept_elements),
+                       len(elements), ', '.join(f'{e.element_type} {e.id}' for e in kept_elements))
+    return kept_elements

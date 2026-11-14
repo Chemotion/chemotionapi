@@ -15,6 +15,7 @@ import copy
 from typing import Any, cast
 
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 from chemotion_api.models import SbmmSamplePropertiesModel
 
 #: Scalar sample fields, carried as they are.
@@ -30,6 +31,7 @@ SBMM_QUANTITIES = ('concentration', 'concentration_rt', 'molarity', 'activity_pe
 _IDENTITY_SKIP = {'id', 'created_at', 'updated_at', 'deleted_at', 'sequence_based_macromolecule_id'}
 
 
+@register_element_type('sequence_based_macromolecule_sample', url='/api/v1/sequence_based_macromolecule_samples')
 class SbmmSample(AbstractElement):
     """A sample of a sequence-based macromolecule (a protein).
 

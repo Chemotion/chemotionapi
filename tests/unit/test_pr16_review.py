@@ -169,9 +169,11 @@ def test_proposed_field_refuses_to_walk_into_a_scalar():
 
 
 def test_every_builtin_type_has_a_url_and_a_class():
-    from chemotion_api.elements import _BUILTIN_ELEMENT_CLASSES
-    from chemotion_api.elements.abstract_element import BUILTIN_ELEMENT_URLS, AbstractElement
-    assert set(_BUILTIN_ELEMENT_CLASSES) == set(BUILTIN_ELEMENT_URLS)
+    import chemotion_api.elements  # noqa: F401  (registers the built-in types)
+    from chemotion_api.elements.abstract_element import AbstractElement
+    from chemotion_api.elements.cell_line import CellLine
+    from chemotion_api.elements.registry import element_class
+    assert element_class('cell_line') is CellLine
     assert AbstractElement.get_url('cell_line') == '/api/v1/cell_lines'
     assert AbstractElement.get_response_key('cell_line') == 'cell_line'
     assert AbstractElement.get_url('my_generic') == '/api/v1/generic_elements'

@@ -9,6 +9,7 @@ from typing import cast
 
 from chemotion_api.models import DeviceDescriptionPropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 
 #: Scalar fields the ELN exposes as ``properties``. Deliberately not the whole entity:
 #: `container`, `attachments`, `segments` and `comments` are handled by the base class, and
@@ -27,6 +28,7 @@ DEVICE_FIELDS = (
 )
 
 
+@register_element_type('device_description', url='/api/v1/device_descriptions')
 class DeviceDescription(AbstractElement):
     """A Chemotion *device description* — an instrument, its vendor, version and siting.
 

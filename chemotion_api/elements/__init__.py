@@ -12,24 +12,11 @@ from chemotion_api.elements.device_description import DeviceDescription
 from chemotion_api.elements.screen import Screen
 from chemotion_api.elements.sbmm_sample import SbmmSample
 from chemotion_api.elements.cell_line import CellLine
+from chemotion_api.elements.registry import element_class
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
 
-
-
-#: The class of each built-in element type (the keys of
-#: :data:`chemotion_api.elements.abstract_element.BUILTIN_ELEMENT_URLS`).
-_BUILTIN_ELEMENT_CLASSES: dict[str, type[AbstractElement]] = {
-    'sample': Sample,
-    'reaction': Reaction,
-    'wellplate': Wellplate,
-    'research_plan': ResearchPlan,
-    'device_description': DeviceDescription,
-    'screen': Screen,
-    'sequence_based_macromolecule_sample': SbmmSample,
-    'cell_line': CellLine,
-}
 
 class ElementSet(list):
     """
@@ -307,17 +294,7 @@ class ElementSet(list):
     def _get_element_class(self) -> type[AbstractElement]:
         if self._element_type['is_generic']:
             return GenericElement
-        element_class = _BUILTIN_ELEMENT_CLASSES.get(self._element_type['name'])
-        if element_class is not None:
-            return element_class
-
-        # A built-in Chemotion type this client does not model. Name the type and what is
-        # supported: "Generic type X cannot be found" read like a lookup bug rather than a scope
-        # boundary.
-        raise TypeError(
-            "Element type '{}' is a built-in Chemotion type this client does not model, so it "
-            "cannot be loaded. Supported: {}, and LabIMotion generic types.".format(
-                self._element_type['name'], ', '.join(_BUILTIN_ELEMENT_CLASSES)))
+        return element_class(self._element_type['name'])
 
     def _get_result_key(self):
         if self._element_type['is_generic']:

@@ -26,17 +26,25 @@ from chemotion_api.inbox import Inbox
 from chemotion_api.labImotion import GenericManager
 from chemotion_api.search.reaction import ReactionSearcher
 from chemotion_api.search.sample import SampleSearcher
+from chemotion_api.search.structure import StructureSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, \
     SbmmSample, CellLine, DeviceDescription, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
 from chemotion_api.connection import Connection, request_error
+from chemotion_api.elements import literature, research_plan
+from chemotion_api import account, chemicals, compute, reports, scifinder, vessels
+from chemotion_api import sample_tasks as _sample_tasks
+from chemotion_api.sample_tasks import SampleTask
+from chemotion_api import profile as user_profile
+from chemotion_api.text_templates import TextTemplates
+from chemotion_api.spectra import Spectra
+from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 # Rich-text helpers, public: reaction descriptions/observations and wellplate/screen descriptions
 # are Quill deltas, written explicitly with text_to_quill() and read back with quill_to_text().
 from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
-from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
 
 #: Shown by :meth:`Instance.login` and by ``Instance(username=..., password=...)``.
 PASSWORD_LOGIN_DEPRECATED = (
@@ -280,6 +288,79 @@ class Instance:
         """
         return self.get_user().get_user_labels(refresh=refresh)
 
+    def suggestions(self, query: str, element_type: str = 'all', collection_id: int | None = None) -> list[dict]:
+        """
+        Search-box suggestions for ``query``, as the UI's autocomplete shows them
+        (``GET /api/v1/suggestions/:element_type``): ``{'name', 'search_by_method'}`` dicts, where
+        ``search_by_method`` says what matched, e.g. ``'sample_short_label'`` or ``'iupac_name'``.
+        For generic elements ``name`` is a dict (``{'klass', 'label', 'name', 'icon'}``).
+
+        :param element_type: ``'all'``, ``'samples'``, ``'reactions'``, ``'wellplates'``,
+            ``'screens'``, … (the server's list).
+        :param collection_id: the collection to suggest from; defaults to "All".
+        """
+        if not query:
+            return []
+        cid = collection_id if collection_id is not None else self.get_root_collection().id
+        res = self._con.get(f'/api/v1/suggestions/{element_type}', params={'query': query, 'collection_id': str(cid)})
+        if res.status_code != 200:
+            raise request_error(res, f'suggestions for {query!r}')
+        return (res.json() or {}).get('suggestions') or []
+
+    def doi_metadata(self, doi: str) -> dict:
+        """
+        BibTeX metadata for a DOI, fetched by the server from doi.org
+        (``GET /api/v1/literatures/doi/metadata``): ``{'bibtex': str, 'BTjson': dict}``.
+
+        :raises ValueError: if ``doi`` is not a DOI.
+        :raises RequestException: if doi.org cannot be reached or does not know the DOI.
+        """
+        return literature.doi_metadata(self._con, doi)
+
+    def report_templates(self) -> list[reports.ReportTemplate]:
+        """The server's report templates (``GET /api/v1/report_templates``)."""
+        return reports.report_templates(self._con)
+
+    def create_report(self, *elements, template: str | int | reports.ReportTemplate = 'standard',
+                      wait: bool = True, timeout: float = 300, **options) -> reports.Archive:
+        """
+        Generates a report of samples and reactions, as the UI's *Report* tab does
+        (``POST /api/v1/reports``). The server generates it in a background job and keeps it as
+        an :class:`~chemotion_api.reports.Archive`; with ``wait`` this returns once it is ready.
+
+        Usage::
+
+        >>> archive = instance.create_report(reaction, sample, file_name='Weekly', reaction_settings={'variations': False})
+        >>> archive.download('weekly.docx')
+
+        :param template: ``'standard'`` (default), ``'supporting_information'``,
+            ``'supporting_information_std_rxn'``, ``'spectrum'``, ``'rxn_list_xlsx'``,
+            ``'rxn_list_csv'``, ``'rxn_list_html'``, or a template from :meth:`report_templates`.
+        :param options: see :func:`chemotion_api.reports.report_payload`.
+        """
+        return reports.create_report(self._con, elements, template, wait=wait, timeout=timeout, **options)
+
+    def report_archives(self) -> list[reports.Archive]:
+        """Your generated reports, newest first, as the UI's *Archive* tab lists them."""
+        return reports.archives(self._con)
+
+    def research_plan_table_schemas(self) -> list[dict]:
+        """Your saved research-plan table layouts: ``{'id', 'name', 'value'}`` dicts."""
+        return research_plan.load_table_schemas(self._con)
+
+    def save_research_plan_table_schema(self, name: str, table) -> dict:
+        """Save a research-plan table's layout under ``name``, to reuse in other plans."""
+        return research_plan.save_table_schema(self._con, name, table)
+
+    def delete_research_plan_table_schema(self, schema_id: int) -> None:
+        """Delete one of your saved research-plan table layouts."""
+        research_plan.delete_table_schema(self._con, schema_id)
+
+    def text_templates(self) -> TextTemplates:
+        """The rich-text editors' text templates: predefined, personal, and your toolbars.
+        See :class:`chemotion_api.text_templates.TextTemplates`."""
+        return TextTemplates(self._con)
+
     def save_user_label(self, label: UserLabel) -> UserLabel:
         """Create a user label (``label.id`` is ``None``) or update one of yours.
 
@@ -449,6 +530,23 @@ class Instance:
         """
         return ReactionSearcher(self._con, self.element_manager, self.get_root_collection().id)
 
+    def search_structure(self) -> StructureSearcher:
+        """
+        Returns a :class:`~chemotion_api.search.structure.StructureSearcher` for substructure and
+        similarity searches, the UI's structure search. Results cover every element type: the
+        matching samples and the reactions, wellplates, screens, research plans and generic
+        elements associated with them.
+
+        Usage::
+
+        >>> result = instance.search_structure().substructure('c1ccccc1O').find_max(50).request()
+        >>> phenols = list(result.samples)
+        >>> similar = instance.search_structure().similar('CCO', threshold=0.8).request()
+
+        :return: StructureSearcher
+        """
+        return StructureSearcher(self._con, self.element_manager, self.get_root_collection().id)
+
     @property
     def all_element_classes(self) -> dict[str, dict[str, str]]:
         """
@@ -493,6 +591,158 @@ class Instance:
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         return typing.cast(Wellplate, self._get_element('wellplate', id))
+
+    def set_inventory_label(self, prefix: str, name: str, counter: int, *collections) -> list[dict]:
+        """Give collections an inventory label: their inventory samples are then labelled
+        ``<prefix>-<n>``, counting on from ``counter``. :return: your inventories afterwards."""
+        return chemicals.set_inventory_label(self._con, prefix, name, counter, [c.id for c in collections])
+
+    def inventory_collections(self) -> list[dict]:
+        """Your collections grouped by inventory label."""
+        return chemicals.inventory_collections(self._con)
+
+    def find_safety_sheets(self, name: str | None = None, molecule=None, **options) -> dict:
+        """Look up safety data sheets at chemical vendors. See
+        :func:`chemotion_api.chemicals.find_safety_sheets`; ``molecule`` is a Molecule or its id."""
+        molecule_id = getattr(molecule, 'id', molecule)
+        return chemicals.find_safety_sheets(self._con, name, molecule_id, **options)
+
+    def download_safety_sheet(self, path: str, file_path: str) -> str:
+        """Save a stored safety data sheet (a ``Chemical.safety_sheets`` path) to ``file_path``."""
+        return chemicals.download_safety_sheet(self._con, path, file_path)
+
+    def extract_safety_sheet(self, path: str) -> dict:
+        """The H/P statements and section 9 properties of a stored safety data sheet."""
+        return chemicals.extract_safety_sheet(self._con, path)
+
+    def spectra(self) -> Spectra:
+        """Spectra processing through the ELN's ChemSpectra service. See :class:`chemotion_api.spectra.Spectra`."""
+        return Spectra(self._con)
+
+    def simulate_nmr(self, molecule) -> dict:
+        """Simulated 1H and 13C NMR spectra of a molecule (from nmrdb.org, via the ELN)."""
+        return compute.simulate_nmr(self._con, molecule)
+
+    def predict_products(self, reactants) -> object:
+        """Forward reaction prediction from reactant SMILES (needs the ELN's inference server)."""
+        return compute.predict_products(self._con, reactants)
+
+    def predict_reactants(self, products) -> object:
+        """Retrosynthesis from product SMILES (needs the ELN's inference server)."""
+        return compute.predict_reactants(self._con, products)
+
+    def compute_tasks(self) -> list[compute.ComputeTask]:
+        """Your quantum-chemistry compute tasks, newest first."""
+        return compute.compute_tasks(self._con)
+
+    def submit_compute_task(self, sample) -> compute.ComputeTask | None:
+        """Send a sample's molecule to the ELN's compute server. See :func:`chemotion_api.compute.submit_compute_task`."""
+        return compute.submit_compute_task(self._con, sample)
+
+    def sample_tasks(self, status: str = 'open') -> list[SampleTask]:
+        """Your weighing tasks (``'open'``, ``'with_missing_scan_results'`` or ``'done'``)."""
+        return _sample_tasks.sample_tasks(self._con, status)
+
+    def create_sample_task(self, sample=None, description: str | None = None,
+                           required_scan_results: int = 1) -> SampleTask:
+        """Create a weighing task, for a sample or for one to assign later."""
+        return _sample_tasks.create_sample_task(self._con, sample, description, required_scan_results)
+
+    def ols_terms(self, name: str = 'chmo', edited: bool = True) -> list[dict]:
+        """An ontology's terms as the ELN's pickers offer them (``GET /api/v1/ols_terms/list``): a tree
+        of ``{'id', 'term_id', 'label', 'synonym', 'children', …}`` nodes.
+
+        :param name: ``'chmo'`` (analysis methods), ``'rxno'`` (reaction types) or ``'bao'`` (bioassays).
+        :param edited: only the terms enabled by the admins, with your recently used ones first.
+        """
+        if name not in ('chmo', 'rxno', 'bao'):
+            raise ValueError("name is 'chmo', 'rxno' or 'bao'.")
+        res = self._con.get('/api/v1/ols_terms/list', params={'name': name, 'edited': edited})
+        if res.status_code != 200:
+            raise request_error(res, f'loading the {name} terms')
+        return (res.json() or {}).get('ols_terms') or []
+
+    def profile(self) -> user_profile.Profile:
+        """Your profile: list layouts, display options and structure templates. See
+        :class:`chemotion_api.profile.Profile`."""
+        return user_profile.load_profile(self._con)
+
+    def ketcher_options(self) -> dict:
+        """Your Ketcher 2 editor settings (``{}`` for the defaults)."""
+        return user_profile.ketcher_options(self._con)
+
+    def save_ketcher_options(self, settings: dict) -> None:
+        """Replace your Ketcher 2 editor settings."""
+        user_profile.save_ketcher_options(self._con, settings)
+
+    def two_factor_enabled(self) -> bool:
+        """Whether your account logs in with a one-time password."""
+        return account.two_factor_enabled(self._con)
+
+    def request_two_factor_change(self) -> None:
+        """Have the ELN email you the link that switches two-factor login on (or off)."""
+        account.request_two_factor_change(self._con)
+
+    def api_tokens(self) -> list[account.ApiToken]:
+        """Your unexpired API tokens (names and ids; the token values are shown only on creation)."""
+        return account.api_tokens(self._con)
+
+    def create_api_token(self, otp: str, name: str | None = None, expires_in_days: int = 30) -> str:
+        """Create an API token for scripts; log in with it via :meth:`login_token`. Needs two-factor
+        login and the current one-time password. See :func:`chemotion_api.account.create_api_token`."""
+        return account.create_api_token(self._con, otp, name, expires_in_days)
+
+    def revoke_api_token(self, token, otp: str) -> None:
+        """Revoke one of your API tokens (an :class:`~chemotion_api.account.ApiToken` or its id)."""
+        account.revoke_api_token(self._con, token, otp)
+
+    def set_short_label_counter(self, element_type: str, value: int) -> dict:
+        """Set the counter behind your next short label of ``element_type`` (``'samples'``, …)."""
+        return account.set_counter(self._con, element_type, value)
+
+    def set_reaction_short_label(self, prefix: str, count: int) -> None:
+        """Set the prefix and counter of your reaction short labels."""
+        account.set_reaction_label(self._con, prefix, count)
+
+    def instruments(self, kind: str = 'all') -> list[str]:
+        """The instrument names used in your analyses, as the analysis editor suggests them
+        (``GET /api/v1/instruments/:kind``).
+
+        :param kind: ``'all'``, ``'samples'``, ``'reactions'``, ``'wellplates'`` or ``'screens'``.
+        """
+        if kind not in ('all', 'samples', 'reactions', 'wellplates', 'screens'):
+            raise ValueError("kind is 'all', 'samples', 'reactions', 'wellplates' or 'screens'.")
+        res = self._con.get(f'/api/v1/instruments/{kind}')
+        if res.status_code != 200:
+            raise request_error(res, 'loading instruments')
+        return [row.get('name') for row in res.json().get('instruments') or [] if row.get('name')]
+
+    def scifinder_credential(self) -> scifinder.ScifinderCredential | None:
+        """Your stored SciFinder-n credential (get one in the browser), or ``None``."""
+        return scifinder.load_credential(self._con)
+
+    def scifinder_search(self, structure: str, search_for: str = 'substances', structure_type: str = 'molfile') -> dict:
+        """Search SciFinder-n for a structure. See :func:`chemotion_api.scifinder.search`."""
+        return scifinder.search(self._con, structure, search_for, structure_type)
+
+    def vessel_templates(self) -> list[vessels.VesselTemplate]:
+        """All vessel templates on the ELN."""
+        return vessels.templates(self._con)
+
+    def new_vessel_template(self, name: str, **fields) -> vessels.VesselTemplate:
+        """An unsaved vessel template; set fields and call ``save()``.
+
+        :param fields: ``vessel_type``, ``material_type``, ``material_details``, ``volume_amount``,
+            ``volume_unit``, ``details``.
+        """
+        return vessels.VesselTemplate(name=name, **fields, _session=self._con)
+
+    def get_vessel_template(self, id: str) -> vessels.VesselTemplate:
+        return vessels.load_template(self._con, id)
+
+    def get_vessel(self, id: str) -> vessels.Vessel:
+        """One vessel, by its UUID."""
+        return vessels.load_vessel(self._con, id)
 
     def get_research_plan(self, id: int) -> ResearchPlan:
         """
@@ -555,6 +805,44 @@ class Instance:
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         return typing.cast(Sample, self._get_element('sample', id))
+
+    def find_sample_by_short_label(self, short_label: str) -> Sample | None:
+        """
+        Finds one of your samples by its short label, e.g. ``'API-12-1'``.
+
+        ``GET /api/v1/samples/findByShortLabel/:short_label``, the UI's short-label search. The
+        server only looks at samples you own that are in one of your collections, so a sample
+        shared with you is not found.
+
+        :param short_label: the sample's short label, matched exactly.
+        :return: the loaded sample, or ``None`` if none matches.
+        :raises RequestException: if the lookup or loading the sample fails.
+        """
+        sample_id = self._find_id_by_short_label('samples', 'sample_id', short_label)
+        return None if sample_id is None else self.get_sample(sample_id)
+
+    def find_reaction_by_short_label(self, short_label: str) -> Reaction | None:
+        """
+        Finds one of your reactions by its short label, e.g. ``'API-R3'``.
+
+        ``GET /api/v1/reactions/findByShortLabel/:short_label``. As for samples, only reactions
+        you own that are in one of your collections are found.
+
+        :param short_label: the reaction's short label, matched exactly.
+        :return: the loaded reaction, or ``None`` if none matches.
+        :raises RequestException: if the lookup or loading the reaction fails.
+        """
+        reaction_id = self._find_id_by_short_label('reactions', 'reaction_id', short_label)
+        return None if reaction_id is None else self.get_reaction(reaction_id)
+
+    def _find_id_by_short_label(self, route: str, id_key: str, short_label: str) -> int | None:
+        if not short_label:
+            raise ValueError('A short label is required.')
+        # `.json` pins the format, so a label containing a dot is not read as an extension.
+        res = self._con.get(f'/api/v1/{route}/findByShortLabel/{quote(short_label, safe="")}.json')
+        if res.status_code != 200:
+            raise request_error(res, f'finding {route} by short label {short_label!r}')
+        return (res.json() or {}).get(id_key)
 
     def get_generic_by_name(self, name: str, id: int) -> GenericElement:
         """

@@ -12,6 +12,7 @@ from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.sample import Sample
 from chemotion_api.models import ResearchPlanPropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.registry import register_element_type
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +272,7 @@ class RichText(dict):
         return self
 
 
+@register_element_type('research_plan', url='/api/v1/research_plans')
 class ResearchPlan(AbstractElement):
     """
     A chemotion Research Plan object.
@@ -396,11 +398,66 @@ class ResearchPlan(AbstractElement):
 
     _properties_model = ResearchPlanPropertiesModel
 
+    def upload_svg(self, svg: str, is_chemdraw: bool = False) -> str:
+        """
+        Stores a structure drawing on the server, as the UI does for a *Ketcher* body field
+        (``POST /api/v1/research_plans/svg``). The server centres and scales it.
+
+        :param svg: the SVG markup, from Ketcher or (with ``is_chemdraw``) ChemDraw.
+        :return: the stored file name, for the field's ``svg_file`` (it is served under
+            ``/images/research_plans/``).
+        """
+        if not svg or '<svg' not in svg:
+            raise ValueError('Not an SVG drawing.')
+        res = self._session.post('/api/v1/research_plans/svg', data={'svg_file': svg, 'is_chemdraw': is_chemdraw})
+        if res.status_code not in (200, 201):
+            raise request_error(res, 'storing a research plan drawing')
+        return res.json()['svg_path']
+
+    #: Fields of a research plan's publication metadata (``research_plan_metadata_api.rb``).
+    METADATA_FIELDS = ('title', 'subject', 'alternate_identifier', 'related_identifier', 'description', 'format',
+                       'version', 'geo_location', 'funding_reference', 'url', 'landing_page', 'type')
+
+    def metadata(self) -> dict | None:
+        """
+        This research plan's publication metadata (DataCite-like fields, see :attr:`METADATA_FIELDS`),
+        as its *Metadata* tab shows it, or ``None`` if none was saved
+        (``GET /api/v1/research_plan_metadata/:id``).
+        """
+        res = self._session.get(f'/api/v1/research_plan_metadata/{self._saved_id_for("metadata")}')
+        if res.status_code != 200:
+            raise request_error(res, f'loading the metadata of research plan {self.id}')
+        return (res.json() or {}).get('research_plan_metadata')
+
+    def save_metadata(self, **fields) -> dict:
+        """
+        Creates or updates this research plan's publication metadata right away
+        (``POST /api/v1/research_plan_metadata``). Only the given fields change.
+
+        :param fields: any of :attr:`METADATA_FIELDS`; ``title``, ``subject``, ``format``,
+            ``version``, ``url``, ``landing_page`` and ``type`` are strings, the others are lists or
+            dicts as the UI sends them, e.g. ``alternate_identifier=[{'alternateIdentifier': 'x',
+            'alternateIdentifierType': 'URL'}]``.
+        :return: the stored metadata.
+        """
+        unknown = set(fields) - set(self.METADATA_FIELDS)
+        if unknown:
+            raise ValueError(f'Unknown metadata fields {", ".join(sorted(unknown))}; use {", ".join(self.METADATA_FIELDS)}.')
+        res = self._session.post('/api/v1/research_plan_metadata',
+                                 data={'research_plan_id': self._saved_id_for('metadata')} | fields)
+        if res.status_code not in (200, 201):
+            raise request_error(res, f'saving the metadata of research plan {self.id}')
+        data = res.json() or {}
+        if data.get('error'):
+            raise ValueError(f'The server rejected the metadata of research plan {self.id}: {data["error"]}')
+        return data.get('research_plan_metadata') or {}
+
     def _parse_properties(self) -> dict:
         self._image_values: dict[str, dict] = {}     # image identifier -> the stored block value
         body = cast(dict, self.json_data).get('body')
         return self._validated_properties({
-            'body': [self._parse_body_element(x) for x in cast(list, body)]
+            'body': [self._parse_body_element(x) for x in cast(list, body)],
+            'user_labels': cast(dict, self.json_data).get('user_labels') or [],
         })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
@@ -408,7 +465,7 @@ class ResearchPlan(AbstractElement):
         for elem in self.body:
             cast(dict, self.json_data)['body'].append(self._reparse_body_element(elem))
 
-        return cast(dict, self.json_data)
+        return cast(dict, self.json_data) | {'user_labels': self.properties.get('user_labels')}
 
     def add_richtext(self, text: str | None = None, at_idx: int | None = None) -> RichText:
         """
@@ -564,3 +621,34 @@ class ResearchPlan(AbstractElement):
                 'reaction_id': None
             }
         raise ValueError(f"{element_type} not exists!")
+
+
+def load_table_schemas(session) -> list[dict]:
+    """Your saved research-plan table layouts (``GET /api/v1/research_plans/table_schemas``)."""
+    res = session.get('/api/v1/research_plans/table_schemas')
+    if res.status_code != 200:
+        raise request_error(res, 'loading the research plan table schemas')
+    return res.json().get('table_schemas') or []
+
+
+def save_table_schema(session, name: str, value: dict | Table) -> dict:
+    """Save a table layout under ``name`` (``POST /api/v1/research_plans/table_schemas``).
+
+    :param value: a :class:`Table` (its columns are saved) or the raw ``{'columns': [...], 'rows': [...]}``.
+    """
+    raw = value['value'] if isinstance(value, Table) else value
+    if not name or not isinstance(raw, dict):
+        raise ValueError('A table schema needs a name and a table value.')
+    res = session.post('/api/v1/research_plans/table_schemas', data={'name': name, 'value': raw})
+    if res.status_code not in (200, 201):
+        raise request_error(res, f'saving table schema "{name}"')
+    return res.json()
+
+
+def delete_table_schema(session, schema_id: int) -> None:
+    """Delete one of your table layouts (``DELETE /api/v1/research_plans/table_schemas/:id``)."""
+    res = session.delete(f'/api/v1/research_plans/table_schemas/{schema_id}')
+    if res.status_code == 401:
+        raise PermissionError(f'Table schema {schema_id} is not yours.')
+    if res.status_code not in (200, 204):
+        raise request_error(res, f'deleting table schema {schema_id}')
