@@ -51,8 +51,11 @@ def search(session: Connection, structure: str, search_for: str = 'substances', 
     """
     if structure_type not in STRUCTURE_TYPES:
         raise ValueError(f'structure_type is one of {", ".join(STRUCTURE_TYPES)}.')
+    # The ELN answers a missing or expired token with 201 and {"errors": [...]}; that is read
+    # here, to raise PermissionError, rather than by the connection's generic check.
     res = session.post('/api/v1/molecules/sf', data={'str': structure, 'search': search_for,
-                                                     'ctype': STRUCTURE_TYPES[structure_type]})
+                                                     'ctype': STRUCTURE_TYPES[structure_type]},
+                       allow_error_body=True)
     if res.status_code not in (200, 201):
         raise request_error(res, 'searching SciFinder-n')
     data = res.json()
