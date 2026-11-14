@@ -39,6 +39,18 @@ generic_element_schema = {
         "metadata": {
             "type": ["object", "null"]
         },
+        # Added by LabIMotion 2.3.4 (shipped in ELN v4.0.1): the klass's own `metadata` follows
+        # every save, drafts included, so the gem exposes the metadata the *release* was cut with
+        # separately. It is present only where the endpoint preloaded the revision map, so it is
+        # declared but not required — a klass payload without it is still valid.
+        #
+        # Declared explicitly rather than by relaxing `additionalProperties`. That flag is
+        # deliberate: it is what turns a server-side field we have never seen into a loud test
+        # failure instead of silence. The cost is a re-sync on each LabIMotion bump, which is the
+        # same discipline the units mirror already needs.
+        "metadata_release": {
+            "type": ["object", "null"]
+        },
         "created_by": {
             "type": "number"
         },

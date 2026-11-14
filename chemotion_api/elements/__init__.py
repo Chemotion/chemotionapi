@@ -8,10 +8,28 @@ from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
 from chemotion_api.elements.research_plan import ResearchPlan
+from chemotion_api.elements.device_description import DeviceDescription
+from chemotion_api.elements.screen import Screen
+from chemotion_api.elements.sbmm_sample import SbmmSample
+from chemotion_api.elements.cell_line import CellLine
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.connection import Connection, request_error
 from requests.exceptions import RequestException
 
+
+
+#: The class of each built-in element type (the keys of
+#: :data:`chemotion_api.elements.abstract_element.BUILTIN_ELEMENT_URLS`).
+_BUILTIN_ELEMENT_CLASSES: dict[str, type[AbstractElement]] = {
+    'sample': Sample,
+    'reaction': Reaction,
+    'wellplate': Wellplate,
+    'research_plan': ResearchPlan,
+    'device_description': DeviceDescription,
+    'screen': Screen,
+    'sequence_based_macromolecule_sample': SbmmSample,
+    'cell_line': CellLine,
+}
 
 class ElementSet(list):
     """
@@ -44,6 +62,8 @@ class ElementSet(list):
         self._fixed_length = fixed_length
         # Total number of elements on the server (X-Total header), None until a page is loaded
         self._length = None
+        # Whether a page has been loaded, i.e. whether `max_page` is the server's or the default.
+        self._loaded = False
 
     def set_iri_filter(self, iri):
         """
@@ -113,8 +133,27 @@ class ElementSet(list):
     def page(self, page: int):
         """
         The currently loaded page number (1-based). Setting it loads that page from the server.
+
+        Works before anything has been loaded too: the page count is learnt from the first load.
+
+        :raises IndexError: if the page does not exist. This used to be ignored silently — the set
+            stayed on its old page — and before the first load ``max_page`` was still 1, so every
+            page but the first was refused.
         """
-        self._set_page(page)
+        if self._fixed_length:
+            self._set_page(page)
+            return
+        if not isinstance(page, int) or isinstance(page, bool) or page < 1:
+            raise IndexError(f'Pages are numbered from 1; got {page!r}.')
+        # An empty result reports 0 pages, but its page 1 exists (and is empty).
+        if self._loaded and page > max(1, self.max_page):
+            raise IndexError(f'There are {self.max_page} page(s); page {page} does not exist.')
+        self._page = page
+        self.load_elements(**self._load_options)
+        if page > max(1, self.max_page):
+            # The server answers an out-of-range page with page 1, so that is what is loaded now.
+            self._page = 1
+            raise IndexError(f'There are {self.max_page} page(s); page {page} does not exist.')
 
     def _set_page(self, page: int) -> bool:
         if self._fixed_length:
@@ -228,6 +267,7 @@ class ElementSet(list):
             self._length = int(total) if total is not None else None
         except:
             pass
+        self._loaded = True
         self.clear()
         elements = res.json().get(self._get_result_key() + 's', [])
         for json_data in elements:
@@ -267,16 +307,17 @@ class ElementSet(list):
     def _get_element_class(self) -> type[AbstractElement]:
         if self._element_type['is_generic']:
             return GenericElement
-        elif self._element_type['name'] == 'sample':
-            return Sample
-        elif self._element_type['name'] == 'reaction':
-            return Reaction
-        elif self._element_type['name'] == 'wellplate':
-            return Wellplate
-        elif self._element_type['name'] == 'research_plan':
-            return ResearchPlan
+        element_class = _BUILTIN_ELEMENT_CLASSES.get(self._element_type['name'])
+        if element_class is not None:
+            return element_class
 
-        raise TypeError('Generic type "{}" cannot be found'.format(self._element_type['name']))
+        # A built-in Chemotion type this client does not model. Name the type and what is
+        # supported: "Generic type X cannot be found" read like a lookup bug rather than a scope
+        # boundary.
+        raise TypeError(
+            "Element type '{}' is a built-in Chemotion type this client does not model, so it "
+            "cannot be loaded. Supported: {}, and LabIMotion generic types.".format(
+                self._element_type['name'], ', '.join(_BUILTIN_ELEMENT_CLASSES)))
 
     def _get_result_key(self):
         if self._element_type['is_generic']:

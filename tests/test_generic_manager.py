@@ -128,7 +128,7 @@ def test_read_generic_elements(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_elements()
     except ValidationError as e:
-        assert False
+        pytest.fail(f"schema rejected the payload: {e.message}\n{e.json_path}")
 
     # The number of built-in klasses grows with the server release (9 on 2.1.1, 10 on 3.1.2);
     # what the seed guarantees is the two generic klasses (wrk, try).
@@ -152,7 +152,7 @@ def test_read_generic_segments(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_segments()
     except ValidationError as e:
-        assert False
+        pytest.fail(f"schema rejected the payload: {e.message}\n{e.json_path}")
     assert len(all_gs) == 1
     pass
 
@@ -160,7 +160,7 @@ def test_read_generic_datasets(instance_with_collection):
     try:
         all_gs = instance_with_collection['instance'].generic_manager().load_all_datasets()
     except ValidationError as e:
-        assert False
+        pytest.fail(f"schema rejected the payload: {e.message}\n{e.json_path}")
 
     assert len(all_gs) == 8
     pass
@@ -220,7 +220,7 @@ def test_element_new_layer(instance_with_collection):
     try:
         ttes.validate(dc)
     except ValidationError as e:
-        assert False
+        pytest.fail(f"schema rejected the payload: {e.message}\n{e.json_path}")
     ttes.save()
     ttes.save(SaveActionType.MAJOR)
     ttes.save(SaveActionType.MINOR)
@@ -268,7 +268,7 @@ def test_element_new_fields(instance_with_collection):
     try:
         ttes.validate(dc)
     except ValidationError as e:
-        assert False
+        pytest.fail(f"schema rejected the payload: {e.message}\n{e.json_path}")
     ttes.save()
 
 def test_condition(instance_with_collection):
@@ -309,7 +309,7 @@ def test_segment_new_layer(instance_with_collection):
     try:
         ttes.validate(dc)
     except ValidationError as e:
-        assert False
+        pytest.fail(f"schema rejected the payload: {e.message}\n{e.json_path}")
     ttes.save()
     ttes.save(SaveActionType.MAJOR)
     ttes.save(SaveActionType.MINOR)
@@ -324,7 +324,7 @@ def test_dataset_new_layer(instance_with_collection):
     try:
         ttes.validate(dc)
     except ValidationError as e:
-        assert False
+        pytest.fail(f"schema rejected the payload: {e.message}\n{e.json_path}")
     ttes.save()
     ttes.save(SaveActionType.MAJOR)
     ttes.save(SaveActionType.MINOR)

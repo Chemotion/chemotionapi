@@ -12,6 +12,12 @@ The package has been published on PyPi, it can be installed using pip.
    Python 3.14. If the version published on PyPI is still from an older line, install from
    source as below.
 
+.. note::
+   Log in with an API token: create one in the ELN under *Account & Profile* → *Account* →
+   *Authentication Token* (the ELN requires two-factor authentication for this) and pass it to :meth:`~chemotion_api.Instance.login_token`.
+   :meth:`~chemotion_api.Instance.login` with a user name and password is deprecated, issues a
+   ``FutureWarning``.
+
 .. code-block:: bash
 
     git clone https://github.com/Chemotion/chemotionapi.git
@@ -74,8 +80,8 @@ Example 1) Create a new Reaction
         # Initialize a new Instance connection
         instance = Instance('https://chemotion.dept.uni.de')
         try:
-            # Test if the host is available and login using your username and password
-            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
+            # Test if the host is available and log in with your API token
+            instance.test_connection().login_token('YOUR_API_TOKEN')
         except ConnectionError:
             # Exit if connection fails
             exit(1)
@@ -140,8 +146,8 @@ Example 2) Share a Collection
         # Initialize a new Instance connection
         instance = Instance('https://chemotion.dept.uni.de')
         try:
-            # Test if the host is available and login using your username and password
-            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
+            # Test if the host is available and log in with your API token
+            instance.test_connection().login_token('YOUR_API_TOKEN')
         except ConnectionError:
             # Exit if connection fails
             exit(1)
@@ -187,8 +193,8 @@ Example 3) Upload/Load Attachment
         # Initialize a new Instance connection
         instance = Instance('https://chemotion.dept.uni.de')
         try:
-            # Test if the host is available and login using your username and password
-            instance.test_connection().login('YOUR_USERNAME', 'YOUR_PASSWORD')
+            # Test if the host is available and log in with your API token
+            instance.test_connection().login_token('YOUR_API_TOKEN')
         except ConnectionError:
             # Exit if connection fails
             exit(1)

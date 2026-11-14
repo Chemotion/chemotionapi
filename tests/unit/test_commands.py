@@ -5,6 +5,8 @@ and that `insert_dataset` cannot be broken (or injected into) by the text an ont
 """
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from chemotion_api.commands import InstanceManager
 
 # One page of the Docker Hub tag listing, trimmed to the shapes the helpers care about: `eln-`
@@ -77,11 +79,17 @@ def test_insert_dataset_passes_ontology_text_as_psql_variables_not_inline_sql():
 
     with patch("chemotion_api.commands.requests.get", return_value=ols), \
             patch("chemotion_api.commands.subprocess.Popen") as popen:
-        popen.return_value.communicate.return_value = (b"", b"")
+        popen.return_value.communicate.return_value = ("", "")
+        popen.return_value.returncode = 0
         InstanceManager.insert_dataset("CHMO:0000595")
 
     command = popen.call_args.args[0]
-    sql = command[command.index("-c") + 1]
+    # The statement goes in on stdin: psql substitutes :'name' only in input it reads itself; a
+    # -c string reaches the server verbatim, where :'label' is a syntax error (the old form never
+    # inserted anything, and a mocked Popen hid that).
+    assert "-c" not in command
+    assert "ON_ERROR_STOP=1" in command
+    sql = popen.return_value.communicate.call_args.args[0]
 
     # The dangerous text must not appear in the statement at all...
     assert hostile_definition not in sql
@@ -91,3 +99,15 @@ def test_insert_dataset_passes_ontology_text_as_psql_variables_not_inline_sql():
     assert f"label={hostile_label}" in command
     assert f"definition={hostile_definition}" in command
     assert ":'label'" in sql and ":'definition'" in sql
+
+
+def test_insert_dataset_raises_when_psql_fails():
+    ols = MagicMock()
+    ols.status_code = 200
+    ols.json.return_value = {"curie": "CHMO:0000595", "label": "x", "definition": {"value": "y"}}
+    with patch("chemotion_api.commands.requests.get", return_value=ols), \
+            patch("chemotion_api.commands.subprocess.Popen") as popen:
+        popen.return_value.communicate.return_value = ("", "ERROR:  relation does not exist")
+        popen.return_value.returncode = 3
+        with pytest.raises(ChildProcessError, match="relation does not exist"):
+            InstanceManager.insert_dataset("CHMO:0000595")

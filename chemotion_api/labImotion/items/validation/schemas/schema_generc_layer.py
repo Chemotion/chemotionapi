@@ -28,7 +28,7 @@ generic_schema = {
         },
         "style": {
             "type": "string",
-            "pattern": "^panel_generic_heading$|^panel_generic_heading_([bui])(?!.*\1)([bui])?(?!.*\1|.*\2)([bui])?$"
+            "pattern": r"^panel_generic_heading$|^panel_generic_heading_([bui])(?!.*\1)([bui])?(?!.*\1|.*\2)([bui])?$"
         },
         "fields": {
             "type": "array",

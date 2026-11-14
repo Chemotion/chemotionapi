@@ -80,7 +80,12 @@ class SearchHelperBase(ABC):
         res = self._connection.post('/api/v1/search/advanced', json=self._payload)
         if res.status_code != 201:
             raise ConnectionError(res.status_code)
-        return res.json()[self.element_type_res]['elements']
+        result = res.json()[self.element_type_res]
+        if result.get('error'):
+            # The server refuses a field the collection's detail level does not allow, but still
+            # answers 201 with no elements; returning those would read as "nothing matched".
+            raise PermissionError(result['error'])
+        return result['elements']
 
     def request(self) -> ElementSet:
         """
@@ -90,8 +95,10 @@ class SearchHelperBase(ABC):
 
         :raises ConnectionError: if the search request fails
         """
-        e = ElementSet(self._connection, self._element_manager.all_classes.get(self.element_type), self._collection_id,
-                       False, True)
+        # Keyword, not positional: the v4 port removed `collection_is_sync` from ElementSet and
+        # this call kept passing it, so every search raised TypeError before sending a request.
+        e = ElementSet(self._connection, self._element_manager.all_classes.get(self.element_type),
+                       self._collection_id, fixed_length=True)
 
         for val in self._send_request():
             e.new_element(val).mark_partial()

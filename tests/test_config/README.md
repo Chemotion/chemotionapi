@@ -48,17 +48,22 @@ brings up the wrong server produces failures that look like client bugs.
 
 This branch supplies them from **`images.env`**, next to `compose.yml`:
 
-| variable | this branch (400.x) | the 312.x line |
+| variable | this branch (401.x) | the 312.x line |
 |---|---|---|
-| `CHEMOTION_ELN_IMAGE` | `complat/chemotion_eln_stage:next-release@sha256:3520ac2c…` | `ptrxyz/chemotion:eln-3.1.2` |
-| `CHEMOTION_DB_IMAGE` | `complat/dev:postgres16-rdkit@sha256:326d2ef0…` | `ptrxyz/chemotion:db-3.1.2` |
+| `CHEMOTION_ELN_IMAGE` | `complat/chemotion:eln-4.0.1@sha256:5777517a…` | `ptrxyz/chemotion:eln-3.1.2` |
+| `CHEMOTION_DB_IMAGE` | `complat/chemotion:db-4.0.1@sha256:780e0d57…` | `ptrxyz/chemotion:db-3.1.2` |
 | `CHEMOTION_STACK_SUFFIX` | `v4` | `v3` |
 
-The v4 images are **pinned by digest**: `next-release` is a rolling tag, rebuilt whenever the v4
-branch moves, and Docker Hub publishes no immutable v4 tag (its tags jump from `v3.1.1` straight
-to `next-release`). Without the digest, two runs a day apart can test different servers. Bumping
-a digest is a deliberate, reviewed change — record the new digest together with the `Version:`
-string that `/about` then reports. Pinned 2026-08-21 at **v4.0.0-rc-260818**.
+**Mind the publisher.** v2 and v3 images are `ptrxyz/chemotion`, which stops at 3.1.2 (May 2026)
+and never carried a v4 tag at all. v4 **releases** are `complat/chemotion`. The rolling
+`complat/chemotion_eln_stage:next-release` this file used to document is a development tag and
+should not back a release claim.
+
+The images are still **pinned by digest**, now by choice rather than necessity: until 2026-11-10
+no immutable v4 tag existed, so a digest was the only way to know what a run had measured. It
+remains the right default — bumping one is a deliberate, reviewed change, and the new digest
+should be recorded together with the `Version:` string `/about` then reports.
+Pinned 2026-11-11 at **v4.0.1** (`/about` reports `v4.0.1-0-g84f58f4`).
 
 Every caller passes the file explicitly (`--env-file`), because `conftest.py` runs
 `tests/data/setup_chemotion_db.sh` directly and that script calls `docker compose` itself — so

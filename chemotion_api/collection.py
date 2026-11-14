@@ -19,11 +19,12 @@ from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
-from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan
+from chemotion_api.elements import Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, SbmmSample, \
+    CellLine, DeviceDescription
 from chemotion_api.user import Person, Group
 
 from chemotion_api.elements.sample import MoleculeManager
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 
 from chemotion_api.element_manager import ElementManager
 
@@ -39,9 +40,10 @@ def _col_path_join(path_part: str, *path_parts: str) -> str:
     # An absolute segment (starting with '/') resets the path to that segment onward.
     for i, x in enumerate(path_parts):
         if x.startswith('/'):
-            if i == 0:
-                return _col_path_join(x)
-            return _col_path_join(x, *path_parts[-i:])
+            # `path_parts[i + 1:]` — everything *after* the absolute segment. It used to take
+            # `path_parts[-i:]` (the last i items, which is a different slice) and, for i == 0,
+            # dropped the tail entirely: join('a', '/b', 'c', 'd') returned '/b'.
+            return _col_path_join(x, *path_parts[i + 1:])
     joined = '/'.join([path_part, *path_parts])
     while '//' in joined:
         joined = joined.replace('//', '/')
@@ -231,6 +233,12 @@ class AbstractCollection:
         The chemotion DB ID
         """
         self._id = id
+
+    @property
+    def parent(self) -> AbstractCollection | None:
+        """The collection this one sits in, or ``None`` for a root. Read-only: move a collection
+        with :meth:`move` (and save the tree)."""
+        return self._parent
 
     @property
     def label(self) -> str | None:
@@ -471,10 +479,12 @@ class AbstractCollection:
             raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
-    #: Element kinds this client will send to `collection_elements`. v4 declares
-    #: sample/reaction/wellplate/screen/research_plan in `main_ui_state_params`, and the usecase
-    #: resolves more besides — but a kind we have not exercised is untested, not supported.
-    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan')
+    #: Built-in element kinds this client sends to `collection_elements`, each exercised against
+    #: ELN v4.0.1 (assign, then remove). LabIMotion generic elements are accepted too, keyed by
+    #: their klass name, which the server resolves. Other kinds are refused until exercised.
+    _COLLECTION_ELEMENT_KINDS = ('sample', 'reaction', 'research_plan', 'wellplate', 'screen',
+                                 'device_description', 'cell_line',
+                                 'sequence_based_macromolecule_sample')
 
     def assign_elements(self, dest: AbstractCollection, *elements) -> None:
         """Add elements of this collection to ``dest`` as well — they stay here too.
@@ -543,11 +553,11 @@ class AbstractCollection:
             if getattr(element, 'is_new', False) or element.id is None:
                 raise ValueError('The element has not been saved yet. Save it first.')
             kind = element.element_type
-            if kind not in self._COLLECTION_ELEMENT_KINDS:
+            if kind not in self._COLLECTION_ELEMENT_KINDS and not isinstance(element, GenericElement):
                 raise ValueError(
-                    f"Moving {kind} elements between collections is not implemented. The server "
-                    f"may well accept it — this client only sends kinds it has exercised "
-                    f"({', '.join(self._COLLECTION_ELEMENT_KINDS)}); see AI/DEFERRED.md.")
+                    f"Moving {kind} elements between collections is not supported by this client; "
+                    f"it sends only kinds it has verified against the server: "
+                    f"{', '.join(self._COLLECTION_ELEMENT_KINDS)}, and generic elements.")
             # `checkedAll` is deliberately never sent: the server reduces it to
             # `where.not(id: unchecked_ids)` over the *whole* element class, not this collection,
             # so one request could attach a user's entire sample library.
@@ -581,6 +591,17 @@ class AbstractCollection:
             except ValueError:
                 return []
         return []
+
+    def _element_set(self, type_name: str, per_page: int | None, updated_to_date: datetime | None,
+                     updated_from_date: datetime | None, product_only: bool = False) -> ElementSet:
+        """Load the first page of this collection's elements of one built-in type."""
+        root = self.get_root()
+        element_type = root._element_manager.all_classes.get(type_name)
+        if element_type is None:
+            raise ValueError(f'The server has no element type "{type_name}".')
+        e = ElementSet(root._session, element_type, typing.cast(int, self.id))
+        e.load_elements(per_page, updated_to_date, updated_from_date, product_only)
+        return e
 
     def get_elements_of_iri(self, element_type: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
@@ -624,11 +645,7 @@ class AbstractCollection:
         :return: ElementSet of samples
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('sample')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date, product_only)
-        return e
+        return self._element_set('sample', per_page, updated_to_date, updated_from_date, product_only)
 
     def get_reactions(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
@@ -642,11 +659,7 @@ class AbstractCollection:
         :return: ElementSet of reactions
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('reaction')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('reaction', per_page, updated_to_date, updated_from_date)
 
     def get_research_plans(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
@@ -660,11 +673,118 @@ class AbstractCollection:
         :return: ElementSet of research plans
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('research_plan')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('research_plan', per_page, updated_to_date, updated_from_date)
+
+    def _apply_user_labels(self, *elements: AbstractElement, add: typing.Iterable[int] = (),
+                           remove: typing.Iterable[int] = ()) -> None:
+        """Add and remove user labels on several elements of this collection in one request.
+
+        .. warning:: **Beta, and private on purpose.** Prefer the supported way: set an element's
+           ``properties['user_labels']`` (a list of label ids) and ``save()`` it. This wraps the
+           ELN's bulk endpoint (``POST /api/v1/user_labels/bulk``), which applies all changes in a
+           single transaction — useful for many elements at once — but its selection model (a UI
+           state per element type, scoped to this collection) is the web UI's, and may change.
+
+        Only labels you may use (yours, or shared ones) are applied; the server drops any other id.
+
+        :param elements: elements of this collection; each must be saved (have an id).
+        :param add: ids of labels to add.
+        :param remove: ids of labels to remove.
+        :raises ValueError: if there is nothing to do, or none of the label ids is usable by you.
+        :raises PermissionError: if you may not update one of the elements (401).
+        """
+        add, remove = list(add), list(remove)
+        if not add and not remove:
+            raise ValueError('Give label ids to add or remove.')
+        ui_state: dict[str, Any] = {'currentCollection': {'id': self.id}}
+        for element in elements:
+            if element.is_new:
+                raise ValueError(f'{element} is not saved yet.')
+            key = element.json_data.get('type') if element.json_data else None
+            key = key or element.element_type
+            selection = ui_state.setdefault(key, {'all': False, 'included_ids': [], 'excluded_ids': []})
+            selection['included_ids'].append(element.id)
+        res = self.get_root()._session.post('/api/v1/user_labels/bulk', data={
+            'ui_state': ui_state, 'add_label_ids': add, 'remove_label_ids': remove})
+        if res.status_code == 400:
+            raise ValueError('The server found nothing to do.')
+        if res.status_code == 403:
+            raise ValueError('None of these label ids is yours or shared with you.')
+        if res.status_code == 401:
+            raise PermissionError('You may not update all of these elements.')
+        if res.status_code not in (200, 201, 204):
+            raise request_error(res, 'applying user labels')
+
+    def export_zip(self, destination: str | os.PathLike, timeout: float = 900) -> str:
+        """Export this collection with the server's own exporter and save the ZIP.
+
+        This is Chemotion's native export archive (the one its UI produces), not ``.eln``. The server builds it in a background
+        job; this waits for its notification, then downloads the archive to ``destination``.
+
+        :raises PermissionError: if you may not export this collection.
+        :raises TimeoutError: if the archive is not ready within ``timeout`` seconds.
+        :return: the path written
+        """
+        from chemotion_api.utils.collection_zip import export_collection_zip
+        if not self.label:
+            # The finished export is recognised by its label in the notification text.
+            raise ValueError('Only a saved, labelled collection can be exported.')
+        session = self.get_root()._session
+        return str(export_collection_zip(session, typing.cast(int, self.id), self.label, destination,
+                                         timeout=timeout))
+
+    def get_device_descriptions(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                                updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all device descriptions.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of device descriptions
+        """
+
+        return self._element_set('device_description', per_page, updated_to_date, updated_from_date)
+
+    def get_cell_lines(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                       updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all cell-line samples (at most 50 per page — the server's limit).
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of cell lines
+        """
+        return self._element_set('cell_line', per_page, updated_to_date, updated_from_date)
+
+    def get_sbmm_samples(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                         updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all sequence-based macromolecule (SBMM) samples.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of SBMM samples
+        """
+        return self._element_set('sequence_based_macromolecule_sample', per_page, updated_to_date, updated_from_date)
+
+    def get_screens(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
+                    updated_from_date: datetime | None = None) -> ElementSet:
+        """
+        List of all screens.
+
+        :param per_page: How many Elements per page
+        :param updated_to_date: Set date time to fetch only elements which are updated before 'updated_to_date'
+        :param updated_from_date: Set date time to fetch only elements which are updated after 'updated_from_date'
+
+        :return: ElementSet of screens
+        """
+        return self._element_set('screen', per_page, updated_to_date, updated_from_date)
 
     def get_wellplates(self, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
@@ -678,11 +798,7 @@ class AbstractCollection:
         :return: ElementSet of well plates
         """
 
-        root = self.get_root()
-        e = ElementSet(root._session, typing.cast(dict, root._element_manager.all_classes.get('wellplate')),
-                       typing.cast(int, self.id))
-        e.load_elements(per_page, updated_to_date, updated_from_date)
-        return e
+        return self._element_set('wellplate', per_page, updated_to_date, updated_from_date)
 
     def get_generics_by_name(self, name: str, per_page: int | None = 10, updated_to_date: datetime | None = None,
                       updated_from_date: datetime | None = None) -> ElementSet:
@@ -777,6 +893,59 @@ class AbstractEditableCollection(AbstractCollection):
         :return: New (unsaved) ResearchPlan
         """
         return typing.cast(ResearchPlan, self._create_new_element('research_plan'))
+
+    def new_cell_line(self, material_name: str, source: str) -> CellLine:
+        """
+        Creates a new cell-line sample in this collection, of the material ``material_name`` from
+        ``source`` (an existing material with that name and source is reused; otherwise one is
+        created on save). Set ``properties['amount']``, ``['unit']`` and ``['passage']`` before
+        saving.
+
+        :return: New (unsaved) CellLine
+        """
+        line = typing.cast(CellLine, self._create_new_element('cell_line'))
+        line.material['name'] = material_name
+        line.material['source'] = source
+        return line
+
+    def new_sbmm_sample(self, uniprot: str) -> SbmmSample:
+        """
+        Creates a new SBMM sample of the protein with the given UniProt accession, in this collection.
+
+        The server looks the accession up in UniProt when the sample is first saved.
+
+        .. note:: **Limitation.** Only proteins with a UniProt accession can be chosen here; a
+           protein that is not in UniProt, or a modified variant of one, has to be created in the
+           ELN's web UI. If this affects your work, please open an issue at
+           https://github.com/Chemotion/chemotionapi/issues and describe what you need.
+
+        :param uniprot: a UniProt accession, e.g. ``'P69905'``
+        :return: New (unsaved) SbmmSample
+        :raises ValueError: if ``uniprot`` is empty.
+        """
+        if not uniprot or not uniprot.strip():
+            raise ValueError('A UniProt accession is required, e.g. "P69905".')
+        sample = typing.cast(SbmmSample, self._create_new_element('sequence_based_macromolecule_sample'))
+        typing.cast(dict, sample.json_data)['sequence_based_macromolecule'] = {
+            'sbmm_type': 'protein', 'uniprot_derivation': 'uniprot', 'primary_accession': uniprot.strip()}
+        return sample
+
+    def new_device_description(self) -> DeviceDescription:
+        """
+        Creates a new device description in this collection. Every field is optional; set
+        ``properties['name']`` and whatever else applies before saving.
+
+        :return: New (unsaved) DeviceDescription
+        """
+        return typing.cast(DeviceDescription, self._create_new_element('device_description'))
+
+    def new_screen(self) -> Screen:
+        """
+        Creates a new screen in this collection.
+
+        :return: New (unsaved) Screen
+        """
+        return typing.cast(Screen, self._create_new_element('screen'))
 
     def new_wellplate(self) -> Wellplate:
         """
@@ -1162,7 +1331,7 @@ class RootCollection(AbstractCollection):
     >>> from chemotion_api import Instance
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
     >>> rc = instance.get_root_collection(True)
@@ -1181,7 +1350,6 @@ class RootCollection(AbstractCollection):
         super().__init__()
         self._sync_root: RootSyncCollection | None = None
         self._all: dict | None = None
-        self._collections_payload: dict | None = None
         self._element_manager: ElementManager
         self._session = session
         self.label = 'root'
@@ -1248,23 +1416,27 @@ class RootCollection(AbstractCollection):
         routes it to ``/collections/:id``, whose id pattern (``All|all|\\d+``) rejects
         ``"roots.json"``, so it answers **400 'id is invalid'** rather than 404.
 
-        The response is cached on the instance so ``load_collection`` and
-        ``load_sync_collection`` share one request.
+        Both halves of the listing come from this one request. ``load_collection`` reads
+        ``own`` and ``load_sync_collection`` reads ``shared_with_me``; a caller that wants both
+        from a single fetch passes the result to each as ``payload``. Nothing is cached on the
+        instance — a cache here once let a standalone ``load_sync_collection()`` serve the listing
+        from whenever ``load_collection()`` last ran, so a share granted since was invisible.
         """
         res = self._session.get('/api/v1/collections/')
         if res.status_code != 200:
             raise ConnectionError(f'{res.status_code} -> {res.text}')
-        self._collections_payload = json.loads(res.content)
-        return self._collections_payload
+        return json.loads(res.content)
 
-    def load_collection(self) -> dict[str,dict]:
+    def load_collection(self, payload: dict | None = None) -> dict[str,dict]:
         """
         Loads the collection tree from the server. Unsaved changes are lost.
 
+        :param payload: a listing already fetched by :meth:`_fetch_collections`, so one request
+            can serve both this and :meth:`load_sync_collection`. Fetched afresh when omitted.
         :return: information of the 'All' collection
         """
 
-        collections = self._fetch_collections()
+        collections = payload if payload is not None else self._fetch_collections()
         self._all = self._load_all_collection().get('collection')
         if self._all is None:
             # Seen on a real 3.1.2 server with an Admin account that owns nothing: the endpoint
@@ -1281,22 +1453,20 @@ class RootCollection(AbstractCollection):
         self._set_children(nest_by_ancestry(owned))
         return self._all
 
-    def load_sync_collection(self) -> RootSyncCollection:
+    def load_sync_collection(self, payload: dict | None = None) -> RootSyncCollection:
         """
         Loads the RootSyncCollection. The RootSyncCollection collection can be used to access all collection synced with you.
 
+        ELN v4 deleted the whole ``/syncCollections`` namespace. Collections other people share
+        with you arrive in the ``shared_with_me`` half of the same listing ``load_collection``
+        reads, so a caller holding that listing can pass it in rather than fetch twice.
+
+        :param payload: a listing already fetched by :meth:`_fetch_collections`. **Fetched afresh
+            when omitted** — a standalone call is the one you make to see a share someone just
+            granted, and must never hand back an older listing with nothing to say it is stale.
         :return: instance of RootSyncCollection
         """
-
-        # ELN v4 deleted the whole /syncCollections namespace (that path is a genuine 404 now).
-        # Collections other people share with you arrive in the `shared_with_me` half of the same
-        # listing that load_collection() reads, so reuse that response instead of a second request.
-        # The cache exists to let get_root_collection() serve both halves from one request, so it
-        # is consumed here rather than read: a standalone load_sync_collection() — the call you
-        # make to see a share someone just granted — must not hand back the listing from whenever
-        # load_collection() last ran, with nothing to indicate it is stale.
-        payload = self._collections_payload or self._fetch_collections()
-        self._collections_payload = None
+        payload = payload if payload is not None else self._fetch_collections()
         self._sync_root = RootSyncCollection(self._session, self._element_manager)
         self._sync_root._set_children(nest_by_ancestry(payload.get('shared_with_me') or []))
         return self._sync_root
@@ -1326,8 +1496,9 @@ class RootCollection(AbstractCollection):
                     raise ConnectionError(f'{res.status_code} -> {res.text}')
                 created = json.loads(res.content)['collection']
                 child.id = created['id']
-                if isinstance(getattr(child, 'collection_json', None), dict):
-                    child.collection_json.pop('isNew', None)
+                collection_json = getattr(child, 'collection_json', None)
+                if isinstance(collection_json, dict):
+                    collection_json.pop('isNew', None)
             self._create_unsaved(child, child.id)
 
     def _bulk_update_tree(self, node: AbstractCollection) -> list[dict]:

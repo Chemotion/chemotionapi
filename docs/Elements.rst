@@ -2,8 +2,8 @@ Elements
 ==========
 
 The API can handle different kinds of elements from Chemotion.
-It can read and write Samples, Reactions, Wellplates, and Research Plans
-as well as Generic Elements.
+It can read and write samples, reactions, wellplates, research plans, screens, cell lines,
+SBMM samples and device descriptions, as well as LabIMotion generic elements.
 
 How to load Elements
 ******************************
@@ -84,7 +84,7 @@ How to create Elements
 
 To make a new entry in the ELN, you must first select the collection in which the element is to be created. Collection objects have the appropriate methods for creating objects.
 
-The following methods can be used to create the standard objects. All of them have no parameters and create an empty object corresponding to its type.
+The following methods can be used to create the standard objects. They create an empty object of their type; cell lines and SBMM samples need a little information up front.
 
 The created object is not saved and must be saved explicitly so that the entry is transferred to the ELN.
 
@@ -92,6 +92,10 @@ The created object is not saved and must be saved explicitly so that the entry i
 * :meth:`chemotion_api.collection.Collection.new_reaction`
 * :meth:`chemotion_api.collection.Collection.new_research_plan`
 * :meth:`chemotion_api.collection.Collection.new_wellplate`
+* :meth:`chemotion_api.collection.Collection.new_screen`
+* :meth:`chemotion_api.collection.Collection.new_device_description`
+* :meth:`chemotion_api.collection.Collection.new_cell_line` (material name and source)
+* :meth:`chemotion_api.collection.Collection.new_sbmm_sample` (UniProt accession)
 
 To create a generic element, the type must be specified as a parameter. Either by the human-readable label or by the system-internal name:
 
@@ -138,6 +142,58 @@ All Objects have a set of common properties and methods:
     sample.save()
     # Check the result in the Chemotion web client (you need to be logged in in the browser)
     sample.open()
+
+Restricted elements
+-------------------
+
+An element in a collection shared with you below the full detail level (10) comes with some fields
+withheld by the server. :attr:`~chemotion_api.elements.abstract_element.AbstractElement.is_restricted`
+tells you; withheld properties read as :data:`chemotion_api.utils.withheld.WITHHELD`, and
+``save()`` refuses such an element with ``PermissionError`` (it would write placeholders over the
+real values).
+
+``WITHHELD`` is neither ``None`` nor a number. Test for it by identity, ``value is WITHHELD``.
+Using it as a number — ``float()``, arithmetic, comparisons — raises ``WithheldValueError`` (a
+``PermissionError``). It is also a ``str`` whose text is ``'***'``, the server's own mask, so the
+element's raw ``json_data`` still serialises exactly as the server sent it. As a consequence,
+``WITHHELD == '***'`` is true and ``isinstance(WITHHELD, str)`` too: compare by identity, not by
+equality or type.
+
+.. code-block:: python
+
+    from chemotion_api.utils.withheld import WITHHELD
+
+    for sample in shared_collection.get_samples():
+        if sample.is_restricted and sample.properties['description'] is WITHHELD:
+            print(sample.id, 'description withheld')
+
+.. autodata:: chemotion_api.utils.withheld.WITHHELD
+    :no-value:
+
+.. autoexception:: chemotion_api.utils.withheld.WithheldValueError
+
+Rich text
+---------
+
+Some properties are rich text in the ELN — a reaction's ``description`` and ``observation``, and the
+``description`` of a wellplate or a screen. They are stored as `Quill deltas
+<https://quilljs.com/docs/delta>`_, the ELN editor's format, and read as one;
+:func:`~chemotion_api.quill_to_text` flattens it to text. Write a plain string — it is stored via
+:func:`~chemotion_api.text_to_quill`, as a delta of the shape the ELN creates itself — or a
+well-formed delta, so content read from the ELN (formatting included) can be written back. Anything
+that is neither raises ``ValueError``.
+
+.. code-block:: python
+
+    from chemotion_api import quill_to_text
+
+    reaction.properties['observation'] = 'Turned yellow after 5 min.
+    reaction.save()
+    print(quill_to_text(reaction.properties['description']))
+
+.. autofunction:: chemotion_api.text_to_quill
+
+.. autofunction:: chemotion_api.quill_to_text
 
 .. autoclass:: chemotion_api.elements.abstract_element.AbstractElement
     :members:

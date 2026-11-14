@@ -28,7 +28,7 @@ class Attachment(AttrAccessMixin, dict):
     >>> from chemotion_api import Instance
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
     >>> rp = instance.get_generic_by_label('My Generic',1)
@@ -121,7 +121,7 @@ class Attachments(Sequence):
     >>> from chemotion_api import Instance
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
     >>> rp = instance.get_research_plan(1)
@@ -200,38 +200,35 @@ class Attachments(Sequence):
         filename = os.path.basename(file_path)
         file_uuid = uuid.uuid4().__str__()
         file_magic = magic.Magic(mime=True)
-        with open(file_path, 'rb') as f:
-            upload_file_obj = {
-                'file_uuid': file_uuid,
-                'file_path': file_path,
-                'filename': filename,
-                'mime_type': file_magic.from_file(file_path)
+        upload_file_obj = {
+            'file_uuid': file_uuid,
+            'file_path': file_path,
+            'filename': filename,
+            'mime_type': file_magic.from_file(file_path)
 
-            }
-            chunk = f.read()
+        }
+        filesize = os.path.getsize(file_path)   # no need to read the file to know its size
+        data: dict[str, object] = OrderedDict(file={"preview": f"{self._con.host_url}/images/wild_card/not_available.svg"},
+                           name=filename,
+                           filename=filename,
+                           is_deleted=False,
+                           _preview="/images/wild_card/not_available.svg",
+                           is_image_field=filename.lower().endswith(
+                               ('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')),
+                           filesize=filesize,
+                           id=file_uuid,
+                           is_new=True)
+        data_hash_str = json.dumps(data, separators=(',', ':'))
+        data_hash = hashlib.sha256(data_hash_str.encode()).hexdigest()
+        data = dict(data)
+        data["_checksum"] = data_hash
+        data["identifier"] = file_uuid
 
-            f.close()
-            data: dict[str, object] = OrderedDict(file={"preview": f"{self._con.host_url}/images/wild_card/not_available.svg"},
-                               name=filename,
-                               filename=filename,
-                               is_deleted=False,
-                               _preview="/images/wild_card/not_available.svg",
-                               is_image_field=filename.lower().endswith(
-                                   ('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')),
-                               filesize=len(chunk),
-                               id=file_uuid,
-                               is_new=True)
-            data_hash_str = json.dumps(data, separators=(',', ':'))
-            data_hash = hashlib.sha256(data_hash_str.encode()).hexdigest()
-            data = dict(data)
-            data["_checksum"] = data_hash
-            data["identifier"] = file_uuid
+        self._to_uploads.append(upload_file_obj)
+        self._new_attachment_data.append(data)
+        return data
 
-            self._to_uploads.append(upload_file_obj)
-            self._new_attachment_data.append(data)
-            return data
-
-    def save(self, id: int, element_type: str) -> requests.Response:
+    def save(self, id: int, element_type: str) -> requests.Response | None:
         """
         Updates or creates the Attachments of an Element after saving it!
 
@@ -247,6 +244,10 @@ class Attachments(Sequence):
         :raises requests.RequestException: if the server returns a non-2xx response; the
             upload queue is left intact so a retried ``save()`` resends the pending files.
         """
+        if not self._to_uploads:
+            # Nothing queued: the upload request would carry no files and change nothing, and it
+            # used to be sent on every save of every element.
+            return None
         if element_type == 'Element':
             return self._save_generic(id)
         with contextlib.ExitStack() as stack:

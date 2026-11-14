@@ -143,12 +143,13 @@ class Workflow:
         results = []
         if layer is not None:
             results.append(layer)
-            try:
-                next_wf_id = next(x['value'] for x in layer['fields'] if x['type'] == 'wf-next')
-                current_node = next(x for x in self.nodes if x['id'] == next_wf_id)
+            # The chain ends where the layer has no `wf-next` field, the field has no target yet,
+            # or the target is not a known node. Anything else is a malformed layer and surfaces.
+            next_wf_id = next((x.get('value') for x in layer['fields'] if x.get('type') == 'wf-next'), None)
+            current_node = next((x for x in self.nodes if x['id'] == next_wf_id), None) \
+                if next_wf_id is not None else None
+            if current_node is not None:
                 results += self._read_wf(current_node['id'], key, prop_layers)
-            except:
-                pass
         return results
 
     def init_wf(self, json_data):

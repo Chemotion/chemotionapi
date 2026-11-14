@@ -63,29 +63,24 @@ def test_material_list_after_append_falls_back_on_key_error():
     assert calls == [((0, "g"), {})]
 
 
-# --- O3: greate_device is a deprecated alias of create_device --------------------------------------
+# --- O3: AdminMenu's device-create methods are gone, because they never worked ---------------------
 
-def test_greate_device_alias_warns_and_delegates():
+def test_adminmenu_has_no_device_create_methods():
+    """`AdminMenu.create_device` / `greate_device` were removed in 401.0.
+
+    Both posted to `/api/v1/admin/group_device/create` with `rootType: 'Device'`, which cannot
+    create a device on any Chemotion release: `Device` validates `name` presence and that endpoint
+    declares no `name` parameter, so Grape's `declared` dropped it. They also returned the
+    server's error hash as if it were a created device, so the failure was silent.
+
+    The test they replaced asserted exactly that broken behaviour against a mocked `201` — which
+    is why it stayed green for the whole time the real call could not succeed. `Admin.create_device`
+    is the working path and is covered against a live server in `tests/test_user.py`.
+    """
     from chemotion_api.admin import AdminMenu
 
-    fake_res = types.SimpleNamespace(status_code=201, json=lambda: {"id": 7})
-    posts = []
-
-    def _post(url, **kwargs):
-        posts.append((url, kwargs))
-        return fake_res
-
-    session = types.SimpleNamespace(
-        post=_post,
-        get_default_session_header=lambda: {},
-    )
-    admin = AdminMenu(session)
-
-    with pytest.warns(DeprecationWarning):
-        result = admin.greate_device("Bench", "Top", "BT")
-
-    assert result == {"id": 7}
-    assert posts and posts[0][0] == "/api/v1/admin/group_device/create"
+    for gone in ('create_device', 'greate_device'):
+        assert not hasattr(AdminMenu, gone), f'AdminMenu.{gone} should have been removed'
 
 
 # --- O5: SubBaseField.id setter uses its value argument (not the builtin id) ------------------------

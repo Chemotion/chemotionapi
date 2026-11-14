@@ -25,6 +25,7 @@ class _Element:
     _ensure_loaded = AbstractElement._ensure_loaded
     _load_if_partial = AbstractElement._load_if_partial
     on_properties_change = AbstractElement.on_properties_change
+    is_restricted = AbstractElement.is_restricted
 
     def __init__(self, fail_detail_fetch=False):
         self.json_data = dict(LIST_PAYLOAD)

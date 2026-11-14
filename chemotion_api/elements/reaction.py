@@ -23,14 +23,16 @@ _DURATION_UNIT_SECONDS = {
 
 from requests import Response
 
-from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
+from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList, proposed_field, value_at
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample, SampleVariationType, GasPhaseObj
 from chemotion_api.elements.utils.converter import convert_value, TIME_UNITS, TEMPERATURE_UNITS, TON_UNITS
-from chemotion_api.elements.utils import QuantityUnit, GasType
+from chemotion_api.elements.utils import QuantityUnit, GasType, vessel_volume_ml
 from chemotion_api.elements.schemas.reaction import schema, PURIFICATION_OPTIONS, STATUS_OPTIONS
-from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict
+from chemotion_api.utils import TypedList, quill_hedging, merge_dicts, PropertyDict, UnitDict
+from chemotion_api.utils.withheld import WITHHELD
+from chemotion_api.models import ReactionPropertiesModel, VesselSizeModel, UnitDictModel, validate_field
 from chemotion_api.utils.segment_fields import SegmentField, VARIATION_FIELD_TYPES, iter_fields
 from collections.abc import MutableSequence
 from copy import deepcopy
@@ -166,7 +168,7 @@ class SampleVariation:
             self._values = json_data
             self._set_aux(vessel_volume)
 
-    def set_aux(self, vessel_volume: float):
+    def set_aux(self, vessel_volume: float | None):
         """
         Updates the auxiliary values (purity, molecular weight, ...) from the sample.
 
@@ -341,7 +343,7 @@ class SampleVariation:
             return 1
         return self._values['aux']['molecularWeight']
 
-    def _set_aux(self, vessel_volume: float):
+    def _set_aux(self, vessel_volume: float | None):
         # TODO: [DONE] get density, molarity from sample (NOT only for new Variations)!!!!
         self._values['aux']['coefficient'] = self._sample.properties['coefficient']
         self._values['aux']['purity'] = self._sample.properties['purity']
@@ -354,6 +356,23 @@ class SampleVariation:
         self._values['aux']['vesselVolume'] = vessel_volume
         self._values['aux']['materialType'] = self._sample_type.value
         self._ensure_gas_entries()
+        self._ensure_concentration_entry()
+
+    def _ensure_concentration_entry(self):
+        """Give starting materials and reactants the `concentration` entry ELN v4 expects.
+
+        The frontend lists it among their entries (`getMaterialEntries`: mass, amount, volume,
+        equivalent, concentration; not for catalysts) and treats a missing or null entry as not
+        editable — so a variation created through this client left the concentration of those
+        materials uneditable in the UI. The value starts empty, as `{value: null, unit: 'mol/l'}`:
+        the frontend derives it from the reaction volume, which this client does not compute.
+        """
+        if self._sample_type not in (SampleVariationType.STARTING_MATERIAL, SampleVariationType.REACTANT):
+            return
+        if self._values['aux'].get('gasType') in (GasType.CATALYST.value, GasType.GAS.value):
+            return
+        if not isinstance(self._values.get('concentration'), dict):
+            self._values['concentration'] = {'value': None, 'unit': 'mol/l'}
 
     def _ensure_gas_entries(self):
         # The frontend shows a gas product with extra entries (getMaterialEntries in
@@ -373,7 +392,8 @@ class SampleVariation:
         def convert(value_unit: dict | None, out_unit: str):
             value_unit = value_unit or {}
             try:
-                return convert_value(value_unit.get('value'), value_unit.get('unit'), out_unit)
+                # A missing unit raises ValueError, handled below.
+                return convert_value(value_unit.get('value'), cast(str, value_unit.get('unit')), out_unit)
             except ValueError:
                 return None
 
@@ -556,7 +576,7 @@ class Variation:
 
     def populate(self, json_data: dict, analyses: AnalysesList, starting_materials: MaterialList,
                  reactants: MaterialList,
-                 products: MaterialList, solvents: MaterialList, vessel_size: dict,
+                 products: MaterialList, solvents: MaterialList, vessel_size: dict | None,
                  segment_klasses: Callable[[], dict[str, dict]]):
         """
         Do not use this method! It is used by :class:`Variations` to load a variation.
@@ -583,7 +603,7 @@ class Variation:
         }
 
     def sample_variation_factory(self, sample: Sample, sample_type: SampleVariationType,
-                                 vessel_size: dict) -> SampleVariation:
+                                 vessel_size: dict | None) -> SampleVariation:
         json_data = None
         for key, data in self._json_data.get(sample_type.value, {}).items():
             if key == str(sample.id):
@@ -595,10 +615,7 @@ class Variation:
 
     @staticmethod
     def _get_vessel_volume(vessel_size):
-        vessel_volume = vessel_size.get('amount')
-        if vessel_volume is not None and vessel_size.get('unit') == 'l':
-            vessel_volume *= 1000
-        return vessel_volume
+        return vessel_volume_ml(vessel_size)
 
     def update_and_clean(self, vessel_size):
         vessel_volume = self._get_vessel_volume(vessel_size)
@@ -625,11 +642,17 @@ class Variation:
 
         :raises ValueError: if the analysis has not been saved yet
         """
+        # An unsaved analysis has no id (None) or a client-side uuid. `int(None)` raises TypeError,
+        # which used to escape instead of this method's documented ValueError.
+        ana_id = analyses.id
+        unsaved = ValueError("Analyses has no id. please save the Reaction first")
+        if ana_id is None:
+            raise unsaved
         try:
-            int(analyses.id)
-            self._json_data['metadata']['analyses'].append(analyses.id)
+            int(ana_id)
         except ValueError:
-            raise ValueError("Analyses has no id. please save the Reaction first")
+            raise unsaved from None
+        self._json_data['metadata']['analyses'].append(ana_id)
 
     def get_analyses(self) -> Iterator[Analyses]:
         """
@@ -695,10 +718,10 @@ class Variations(MutableSequence):
 
     def __init__(self, analyses: AnalysesList, starting_materials: MaterialList, reactants: MaterialList,
                  products: MaterialList,
-                 solvents: MaterialList, vessel_size: Callable[[], dict],
+                 solvents: MaterialList, vessel_size: Callable[[], dict | None],
                  segment_klasses: Callable[[], dict[str, dict]] = dict):
         # Initialize the list with given items
-        self._data = list()
+        self._data: list[Variation] = []
         self._segment_klasses = segment_klasses
         self._materials = {'starting_materials': starting_materials, 'reactants': reactants, 'products': products,
                            'solvents': solvents}
@@ -717,7 +740,7 @@ class Variations(MutableSequence):
             self.append(v)
             self._highest_id = max(self._highest_id, variation['id'])
 
-    def remove(self, value: Variation) -> bool:
+    def remove(self, value: Variation) -> bool:  # type: ignore[override]  # returns whether it was found; public since 312
         """
         Removes a variation.
 
@@ -858,13 +881,25 @@ class Temperature(dict):
             {'time': f'{str(hour).zfill(2)}:{str(minute).zfill(2)}:{str(second).zfill(2)}', 'value': str(temperature)})
 
 
-def _flattened_field_error(pyd_name: list[str]) -> ValueError:
-    """Explain a nested write into a field the model keeps as a scalar."""
-    field = pyd_name[0]
-    return ValueError(
-        f"{field!r} is stored as a single value, not a mapping, so "
-        f"properties[{field!r}][{pyd_name[-1]!r}] cannot be set. Assign the whole field instead, "
-        f"e.g. properties[{field!r}] = <value>.")
+def _bare_amount(value) -> float | None:
+    """``value`` as a float if it is a plain number or a numeric string, else ``None``."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _vessel_size_mapping(raw):
+    """The stored vessel size as ``{amount, unit}``. Clients before 401.0 could store a bare
+    number; it reads as that many ml, so such a reaction still loads."""
+    amount = _bare_amount(raw)
+    return {'amount': amount, 'unit': 'ml'} if amount is not None else raw
 
 
 class Reaction(AbstractElement):
@@ -878,7 +913,7 @@ class Reaction(AbstractElement):
     >>> from chemotion_api.collection import Collection
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
     >>> # Get the reaction with ID 1
@@ -895,6 +930,9 @@ class Reaction(AbstractElement):
     >>> rea.properties['temperature'].add_time_point(2,3,0,100)
     >>> rea.save()
     """
+
+    _properties_model = ReactionPropertiesModel
+    _rich_text_fields = ('description', 'observation')
 
     # Narrowed from the base class's `dict | None`: a Reaction always has its
     # json_data/_properties populated via _set_json_data/load before any method
@@ -1057,6 +1095,9 @@ class Reaction(AbstractElement):
 
         :return: The flagged reference :class:`Sample`, or ``None`` if nothing is flagged
         """
+        cached = getattr(self, '_reference_in_pass', None)
+        if cached is not None:
+            return cached[0]
         for mat in [*self.starting_materials, *self.reactants]:
             if mat.properties['reference']:
                 return mat
@@ -1131,10 +1172,18 @@ class Reaction(AbstractElement):
     def update_equivalent(self):
         """
         Recomputes the molar equivalent of every material (sample) of the reaction.
+
+        The reference is resolved once for the whole pass: every material's equivalent is relative
+        to it, and finding it scans all materials, so resolving it per material made one pass
+        quadratic.
         """
-        for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
-                    *self.purification_solvents]:
-            mat.update_equivalent()
+        self._reference_in_pass = [self.reference_sample]
+        try:
+            for mat in [*self.starting_materials, *self.reactants, *self.products, *self.solvents,
+                        *self.purification_solvents]:
+                mat.update_equivalent()
+        finally:
+            self._reference_in_pass = None
 
     def _parse_properties(self) -> dict:
         reaction_elements = {}
@@ -1144,17 +1193,25 @@ class Reaction(AbstractElement):
             for sample in obj_list:
                 sample_obj = Sample(self._generic_segments, self._session, sample)
                 sample_obj.reaction = self
+                if self._data_loaded:
+                    # A loaded reaction's materials are complete: the server builds each from the
+                    # full sample entity plus its link to this reaction (ReactionMaterialEntity),
+                    # so there is nothing to fetch. (A material that does load reads the
+                    # reaction's record; see Sample._load_data_from_server.)
+                    sample_obj._data_loaded = True
                 temp.append(sample_obj)
             reaction_elements[reaction_elm_names] = MaterialList(self, cast(Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'], reaction_elm_names), temp)
 
-        try:
-            timestamp_start = datetime.strptime(cast(str, self.json_data.get('timestamp_start')), self.datetime_format)
-        except (ValueError, TypeError):
-            timestamp_start = None
-        try:
-            timestamp_stop = datetime.strptime(cast(str, self.json_data.get('timestamp_stop')), self.datetime_format)
-        except (ValueError, TypeError):
-            timestamp_stop = None
+        def parse_timestamp(raw):
+            if raw is WITHHELD:
+                return WITHHELD     # shared below full detail; not the same as "no timestamp"
+            try:
+                return datetime.strptime(cast(str, raw), self.datetime_format)
+            except (ValueError, TypeError):
+                return None
+
+        timestamp_start = parse_timestamp(self.json_data.get('timestamp_start'))
+        timestamp_stop = parse_timestamp(self.json_data.get('timestamp_stop'))
 
         raw_dict = {
             'name': self.json_data.get('name'),
@@ -1162,7 +1219,7 @@ class Reaction(AbstractElement):
             'status': self.json_data.get('status'),
             'duration': self.json_data.get('duration'),
             'temperature': self.json_data.get('temperature', {}),
-            'vessel_size': self.json_data.get('vessel_size', {}).get('amount') if isinstance(self.json_data.get('vessel_size'), dict) else self.json_data.get('vessel_size'),
+            'vessel_size': _vessel_size_mapping(self.json_data.get('vessel_size')),
             'yield_value': self.json_data.get('yield') if self.json_data.get('yield') is not None else (
                 float(self.json_data['products'][0]['equivalent']) * 100.0 if (
                     self.json_data.get('products') and self.json_data['products'][0].get('equivalent') is not None
@@ -1216,7 +1273,7 @@ class Reaction(AbstractElement):
             'temperature': Temperature(**(validated.temperature.to_dict() if validated.temperature
                                           else (self.json_data.get('temperature') or {}))),
             'status': validated.status,
-            'vessel_size': {'amount': validated.vessel_size, 'unit': self.json_data.get('vessel_size', {}).get('unit', 'ml')} if isinstance(self.json_data.get('vessel_size'), dict) else {'amount': validated.vessel_size, 'unit': 'ml'},
+            'vessel_size': validated.vessel_size.model_dump() if validated.vessel_size is not None else {'amount': None, 'unit': 'ml'},
             'gaseous': validated.gas_schema,
             'yield': validated.yield_value,
             'yield_value': validated.yield_value,
@@ -1225,7 +1282,10 @@ class Reaction(AbstractElement):
             'volume': validated.volume or self.json_data.get('volume'),
             'use_reaction_volume': validated.use_reaction_volume or self.json_data.get('use_reaction_volume'),
             'weight_percentage': validated.weight_percentage or self.json_data.get('weight_percentage'),
-            'variations': validated.variations or self.json_data.get('variations')
+            'variations': validated.variations or self.json_data.get('variations'),
+            # Was validated and then dropped, so `properties['user_labels'] = …` raised KeyError and
+            # `user_labels_resolved` was always empty for a reaction.
+            'user_labels': list(validated.user_labels or []),
         }
         return res
 
@@ -1371,7 +1431,8 @@ class Reaction(AbstractElement):
         serialize_data['literatures'] = self.json_data.get('literatures')
 
         serialize_data['research_plans'] = self.json_data.get('research_plans')
-        serialize_data['user_labels'] = self.json_data.get('user_labels')
+        # From `properties`, where callers edit it — reading `json_data` silently dropped a change.
+        serialize_data['user_labels'] = self.properties.get('user_labels')
         serialize_data['solvent'] = self.json_data.get('solvent')
 
         serialize_data['volume'] = get_prop_or_json('volume')
@@ -1421,6 +1482,22 @@ class Reaction(AbstractElement):
                 }
                 }
 
+    def _model_field_source(self, field: str):
+        """The stored value behind ``ReactionPropertiesModel.<field>``.
+
+        Most fields share a name with their property; three do not. ``gas_schema`` is stored as
+        ``gaseous``, ``yield_value`` may only be present as ``yield``, and ``reaction_description``
+        falls back to ``description``.
+        """
+        props = self._properties
+        if field == 'gas_schema':
+            return props.get('gaseous')
+        if field == 'yield_value':
+            return props.get('yield_value') if props.get('yield_value') is not None else props.get('yield')
+        if field == 'reaction_description':
+            return props.get('reaction_description') or props.get('description')
+        return props.get(field)
+
     def on_properties_change(self, dict_obj, name, value):
         """
         Validates and applies a change to one of the reaction's properties.
@@ -1434,86 +1511,39 @@ class Reaction(AbstractElement):
         :param value: The chain of values, the last being the new value
         :return: ``False``, as the handler applies the change itself
         """
-        import copy
-        from pydantic import BaseModel
-        from chemotion_api.models import ReactionPropertiesModel
-
-        # 1. Build proposed dictionary state
-        current_dict = {}
-        for k, v in self._properties.items():
-            if k in ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
-                continue
-            if hasattr(v, 'to_dict'):
-                current_dict[k] = v.to_dict()
-            elif isinstance(v, list):
-                current_dict[k] = list(v)
-            else:
-                current_dict[k] = v
-
-        pydantic_dict = {
-            'name': current_dict.get('name'),
-            'short_label': current_dict.get('short_label'),
-            'status': current_dict.get('status'),
-            'duration': current_dict.get('duration'),
-            'temperature': current_dict.get('temperature'),
-            'vessel_size': current_dict.get('vessel_size', {}).get('amount') if isinstance(current_dict.get('vessel_size'), dict) else current_dict.get('vessel_size'),
-            'yield_value': current_dict.get('yield_value') if current_dict.get('yield_value') is not None else current_dict.get('yield'),
-            'tlc_description': current_dict.get('tlc_description'),
-            'dangerous_products': current_dict.get('dangerous_products'),
-            'description': current_dict.get('description'),
-            'reaction_description': current_dict.get('reaction_description') or current_dict.get('description'),
-            'observation': current_dict.get('observation'),
-            'user_labels': current_dict.get('user_labels'),
-            'vessel': current_dict.get('vessel'),
-            'gas_schema': current_dict.get('gaseous'),
-            'position': current_dict.get('position'),
-            'show_label': current_dict.get('show_label')
-        }
-
-        proposed_dict = copy.deepcopy(pydantic_dict)
+        self._rich_text_write(name, value)
         pyd_name = list(name)
         if pyd_name[0] == 'gaseous':
             pyd_name[0] = 'gas_schema'
         elif pyd_name[0] == 'yield':
             pyd_name[0] = 'yield_value'
-        elif pyd_name[0] == 'vessel_size' and len(pyd_name) > 1 and pyd_name[1] == 'amount':
-            pyd_name = ['vessel_size']
+        top = pyd_name[0]
 
-        temp = proposed_dict
-        for key in pyd_name[:-1]:
-            if not isinstance(temp, dict):
-                raise _flattened_field_error(pyd_name)
-            if key not in temp:
-                temp[key] = {}
-            temp = temp[key]
-        if not isinstance(temp, dict):
-            # The model stores some fields flattened to a scalar — `vessel_size` is its amount,
-            # not a {value, unit} mapping. Walking into one used to end in
-            # `TypeError: argument of type 'float' is not iterable`, which says nothing about
-            # what the caller did wrong.
-            raise _flattened_field_error(pyd_name)
-        temp[pyd_name[-1]] = value[-1]
+        if list(name) == ['vessel_size']:
+            # `properties['vessel_size'] = 200` (or `'200'`, as read from a form or CSV) sets the
+            # amount and keeps the unit. Storing the bare number instead (as before 401.0) put a
+            # float on the wire where the server expects `{amount, unit}`. A mapping without a
+            # unit (`{'amount': 50}`) keeps the current unit too, rather than sending a null one.
+            current = self._properties.get('vessel_size')
+            unit = current.get('unit') if isinstance(current, dict) and current.get('unit') else 'ml'
+            if _bare_amount(value[-1]) is not None:
+                value[-1] = {'amount': _bare_amount(value[-1]), 'unit': unit}
+            elif isinstance(value[-1], dict) and not value[-1].get('unit'):
+                value[-1] = dict(value[-1]) | {'unit': unit}
 
-        # Validate proposed dict using ReactionPropertiesModel
-        validated = ReactionPropertiesModel.model_validate(proposed_dict)
+        # Only the field being written is copied and validated (see `validate_field`). A whole
+        # field is the new value outright; a nested write is applied to a copy of that one field.
+        proposed = proposed_field(self._model_field_source(top), pyd_name, value[-1])
+        coerced_val = value_at(validate_field(ReactionPropertiesModel, top, proposed), pyd_name[1:])
 
-        # Get coerced value
-        coerced_val = validated
-        for key in pyd_name:
-            if isinstance(coerced_val, BaseModel):
-                coerced_val = getattr(coerced_val, key)
-            elif isinstance(coerced_val, dict):
-                coerced_val = coerced_val[key]
-            else:
-                coerced_val = getattr(coerced_val, key)
-
-        from chemotion_api.models import UnitDictModel
-        from chemotion_api.utils import UnitDict
         if isinstance(coerced_val, UnitDictModel):
             if name[0] == 'temperature':
                 coerced_val = Temperature(**coerced_val.model_dump())
             else:
                 coerced_val = UnitDict(unit=coerced_val.unit, value=coerced_val.value)
+        elif isinstance(coerced_val, VesselSizeModel):
+            # Stored as a plain dict: `_get_vessel_volume` and the variations read `.get('amount')`.
+            coerced_val = coerced_val.model_dump()
 
         # Write coerced value to dict_obj[-1]
         dict_obj[-1][name[-1]] = coerced_val
@@ -1527,8 +1557,9 @@ class Reaction(AbstractElement):
         if name[-1] == 'gaseous':
             self.gas_schema = value[-1]
             return False
-        if name[-1] == 'vessel_size':
-            self._properties['vessel_size'] = value[-1]
+        if name[0] == 'vessel_size':
+            # The write-back above already stored it — whole field or nested `amount`/`unit`.
+            # Either changes the volume the gas amounts derive from, so recompute.
             self.update_amount()
             return False
 

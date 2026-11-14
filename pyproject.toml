@@ -1,6 +1,6 @@
 [project]
 name = "chemotion-api"
-version = "400.0.0"
+version = "401.0.0"
 description = "A Chemotion ELN v4 python API"
 authors = [{ name = "Martin Starman", email = "martin.starman@kit.edu" }]
 license = { text = "AGPL-3.0-or-later" }
@@ -77,27 +77,21 @@ ignore_missing_imports = true
 # same commit. Never add an entry — that would mean a clean module regressed, which is what this
 # gate exists to prevent.
 #
-# This comment used to say the four modules the v4 migration rewrites — collection,
-# elements.sample, elements.reaction, elements.abstract_element — would each be cleaned by the
-# change that rewrites them. That change is this one, and it did not clean them: dropping their
-# four entries leaves 14 errors (reaction 8, abstract_element 4, collection 1, sample 1), measured
-# 2026-10-26. None is a runtime defect — the most alarming, `AbstractCollection has no attribute
-# collection_json`, is a guarded `getattr` whose attribute lives on a subclass — but they are real
-# typing debt and the ratchet does not tighten until they are paid. Tracked in AI/DEFERRED.md.
+# The four modules the v4 port rewrote — collection, elements.sample, elements.reaction,
+# elements.abstract_element — are type-clean as of 401.0 and no longer listed. One of the errors
+# that cleaning removed was a real defect: Variation.link_analyses let `int(None)` escape as a
+# TypeError instead of its documented ValueError.
 [[tool.mypy.overrides]]
 ignore_errors = true
 module = [
     "chemotion_api",
-    "chemotion_api.collection",
     "chemotion_api.commands.updater",
     "chemotion_api.connection",
     "chemotion_api.converter",
     "chemotion_api.element_manager",
     "chemotion_api.elements",
-    "chemotion_api.elements.abstract_element",
     "chemotion_api.elements.attachments",
     "chemotion_api.elements.generic_element",
-    "chemotion_api.elements.reaction",
     "chemotion_api.elements.research_plan",
     "chemotion_api.elements.sample",
     "chemotion_api.elements.schemas.research_plan",

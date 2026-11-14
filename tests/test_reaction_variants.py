@@ -47,9 +47,6 @@ def test_reaction_variants(instance_with_test_reaction):
     assert [x.sample.id for x in variant.products] == [4]
 
 
-@pytest.mark.skip(reason="potential_units() offers Equivalent for a variation's starting "
-                         "material; this test says it should not. Which is right is a question "
-                         "about variation semantics, not a client bug — see AI/DEFERRED.md.")
 def test_add_variations(instance_with_test_reaction):
     ra = instance_with_test_reaction['instance'].get_reaction(1)
     ra.variations.add_new()
@@ -74,6 +71,7 @@ def test_add_variations(instance_with_test_reaction):
                                                                         'purity': 1.0, 'sumFormula': 'H3N',
                                                                         'vesselVolume': None},
                                                                 'equivalent': {'unit': None, 'value': 1.0},
+                                                                'concentration': {'unit': 'mol/l', 'value': None},
                                                                 'mass': {'unit': 'g', 'value': 2.0},
                                                                 'volume': {'unit': 'l', 'value': 0}}]
     assert [x.sample.id for x in variant.reactants] == [3]
@@ -85,6 +83,7 @@ def test_add_variations(instance_with_test_reaction):
                                                                'molecularWeight': 13.83482, 'purity': 1.0,
                                                                'sumFormula': 'BH3', 'vesselVolume': None},
                                                        'equivalent': {'unit': None, 'value': 0.013540885967435785},
+                                                                'concentration': {'unit': 'mol/l', 'value': None},
                                                        'mass': {'unit': 'g', 'value': 0.022},
                                                        'volume': {'unit': 'l', 'value': 2.2e-05}}]
     assert [x.sample.id for x in variant.products] == [4]

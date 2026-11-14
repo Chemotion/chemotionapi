@@ -61,7 +61,7 @@ class InstanceManager:
             cwd = self._df_dir
         cwd = os.path.abspath(cwd)
         if not os.path.isdir(cwd):
-            if os.path.exists(os.path.isdir(cwd)):
+            if os.path.exists(cwd):
                 raise NotADirectoryError(f"{cwd} is not a directory")
             else:
                 os.makedirs(cwd, exist_ok=True)
@@ -156,7 +156,8 @@ class InstanceManager:
                 os.path.join(os.getcwd(), f'./{database}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.tar'))
 
         command = ['pg_dump', '-p', f'{port}', '-U', pguser, '-h', host, '-F', 't', '-f', file_path, database]
-        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=my_env)
+        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, env=my_env)
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
             raise ChildProcessError(stderr)
@@ -199,21 +200,34 @@ class InstanceManager:
         click.secho(f"Restored {file_path} -> {database}!", fg='green', bg='white')
 
     @staticmethod
+    def _tags() -> list[str]:
+        """Every tag of ``ptrxyz/chemotion``, following Docker Hub's pages (at most 100 per page)."""
+        url: str | None = 'https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=100'
+        names: list[str] = []
+        while url:
+            res = requests.get(url, timeout=30)
+            res.raise_for_status()
+            body = res.json()
+            names += [x['name'] for x in body.get('results', [])]
+            url = body.get('next')
+        return names
+
+    @staticmethod
     def get_versions():
-        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024',
-                           timeout=30)
-        return [x['name'][4:] for x in res.json()['results'] if x['name'].startswith('eln')]
+        return [name[4:] for name in InstanceManager._tags() if name.startswith('eln-')]
 
     @staticmethod
     def get_image_of_versions(version: None | str = None):
-        v_list = InstanceManager.get_versions()
+        tags = InstanceManager._tags()
         if version is None:
-            version = v_list[0]
-        res = requests.get('https://registry.hub.docker.com/v2/repositories/ptrxyz/chemotion/tags?page_size=1024',
-                           timeout=30)
-        return dict(
-            [(x['name'][:-(len(version) + 1)], f"ptrxyz/chemotion:{x['name']}") for x in res.json()['results'] if
-             x['name'].endswith(version)])
+            version = next((name[4:] for name in tags if name.startswith('eln-')), None)
+            if version is None:
+                raise LookupError('Docker Hub lists no eln- tag for ptrxyz/chemotion.')
+        # Match the whole `-<version>` suffix: `endswith(version)` let "1.2" pick "eln-1.1.2". A
+        # service name may contain hyphens itself (`ketchersvc-sc`).
+        suffix = f'-{version}'
+        return {name[:-len(suffix)]: f'ptrxyz/chemotion:{name}' for name in tags
+                if name.endswith(suffix) and len(name) > len(suffix)}
 
     @staticmethod
     def insert_dataset(ols_term_id: str, pguser='postgres', port=5432, host='localhost', pgpassword='postgres',
@@ -246,13 +260,19 @@ class InstanceManager:
         )
         my_env = os.environ.copy()
         my_env["PGPASSWORD"] = pgpassword
+        # The statement goes in on stdin, not with -c: psql substitutes :'name' variables only in
+        # input it reads itself, while a -c string goes to the server verbatim — where :'ols_term_id'
+        # is a syntax error. ON_ERROR_STOP makes a failed statement a non-zero exit.
         command = [
             'psql', '-U', pguser, '-h', host, '-p', f'{port}', '-d', database,
+            '-v', 'ON_ERROR_STOP=1',
             '-v', f'ols_term_id={ols_term_id}',
             '-v', f'label={label}',
             '-v', f'definition={definition}',
             '-v', f'created_at={created_at}',
-            '-c', sql_command,
         ]
-        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=my_env)
-        proc.communicate()
+        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, env=my_env, text=True)
+        _out, err = proc.communicate(sql_command + ';\n')
+        if proc.returncode != 0:
+            raise ChildProcessError(f'psql could not insert the dataset klass: {err.strip()}')

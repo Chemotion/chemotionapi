@@ -1,5 +1,6 @@
 """Wellplate element: a grid of wells, each optionally holding a :class:`~chemotion_api.elements.sample.Sample`."""
 import logging
+from chemotion_api.models import WellplatePropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
 
 from chemotion_api.elements.sample import Sample
@@ -105,7 +106,7 @@ class Wellplate(AbstractElement):
     >>> from chemotion_api.collection import Collection
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
     >>> # Get the wellplate with ID 1
@@ -183,9 +184,9 @@ class Wellplate(AbstractElement):
         """
         for name, value in (('width', width), ('height', height)):
             if not isinstance(value, int) or isinstance(value, bool) \
-                    or not 0 <= value <= MAX_DIMENSION:
+                    or not 1 <= value <= MAX_DIMENSION:
                 raise ValueError(
-                    f"{name} must be an integer from 0 to {MAX_DIMENSION}; got {value!r}")
+                    f"{name} must be an integer from 1 to {MAX_DIMENSION}; got {value!r}")
 
         res = self._session.put(f'/api/v1/wellplates/resize/{self.id}',
                                 data={'id': self.id, 'width': width, 'height': height})
@@ -238,12 +239,14 @@ class Wellplate(AbstractElement):
                 row_label(y), Sample(self._generic_segments, self._session, element['sample']))
         return wells
 
-    def _parse_properties(self) -> dict:
+    _properties_model = WellplatePropertiesModel
+    _rich_text_fields = ('description',)
 
-        return {
+    def _parse_properties(self) -> dict:
+        return self._validated_properties({
             'name': cast(dict, self.json_data).get('name'),
             'description': cast(dict, self.json_data).get('description')
-        }
+        })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         # The former `wells[:json_data.get('size')]` was always `[:None]`, i.e. a no-op copy:

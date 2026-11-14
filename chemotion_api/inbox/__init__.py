@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
 from chemotion_api.elements.attachments import Attachment
 import magic
 
@@ -79,7 +79,9 @@ class Inbox:
             if res.status_code != 200:
                 raise ConnectionError(f"Inbox could not be fetched! {res} -> {res.status_code}")
             json_res = res.json()['inbox']
-            max_page = 1 + json_res['count'] // per_page
+            # Ceiling, not 1 + floor: at an exact multiple of per_page the extra page is out of range,
+            # and the server answers an out-of-range page with page 1 again, duplicating every box.
+            max_page = max(1, -(-json_res['count'] // per_page))
             for child in json_res['children']:
                 self._content[child['name']] = SenderBox(self._con, child)
         for child in json_res['unlinked_attachments']:
@@ -89,7 +91,10 @@ class Inbox:
         param_name = uuid.uuid4().__str__()
         file_magic = magic.Magic(mime=True)
 
-        files = [(param_name, (os.path.basename(file_path), open(file_path, 'rb'), file_magic.from_file(file_path)))]
-        res = self._con.post('/api/v1/attachments/upload_to_inbox', data={}, files=files)
+        with open(file_path, 'rb') as fh:
+            files = [(param_name, (os.path.basename(file_path), fh, file_magic.from_file(file_path)))]
+            res = self._con.post('/api/v1/attachments/upload_to_inbox', data={}, files=files)
+        if not 200 <= res.status_code < 300:
+            raise request_error(res, f'uploading {os.path.basename(file_path)} to the inbox')
         return res
 

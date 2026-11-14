@@ -330,17 +330,183 @@ def test_save_refuses_when_the_full_record_never_loaded():
         sample.save()
 
 
-def test_a_nested_write_into_a_flattened_field_explains_itself():
-    """`vessel_size` is kept as a scalar amount, so `['unit']` has nowhere to go.
-
-    This used to walk into the float and raise
-    `TypeError: argument of type 'float' is not iterable`, which says nothing about the mistake.
-    """
+def _vessel_reaction():
     reaction = _reaction([_sample(1)])
     reaction._properties['description'] = {'ops': []}
     reaction._properties['observation'] = {'ops': []}
-    # set underneath the handler: the model keeps vessel_size as the scalar amount
     reaction._properties['vessel_size'] = {'amount': 2.0, 'unit': 'l'}
+    return reaction
 
-    with pytest.raises(ValueError, match=r"'vessel_size' is stored as a single value"):
-        reaction.properties['vessel_size']['unit'] = 'ml'
+
+def test_vessel_size_unit_can_be_changed_in_place():
+    """`vessel_size` is `{amount, unit}` on the server and in the client.
+
+    The model used to type it as a float, so this write raised "stored as a single value" — and
+    the error told the caller to assign the whole field instead, which failed too.
+    """
+    reaction = _vessel_reaction()
+    reaction.properties['vessel_size']['unit'] = 'ml'
+    assert reaction._properties['vessel_size'] == {'amount': 2.0, 'unit': 'ml'}
+
+
+def test_vessel_size_whole_field_assignment_keeps_the_mapping():
+    reaction = _vessel_reaction()
+    reaction.properties['vessel_size'] = {'amount': 5.0, 'unit': 'ml'}
+    assert reaction._properties['vessel_size'] == {'amount': 5.0, 'unit': 'ml'}
+    assert isinstance(reaction._properties['vessel_size'], dict)  # never a bare float
+
+
+def test_vessel_size_bad_amount_is_still_rejected():
+    reaction = _vessel_reaction()
+    with pytest.raises(Exception):
+        reaction.properties['vessel_size'] = {'amount': 'not a number', 'unit': 'ml'}
+
+
+# --- F2: building an element from a listing row must not fetch it ------------------------
+
+def test_constructing_from_a_listing_row_issues_no_load(monkeypatch):
+    """`_set_json_data` read `self.properties`, whose getter calls `_ensure_loaded()` — and
+    during construction `id` is set while `_data_loaded` is not, so every element built from a
+    listing row issued a full `load()`: a 50-row page cost 51 requests. A failed fetch then left
+    `_load_failed` set on an element that had merely been listed."""
+    loads = []
+    monkeypatch.setattr(Sample, 'load', lambda self: loads.append(self.id))
+    sample = _sample(42)
+    assert loads == [], f'construction fetched {loads}'
+    assert sample._load_failed is False
+
+
+def test_first_property_read_still_loads(monkeypatch):
+    """Loading stays lazy, not removed: the first real read fetches, exactly once."""
+    loads = []
+
+    def _load(self):                     # as the real one does: mark loaded, then fetch
+        self._data_loaded = True
+        loads.append(self.id)
+
+    monkeypatch.setattr(Sample, 'load', _load)
+    sample = _sample(42)
+    sample.properties
+    sample.properties
+    assert loads == [42]
+
+
+# --- F3: vessel_size end to end ----------------------------------------------------------
+
+def _reaction_json(**extra):
+    return {'id': 1, 'type': 'reaction', 'name': '', 'starting_materials': [], 'reactants': [],
+            'products': [], 'solvents': [], 'purification_solvents': []} | extra
+
+
+def test_a_reaction_with_a_vessel_size_loads():
+    """The parse path flattened `vessel_size` to its amount before validating, so once the model
+    typed it as `{amount, unit}`, every reaction loaded with a vessel size failed to parse. The
+    seeded test reactions have none, which is why the integration suite did not notice."""
+    reaction = Reaction(SEGMENTS, SESSION, json_data=_reaction_json(vessel_size={'amount': 2.0, 'unit': 'l'}))
+    assert reaction._properties['vessel_size'] == {'amount': 2.0, 'unit': 'l'}
+
+
+def test_a_bare_number_sets_the_amount_and_keeps_the_unit():
+    """`properties['vessel_size'] = 200` is natural usage. It used to store the bare float,
+    which then went to the server where `{amount, unit}` is expected."""
+    reaction = _vessel_reaction()                 # {'amount': 2.0, 'unit': 'l'}
+    reaction.properties['vessel_size'] = 5
+    assert reaction._properties['vessel_size'] == {'amount': 5.0, 'unit': 'l'}
+
+
+def test_sample_vessel_size_is_a_volume_in_ml():
+    """The gas maths divides by it; it used to receive the `{amount, unit}` mapping."""
+    reaction = _vessel_reaction()                 # 2 l
+    sample = reaction.properties['starting_materials'][0]
+    assert sample.vessel_size == 2000.0
+    reaction.properties['vessel_size'] = {'amount': 150, 'unit': 'ml'}
+    assert sample.vessel_size == 150.0
+
+
+@pytest.mark.parametrize("given, ml", [
+    (None, None), ({'amount': None, 'unit': 'ml'}, None),
+    ({'amount': 10, 'unit': 'ml'}, 10.0), ({'amount': 2, 'unit': 'l'}, 2000.0), (200, 200.0),
+])
+def test_vessel_volume_ml(given, ml):
+    from chemotion_api.elements.utils import vessel_volume_ml
+    assert vessel_volume_ml(given) == ml
+
+
+# --- F8: a property write validates one field, not the whole property set ----------------
+
+def test_validate_field_passes_unknown_names_through_and_caches():
+    from chemotion_api.models import SamplePropertiesModel, _field_adapter, validate_field
+    assert validate_field(SamplePropertiesModel, 'not_a_model_field', {'x': 1}) == {'x': 1}
+    assert _field_adapter(SamplePropertiesModel, 'purity') is _field_adapter(SamplePropertiesModel, 'purity')
+
+
+def test_an_invalid_value_still_fails_at_assignment():
+    """Validation moved scope, not place: a bad write is still refused where it happens."""
+    sample = _sample(1)
+    sample._data_loaded = True
+    with pytest.raises(Exception):
+        sample.properties['purity'] = 'not a number'
+
+
+def test_a_whole_field_write_copies_nothing(monkeypatch):
+    """It used to deep-copy the entire property set on every write."""
+    import chemotion_api.elements.sample as sample_mod
+    sample = _sample(1)
+    sample._data_loaded = True
+    copies = []
+    real = sample_mod.copy.deepcopy
+    monkeypatch.setattr(sample_mod.copy, 'deepcopy', lambda *a, **k: copies.append(1) or real(*a, **k))
+    sample.properties['purity'] = 0.9
+    assert copies == []
+
+
+def test_an_unrelated_bad_field_no_longer_blocks_a_write():
+    """The one deliberate behaviour change: whole-model validation re-checked every field, so a
+    bad value already sitting in one field made writes to any *other* field fail."""
+    sample = _sample(1)
+    sample._data_loaded = True
+    sample._properties['coefficient'] = 'garbage already stored'
+    sample.properties['purity'] = 0.9
+    assert sample._properties['purity'] == 0.9
+
+
+# --- 2026-11-13 review of v4/align-eln-4.0.1 ----------------------------------------------
+
+def test_a_solvent_amount_set_on_a_loaded_reaction_survives_the_lazy_load(monkeypatch):
+    # A material built from the reaction payload loads its full record lazily. `set_amount` on a
+    # solvent writes `_properties` without reading `properties` first, and the first read (from
+    # `update_equivalent`) used to trigger that load — which re-parsed over the new amount.
+    import copy
+    solvent_json = _sample_json(7, target_amount_unit='l', target_amount_value=0.5)
+    reaction = Reaction(SEGMENTS, SESSION, json_data={
+        'id': 1, 'type': 'reaction', 'name': '', 'starting_materials': [], 'reactants': [],
+        'products': [], 'solvents': [copy.deepcopy(solvent_json)], 'purification_solvents': []})
+    solvent = reaction.properties['solvents'][0]
+    loads = []
+    monkeypatch.setattr(solvent, '_load_data_from_server',
+                        lambda: loads.append(1) or (None, copy.deepcopy(solvent_json)))
+    solvent.set_amount(0.01, 'l')
+    assert loads == [1]
+    assert solvent.properties['target_amount']['value'] == 0.01
+
+
+def test_a_sample_outside_any_reaction_reads_gas_type_off():
+    # A split or copy drops the tag, but keeps the stored role. It must not keep the gas rules:
+    # a feedstock may only be measured in l/mol, which would refuse grams on a plain sample.
+    sample = _sample(gas_type='feedstock')
+    assert sample._properties['gas_type'].value == 'feedstock'      # stored value untouched
+    assert sample.gas_type.value == 'off'
+    assert QuantityUnit.Gram in sample.allowed_quantity_units()
+
+
+def test_a_tagged_sample_reports_its_stored_gas_type_without_a_request():
+    # SESSION has no `get`: any attempt to fetch the reaction would raise.
+    sample = _sample(gas_type='feedstock', tag={'taggable_data': {'reaction_id': 42}})
+    assert sample.gas_type.value == 'feedstock'
+
+
+@pytest.mark.parametrize("raw", ["200", " 200 ", 200, 200.0])
+def test_a_bare_vessel_size_may_be_a_numeric_string(raw):
+    reaction = _reaction([])
+    reaction.properties['vessel_size'] = raw
+    assert reaction.properties['vessel_size'] == {'amount': 200.0, 'unit': 'ml'}

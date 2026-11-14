@@ -166,7 +166,77 @@ SERVER_FIXTURES = {
 }
 
 
+# Integration tests that need the committed seed itself — its admin and second account, its generic
+# klasses ('wrk', 'try'), its prepared reaction, or its exact klass counts — and so cannot run
+# against another instance. Everything else needs only one ordinary account:
+#   ELN_URL=… ELN_USER=… ELN_PASS=… NO_SETUP=1 pytest -m "integration and not seeded"
+SEEDED_MODULES = {
+    'test_generic_manager.py', 'test_share.py', 'test_workflow.py', 'test_generic.py',
+    'test_reaction_variants.py', 'test_groups.py',
+}
+SEEDED_TESTS = {
+    'test_user.py::test_get_user', 'test_user.py::test_create_device_and_delete',
+    'test_json_ld.py::test_new_generics', 'test_collection_kinds.py::test_move_element_kind[generic]',
+}
+
+
 def pytest_collection_modifyitems(config, items):
     for item in items:
         if SERVER_FIXTURES.intersection(getattr(item, "fixturenames", [])):
             item.add_marker(pytest.mark.integration)
+        if item.get_closest_marker('integration') and (
+                item.path.name in SEEDED_MODULES or f'{item.path.name}::{item.name}' in SEEDED_TESTS):
+            item.add_marker(pytest.mark.seeded)
+
+
+# Some integration tests are stateful chains against the *seed* and fail, with errors that look like
+# regressions, on a stack that has already run them. Until they are rewritten to be self-contained
+# (owner, 2026-11-13: fail fast for now), refuse to start them on a used seed. Checked once, in the
+# parent process (tests run forked), and only for the chains actually selected.
+#
+#   test_generic_manager.py — creates klass 'ttes', later tests fetch it by name, assert versions
+#                             such as '1.1' and count the seed's klasses.
+#   test_share.py           — test_new_user creates person 'VDR'; test_share_group then expects
+#                             VDR to see exactly one shared collection.
+
+
+def _generic_chain_used(instance) -> str | None:
+    names = {klass.name for klass in instance.generic_manager().load_all_elements()}
+    return "klass 'ttes' exists" if 'ttes' in names else None
+
+
+def _share_chain_used(instance) -> str | None:
+    found = [u for u in instance.find_user_by_name('TestUSer Mega') if u.name_abbreviation == 'VDR']
+    return "user 'VDR' exists" if found else None
+
+
+_SEED_CHAINS = {
+    'test_generic_manager.py': _generic_chain_used,
+    'test_share.py': _share_chain_used,
+}
+
+
+def pytest_collection_finish(session):
+    if session.config.option.collectonly:
+        return      # listing tests must not contact a server
+    selected = {item.path.name for item in session.items
+                if item.path.name in _SEED_CHAINS and item.get_closest_marker('integration')}
+    if not selected:
+        return
+    from chemotion_api import Instance  # lazy, as in the fixtures
+    try:
+        instance = Instance(CONFIG['ELN_URL']).test_connection().login(CONFIG['ELN_USER'], CONFIG['ELN_PASS'])
+        used = {name: _SEED_CHAINS[name](instance) for name in sorted(selected)}
+    except Exception as e:  # no server: let the tests report that themselves
+        logging.warning('Could not check whether the seed is fresh: %s', e)
+        return
+    used = {name: why for name, why in used.items() if why}
+    if used:
+        reasons = '; '.join(f'{name} ({why})' for name, why in used.items())
+        deselect = ' '.join(f'--deselect {name}' for name in used)
+        pytest.exit(
+            f'The test stack has already run tests that need a fresh seed: {reasons}. On this stack '
+            f'several of them would fail for reasons unrelated to the code. Reseed first: '
+            f'`just stack-reset` (check for **SUCCESS**). To run other tests on this stack, '
+            f'deselect them: {deselect}.',
+            returncode=4)

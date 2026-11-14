@@ -126,10 +126,10 @@ def test_an_unsaved_element_is_refused_before_any_request():
 
 
 def test_an_unexercised_kind_is_refused_rather_than_guessed():
-    """The server may well accept a wellplate; this client only sends kinds it has exercised."""
+    """The server may well accept a vessel; this client only sends kinds it has exercised."""
     session = _Session()
-    with pytest.raises(ValueError, match="not implemented"):
-        _collection(session).remove_elements(_element("wellplate", 3))
+    with pytest.raises(ValueError, match="not supported by this client"):
+        _collection(session).remove_elements(_element("vessel", 3))
     assert session.calls == []
 
 

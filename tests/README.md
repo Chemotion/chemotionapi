@@ -36,10 +36,18 @@ cd tests && python -m pytest -p no:forked -q
 # Docker is the only requirement; defaults (port 3579, seed users) live in conftest.py.
 just test-integration
 
-# Against an already-running or external instance instead, skip the setup and override via env:
-ELN_URL=http://... ELN_USER=... ELN_PASS=... NO_SETUP=1 \
-  python -m pytest -m integration -q
+# Against the already-running test stack, skip the setup (reseed first: just stack-reset):
+NO_SETUP=1 python -m pytest -m integration -q
+
+# Against any other ELN v4 instance, with one ordinary account. Tests marked `seeded` need the
+# committed seed (its admin and second account, its generic klasses, its prepared reaction) and
+# are left out:
+ELN_URL=https://... ELN_USER=... ELN_PASS=... NO_SETUP=1 \
+  python -m pytest -m "integration and not seeded" -q
 ```
+
+The tests create their own collections (named `API_TEST_…`) and elements on that instance and do
+not delete them, so use a test instance or account.
 
 `just check` runs lint, types and the offline suite — no server involved.
 

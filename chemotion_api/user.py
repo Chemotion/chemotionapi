@@ -433,8 +433,9 @@ class Device(User):
         super().__init__(session)
         self.is_super_device: bool | None = None
 
-    def get_jwt(self):
-        return DeviceManager(self._session).get_jwt_for_device(self.id)
+    # ``get_jwt()`` was removed in 401.0 along with ``DeviceManager.get_jwt_for_device``: it
+    # fetched ``/api/v1/devices/remote/jwt/:id``, a route no Chemotion release serves, so it
+    # could only ever raise. No replacement exists to point it at.
 
     def delete(self):
         url = f"/api/v1/admin/group_device/update/{self.id}"
@@ -487,10 +488,48 @@ class Admin(Person):
             else:
                 self.users.append(user)
 
-    def create_device(self, first_name: str, last_name: str, name_abbreviation: str) -> Device:
-        data = self._create_group_device(first_name=first_name, last_name=last_name,
-                                         name_abbreviation=name_abbreviation, rootType='Device')
-        return Device(self._session).populate(data)
+    def create_device(self, name: str, name_abbreviation: str, email: str | None = None,
+                      serial_number: str | None = None) -> Device:
+        """Create a device.
+
+        ``POST /api/v1/admin_devices``. Admin only.
+
+        **The signature changed in 401.0, because the old one could not work.** It previously took
+        ``first_name``/``last_name`` and posted to ``/api/v1/admin/group_device/create`` with
+        ``rootType: 'Device'`` — but ``Device`` has ``validates :name, presence: true`` (since at
+        least ELN 3.1.2) and that endpoint declares no ``name`` parameter, so Grape's ``declared``
+        dropped any attempt to supply one. Every call failed with
+        ``Validation failed: Name Please enter a name``. ``create_group`` is unaffected: groups
+        have no such validation and still go through that endpoint.
+
+        :param name: the device's display name — required by the server.
+        :param name_abbreviation: short label; must be unique across devices.
+        :param email: optional; the server generates one when omitted.
+        :param serial_number: optional.
+        :return: the created :class:`Device`.
+        :raises ConnectionError: if the server rejects it — including the case where it answers
+            ``201`` with an ``errors`` body, which a status check alone would read as success.
+        """
+        data: dict = {'name': name, 'name_abbreviation': name_abbreviation}
+        if email is not None:
+            data['email'] = email
+        if serial_number is not None:
+            data['serial_number'] = serial_number
+
+        res = self._session.post('/api/v1/admin_devices', data=data)
+        if res.status_code == 401:
+            raise PermissionError('Not allowed to create a device (only Admin)')
+        if res.status_code not in (200, 201):
+            raise ConnectionError(f'{res.status_code} -> {res.text}')
+        body = res.json()
+        # A rejected device comes back 201 with `errors` (the group endpoint uses `error`), so
+        # both spellings have to be checked or a failed create reads as a success.
+        if 'errors' in body or 'error' in body:
+            raise ConnectionError(f'{res.text}')
+        # `DeviceEntity` carries no `type`, but `is_device()` reads one — without this the
+        # returned object raises AttributeError on a basic accessor. `fetchDevices` adds it the
+        # same way.
+        return Device(self._session).populate(body.get('device', body) | {'type': 'Device'})
 
     def create_group(self, first_name: str, last_name: str, name_abbreviation: str) -> Group:
         data = self._create_group_device(first_name=first_name, last_name=last_name,
@@ -553,31 +592,19 @@ class DeviceManager:
     def __init__(self, session: Connection):
         self._session = session
 
-    def get_jwt_for_device(self, id: int):
-        user_url = f'/api/v1/devices/remote/jwt/{id}'
-        res = self._session.get(user_url)
-        if res.status_code == 401:
-            raise PermissionError('Not allowed to fetch JWT (Only for super devices or admins)')
-        elif res.status_code != 200:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
-
-        return res.json()['token']
-
-    def create_new_device(self, first_name: str, last_name: str, name_abbreviation: str, email: str = None) -> Device:
-        user_url = f'/api/v1/devices/remote/create'
-        data = {
-            'first_name': first_name,
-            'last_name': last_name,
-            'name_abbreviation': name_abbreviation,
-        }
-        if email is not None: data['email'] = email
-        res = self._session.post(user_url, data=data)
-        if res.status_code == 401:
-            raise PermissionError('Create device not is allowed! (Only for super devices or admins)')
-        elif res.status_code != 201 or res.json().get('error') is not None:
-            raise ConnectionError(f'{res.status_code} -> {res.text}')
-
-        return Device(self._session).populate(res.json())
+    # ``get_jwt_for_device`` and ``create_new_device`` were removed in 401.0. They posted to
+    # ``/api/v1/devices/remote/jwt/:id`` and ``/api/v1/devices/remote/create``, which exist in no
+    # Chemotion release (checked against 3.1.1, 3.1.2, 3.1.3, 4.0.0 and 4.0.1, and absent from the
+    # server's own Swagger). Every call raised ConnectionError on a 404.
+    #
+    # They are not repointable. There is no device-JWT route in any version. And ``POST
+    # /api/v1/devices`` describes an *instrument* (``title``/``code``/``types``/``samples``), not
+    # the device-*user* these took (``first_name``/``last_name``/``name_abbreviation``), so
+    # aiming them at it would change what the methods mean rather than repair them.
+    #
+    # To create a device, use :meth:`Admin.create_device`, which posts to
+    # ``/api/v1/admin_devices``, returns a typed :class:`Device`, and raises when the server
+    # reports an error in an otherwise-201 response.
 
     def add_users_to_group(self, group: Group, *users: User):
         return self.add_users_to_group_by_id(group, *[u.id for u in users if u.is_person()])

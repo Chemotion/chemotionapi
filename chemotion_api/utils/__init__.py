@@ -430,6 +430,39 @@ def quill_hedging(input: str | dict, name: str) -> dict[str:list]:
     return input
 
 
+def text_to_quill(text: str) -> dict:
+    """Turn plain text into a Quill delta, the ELN's rich-text format — the counterpart of
+    :func:`quill_to_text`.
+
+    The result is a single insert ending in a newline, the shape the ELN's own editor creates
+    (Quill 2 / quill-delta 5; the format is documented at https://quilljs.com/docs/delta). Use it
+    to write a rich-text property::
+
+        reaction.properties['observation'] = text_to_quill('turned yellow after 5 min')
+
+    :raises TypeError: if ``text`` is not a string.
+    """
+    if not isinstance(text, str):
+        raise TypeError(f'text_to_quill() takes a string, not {type(text).__name__}')
+    return {'ops': [{'insert': text if text.endswith('\n') else text + '\n'}]}
+
+
+def is_quill_document(value) -> bool:
+    """Whether ``value`` is a well-formed Quill *document* delta: ``{"ops": [...]}`` whose ops are
+    all inserts (text or an embed mapping), each with optional ``attributes``."""
+    from collections.abc import Mapping
+    if not isinstance(value, (Mapping, PropertyDict)) or not isinstance(value.get('ops'), list):
+        return False
+    for op in value['ops']:
+        if not isinstance(op, Mapping) or set(op) - {'insert', 'attributes'} or 'insert' not in op:
+            return False
+        if not isinstance(op['insert'], (str, Mapping)):
+            return False
+        if 'attributes' in op and not isinstance(op['attributes'], Mapping):
+            return False
+    return True
+
+
 def quill_to_text(value) -> str:
     """Flatten a Chemotion rich-text value to plain text.
 
@@ -506,7 +539,10 @@ def break_parent_cycles(parent_of: dict) -> set:
             chain.append(node)
             node = parent_of.get(node)
         if node is not None and node in seen:
-            cyclic.update(chain)          # the walk re-entered itself
+            # The walk re-entered itself at `node`. Only the suffix from there is the cycle;
+            # the nodes before it merely *lead into* one and keep a perfectly good parent, so
+            # promoting them to roots would flatten a subtree that was not itself broken.
+            cyclic.update(chain[chain.index(node):])
         else:
             settled.update(chain)
     return cyclic

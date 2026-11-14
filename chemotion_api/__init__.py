@@ -5,13 +5,14 @@ reaching every other part of the client: collections and elements, users/groups/
 and generic managers, sample/reaction search, and the inbox. Typical use is::
 
     from chemotion_api import Instance
-    instance = Instance("https://my.chemotion").test_connection().login("user", "password")
+    instance = Instance("https://my.chemotion").test_connection().login_token("chemtoken_...")
     root = instance.get_root_collection()
 
 """
 
 import logging as _logging
 import typing
+import warnings as _warnings
 from typing import TypeVar, Optional, Self
 
 # Library logging hygiene: attach a NullHandler so importing chemotion_api never emits log
@@ -27,11 +28,22 @@ from chemotion_api.search.reaction import ReactionSearcher
 from chemotion_api.search.sample import SampleSearcher
 from chemotion_api.user import User, Admin, Person, Device, Group, DeviceManager, Affiliation, UserLabel
 from urllib.parse import urlparse
-from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, \
+from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan, Screen, \
+    SbmmSample, CellLine, DeviceDescription, \
     AbstractElement
 from chemotion_api.elements.sample import MoleculeManager
-from chemotion_api.connection import Connection
+from chemotion_api.connection import Connection, request_error
+# Rich-text helpers, public: reaction descriptions/observations and wellplate/screen descriptions
+# are Quill deltas, written explicitly with text_to_quill() and read back with quill_to_text().
+from chemotion_api.utils import text_to_quill, quill_to_text  # noqa: F401
 from chemotion_api.schema_manager import SUPPORTED_ELN_MAJOR, UnsupportedServerVersion
+
+#: Shown by :meth:`Instance.login` and by ``Instance(username=..., password=...)``.
+PASSWORD_LOGIN_DEPRECATED = (
+    'Logging in with a user name and password is deprecated. Create an API token in the ELN (Account & Profile > Account > Authentication Token; '
+    'the ELN requires two-factor authentication for this) and use Instance.login_token(token) or '
+    'Instance(url, token=token).'
+)
 
 TInstance = TypeVar("TInstance", bound="Instance")
 
@@ -52,14 +64,15 @@ class Instance:
     >>> from chemotion_api import Instance
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
 
 
     """
 
-    def __init__(self, host_url: str | Connection, verify_ssl: bool = True, username: str | None = None, password: str | None = None):
+    def __init__(self, host_url: str | Connection, verify_ssl: bool = True, username: str | None = None,
+                 password: str | None = None, token: str | None = None):
         if isinstance(host_url, Connection):
             self._con = host_url
         else:
@@ -67,9 +80,15 @@ class Instance:
         self._root_col: RootCollection | None = None
         self._inbox: Inbox | None = None
         self.element_manager = ElementManager(self._con)
-        if username and password:
+        if token and (username or password):
+            raise ValueError('Give either token, or username and password, not both')
+        if token:
             self.test_connection()
-            self.login(username, password)
+            self.login_token(token)
+        elif username and password:
+            _warnings.warn(PASSWORD_LOGIN_DEPRECATED, FutureWarning, stacklevel=2)
+            self.test_connection()
+            self._login_password(username, password)
 
     def __enter__(self) -> Self:
         return self
@@ -143,6 +162,16 @@ class Instance:
         self._con.schema_manager  # noqa: B018  (property access performs the check)
         return self
 
+    def _check_server_version(self) -> None:
+        """Apply the ELN version gate before credentials go anywhere.
+
+        It used to run only inside :meth:`test_connection`, so ``Instance(url).login(...)`` —
+        the documented way to log in — skipped it, and a client for one ELN major version would
+        log in to another and fail later on whichever endpoint had moved. ``schema_manager`` is
+        cached, so this costs one unauthenticated ``/about`` request per connection at most.
+        """
+        self._con.schema_manager  # noqa: B018  (property access performs the check)
+
     def get_all_types(self) -> list[str]:
         """
         Generates a list of all JSON-LD types (IRIs) in the system.
@@ -156,14 +185,28 @@ class Instance:
         This login method allows you to log in to a Chemotion instance.
         To do this, you need a valid Chemotion user (name abbreviation or e-mail) and password.
 
+        .. deprecated:: 401.0.0
+            Logging in with a user name and password is deprecated. Create an API token in the ELN (*Account & Profile* → *Account* → *Authentication
+            Token*; the ELN requires two-factor authentication for this) and use
+            :meth:`login_token`, or ``Instance(url, token=...)``. Calling this method issues a
+            :class:`FutureWarning`.
+
         :param user: name abbreviation or e-mail of a Chemotion user
         :param password: The password of the user
 
         :return: the instance itself
 
         :raise PermissionError: if the login was not successful.
+        :raises UnsupportedServerVersion: if the instance is not a supported ELN version. Checked
+            before the password is sent; free when :meth:`test_connection` already ran.
         """
+        _warnings.warn(PASSWORD_LOGIN_DEPRECATED, FutureWarning, stacklevel=2)
+        return self._login_password(user, password)
 
+    def _login_password(self, user: str, password: str) -> Self:
+        """:meth:`login` without its deprecation warning, so each public entry point warns once,
+        attributed to the caller's own line."""
+        self._check_server_version()
         payload = {'username': user, 'password': password}
         login_url = "/api/v1/public/token"
 
@@ -179,17 +222,20 @@ class Instance:
     def login_token(self, jwt_token: str) -> Self:
         """
         You can use this login_token method to log in to a Chemotion instance.
-        To do this, you need a valid Chemotion JWT. The token of a logged-in instance can be read
-        with the :attr:`token` property; a token for a device can be generated with the
-        :attr:`device_manager`.
+        To do this, you need a valid Chemotion token: an API token (``chemtoken_…``), created in
+        the ELN under *Account & Profile* → *Account* → *Authentication Token* (the ELN requires
+        two-factor authentication for this), or a JWT. The token of a
+        logged-in instance can be read with the :attr:`token` property.
 
         The token is not checked by this method. An invalid token causes the following requests to fail.
 
         :param jwt_token: a JSON Web Token.
 
         :return: the instance itself
-        """
 
+        :raises UnsupportedServerVersion: if the instance is not a supported ELN version.
+        """
+        self._check_server_version()
         self._con.set_bearer_token(jwt_token)
         return self
 
@@ -234,6 +280,26 @@ class Instance:
         """
         return self.get_user().get_user_labels(refresh=refresh)
 
+    def save_user_label(self, label: UserLabel) -> UserLabel:
+        """Create a user label (``label.id`` is ``None``) or update one of yours.
+
+        ``PUT /api/v1/user_labels/save_label``. The server overwrites every field a request leaves
+        out — an omitted ``access_level`` makes a shared label private again — so the whole label
+        is always sent; set every field you want to keep. Labels are applied to an element through
+        its ``properties['user_labels']`` (a list of label ids) and ``save()``.
+
+        :return: the label as the server stored it. The cached label list is refreshed.
+        :raises ValueError: if ``label.id`` is not one of your labels (404).
+        """
+        res = self._con.put('/api/v1/user_labels/save_label', data=label.to_dict())
+        if res.status_code == 404:
+            raise ValueError(f'Label {label.id} does not exist or is not yours.')
+        if res.status_code not in (200, 201):
+            raise request_error(res, 'saving a user label')
+        self._con.reset_user_labels()
+        body = res.json()
+        return UserLabel.from_json(body.get('user_label', body) if isinstance(body, dict) else {})
+
     def find_user_by_name(self, name: str) -> list[Person]:
         """
         This find_user_by_name method finds all users by name and returns the three top matches.
@@ -259,8 +325,12 @@ class Instance:
         if reload or self._root_col is None:
             self._root_col = RootCollection(self._con)
             self._root_col.set_element_manager(self.element_manager)
-            self._root_col.load_collection()
-            self._root_col.load_sync_collection()
+            # One request serves both halves of the listing. Passed explicitly rather than
+            # cached on the collection, so a later standalone load_sync_collection() can never
+            # be handed this listing after it has gone stale.
+            listing = self._root_col._fetch_collections()
+            self._root_col.load_collection(listing)
+            self._root_col.load_sync_collection(listing)
         return typing.cast(RootCollection, self._root_col)
 
     def get_collection_by_id(self, collection_id: int) -> Collection:
@@ -337,7 +407,7 @@ class Instance:
         >>> from chemotion_api.search.utils import EnumMatch, EnumConnector
         >>>
         >>> try:
-        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
         >>> except ConnectionError as e:
         >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
         >>> (instance.search_sample().
@@ -365,7 +435,7 @@ class Instance:
         >>> from chemotion_api.search.utils import EnumMatch, EnumConnector
         >>>
         >>> try:
-        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+        >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
         >>> except ConnectionError as e:
         >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
         >>> (instance.search_reaction().
@@ -391,6 +461,13 @@ class Instance:
         """
         return self.element_manager.all_classes
 
+    def _get_element(self, type_name: str, id: int) -> AbstractElement:
+        """Load one element of a built-in type by its database id."""
+        element_type = self.all_element_classes.get(type_name)
+        if element_type is None:
+            raise ValueError(f'The server has no element type "{type_name}".')
+        return ElementSet(self._con, element_type).load_element(id)
+
     def get_reaction(self, id: int) -> Reaction:
         """
         Fetches data of one Reaction object from the Chemotion server.
@@ -402,8 +479,7 @@ class Instance:
         :return: a Reaction object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('reaction')))
-        return typing.cast(Reaction, e.load_element(id))
+        return typing.cast(Reaction, self._get_element('reaction', id))
 
     def get_wellplate(self, id: int) -> Wellplate:
         """
@@ -416,8 +492,7 @@ class Instance:
         :return: a Wellplate object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('wellplate')))
-        return typing.cast(Wellplate, e.load_element(id))
+        return typing.cast(Wellplate, self._get_element('wellplate', id))
 
     def get_research_plan(self, id: int) -> ResearchPlan:
         """
@@ -430,8 +505,43 @@ class Instance:
         :return: a ResearchPlan object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('research_plan')))
-        return typing.cast(ResearchPlan, e.load_element(id))
+        return typing.cast(ResearchPlan, self._get_element('research_plan', id))
+
+    def get_cell_line(self, id: int) -> CellLine:
+        """
+        Fetches one cell-line sample by its database id.
+
+        :param id: The Database ID of the desired Element
+        :return: a CellLine object
+        """
+        return typing.cast(CellLine, self._get_element('cell_line', id))
+
+    def get_sbmm_sample(self, id: int) -> SbmmSample:
+        """
+        Fetches one sequence-based macromolecule (SBMM) sample by its database id.
+
+        :param id: The Database ID of the desired Element
+        :return: an SbmmSample object
+        """
+        return typing.cast(SbmmSample, self._get_element('sequence_based_macromolecule_sample', id))
+
+    def get_device_description(self, id: int) -> DeviceDescription:
+        """
+        Fetches one device description by its database id.
+
+        :param id: The Database ID of the desired Element
+        :return: a DeviceDescription object
+        """
+        return typing.cast(DeviceDescription, self._get_element('device_description', id))
+
+    def get_screen(self, id: int) -> Screen:
+        """
+        Fetches one Screen from the Chemotion server by its database id.
+
+        :param id: The Database ID of the desired Element
+        :return: a Screen object
+        """
+        return typing.cast(Screen, self._get_element('screen', id))
 
     def get_sample(self, id: int) -> Sample:
         """
@@ -444,8 +554,7 @@ class Instance:
         :return: a Sample object
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self._con, typing.cast(dict, self.all_element_classes.get('sample')))
-        return typing.cast(Sample, e.load_element(id))
+        return typing.cast(Sample, self._get_element('sample', id))
 
     def get_generic_by_name(self, name: str, id: int) -> GenericElement:
         """
@@ -459,14 +568,28 @@ class Instance:
         :param id: The Database ID of the desired Element
         :return: a GenericElement object
 
-        :raises ValueError: if no generic element type has this name
+        :raises ValueError: if no generic element type has this name, or if the element with this
+            id is of a *different* generic type
         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
         elem = self.all_element_classes.get(name)
         if elem is None:
             raise ValueError(f'Could not find a generic element under the name: "{name}"')
         e = ElementSet(self._con, elem)
-        return typing.cast(GenericElement, e.load_element(id))
+        element = typing.cast(GenericElement, e.load_element(id))
+        # The server resolves a generic element by id alone — the type in the request path does
+        # not scope the lookup. So asking for `try` id 3 happily returns a `wrk` element, and
+        # without this check the caller gets an object of the wrong type with no indication at
+        # all (reported as issue #14). Confirmed still true on ELN v4.0.1.
+        # Built-in types (`sample`, `reaction`, …) are in `all_element_classes` too, and they are
+        # not GenericElements — they have no `klass_name`. Reading it unconditionally would turn
+        # a working call into an AttributeError.
+        actual = getattr(element, 'klass_name', None)
+        if actual is not None and actual != name:
+            raise ValueError(
+                f'Element {id} is a "{actual}", not a "{name}". The server looks a generic '
+                f'element up by id alone, so the id, not the type, decides what you get.')
+        return element
 
     def get_generic_by_label(self, label: str, id: int) -> GenericElement:
         """
@@ -506,6 +629,25 @@ class Instance:
             raise ValueError(f'Could not find a generic element under the name: "{path_array[-2]}"')
         e = ElementSet(self._con, elem)
         return e.load_element(int(path_array[-1][:-5]))
+
+    def import_zip(self, path: str) -> list[Collection]:
+        """Import a Chemotion collection export archive into your collections.
+
+        ``POST /api/v1/collections/import``; the server imports before it answers. Returns the
+        collections that are new afterwards (it may create more than one).
+
+        :raises PermissionError: on 401.
+        :raises ValueError: if the archive is too large or the server reports the import failed.
+        """
+        from chemotion_api.utils.collection_zip import import_collection_zip
+
+        def ids(root) -> set[int]:
+            return {c.id for c in root.walk() if isinstance(c.id, int)}
+
+        before = ids(self.get_root_collection())
+        import_collection_zip(self._con, path)
+        root = self.get_root_collection()
+        return [c for c in root.walk() if isinstance(c.id, int) and c.id not in before]
 
     def molecule(self) -> MoleculeManager:
         """

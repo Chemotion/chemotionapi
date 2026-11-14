@@ -1,0 +1,10 @@
+{
+  "type": "cell_line",
+  "name": "New cell line",
+  "amount": null,
+  "unit": null,
+  "passage": null,
+  "contamination": null,
+  "description": null,
+  "cellline_material": {}
+}

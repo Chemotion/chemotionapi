@@ -1,4 +1,5 @@
 """Research plan element and its rich-text/table body model."""
+import logging
 import uuid
 from enum import Enum
 from string import ascii_lowercase
@@ -9,7 +10,10 @@ from typing import Self
 
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.sample import Sample
+from chemotion_api.models import ResearchPlanPropertiesModel
 from chemotion_api.elements.abstract_element import AbstractElement
+
+logger = logging.getLogger(__name__)
 
 
 class BodyElements(Enum):
@@ -32,7 +36,7 @@ class Table(dict):
     >>> from chemotion_api.collection import Collection
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
     >>> # Get the research plan with ID 1
@@ -198,8 +202,9 @@ class RichText(dict):
         H3 = 3
 
     def __init__(self, id: str, value: dict | None = None):
-        if value is None:
-            value = {"ops": []}
+        if not isinstance(value, dict):
+            # The ELN creates a text block with value '' until someone types in it.
+            value = {"ops": [{"insert": value}]} if isinstance(value, str) and value else {"ops": []}
         value = {"ops": value.get('ops', [])}
 
         super().__init__(**{
@@ -278,7 +283,7 @@ class ResearchPlan(AbstractElement):
     >>> from chemotion_api.elements.research_plan import Table, RichText
     >>> import logging
     >>> try:
-    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>>     instance = Instance('http(d)://xxx.xxx.xxx').test_connection().login_token('<API TOKEN>')
     >>> except ConnectionError as e:
     >>>     logging.error(f"A connection to Chemotion ({instance.host_url}) cannot be established")
     >>> # Get the research plan with ID 1
@@ -345,39 +350,58 @@ class ResearchPlan(AbstractElement):
     def _parse_sample(self, value):
         if value is None or value.get('sample_id') is None:
             return None
-        return Sample(self._generic_segments,
-                      self._session,
-                      id=value.get('sample_id'), element_type='sample')
+        return self._linked(Sample, 'sample', value, 'sample_id')
 
     def _parse_reaction(self, value):
         if value is None or value.get('reaction_id') is None:
             return None
-        return Reaction(self._generic_segments,
-                        self._session,
-                        id=value.get('reaction_id'), element_type='reaction')
+        return self._linked(Reaction, 'reaction', value, 'reaction_id')
+
+    def _linked(self, cls, element_type: str, value: dict, key: str):
+        """Load an element the plan links to; on failure keep the link as it was.
+
+        A linked element may be deleted, or unreadable to you in a shared collection (404/401).
+        That must not make the whole plan unloadable: the raw ``{key: id}`` stays in the body and
+        is written back unchanged on save.
+        """
+        try:
+            return cls(self._generic_segments, self._session, id=value.get(key), element_type=element_type)
+        except Exception as e:  # noqa: BLE001 — any load failure; logged, and the link is kept
+            logger.warning('Research plan %s: linked %s %s could not be loaded (%s); kept as a link.',
+                           self.id, element_type, value.get(key), e)
+            return dict(value)
 
     def _parse_text(self, value):
         return RichText(value['id'], value['value'])
 
     def _parse_image(self, value):
-        if value is None: return None
+        if value is None:
+            return None
         try:
             res = self.attachments.load_attachment(identifier=value.get('public_name'))
         except ValueError:
-            return None
+            # The attachment is gone; keep the block as it was, so a save neither crashes nor
+            # drops it.
+            return dict(value)
+        self._image_values[res['identifier']] = dict(value)
         return res
 
     def _parse_table(self, value):
-        return Table(value['id'], value['value'], value.get('startCollapsed', False))
+        inner = value.get('value') or {}
+        # The ELN keeps it inside the value (`field.value.startCollapsed`).
+        return Table(value['id'], inner, inner.get('startCollapsed', value.get('startCollapsed', False)))
 
     def _parse_ketcher(self, value):
         return value
 
+    _properties_model = ResearchPlanPropertiesModel
+
     def _parse_properties(self) -> dict:
+        self._image_values: dict[str, dict] = {}     # image identifier -> the stored block value
         body = cast(dict, self.json_data).get('body')
-        return {
+        return self._validated_properties({
             'body': [self._parse_body_element(x) for x in cast(list, body)]
-        }
+        })
 
     def _clean_properties_data(self, serialize_data: dict | None = None) -> dict:
         cast(dict, self.json_data)['body'] = []
@@ -473,27 +497,39 @@ class ResearchPlan(AbstractElement):
             elem_data['title'] = 'Text'
         return elem_data
 
-    def _reparse_sample(self, value: Sample | None):
+    def _reparse_sample(self, value: Sample | dict | None):
         if value is None:
             return {'sample_id': None}
+        if isinstance(value, dict):
+            return value                     # a link that could not be loaded, kept as it was
         return {'sample_id': value.id}
 
-    def _reparse_reaction(self, value: Reaction | None):
+    def _reparse_reaction(self, value: Reaction | dict | None):
         if value is None:
             return {'reaction_id': None}
+        if isinstance(value, dict):
+            return value
         return {'reaction_id': value.id}
 
     def _reparse_text(self, value):
         return value
 
     def _reparse_image(self, value):
-        return {
+        if value is None:
+            return None
+        if 'public_name' in value and 'identifier' not in value:
+            return dict(value)               # an image whose attachment was missing, kept as it was
+        # Keep what the ELN stored beside the file (its `zoom`, for one) and update the file.
+        return self._image_values.get(value['identifier'], {}) | {
             'public_name': value['identifier'],
             'file_name': value['filename']
         }
 
     def _reparse_table(self, value):
-        return dict(value)
+        out = dict(value)
+        collapsed = out.pop('startCollapsed', False)
+        out['value'] = dict(out.get('value') or {}) | {'startCollapsed': bool(collapsed)}
+        return out
 
     def _reparse_ketcher(self, value):
         return value

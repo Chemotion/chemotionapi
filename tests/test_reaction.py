@@ -24,8 +24,8 @@ def instance_with_test_reaction(instance_with_test_samples):
 def test_get_collection_from_reaction(instance_with_test_reaction: dict):
     logged_in_instance: Instance = instance_with_test_reaction['instance']
     col: Collection = instance_with_test_reaction['main_collection']
-    reaction = logged_in_instance.get_reaction(1)
-    assert logged_in_instance.get_collection_of_element(reaction).id == 11
+    reaction = logged_in_instance.get_reaction(instance_with_test_reaction['reaction'].id)
+    assert logged_in_instance.get_collection_of_element(reaction).id == col.id
 
 
 def test_get_reaction_success(instance_with_test_reaction: dict):
@@ -218,7 +218,7 @@ def test_extended_reaction_amount(instance_with_test_reaction: dict):
     col = instance_with_test_reaction['main_collection']
     sol = col.new_solvent('Acetone')
     sol.set_amount(300, 'l')
-    reactant = i.get_sample(2)
+    reactant = i.get_sample(instance_with_test_reaction['sample_ids'][1])   # ammonia
     st_mt = col.new_sample_smiles('N')
     pr_mt = col.new_sample_smiles('NO')
     st_mt.save()
@@ -295,3 +295,52 @@ def test_reaction_yield_properties(instance_with_test_reaction: dict):
     assert reloaded_reaction.properties.get('yield') == 85.0
 
 
+
+
+def test_solvent_amount_set_on_a_loaded_reaction_is_saved(instance_with_test_reaction: dict):
+    """A material built from the reaction payload loads its full record lazily. A solvent's
+    `set_amount` used to write first and trigger that load second, so the load re-parsed over the
+    new amount and `save()` sent the old one back, reporting success."""
+    i = instance_with_test_reaction['instance']
+    col = instance_with_test_reaction['main_collection']
+    sol = col.new_solvent('Acetone')
+    sol.set_amount(0.5, 'l')
+    st_mt = col.new_sample_smiles('N')
+    st_mt.save()
+    reaction = col.new_reaction()
+    reaction.starting_materials.append(st_mt)
+    reaction.solvents.append(sol)
+    reaction.save()
+
+    loaded = i.get_reaction(reaction.id)
+    loaded.solvents[0].set_amount(0.01, 'l')
+    assert loaded.solvents[0].properties['target_amount']['value'] == 0.01
+    loaded.save()
+
+    assert i.get_reaction(reaction.id).solvents[0].properties['target_amount']['value'] == 0.01
+
+
+def test_loading_and_saving_a_reaction_keeps_its_reference(instance_with_test_reaction: dict):
+    """Materials used to refetch /samples/:id, which lacks the link fields, and save() wrote the
+    loss back: the reaction's reference flag was cleared on the server."""
+    i = instance_with_test_reaction['instance']
+    col = instance_with_test_reaction['main_collection']
+    ref, other = col.new_sample_smiles('N'), col.new_sample_smiles('O')
+    reaction = col.new_reaction()
+    reaction.starting_materials.append(ref)
+    reaction.reactants.append(other)
+    reaction.reference_sample = reaction.starting_materials[0]
+    reaction.starting_materials[0].set_amount(1.0, 'mol')
+    reaction.reactants[0].set_amount(2.0, 'mol')
+    reaction.save()
+
+    loaded = i.get_reaction(reaction.id)
+    assert loaded.starting_materials[0].properties['reference'] is True
+    before = loaded.reactants[0].properties['equivalent']
+    loaded.properties['name'] = 'renamed'
+    loaded.save()
+
+    again = i.get_reaction(reaction.id)
+    assert again.starting_materials[0].properties['reference'] is True
+    assert again.reference_sample is not None
+    assert again.reactants[0].properties['equivalent'] == before

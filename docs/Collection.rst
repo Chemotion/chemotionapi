@@ -53,6 +53,21 @@ Elements cannot be moved or removed from the root ('All') collection:
     src.remove_elements(sample)           # or sample.remove_from(src)
 
 
+Export and import
+*****************
+
+A collection can be exported in the ELN's own archive format, the same ZIP its web interface
+produces, with :meth:`chemotion_api.collection.Collection.export_zip`. The ELN builds the archive
+in the background; the method waits for it and saves it. Such an archive is imported with
+:meth:`chemotion_api.Instance.import_zip`, which returns the collections it created. This is
+Chemotion's native format, not ``.eln``.
+
+.. code-block:: python
+
+    archive = col.export_zip('project.zip')
+    new_collections = instance.import_zip(archive)
+
+
 .. autoclass:: chemotion_api.collection.RootCollection
     :members:
     :inherited-members:

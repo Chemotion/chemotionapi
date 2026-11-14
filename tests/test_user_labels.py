@@ -197,3 +197,45 @@ def test_element_labels_trigger_the_lazy_load_like_properties_does():
     resolved = AbstractElement.user_labels_resolved.fget(element)
     assert [lbl.id for lbl in resolved] == [3, 5]
     assert element._data_loaded is True
+
+
+# --- writes (401.0) -------------------------------------------------------------------------
+
+def _new_label(instance, **kw):
+    import uuid
+    from chemotion_api.user import UserLabel
+    return instance.save_user_label(UserLabel(title=f'API test {uuid.uuid4().hex[:6]}',
+                                              color='#123456', access_level=0, **kw))
+
+
+def test_save_user_label_creates_then_updates_every_field(logged_in_instance):
+    label = _new_label(logged_in_instance, description='first')
+    assert label.id is not None and label.description == 'first'
+    label.description = 'second'
+    updated = logged_in_instance.save_user_label(label)
+    assert (updated.id, updated.description, updated.color) == (label.id, 'second', '#123456')
+    assert updated.id in {l.id for l in logged_in_instance.get_user_labels(refresh=True)}
+
+
+def test_a_reaction_label_set_through_properties_is_saved(instance_with_collection):
+    """Reactions serialised user_labels from json_data, so a properties edit was silently dropped."""
+    instance = instance_with_collection['instance']
+    label = _new_label(instance)
+    reaction = instance_with_collection['main_collection'].new_reaction()
+    reaction.save()
+    reaction.properties['user_labels'] = [label.id]
+    reaction.save()
+    assert instance.get_reaction(reaction.id).properties['user_labels'] == [label.id]
+
+
+def test_bulk_label_application(instance_with_collection):
+    instance = instance_with_collection['instance']
+    col = instance_with_collection['main_collection']
+    label = _new_label(instance)
+    samples = [col.new_sample_smiles(s) for s in ('C', 'CC')]
+    for s in samples:
+        s.save()
+    col._apply_user_labels(*samples, add=[label.id])
+    assert all(label.id in (instance.get_sample(s.id).properties['user_labels'] or []) for s in samples)
+    col._apply_user_labels(*samples, remove=[label.id])
+    assert all(label.id not in (instance.get_sample(s.id).properties['user_labels'] or []) for s in samples)
