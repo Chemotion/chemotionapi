@@ -6,7 +6,6 @@ Defines :class:`Reaction` (a Chemotion reaction, extending
 :class:`Temperature` (a temperature-time profile). Reactions persist the product yield through an
 ``equivalent`` cache.
 """
-import copy
 import logging
 import re
 from enum import Enum
@@ -43,7 +42,7 @@ def _duration_text(duration) -> str:
 from pydantic import BaseModel
 from requests import Response
 
-from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList
+from chemotion_api.elements.abstract_element import AbstractElement, Analyses, AnalysesList, proposed_field, value_at
 from chemotion_api.elements.registry import register_element_type
 from chemotion_api.connection import request_error
 from datetime import datetime
@@ -917,13 +916,11 @@ def _bare_amount(value) -> float | None:
     return None
 
 
-def _flattened_field_error(pyd_name: list[str]) -> ValueError:
-    """Explain a nested write into a field the model keeps as a scalar."""
-    field = pyd_name[0]
-    return ValueError(
-        f"{field!r} is stored as a single value, not a mapping, so "
-        f"properties[{field!r}][{pyd_name[-1]!r}] cannot be set. Assign the whole field instead, "
-        f"e.g. properties[{field!r}] = <value>.")
+def _vessel_size_mapping(raw):
+    """The stored vessel size as ``{amount, unit}``. Clients before 401.0 could store a bare
+    number; it reads as that many ml, so such a reaction still loads."""
+    amount = _bare_amount(raw)
+    return {'amount': amount, 'unit': 'ml'} if amount is not None else raw
 
 
 @register_element_type('reaction', url='/api/v1/reactions')
@@ -1275,10 +1272,9 @@ class Reaction(AbstractElement):
                 sample_obj.reaction = self
                 if self._data_loaded:
                     # A loaded reaction's materials are complete: the server builds each from the
-                    # full sample entity plus its link to this reaction (ReactionMaterialEntity).
-                    # Fetching /samples/:id instead would add nothing and lose the link —
-                    # reference, equivalent, coefficient, position — which the next save then
-                    # wrote back, clearing the reaction's reference flag.
+                    # full sample entity plus its link to this reaction (ReactionMaterialEntity),
+                    # so there is nothing to fetch. (A material that does load reads the
+                    # reaction's record; see Sample._load_data_from_server.)
                     sample_obj._data_loaded = True
                 temp.append(sample_obj)
             reaction_elements[reaction_elm_names] = MaterialList(self, cast(Literal['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents'], reaction_elm_names), temp)
@@ -1300,7 +1296,7 @@ class Reaction(AbstractElement):
             'status': self.json_data.get('status'),
             'duration': self.json_data.get('duration'),
             'temperature': self.json_data.get('temperature', {}),
-            'vessel_size': self.json_data.get('vessel_size'),
+            'vessel_size': _vessel_size_mapping(self.json_data.get('vessel_size')),
             'yield_value': self.json_data.get('yield') if self.json_data.get('yield') is not None else (
                 float(self.json_data['products'][0]['equivalent']) * 100.0 if (
                     self.json_data.get('products') and self.json_data['products'][0].get('equivalent') is not None
@@ -1600,43 +1596,22 @@ class Reaction(AbstractElement):
             pyd_name[0] = 'yield_value'
         top = pyd_name[0]
 
-        if list(name) == ['vessel_size'] and _bare_amount(value[-1]) is not None:
+        if list(name) == ['vessel_size']:
             # `properties['vessel_size'] = 200` (or `'200'`, as read from a form or CSV) sets the
             # amount and keeps the unit. Storing the bare number instead (as before 401.0) put a
-            # float on the wire where the server expects `{amount, unit}`.
+            # float on the wire where the server expects `{amount, unit}`. A mapping without a
+            # unit (`{'amount': 50}`) keeps the current unit too, rather than sending a null one.
             current = self._properties.get('vessel_size')
             unit = current.get('unit') if isinstance(current, dict) and current.get('unit') else 'ml'
-            value[-1] = {'amount': _bare_amount(value[-1]), 'unit': unit}
+            if _bare_amount(value[-1]) is not None:
+                value[-1] = {'amount': _bare_amount(value[-1]), 'unit': unit}
+            elif isinstance(value[-1], dict) and not value[-1].get('unit'):
+                value[-1] = dict(value[-1]) | {'unit': unit}
 
         # Only the field being written is copied and validated (see `validate_field`). A whole
         # field is the new value outright; a nested write is applied to a copy of that one field.
-        if len(pyd_name) == 1:
-            proposed = value[-1]
-        else:
-            source = self._model_field_source(top)
-            proposed = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
-            temp = proposed
-            for key in pyd_name[1:-1]:
-                if not isinstance(temp, dict):
-                    raise _flattened_field_error(pyd_name)
-                if key not in temp:
-                    temp[key] = {}
-                temp = temp[key]
-            if not isinstance(temp, dict):
-                # Walking into a scalar field (`reaction.properties['name']['x'] = …`) has nowhere
-                # to go. Without this it ended in `TypeError: argument of type 'float' is not
-                # iterable`, which says nothing about what the caller did wrong.
-                raise _flattened_field_error(pyd_name)
-            temp[pyd_name[-1]] = value[-1]
-
-        coerced_val = validate_field(ReactionPropertiesModel, top, proposed)
-        for key in pyd_name[1:]:
-            if isinstance(coerced_val, BaseModel):
-                coerced_val = getattr(coerced_val, key)
-            elif isinstance(coerced_val, dict):
-                coerced_val = coerced_val[key]
-            else:
-                coerced_val = getattr(coerced_val, key)
+        proposed = proposed_field(self._model_field_source(top), pyd_name, value[-1])
+        coerced_val = value_at(validate_field(ReactionPropertiesModel, top, proposed), pyd_name[1:])
 
         if isinstance(coerced_val, UnitDictModel):
             if name[0] == 'temperature':

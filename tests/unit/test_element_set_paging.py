@@ -58,3 +58,13 @@ def test_a_known_out_of_range_page_raises_without_a_request(monkeypatch):
     with pytest.raises(IndexError):
         es.page = 9
     assert server.pages_requested == [1]
+
+
+def test_page_one_of_an_empty_collection_is_not_an_error(monkeypatch):
+    """The server reports 0 pages for an empty result; its page 1 still exists (review of PR #16)."""
+    es, server = _set(monkeypatch)
+    monkeypatch.setattr(server, 'get', lambda url, data=None, **kw: SimpleNamespace(
+        status_code=200, headers={'X-Total-Pages': '0', 'X-Total': '0'}, json=lambda: {'samples': []}))
+    es.page = 1
+    es.page = 1
+    assert list(list.__iter__(es)) == []

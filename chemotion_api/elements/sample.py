@@ -12,13 +12,13 @@ import warnings
 from enum import Enum
 from typing import Any, Literal, Optional, Self, cast
 
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from requests import Response
 
 from chemotion_api.elements.utils.converter import convert_value_to_default
 from chemotion_api.elements.utils.equivalent import get_equivalent
 from chemotion_api.user import User
-from chemotion_api.elements.abstract_element import AbstractElement
+from chemotion_api.elements.abstract_element import AbstractElement, proposed_field, value_at
 from chemotion_api.elements.registry import register_element_type
 from chemotion_api.elements.components import Component, load_components, save_components
 from chemotion_api.elements.empty_elements import init_container
@@ -417,10 +417,16 @@ class MoleculeManager:
         The server does this as a side effect of *reading* the names with ``new_name`` set; this
         method is the explicit form of that.
 
-        :raises ValueError: if the name is empty, or the molecule does not exist.
+        The ELN strips surrounding whitespace, and treats ``;`` as a separator between several
+        names, so a name containing ``;`` is refused here.
+
+        :raises ValueError: if the name is empty or contains ``;``, or the molecule does not exist.
         """
-        if not name or not name.strip():
+        name = (name or '').strip()
+        if not name:
             raise ValueError('A molecule name must not be empty.')
+        if ';' in name:
+            raise ValueError('The ELN splits a molecule name at ";", so it cannot be part of one.')
         names = self._names(molecule_id, new_name=name)
         match = next((n for n in names if n.name == name), None)
         if match is None:
@@ -573,13 +579,6 @@ class MoleculeManager:
         return float(res.json())
 
 
-#: Fields that belong to a sample's link to a reaction (the ELN's reactions_samples), not to the
-#: sample. A reaction's payload carries them; the sample's own record does not.
-REACTION_LINK_FIELDS = ('reference', 'equivalent', 'coefficient', 'position', 'show_label', 'waste',
-                        'gas_type', 'gas_phase_data', 'conversion_rate',
-                        'weight_percentage_reference', 'weight_percentage')
-
-
 @register_element_type('sample', url='/api/v1/samples')
 class Sample(AbstractElement):
     """
@@ -627,18 +626,33 @@ class Sample(AbstractElement):
         super().__init__(*args, **kwargs)
 
     def _set_json_data(self, json_data):
-        previous = getattr(self, 'json_data', None)
-        if self._reaction is not None and isinstance(previous, dict):
-            # Reloading a reaction material from its own record (/samples/:id) must not drop its
-            # link to the reaction, which only the reaction's payload carries.
-            for key in REACTION_LINK_FIELDS:
-                if key not in json_data and key in previous:
-                    json_data[key] = previous[key]
         super()._set_json_data(json_data)
         self._molecule = Molecule(json_data.get('molecule'))
         self._svg_file = json_data.get('sample_svg_file')
         self.is_split = json_data.get('is_split', False)
         self._children_count = json_data.get('children_count', )
+
+
+    def _load_data_from_server(self):
+        """A reaction material loads from its reaction's record, not from ``/samples/:id``.
+
+        A material is the sample plus its link to the reaction (reference, equivalent,
+        coefficient, position, gas data, ...). The reaction's payload carries both; the sample's
+        own record has no link, so loading from it and saving would clear the reaction's
+        reference flag and stoichiometry. A sample the reaction no longer lists loads its own
+        record.
+        """
+        reaction = self._reaction
+        if isinstance(reaction, AbstractElement) and not reaction.is_new:
+            res = self._session.get(f"{reaction.get_url(reaction.element_type)}/{reaction.id}.json")
+            if res.status_code != 200:
+                raise request_error(res, f'loading reaction {reaction.id} of sample {self.id}')
+            record = reaction._record_from_detail(res.json())
+            for role in self.material_types:
+                for entry in record.get(role) or []:
+                    if entry.get('id') == self.id:
+                        return None, entry
+        return super()._load_data_from_server()
 
     @property
     def reaction(self):
@@ -788,7 +802,9 @@ class Sample(AbstractElement):
         The molecule of the sample. Its density (or molarity) is copied to the sample if the sample has
         neither a density nor a molarity yet.
         """
-
+        # Load first: on a listed sample, reading `properties` below fetched the full record, and
+        # that re-parsed the server's molecule over the one just assigned.
+        self._ensure_loaded()
         self._molecule = molecule
         self._apply_molecule_density_or_molarity()
 
@@ -970,11 +986,6 @@ class Sample(AbstractElement):
         :raises ValueError: If the gas type is not allowed for this sample or the reaction is not a
             gas-schema reaction
         """
-        # Load the full record *before* writing `_properties` directly. A sample built from a
-        # parent's payload (a reaction material, a wellplate well) loads lazily, on the first
-        # `properties` read — and that load re-parses `_properties`, discarding anything written
-        # to it first. Several paths here write before they read (a solvent's amount, for one).
-        self._ensure_loaded()
         if isinstance(gas_type, str):
             gas_type = GasType(gas_type)
 
@@ -1419,11 +1430,6 @@ class Sample(AbstractElement):
 
         Sets the equivalent to ``None`` if it cannot be computed.
         """
-        # Load the full record *before* writing `_properties` directly. A sample built from a
-        # parent's payload (a reaction material, a wellplate well) loads lazily, on the first
-        # `properties` read — and that load re-parses `_properties`, discarding anything written
-        # to it first. Several paths here write before they read (a solvent's amount, for one).
-        self._ensure_loaded()
         try:
             self._set_equivalent()
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
@@ -1474,11 +1480,6 @@ class Sample(AbstractElement):
         :param check_ref: If ``True``, route through the properties handler so the reaction is kept
             consistent; if ``False``, set the flag directly without side effects
         """
-        # Load the full record *before* writing `_properties` directly. A sample built from a
-        # parent's payload (a reaction material, a wellplate well) loads lazily, on the first
-        # `properties` read — and that load re-parses `_properties`, discarding anything written
-        # to it first. Several paths here write before they read (a solvent's amount, for one).
-        self._ensure_loaded()
         if check_ref:
             self.properties['reference'] = is_ref
         else:
@@ -1511,11 +1512,6 @@ class Sample(AbstractElement):
         :raises ValueError: if the unit is not allowed or the value is negative
         :raises KeyError: if the unit is Yield
         """
-        # Load the full record *before* writing `_properties` directly. A sample built from a
-        # parent's payload (a reaction material, a wellplate well) loads lazily, on the first
-        # `properties` read — and that load re-parses `_properties`, discarding anything written
-        # to it first. Several paths here write before they read (a solvent's amount, for one).
-        self._ensure_loaded()
         if isinstance(unit, str):
             unit_str = unit
             unit = QuantityUnit.from_string(unit_str)
@@ -1576,26 +1572,8 @@ class Sample(AbstractElement):
         # Only the field being written is copied and validated (see `validate_field`). A whole
         # field is the new value outright; a nested write is applied to a copy of that one field.
         top = name[0]
-        if len(name) == 1:
-            proposed = value[-1]
-        else:
-            source = self._properties.get(top, {})
-            proposed = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
-            temp = proposed
-            for key in name[1:-1]:
-                if key not in temp:
-                    temp[key] = {}
-                temp = temp[key]
-            temp[name[-1]] = value[-1]
-
-        coerced_val = validate_field(SamplePropertiesModel, top, proposed)
-        for key in name[1:]:
-            if isinstance(coerced_val, BaseModel):
-                coerced_val = getattr(coerced_val, key)
-            elif isinstance(coerced_val, dict):
-                coerced_val = coerced_val[key]
-            else:
-                coerced_val = getattr(coerced_val, key)
+        proposed = proposed_field(self._properties.get(top), name, value[-1])
+        coerced_val = value_at(validate_field(SamplePropertiesModel, top, proposed), name[1:])
 
         if isinstance(coerced_val, GasPhaseModel):
             coerced_val = GasPhaseObj(self, coerced_val.model_dump())

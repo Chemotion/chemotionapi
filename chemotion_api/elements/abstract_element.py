@@ -16,7 +16,7 @@ from jsonschema.validators import validate
 from chemotion_api.elements.analyses_manager import AnalysesManager
 
 from chemotion_api.utils.withheld import mark_withheld
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from chemotion_api.models import validate_field
 from chemotion_api.connection import Connection, request_error
 from chemotion_api.user import UserLabel
@@ -495,6 +495,49 @@ def _plain(value):
     return value.model_dump() if isinstance(value, BaseModel) else value
 
 
+
+def flattened_field_error(path: list[str]) -> ValueError:
+    """Explain a nested write into a property field that is stored as a single value."""
+    field = path[0]
+    return ValueError(
+        f"{field!r} is stored as a single value, not a mapping, so "
+        f"properties[{field!r}][{path[-1]!r}] cannot be set. Assign the whole field instead, "
+        f"e.g. properties[{field!r}] = <value>.")
+
+
+def proposed_field(source: Any, path: list[str], value: Any) -> Any:
+    """The property field ``source`` as it would be after writing ``value`` at ``path``.
+
+    ``path`` is the full key chain, field first (``['vessel_size', 'amount']``). With a single key
+    the new value is the field outright. Otherwise the write is applied to a deep copy of the
+    field, so the stored value is untouched until the result has been validated. Missing
+    intermediate mappings are created; walking into a scalar raises.
+
+    :raises ValueError: if the path walks into a value that is not a mapping
+    """
+    if len(path) == 1:
+        return value
+    proposed = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
+    if proposed is None:
+        proposed = {}
+    temp = proposed
+    for key in path[1:-1]:
+        if not isinstance(temp, dict):
+            raise flattened_field_error(path)
+        temp = temp.setdefault(key, {})
+    if not isinstance(temp, dict):
+        raise flattened_field_error(path)
+    temp[path[-1]] = value
+    return proposed
+
+
+def value_at(field_value: Any, path: list[str]) -> Any:
+    """Walk a validated field (a model, a dict or a mix) down ``path`` (the keys below the field)."""
+    for key in path:
+        field_value = field_value[key] if isinstance(field_value, dict) else getattr(field_value, key)
+    return field_value
+
+
 class AbstractElement:
     """
     This abstract element is the basis for all chemotion-api elements. It provides all the necessary functions and properties to work with these elements.
@@ -701,7 +744,12 @@ class AbstractElement:
 
     @property
     def _properties(self) -> dict:
+        # Every read, including the element's own writers, sees the full record: a listed
+        # (partial) element and one built from a parent's payload (a wellplate's well, say) both
+        # load here first. Writing before that load would be lost, because the load re-parses
+        # the properties.
         self._load_if_partial()
+        self._ensure_loaded()
         # Set by `_set_json_data` before anything reads it; `None` only on an element that was
         # never given data, which no accessor is reached on.
         return cast(dict, self._properties_data)
@@ -926,7 +974,7 @@ class AbstractElement:
         # issued a full `load()` for every element constructed from a *listing* row — a 50-row
         # page cost 51 requests, and a transient failure left `_load_failed` on an element that
         # had merely been listed. Loading stays lazy: the first real property read triggers it.
-        add_to_dict(self.segments, 'Properties', PropertyDict(self.on_properties_change, self._properties))
+        add_to_dict(self.segments, 'Properties', PropertyDict(self.on_properties_change, self._properties_data))
         add_to_dict(self.segments, 'Analyses', self.analyses)
 
     def _on_add_segment(self, key: str, segment_data: dict) -> dict:
@@ -966,6 +1014,9 @@ class AbstractElement:
             # precisely because `_data_loaded` is False — nothing lazily-derived has been handed
             # out yet to be clobbered.
             _attachment_data, json_data = self._load_data_from_server()
+            # Parsed as a loaded element, as load() does, so that what the parse builds (a
+            # reaction's materials) is not itself treated as incomplete and refetched.
+            self._data_loaded = True
             self._set_json_data(json_data)
 
         if self.is_restricted:
@@ -1353,29 +1404,26 @@ class AbstractElement:
     _rich_text_fields: tuple[str, ...] = ()
 
     def _rich_text_write(self, name: list, value: list) -> None:
-        """Convert a plain string to a delta and check the field stays a well-formed delta."""
+        """Convert a plain string (or ``None``, which clears the field) to a delta, and check the
+        field stays a well-formed delta."""
         from chemotion_api.utils import is_quill_document, text_to_quill
         top = name[0]
         if top not in self._rich_text_fields:
             return
         if len(name) == 1:
-            if isinstance(value[-1], str):
+            if value[-1] is None:
+                # Clearing the field: stored as an empty delta, which every element type saves.
+                value[-1] = text_to_quill('')
+            elif isinstance(value[-1], str):
                 value[-1] = text_to_quill(value[-1])
             elif not is_quill_document(value[-1]):
-                raise ValueError(f"properties[{top!r}] is rich text: assign a string or a Quill "
+                raise ValueError(f"properties[{top!r}] is rich text: assign a string, None or a Quill "
                                  f"delta ({{'ops': [{{'insert': ...}}, ...]}}); see text_to_quill().")
             else:
                 value[-1] = value[-1].to_dict() if hasattr(value[-1], 'to_dict') else dict(value[-1])
             return
         # A write *into* the delta: the field must still be a delta afterwards.
-        source: Any = self._properties.get(top)
-        proposed: Any = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
-        temp: Any = proposed
-        for key in name[1:-1]:
-            temp = temp[key] if isinstance(temp, dict) else None
-        if not isinstance(temp, dict):
-            raise ValueError(f"properties[{top!r}] has no mapping to write into.")
-        temp[name[-1]] = value[-1]
+        proposed = proposed_field(self._properties.get(top), name, value[-1])
         if not is_quill_document(proposed):
             raise ValueError(f"properties[{top!r}] would no longer be a Quill delta after this write.")
 
@@ -1383,11 +1431,27 @@ class AbstractElement:
         """Run freshly parsed properties through :attr:`_properties_model` and keep the coerced values.
 
         Keys the model does not declare pass through unchanged (the models allow extras).
+
+        This reads what the server sent, so a value the model rejects does not make the element
+        unloadable: that field keeps the value as sent, with a warning, and the others are still
+        coerced. Writes through :attr:`properties` stay strict.
         """
         model = self._properties_model
         if model is None:
             return props
-        validated = model.model_validate(props)
+        try:
+            validated = model.model_validate(props)
+        except ValidationError:
+            out = {}
+            for key, value in props.items():
+                try:
+                    out[key] = _plain(validate_field(model, key, value))
+                except ValidationError as e:
+                    logger.warning('%s %s: kept %r for %r as the server sent it; it does not fit %s (%s)',
+                                   self.element_type, self.id, value, key, model.__name__,
+                                   e.errors()[0].get('msg') if e.errors() else e)
+                    out[key] = value
+            return out
         return {key: (_plain(getattr(validated, key)) if key in model.model_fields else value)
                 for key, value in props.items()}
 
@@ -1414,22 +1478,8 @@ class AbstractElement:
                 return False
             return True
         top = name[0]
-        if len(name) == 1:
-            proposed = value[-1]
-        else:
-            source = self._properties.get(top)
-            proposed = copy.deepcopy(source.to_dict() if hasattr(source, 'to_dict') else source)
-            temp = proposed
-            for key in name[1:-1]:
-                if not isinstance(temp, dict):
-                    raise ValueError(f'properties[{top!r}] has no mapping at {key!r} to write into.')
-                temp = temp.setdefault(key, {})
-            if not isinstance(temp, dict):
-                raise ValueError(f'properties[{top!r}] is a single value; assign the whole field.')
-            temp[name[-1]] = value[-1]
-        coerced = validate_field(model, top, proposed)
-        for key in name[1:]:
-            coerced = coerced[key] if isinstance(coerced, dict) else getattr(coerced, key)
+        proposed = proposed_field(self._properties.get(top), name, value[-1])
+        coerced = value_at(validate_field(model, top, proposed), name[1:])
         dict_obj[-1][name[-1]] = _plain(coerced)
         return False
 

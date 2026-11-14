@@ -36,8 +36,8 @@ class Screen(AbstractElement):
 
     def _parse_properties(self) -> dict:
         data = cast(dict, self.json_data)
-        self.wellplate_ids: list[int] = _ids(data.get('wellplates'))
-        self.research_plan_ids: list[int] = _ids(data.get('research_plans'))
+        self._wellplate_ids: list[int] = _ids(data.get('wellplates'))
+        self._research_plan_ids: list[int] = _ids(data.get('research_plans'))
         return self._validated_properties({key: data.get(key) for key in SCREEN_FIELDS} | {
             'description': data.get('description'),
             'component_graph_data': data.get('component_graph_data'),
@@ -57,6 +57,31 @@ class Screen(AbstractElement):
             'research_plan_ids': list(self.research_plan_ids),
         }
         return out | (serialize_data or {})
+
+    # The link lists are read through properties that load the full record first. A listed screen
+    # carries empty link lists; as plain attributes, an edit made before save() was overwritten by
+    # the reload save() does, and the old links were sent back with no error.
+    @property
+    def wellplate_ids(self) -> list[int]:
+        """Ids of the linked wellplates. A save sends this list as the new links."""
+        self._ensure_loaded()
+        return self._wellplate_ids
+
+    @wellplate_ids.setter
+    def wellplate_ids(self, ids: list[int]) -> None:
+        self._ensure_loaded()
+        self._wellplate_ids = list(ids)
+
+    @property
+    def research_plan_ids(self) -> list[int]:
+        """Ids of the linked research plans. A save sends this list as the new links."""
+        self._ensure_loaded()
+        return self._research_plan_ids
+
+    @research_plan_ids.setter
+    def research_plan_ids(self, ids: list[int]) -> None:
+        self._ensure_loaded()
+        self._research_plan_ids = list(ids)
 
     @property
     def wellplates(self) -> list:

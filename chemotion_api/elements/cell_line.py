@@ -97,8 +97,7 @@ class CellLine(AbstractElement):
         changed = [k for k in MATERIAL_FIELDS if self._material.get(k) != self._material_loaded.get(k)]
         if not same_material or not changed or self._material_owner is None:
             return
-        from chemotion_api.user import User
-        if User.load_me(self._session).id != self._material_owner:
+        if self._session.current_user_id() != self._material_owner:
             raise PermissionError(
                 f'The material {self._material.get("name")!r} was created by another user, so the '
                 f'server would ignore changes to {", ".join(changed)} (while reporting success). '

@@ -59,10 +59,23 @@ def test_writes_are_validated():
 def test_editing_someone_elses_material_is_refused_before_saving(monkeypatch):
     line = _line()
     line._material_owner = 99
-    monkeypatch.setattr('chemotion_api.user.User.load_me', classmethod(lambda cls, s: SimpleNamespace(id=7)))
+    monkeypatch.setattr(line, '_session', SimpleNamespace(current_user_id=lambda: 7))
     line.material['tissue'] = 'liver'
     with pytest.raises(PermissionError, match="created by another user"):
         line.save()
+
+
+def test_the_current_user_is_fetched_once_per_login(monkeypatch):
+    """The owner check ran `User.load_me` on every save that changed a material field."""
+    from chemotion_api.connection import Connection
+    calls = []
+    monkeypatch.setattr('chemotion_api.user.User.load_me',
+                        classmethod(lambda cls, s: calls.append(1) or SimpleNamespace(id=7)))
+    con = Connection('https://eln.example.org')
+    assert [con.current_user_id() for _ in range(3)] == [7, 7, 7] and len(calls) == 1
+    con.set_bearer_token('another-login')
+    con.current_user_id()
+    assert len(calls) == 2, 'a new login may be another user'
 
 
 def test_required_fields_are_checked_before_saving():
