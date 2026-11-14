@@ -80,7 +80,7 @@ the status code, or only the singular key, reads a failure as a success.
 There is no replacement for `get_jwt_for_device()` / `Device.get_jwt()`, because the server
 offers none.
 
-### Fixed: four results that were wrong without an error
+### Fixed: five results that were wrong without an error
 
 - **`ElementSet.page = n` loads page `n`.** It was ignored for any page not yet seen: before the
   first load every page but the first was refused, and the set stayed where it was without a word.
@@ -91,6 +91,9 @@ offers none.
   come from the EBI ontology service, were pasted into the SQL statement: an apostrophe, common in
   definitions, broke it, and psql's exit code was never checked. They are now passed as psql
   variables, and a failure raises `ChildProcessError` with psql's message.
+- **A molecule assigned to a sample from a listing is kept.** Setting `sample.molecule` on a
+  sample obtained by iterating a collection loaded the sample's full record afterwards, which
+  replaced the new molecule with the stored one.
 - **Image lookup by version picks that version.** Matching by ending let version `1.2` select the
   `eln-1.1.2` image. Versions now match exactly, every page of Docker Hub's tag list is read, and
   the requests time out instead of hanging. With no `eln-` tag at all, it raises `LookupError`.
