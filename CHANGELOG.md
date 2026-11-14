@@ -20,6 +20,15 @@ instance, **106 passed, 0 skipped, 0 failed**.
 
 **`.eln` / RO-Crate export is not in this release.**
 
+### Changed: a success reply that reports a failure now raises
+
+The ELN answers some refused requests with a success status and the reason in the body:
+`{"errors": …}`, `{"error": …}` or `{"success": false}`. A method that checked only the status code
+read these as success. The connection now checks every JSON reply and raises
+`ChemotionRejectedError`, with the server's reason in its message and the decoded reply in `body`.
+It is a `ConnectionError` and a `ValueError` as well, so existing handlers keep catching it. Empty
+values (`{"error": 0}`, `{"errors": []}`) count as success. 312.1.0 does the same.
+
 ### Deprecated: logging in with a user name and password
 
 `Instance.login(user, password)` and `Instance(url, username=..., password=...)` still log in, but
@@ -294,6 +303,9 @@ New surface:
 - **Moving elements between collections** now covers wellplates, screens, device descriptions,
   cell lines, SBMM samples and generic elements, each verified against ELN v4.0.1.
 - Saving an element no longer sends an empty attachment-upload request when no file is queued.
+- **A molecule assigned to a sample from a listing is kept.** Setting `sample.molecule` on a
+  sample obtained by iterating a collection loaded the sample's full record afterwards, which
+  replaced the new molecule with the stored one.
 - **Loading a reaction and saving it no longer clears its reference material.** Each material
   fetched its own sample record, which lacks the fields of its link to the reaction (reference,
   equivalent, coefficient, position), and the save wrote those back as empty. Materials of a loaded
